@@ -1,6 +1,12 @@
 # R-TYPE SPECIFIC IGNORED FILES
 engine
 
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+.idea
+
 # Prerequisites
 *.d
 
