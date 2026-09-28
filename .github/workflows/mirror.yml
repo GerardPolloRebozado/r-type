@@ -9,7 +9,7 @@ on:
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    if: github.repository != 'EpitechPGE2-2025/G-YEP-400-BAR-4-1-zappy-1'
+    if: github.repository != 'EpitechPGE3-2026/G-ING-500-BAR-5-1-rtype-1'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
