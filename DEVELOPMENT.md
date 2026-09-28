@@ -26,5 +26,5 @@ git clone git@github.com:GerardPolloRebozado/zappy.git
 ```
 2. Install dependencies with:
 ```bash
-vcpkg install
+cd enginer && vcpkg install
 ```
