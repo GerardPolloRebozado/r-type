@@ -1,5 +1,8 @@
 # R-TYPE SPECIFIC IGNORED FILES
-engine
+*.pdf
+RTypeEditor
+
+# GAMES
 
 # Devenv
 .devenv*
