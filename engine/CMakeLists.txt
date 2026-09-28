@@ -11,7 +11,7 @@ set(SOURCES
 
 #set(HEADERS)
 
-add_executable(engine ${SOURCES} ${HEADERS})
+add_library(engine STATIC ${SOURCES} ${HEADERS})
 target_include_directories(engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 find_package(PkgConfig REQUIRED)

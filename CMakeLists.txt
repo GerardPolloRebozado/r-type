@@ -7,3 +7,6 @@ set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_subdirectory(engine)
+#main.cpp is an example, when we start the project put the main route here :)
+add_executable(${PROJECT_NAME} main.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE engine)
