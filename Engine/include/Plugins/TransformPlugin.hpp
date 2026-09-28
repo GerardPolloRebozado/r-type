@@ -1,0 +1,27 @@
+#pragma once
+#include "Components/Transform.hpp"
+#include "Plugins/IPlugin.hpp"
+#include "Systems/TransformSystem.hpp"
+
+namespace Engine {
+
+/**
+ * @class TransformPlugin
+ * @brief An example plugin that bundles the Transform component and TransformSystem.
+ *
+ * Users of the engine can just call `transformPlugin.Init(registry)` to
+ * integrate position features into their game.
+ */
+class TransformPlugin : public IPlugin {
+  public:
+    /**
+     * @brief Initializes the Transform plugin.
+     * @param registry The main ECS registry.
+     */
+    void Init(Registry& registry) override {
+        registry.RegisterComponent<Transform>();
+
+        registry.RegisterSystem<TransformSystem>();
+    }
+};
+} // namespace Engine

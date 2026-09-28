@@ -1,17 +1,14 @@
 cmake_minimum_required(VERSION 3.28)
-project(engine)
+project(Engine)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
 
-set(SOURCES
-        src/main.cpp)
+file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
-#set(HEADERS)
-
-add_library(engine STATIC ${SOURCES} ${HEADERS})
-target_include_directories(engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_library(Engine STATIC ${SRC_FILES})
+target_include_directories(Engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 find_package(PkgConfig REQUIRED)
