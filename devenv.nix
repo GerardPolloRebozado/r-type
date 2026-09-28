@@ -14,6 +14,22 @@
   packages = [
     pkgs.vcpkg
     pkgs.cmake
+    pkgs.autoconf
+    pkgs.autoconf-archive
+    pkgs.automake
+
+    # OpenGL & Display Libraries
+    pkgs.libGL
+    pkgs.libGLU
+    pkgs.xorg.libX11
+    pkgs.xorg.libXcursor
+    pkgs.xorg.libXinerama
+    pkgs.xorg.libXrandr
+    pkgs.xorg.libXi
+    pkgs.xorg.libXxf86vm
+    pkgs.wayland
+    pkgs.wayland-protocols
+    pkgs.libxkbcommon
   ];
 
   # https://devenv.sh/languages/
