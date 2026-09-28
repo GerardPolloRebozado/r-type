@@ -7,10 +7,10 @@ Required dependencies:
 - CMake 3.28
 - vckpkg
 - autoconf
-- automake 
+- automake
 - libGL
 - libGLU
-- libX11 
+- libX11
 - libXcursor
 - libXinerama
 - libXrandr
@@ -21,10 +21,12 @@ Required dependencies:
 - libxkbcommon
 
 1. First clone this repository:
+
 ```bash
-git clone git@github.com:GerardPolloRebozado/zappy.git
+git clone git@github.com:GerardPolloRebozado/r-type.git
 ```
 2. Install dependencies with:
+
 ```bash
-cd enginer && vcpkg install
+cd engine && vcpkg install
 ```
