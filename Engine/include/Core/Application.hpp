@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_CORE_APPLICATION_HPP_
+#define ENGINE_CORE_APPLICATION_HPP_
 #include "ECS/Registry.hpp"
 #include <string>
 
@@ -52,3 +53,5 @@ class Application {
     void PostUpdate(float dt);
 };
 } // namespace Engine
+
+#endif // ENGINE_CORE_APPLICATION_HPP_

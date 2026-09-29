@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_COMPONENTS_TRANSFORM_HPP_
+#define ENGINE_COMPONENTS_TRANSFORM_HPP_
 
 namespace Engine {
 /**
@@ -19,3 +20,5 @@ struct Transform {
     Transform(float x = 0.0f, float y = 0.0f) : x(x), y(y) {}
 };
 } // namespace Engine
+
+#endif // ENGINE_COMPONENTS_TRANSFORM_HPP_

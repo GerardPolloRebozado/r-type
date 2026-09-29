@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_ECS_SYSTEM_HPP_
+#define ENGINE_ECS_SYSTEM_HPP_
 #include "Entity.hpp"
 #include <set>
 
@@ -12,3 +13,5 @@ namespace Engine {
  */
 class System {};
 } // namespace Engine
+
+#endif // ENGINE_ECS_SYSTEM_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_PLUGINS_IPLUGIN_HPP_
+#define ENGINE_PLUGINS_IPLUGIN_HPP_
 #include "ECS/Registry.hpp"
 
 namespace Engine {
@@ -20,3 +21,5 @@ class IPlugin {
     virtual void Init(Registry& registry) = 0;
 };
 } // namespace Engine
+
+#endif // ENGINE_PLUGINS_IPLUGIN_HPP_
