@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_SYSTEMS_TRANSFORMSYSTEM_HPP_
+#define ENGINE_SYSTEMS_TRANSFORMSYSTEM_HPP_
 #include "ECS/Registry.hpp"
 #include "ECS/System.hpp"
 
@@ -19,3 +20,5 @@ class TransformSystem : public System {
     void Update(Registry& registry, float dt);
 };
 } // namespace Engine
+
+#endif // ENGINE_SYSTEMS_TRANSFORMSYSTEM_HPP_

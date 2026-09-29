@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_ECS_REGISTRY_HPP_
+#define ENGINE_ECS_REGISTRY_HPP_
 #include "Entity.hpp"
 #include "System.hpp"
 #include <memory>
@@ -186,3 +187,5 @@ namespace Engine {
         std::unordered_map<std::type_index, std::shared_ptr<System> > m_Systems;
     };
 } // namespace Engine
+
+#endif // ENGINE_ECS_REGISTRY_HPP_

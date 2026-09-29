@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_ECS_ENTITY_HPP_
+#define ENGINE_ECS_ENTITY_HPP_
 #include <cstddef>
 
 namespace Engine {
@@ -11,3 +12,5 @@ using Entity = std::size_t;
 // reallocation for map/vector sizes can cause lag if a large amount is used
 
 } // namespace Engine
+
+#endif // ENGINE_ECS_ENTITY_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENGINE_PLUGINS_TRANSFORMPLUGIN_HPP_
+#define ENGINE_PLUGINS_TRANSFORMPLUGIN_HPP_
 #include "Components/Transform.hpp"
 #include "Plugins/IPlugin.hpp"
 #include "Systems/TransformSystem.hpp"
@@ -25,3 +26,5 @@ class TransformPlugin : public IPlugin {
     }
 };
 } // namespace Engine
+
+#endif // ENGINE_PLUGINS_TRANSFORMPLUGIN_HPP_
