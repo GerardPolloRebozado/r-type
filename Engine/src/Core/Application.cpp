@@ -1,18 +1,21 @@
 #include "Core/Application.hpp"
 #include <chrono>
 #include <iostream>
+#include <raylib.h>
 
 namespace Engine {
 Application::Application(const ApplicationConfig& config) : m_Config(config), m_IsRunning(false) {
 
     std::cout << "[Engine] Initializing Application window: " << m_Config.windowTitle << "\n";
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
 
-    // TODO: InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
-    // TODO: SetTargetFPS(m_Config.targetFPS);
+    SetTargetFPS(m_Config.targetFPS);
 }
 
 Application::~Application() {
     std::cout << "[Engine] Shutting down Application...\n";
+    CloseWindow();
 }
 
 void Application::Run() {
@@ -24,13 +27,11 @@ void Application::Run() {
 
     std::cout << "[Engine] Entering main game loop.\n";
 
-    while (m_IsRunning) {
+    while (m_IsRunning && !WindowShouldClose()) {
         auto currentTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsedTime = currentTime - previousTime;
         previousTime = currentTime;
         lag += elapsedTime.count();
-
-        // TODO: if (WindowShouldClose()) { m_IsRunning = false; }
 
         PreUpdate(elapsedTime.count());
 
@@ -45,10 +46,7 @@ void Application::Run() {
     }
 }
 
-void Application::PreUpdate(float dt) {
-    // TODO: [Input] Poll Raylib for keyboard/mouse state
-    // TODO: [Network] Poll UDP sockets for incoming server packets
-}
+void Application::PreUpdate(float dt) {}
 
 void Application::Update(float dt) {
     for (auto const& pair : m_Registry.GetSystems()) {
@@ -57,10 +55,16 @@ void Application::Update(float dt) {
 }
 
 void Application::PostUpdate(float dt) {
-    // TODO: Call Raylib BeginDrawing()
-    // TODO: Call Raylib ClearBackground()
+    BeginDrawing();
+    ClearBackground(DARKGRAY);
 
-    // TODO: Run ECS Render Systems (e.g., SpriteRendererSystem)
-    // TODO: Call Raylib EndDrawing()
+    // Run ECS Render Systems here in the future
+
+    // Invoke UI Hook (Editor uses this for ImGui)
+    if (m_Config.onUI) {
+        m_Config.onUI();
+    }
+
+    EndDrawing();
 }
 } // namespace Engine

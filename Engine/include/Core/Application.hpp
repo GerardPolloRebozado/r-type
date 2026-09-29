@@ -2,6 +2,7 @@
 #define ENGINE_CORE_APPLICATION_HPP_
 #include "ECS/Registry.hpp"
 #include <string>
+#include <functional>
 
 namespace Engine {
 /**
@@ -13,6 +14,7 @@ struct ApplicationConfig {
     int windowHeight = 720;
     std::string windowTitle = "Game Engine";
     int targetFPS = 60;
+    std::function<void()> onUI = nullptr;
 };
 
 /**
