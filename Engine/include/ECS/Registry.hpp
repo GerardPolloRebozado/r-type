@@ -4,6 +4,7 @@
 #include "System.hpp"
 #include <memory>
 #include <stdexcept>
+#include <vector>
 #include <typeindex>
 #include <unordered_map>
 
@@ -46,6 +47,10 @@ namespace Engine {
          */
         void RemoveData(Entity entity) {
             m_ComponentMap.erase(entity);
+        }
+
+        bool HasData(Entity entity) const {
+            return m_ComponentMap.find(entity) != m_ComponentMap.end();
         }
 
         /**
@@ -144,6 +149,32 @@ namespace Engine {
         }
 
         /**
+         * @brief Checks if an entity has a specific component.
+         */
+        template<typename T>
+        bool HasComponent(Entity entity) {
+            return GetComponentArray<T>()->HasData(entity);
+        }
+
+        /**
+         * @brief Defers entity destruction to the end of the frame.
+         * Safe to call inside physics/collision callbacks!
+         */
+        void QueueDestroyEntity(Entity entity) {
+            m_EntitiesToDestroy.push_back(entity);
+        }
+
+        /**
+         * @brief Safely executes all deferred destructions. Call at the end of the frame.
+         */
+        void FlushQueues() {
+            for (Entity e : m_EntitiesToDestroy) {
+                DestroyEntity(e);
+            }
+            m_EntitiesToDestroy.clear();
+        }
+
+        /**
          * @brief Registers a system type with the registry.
          * @tparam T The system type.
          * @return Shared pointer to the registered system.
@@ -181,10 +212,18 @@ namespace Engine {
             return std::static_pointer_cast<ComponentArray<T> >(m_ComponentArrays[typeName]);
         }
 
+        /**
+         * @brief Returns all registered systems.
+         */
+        const std::unordered_map<std::type_index, std::shared_ptr<System>>& GetSystems() const {
+            return m_Systems;
+        }
+
     private:
         Entity m_NextEntityId = 0;
         std::unordered_map<std::type_index, std::shared_ptr<IComponentArray> > m_ComponentArrays;
         std::unordered_map<std::type_index, std::shared_ptr<System> > m_Systems;
+        std::vector<Entity> m_EntitiesToDestroy;
     };
 } // namespace Engine
 
