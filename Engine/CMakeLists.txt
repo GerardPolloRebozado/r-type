@@ -16,3 +16,5 @@ add_library(Engine STATIC ${SRC_FILES})
 target_link_libraries(Engine PUBLIC EngineHeaders)
 
 find_package(PkgConfig REQUIRED)
+target_include_directories(Engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(Engine PUBLIC raylib)
