@@ -1,4 +1,6 @@
-# Conventional Commits Guide
+# CONTRIBUTING GUIDELINES
+
+## Conventional Commits Guide
 
 This project follows a [Conventional Commits](https://www.conventionalcommits.org/) structure to maintain a clean and readable git history. Every commit must follow this format:
 
