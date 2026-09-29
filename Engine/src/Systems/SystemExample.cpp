@@ -1,6 +1,6 @@
 #include "Systems/SystemExample.hpp"
 #include "Components/ComponentExample.hpp"
-#include "Components/EventsExample.hpp"
+#include "Components/PluginExampleEvents.hpp"
 
 namespace Engine {
 void SystemExample::Update(Registry& registry, float dt) {
@@ -16,8 +16,8 @@ void SystemExample::Update(Registry& registry, float dt) {
             data.someState++;
 
             // If this entity has user-defined hooks, fire them safely
-            if (registry.HasComponent<EventsExample>(entity)) {
-                auto& events = registry.GetComponent<EventsExample>(entity);
+            if (registry.HasComponent<PluginExampleEvents>(entity)) {
+                auto& events = registry.GetComponent<PluginExampleEvents>(entity);
 
                 // Trigger all connected callbacks
                 for (auto& hook : events.onStateChanged) {

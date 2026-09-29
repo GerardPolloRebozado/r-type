@@ -2,7 +2,7 @@
 #define ENGINE_PLUGINS_PLUGINEXAMPLE_HPP_
 
 #include "Components/ComponentExample.hpp"
-#include "Components/EventsExample.hpp"
+#include "Components/PluginExampleEvents.hpp"
 #include "Plugins/IPlugin.hpp"
 #include "Systems/SystemExample.hpp"
 
@@ -14,8 +14,17 @@ class PluginExample : public IPlugin {
   public:
     void Init(Registry& registry) override {
         registry.RegisterComponent<ComponentExample>();
-        registry.RegisterComponent<EventsExample>();
+        registry.RegisterComponent<PluginExampleEvents>();
         registry.RegisterSystem<SystemExample>();
+    }
+
+    /**
+     * @brief A helper function to easily bundle all related plugin components onto a specific entity.
+     * Prevents the game developer from having to manually call AddComponent multiple times.
+     */
+    static void AttachToEntity(Registry& registry, Entity entity) {
+        registry.AddComponent(entity, ComponentExample{0.0f, 0});
+        registry.AddComponent(entity, PluginExampleEvents{});
     }
 };
 } // namespace Engine
