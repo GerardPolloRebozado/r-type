@@ -12,7 +12,6 @@ int main() {
     std::cout << "Spawned Player Entity ID: " << player << "\n";
 
     registry.AddComponent(player, Engine::Transform{0.0f, 0.0f});
-    registry.AddEntityToSystem<Engine::TransformSystem>(player);
 
     auto transformSystem = registry.GetSystem<Engine::TransformSystem>();
 

@@ -10,11 +10,5 @@ namespace Engine {
  * @note Systems exist globally and automatically process any entity that
  * possesses the data (Components) required by that system.
  */
-class System {
-  public:
-    /**
-     * @brief The set of entities managed by this system.
-     */
-    std::set<Entity> m_Entities;
-};
+class System {};
 } // namespace Engine
