@@ -219,6 +219,13 @@ namespace Engine {
             return m_Systems;
         }
 
+        /**
+         * @brief Returns the total number of entities created (used by the Editor for iterating).
+         */
+        size_t GetEntityCount() const {
+            return m_NextEntityId;
+        }
+
     private:
         Entity m_NextEntityId = 0;
         std::unordered_map<std::type_index, std::shared_ptr<IComponentArray> > m_ComponentArrays;

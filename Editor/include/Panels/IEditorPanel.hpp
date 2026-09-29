@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ECS/Registry.hpp"
 #include <string>
 
 namespace Editor {
@@ -9,7 +10,7 @@ class IEditorPanel {
     virtual ~IEditorPanel() = default;
 
     // Called every frame to render the panel's ImGui window
-    virtual void OnImGuiRender() = 0;
+    virtual void OnImGuiRender(Engine::Registry* registry) = 0;
 
     // Get the name of the panel for docking/identification
     virtual const std::string& GetName() const = 0;

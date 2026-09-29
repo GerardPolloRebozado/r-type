@@ -10,7 +10,7 @@ class ConsolePanel : public IEditorPanel {
     ConsolePanel() = default;
     ~ConsolePanel() override = default;
 
-    void OnImGuiRender() override;
+    void OnImGuiRender(Engine::Registry* registry) override;
     const std::string& GetName() const override {
         return m_Name;
     }

@@ -1,5 +1,6 @@
 #include "Core/Application.hpp"
 #include "EditorLayer.hpp"
+#include "Plugins/TransformPlugin.hpp"
 
 int main() {
     Engine::ApplicationConfig config;
@@ -13,6 +14,11 @@ int main() {
 
     Engine::Application app(config);
 
+    // Initialize engine plugins (registers Transform component & system)
+    Engine::TransformPlugin transformPlugin;
+    transformPlugin.Init(app.GetRegistry());
+
+    editorLayer.SetRegistry(&app.GetRegistry());
     editorLayer.Init();
 
     app.Run();

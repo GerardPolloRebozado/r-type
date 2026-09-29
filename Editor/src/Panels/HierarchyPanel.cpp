@@ -1,12 +1,40 @@
 #include "Panels/HierarchyPanel.hpp"
+#include "Components/Transform.hpp"
 #include <imgui.h>
 
 namespace Editor {
 
-void HierarchyPanel::OnImGuiRender() {
+void HierarchyPanel::OnImGuiRender(Engine::Registry* registry) {
     if (ImGui::Begin(m_Name.c_str())) {
-        ImGui::Text("Entity list goes here...");
-        // TODO: entity listing
+        if (!registry) {
+            ImGui::TextDisabled("No Engine Registry linked!");
+        } else {
+            // Right-click context menu in empty space
+            if (ImGui::BeginPopupContextWindow("HierarchyContextMenu",
+                                               ImGuiPopupFlags_MouseButtonRight |
+                                                   ImGuiPopupFlags_NoOpenOverItems)) {
+                if (ImGui::MenuItem("Create Empty Entity")) {
+                    Engine::Entity newEntity = registry->CreateEntity();
+                    registry->AddComponent<Engine::Transform>(newEntity, Engine::Transform(0, 0));
+                    m_SelectedEntity = newEntity;
+                    m_SelectedIndex = (int)newEntity; // Temporary simple selection map
+                }
+                ImGui::EndPopup();
+            }
+
+            if (registry->GetEntityCount() == 0) {
+                ImGui::TextDisabled("Right click to create an entity...");
+            } else {
+                for (size_t i = 0; i < registry->GetEntityCount(); ++i) {
+                    Engine::Entity entity = static_cast<Engine::Entity>(i);
+                    std::string label = "Entity " + std::to_string(entity);
+                    if (ImGui::Selectable(label.c_str(), m_SelectedIndex == (int)i)) {
+                        m_SelectedIndex = (int)i;
+                        m_SelectedEntity = entity;
+                    }
+                }
+            }
+        }
     }
     ImGui::End();
 }
