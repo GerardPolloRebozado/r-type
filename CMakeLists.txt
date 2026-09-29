@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
+set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
 project(G-ING-500-BAR-5-1-rtype-1)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -34,7 +35,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME raylib-cpp
     GITHUB_REPOSITORY RobLoach/raylib-cpp
-    GIT_TAG main
+    GIT_TAG master
 )
 
 CPMAddPackage(

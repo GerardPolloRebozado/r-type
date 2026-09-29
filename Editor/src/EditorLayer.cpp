@@ -1,9 +1,9 @@
-#include "Editor/EditorLayer.hpp"
-#include "Editor/EditorStyle.hpp"
-#include "Editor/Panels/ConsolePanel.hpp"
-#include "Editor/Panels/HierarchyPanel.hpp"
-#include "Editor/Panels/InspectorPanel.hpp"
-#include "Editor/Panels/SceneViewPanel.hpp"
+#include "EditorLayer.hpp"
+#include "EditorStyle.hpp"
+#include "Panels/ConsolePanel.hpp"
+#include "Panels/HierarchyPanel.hpp"
+#include "Panels/InspectorPanel.hpp"
+#include "Panels/SceneViewPanel.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <rlImGui.h>
@@ -29,7 +29,6 @@ void EditorLayer::Init() {
 
     rlImGuiBeginInitImGui();
 
-    // Apply styling
     EditorStyle::Apply();
 
     rlImGuiEndInitImGui();
@@ -53,6 +52,9 @@ void EditorLayer::OnUpdate() {
 
     BeginDockSpace();
 
+    // Route selected entity from Hierarchy to Inspector
+    // TODO: When registry is connected, pass selection between panels here
+
     // Render all registered panels
     for (auto& panel : m_Panels) {
         panel->OnImGuiRender();
@@ -69,11 +71,11 @@ void EditorLayer::BeginDockSpace() {
     ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
 
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
-                                    ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-                                    ImGuiWindowFlags_NoMove |
-                                    ImGuiWindowFlags_NoBringToFrontOnFocus |
-                                    ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_MenuBar;
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -107,6 +109,21 @@ void EditorLayer::BeginDockSpace() {
     }
 
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+
+    if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
+                // SceneSerializer serializer;
+                // serializer.Serialize("test.scene", registry);
+            }
+            if (ImGui::MenuItem("Load Scene", "Ctrl+O")) {
+                // SceneSerializer serializer;
+                // serializer.Deserialize("test.scene", registry);
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
 }
 
 void EditorLayer::EndDockSpace() {

@@ -1,4 +1,4 @@
-#include "Editor/EditorStyle.hpp"
+#include "EditorStyle.hpp"
 #include <imgui.h>
 
 namespace Editor {

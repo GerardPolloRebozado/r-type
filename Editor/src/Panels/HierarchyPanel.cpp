@@ -1,4 +1,4 @@
-#include "Editor/Panels/HierarchyPanel.hpp"
+#include "Panels/HierarchyPanel.hpp"
 #include <imgui.h>
 
 namespace Editor {

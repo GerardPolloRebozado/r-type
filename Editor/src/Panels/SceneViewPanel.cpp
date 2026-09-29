@@ -1,4 +1,4 @@
-#include "Editor/Panels/SceneViewPanel.hpp"
+#include "Panels/SceneViewPanel.hpp"
 #include <imgui.h>
 
 namespace Editor {

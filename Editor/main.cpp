@@ -1,14 +1,9 @@
 #include "Core/Application.hpp"
-#include "Editor/EditorLayer.hpp"
-#include <iostream>
+#include "EditorLayer.hpp"
 
 int main() {
-    std::cout << "======================================\n";
-    std::cout << "      R-Type Editor - Hello World     \n";
-    std::cout << "======================================\n";
-
     Engine::ApplicationConfig config;
-    config.windowTitle = "R-Type Editor";
+    config.windowTitle = "Engine Editor";
     config.windowWidth = 1280;
     config.windowHeight = 720;
 
