@@ -40,6 +40,8 @@ void Application::Run() {
         }
 
         PostUpdate(elapsedTime.count());
+
+        m_Registry.FlushQueues();
     }
 }
 
@@ -49,8 +51,9 @@ void Application::PreUpdate(float dt) {
 }
 
 void Application::Update(float dt) {
-    // TODO: [Logic] Run ECS Systems (e.g., TransformSystem, Prediction/Interpolation Systems)
-    // TODO: [Scripting] Execute Lua scripts
+    for (auto const& pair : m_Registry.GetSystems()) {
+        pair.second->Update(m_Registry, dt);
+    }
 }
 
 void Application::PostUpdate(float dt) {
