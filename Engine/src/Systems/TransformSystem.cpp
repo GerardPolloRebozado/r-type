@@ -3,10 +3,6 @@
 
 namespace Engine {
 void TransformSystem::Update(Registry& registry, float dt) {
-    for (auto const& entity : m_Entities) {
-        auto& transform = registry.GetComponent<Transform>(entity);
-
-        // TODO:
-    }
+    auto array = registry.GetComponentArray<Transform>();
 }
 } // namespace Engine
