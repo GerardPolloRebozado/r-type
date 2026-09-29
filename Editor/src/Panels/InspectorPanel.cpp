@@ -1,4 +1,5 @@
-#include "Editor/Panels/InspectorPanel.hpp"
+#include "Panels/InspectorPanel.hpp"
+#include <cstring>
 #include <imgui.h>
 
 namespace Editor {

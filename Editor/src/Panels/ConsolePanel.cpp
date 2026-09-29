@@ -1,4 +1,4 @@
-#include "Editor/Panels/ConsolePanel.hpp"
+#include "Panels/ConsolePanel.hpp"
 #include <imgui.h>
 
 namespace Editor {

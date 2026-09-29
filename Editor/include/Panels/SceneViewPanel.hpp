@@ -1,14 +1,14 @@
 #pragma once
 
-#include "Editor/Panels/IEditorPanel.hpp"
+#include "Panels/IEditorPanel.hpp"
 #include <string>
 
 namespace Editor {
 
-class ConsolePanel : public IEditorPanel {
+class SceneViewPanel : public IEditorPanel {
   public:
-    ConsolePanel() = default;
-    ~ConsolePanel() override = default;
+    SceneViewPanel() = default;
+    ~SceneViewPanel() override = default;
 
     void OnImGuiRender() override;
     const std::string& GetName() const override {
@@ -16,7 +16,7 @@ class ConsolePanel : public IEditorPanel {
     }
 
   private:
-    std::string m_Name = "Console";
+    std::string m_Name = "Scene";
 };
 
 } // namespace Editor
