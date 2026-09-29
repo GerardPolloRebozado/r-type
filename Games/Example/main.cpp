@@ -19,10 +19,9 @@ int main() {
     Engine::Entity myEntity = app.GetRegistry().CreateEntity();
     std::cout << "Spawned test entity: " << myEntity << "\n";
 
-    app.GetRegistry().AddComponent(myEntity, Engine::ComponentExample{0.0f, 0});
+    Engine::PluginExample::AttachToEntity(app.GetRegistry(), myEntity);
 
-    Engine::EventsExample events;
-
+    auto& events = app.GetRegistry().GetComponent<Engine::PluginExampleEvents>(myEntity);
     events.onStateChanged.push_back([&app](Engine::Entity me, int newState) {
         std::cout << "[EVENT FIRED] Entity " << me << " state changed to: " << newState << "\n";
 
@@ -34,8 +33,6 @@ int main() {
             app.Quit();
         }
     });
-
-    app.GetRegistry().AddComponent(myEntity, events);
 
     app.GetRegistry().GetSystem<Engine::SystemExample>()->m_Entities.insert(myEntity);
 

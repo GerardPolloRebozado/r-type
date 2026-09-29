@@ -1,5 +1,5 @@
-#ifndef ENGINE_COMPONENTS_EVENTSEXAMPLE_HPP_
-#define ENGINE_COMPONENTS_EVENTSEXAMPLE_HPP_
+#ifndef ENGINE_COMPONENTS_PLUGINEXAMPLEEVENTS_HPP_
+#define ENGINE_COMPONENTS_PLUGINEXAMPLEEVENTS_HPP_
 
 #include "ECS/Entity.hpp"
 #include <functional>
@@ -10,7 +10,7 @@ namespace Engine {
  * @brief Holds user-defined callbacks (hooks) for this specific entity.
  * Functions exactly like Godot Signals or Unity Events.
  */
-struct EventsExample {
+struct PluginExampleEvents {
     // A list of callbacks triggered when a specific condition is met
     std::vector<std::function<void(Entity me)>> onConditionMet;
 
@@ -19,4 +19,4 @@ struct EventsExample {
 };
 } // namespace Engine
 
-#endif // ENGINE_COMPONENTS_EVENTSEXAMPLE_HPP_
+#endif // ENGINE_COMPONENTS_PLUGINEXAMPLEEVENTS_HPP_
