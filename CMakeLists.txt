@@ -12,6 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(Engine)
 add_subdirectory(Editor)
+add_subdirectory(Plugins)
 
 # games
 add_subdirectory(Games/R-Type)
