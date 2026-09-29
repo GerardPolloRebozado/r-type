@@ -4,6 +4,7 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/InspectorPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
+#include "Serialization/SceneSerializer.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <rlImGui.h>
@@ -53,11 +54,25 @@ void EditorLayer::OnUpdate() {
     BeginDockSpace();
 
     // Route selected entity from Hierarchy to Inspector
-    // TODO: When registry is connected, pass selection between panels here
+    HierarchyPanel* hierarchy = nullptr;
+    InspectorPanel* inspector = nullptr;
+
+    for (auto& panel : m_Panels) {
+        if (auto h = dynamic_cast<HierarchyPanel*>(panel.get())) {
+            hierarchy = h;
+        }
+        if (auto i = dynamic_cast<InspectorPanel*>(panel.get())) {
+            inspector = i;
+        }
+    }
+
+    if (hierarchy && inspector) {
+        inspector->SetSelectedEntity(hierarchy->GetSelectedEntity());
+    }
 
     // Render all registered panels
     for (auto& panel : m_Panels) {
-        panel->OnImGuiRender();
+        panel->OnImGuiRender(m_Registry);
     }
 
     EndDockSpace();
@@ -113,12 +128,16 @@ void EditorLayer::BeginDockSpace() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
-                // SceneSerializer serializer;
-                // serializer.Serialize("test.scene", registry);
+                if (m_Registry) {
+                    SceneSerializer serializer;
+                    serializer.Serialize("test.scene", *m_Registry);
+                }
             }
             if (ImGui::MenuItem("Load Scene", "Ctrl+O")) {
-                // SceneSerializer serializer;
-                // serializer.Deserialize("test.scene", registry);
+                if (m_Registry) {
+                    SceneSerializer serializer;
+                    serializer.Deserialize("test.scene", *m_Registry);
+                }
             }
             ImGui::EndMenu();
         }

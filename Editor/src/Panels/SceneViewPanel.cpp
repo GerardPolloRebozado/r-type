@@ -3,7 +3,7 @@
 
 namespace Editor {
 
-void SceneViewPanel::OnImGuiRender() {
+void SceneViewPanel::OnImGuiRender(Engine::Registry* registry) {
     if (ImGui::Begin(m_Name.c_str())) {
         ImGui::Text("Game viewport will be rendered here...");
         // TODO: Render a Framebuffer texture from Raylib, or something, idk yet
