@@ -11,7 +11,15 @@ namespace Engine {
  * @note Systems exist globally and automatically process any entity that
  * possesses the data (Components) required by that system.
  */
-class System {};
+class Registry;
+
+class System {
+  public:
+    virtual ~System() = default;
+    virtual void Update(Registry& registry, float dt) {}
+
+    std::set<Entity> m_Entities;
+};
 } // namespace Engine
 
 #endif // ENGINE_ECS_SYSTEM_HPP_
