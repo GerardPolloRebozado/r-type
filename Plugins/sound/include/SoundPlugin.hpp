@@ -30,6 +30,7 @@ namespace Engine {
         SoundPlugin(const std::string &path, bool isLoop = false) {
             try {
                 _music = raylib::Music(path);
+                _music.Stop();
                 _music.SetLooping(isLoop);
             } catch (const std::exception &) {
                 throw FileNotFoundException(path);
@@ -59,7 +60,7 @@ namespace Engine {
         ~SoundPlugin() override = default;
 
         /**
-         * @brief Initializes the sound plugin with the ECS regist            _sound = Sound(path);
+         * @brief Initializes the sound plugin with the ECS regist
 ry.
          * @param registry A reference to the main ECS registry.
          */
