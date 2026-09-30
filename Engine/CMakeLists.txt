@@ -6,8 +6,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+add_library(EngineHeaders INTERFACE)
+add_library(Engine::Headers ALIAS EngineHeaders)
+target_include_directories(EngineHeaders INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
 add_library(Engine STATIC ${SRC_FILES})
-target_include_directories(Engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(Engine PUBLIC EngineHeaders)
+
+find_package(PkgConfig REQUIRED)
+set(RAYLIB_CPP_INCLUDE_DIRS ${raylib-cpp_SOURCE_DIR}/include)
+target_include_directories(Engine PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${RAYLIB_CPP_INCLUDE_DIRS}
+    ${RAYLIB_CPP_INCLUDE_DIRS}/raylib-cpp
+)
 target_link_libraries(Engine PUBLIC raylib)

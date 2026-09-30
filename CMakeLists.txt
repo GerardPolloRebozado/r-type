@@ -33,6 +33,12 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
+    NAME raylib-cpp
+    GITHUB_REPOSITORY RobLoach/raylib-cpp
+    GIT_TAG master
+)
+
+CPMAddPackage(
     NAME imgui
     GITHUB_REPOSITORY ocornut/imgui
     GIT_TAG docking

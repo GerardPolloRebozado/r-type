@@ -9,6 +9,7 @@
 {
   # https://devenv.sh/basics/
   env.GREET = "devenv";
+  env.VCPKG_ROOT = "${pkgs.vcpkg}/share/vcpkg";
 
   # https://devenv.sh/packages/
   packages = [
