@@ -10,6 +10,8 @@
 #include <typeindex>
 #include <unordered_map>
 
+#include "Resources/StateResource.hpp"
+
 namespace Engine {
     /**
      * @class IComponentArray
@@ -234,8 +236,8 @@ namespace Engine {
          * @tparam Args Constructor argument types.
          * @return Reference to the created resource.
          */
-        template <typename T, typename... Args>
-        T& EmplaceResource(Args&&... args) {
+        template<typename T, typename... Args>
+        T &EmplaceResource(Args &&... args) {
             auto res = std::make_shared<T>(std::forward<Args>(args)...);
             m_Resources[typeid(T)] = res;
             return *res;
@@ -246,20 +248,20 @@ namespace Engine {
          * @tparam T The resource type.
          * @return Reference to the resource.
          */
-        template <typename T>
-        T& GetResource() {
+        template<typename T>
+        T &GetResource() {
             if (!HasResource<T>()) {
                 throw std::runtime_error("Resource not found in registry.");
             }
             return *std::static_pointer_cast<T>(m_Resources.at(typeid(T)));
         }
-        
+
         /**
          * @brief Checks if a resource exists.
          * @tparam T The resource type.
          * @return True if the resource exists.
          */
-        template <typename T>
+        template<typename T>
         bool HasResource() const {
             return m_Resources.contains(typeid(T));
         }
@@ -268,7 +270,7 @@ namespace Engine {
         Entity m_NextEntityId = 0;
         std::unordered_map<std::type_index, std::shared_ptr<IComponentArray> > m_ComponentArrays;
         std::unordered_map<std::type_index, std::shared_ptr<System> > m_Systems;
-        std::unordered_map<std::type_index, std::shared_ptr<void>> m_Resources;
+        std::unordered_map<std::type_index, std::shared_ptr<void> > m_Resources;
         std::vector<Entity> m_EntitiesToDestroy;
     };
 } // namespace Engine
