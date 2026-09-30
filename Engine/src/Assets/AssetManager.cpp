@@ -32,6 +32,30 @@ namespace Engine {
 
     void AssetManager::ClearAll() {
         m_Sounds.clear();
+        m_Musics.clear();
         std::cout << "[AssetManager] Cleared all assets.\n";
     }
 } // namespace Engine
+
+namespace Engine {
+    void AssetManager::LoadMusic(const std::string &alias, const std::string &filePath, bool isLoop) {
+        if (m_Musics.contains(alias)) return;
+        m_Musics[alias] = std::make_unique<Music>(filePath, isLoop);
+    }
+
+    Music &AssetManager::GetMusic(const std::string &alias) {
+        const auto it = m_Musics.find(alias);
+        if (it == m_Musics.end()) {
+            throw std::runtime_error("Music not found: " + alias);
+        }
+        return *it->second;
+    }
+
+    void AssetManager::UnloadMusic(const std::string &alias) {
+        const auto it = m_Musics.find(alias);
+        if (it != m_Musics.end()) {
+            m_Musics.erase(it);
+            std::cout << "[AssetManager] Unloaded music: " << alias << "\n";
+        }
+    }
+}

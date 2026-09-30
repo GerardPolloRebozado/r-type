@@ -2,10 +2,10 @@
 #define ENGINE_CORE_ASSETMANAGER_HPP_
 
 #include "Sound.hpp"
+#include "Music.hpp"
 #include <unordered_map>
 #include <string>
 #include <memory>
-#include <stdexcept>
 #include <iostream>
 #include <utility>
 
@@ -30,9 +30,10 @@ namespace Engine {
             }
         };
 
-        static AssetManager &GetInstance() {
-            static AssetManager instance;
-            return instance;
+        AssetManager() = default;
+
+        ~AssetManager() {
+            ClearAll();
         }
 
         AssetManager(const AssetManager &) = delete;
@@ -49,16 +50,21 @@ namespace Engine {
 
         void UnloadSound(const std::string &alias);
 
+        void LoadMusic(const std::string &alias, const std::string &filePath, bool isLoop = false);
+
+        Music &GetMusic(const std::string &alias);
+
+        void UnloadMusic(const std::string &alias);
+
         void ClearAll();
 
-    private:
-        AssetManager() = default;
-
-        ~AssetManager() {
-            ClearAll();
+        std::unordered_map<std::string, std::unique_ptr<Music> > &GetAllMusic() {
+            return m_Musics;
         }
 
+    private:
         std::unordered_map<std::string, std::unique_ptr<Sound> > m_Sounds;
+        std::unordered_map<std::string, std::unique_ptr<Music> > m_Musics;
     };
 } // namespace Engine
 
