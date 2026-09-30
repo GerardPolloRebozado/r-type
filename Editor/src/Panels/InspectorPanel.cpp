@@ -1,12 +1,12 @@
 #include "Panels/InspectorPanel.hpp"
-#include "TransformEditor.hpp"
+#include "Plugins/TransformPluginEditor.hpp"
 #include <cstring>
 #include <imgui.h>
 
 namespace Editor {
 
 InspectorPanel::InspectorPanel() {
-    m_ComponentEditors.push_back(std::make_unique<TransformEditor>());
+    m_PluginEditors.push_back(std::make_unique<TransformPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry* registry) {
@@ -15,7 +15,7 @@ void InspectorPanel::OnImGuiRender(Engine::Registry* registry) {
             ImGui::TextDisabled("Entity %d", (int)m_SelectedEntity);
             ImGui::Separator();
 
-            for (auto& editor : m_ComponentEditors) {
+            for (auto& editor : m_PluginEditors) {
                 editor->OnImGuiRender(m_SelectedEntity, *registry);
             }
         } else {

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "ComponentEditor.hpp"
 #include "Components/Transform.hpp"
+#include "PluginEditor.hpp"
 #include <imgui.h>
 #include <string>
 
 namespace Editor {
 
-class TransformEditor : public IComponentEditor {
+class TransformPluginEditor : public IPluginEditor {
   public:
     const char* GetName() const override {
         return "Transform";
