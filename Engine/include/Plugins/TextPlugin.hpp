@@ -20,8 +20,8 @@ namespace Engine {
             registry.RegisterSystem<TextSystem>();
         };
 
-        static void AttachToEntity(Registry& registry, Entity entity) {
-            registry.AddComponent(entity, Text{"", 10.0f, WHITE});
+        static void AttachToEntity(Registry& registry, Entity entity, std::string txt) {
+            registry.AddComponent(entity, Text{txt, 10.0f, WHITE});
             registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
             registry.AddComponent(entity, Transform{});
         }

@@ -3,6 +3,8 @@
 #include <iostream>
 #include <raylib.h>
 
+#include "Systems/TextSystem.hpp"
+
 namespace Engine {
 Application::Application(const ApplicationConfig& config) : m_Config(config), m_IsRunning(false) {
 
@@ -59,7 +61,7 @@ void Application::PostUpdate(float dt) {
     ClearBackground(DARKGRAY);
 
     // Run ECS Render Systems here in the future
-
+    m_Registry.GetSystem<TextSystem>()->Update(m_Registry, dt);
     // Invoke UI Hook (Editor uses this for ImGui)
     if (m_Config.onUI) {
         m_Config.onUI();
