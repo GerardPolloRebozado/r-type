@@ -10,6 +10,16 @@
   # https://devenv.sh/basics/
   env.GREET = "devenv";
   env.VCPKG_ROOT = "${pkgs.vcpkg}/share/vcpkg";
+  env.LD_LIBRARY_PATH = lib.makeLibraryPath [
+    pkgs.libpulseaudio
+    pkgs.alsa-lib
+    pkgs.libGL
+    pkgs.xorg.libX11
+    pkgs.xorg.libXrandr
+    pkgs.xorg.libXi
+    pkgs.xorg.libXcursor
+    pkgs.wayland
+  ];
 
   # https://devenv.sh/packages/
   packages = [
@@ -31,6 +41,11 @@
     pkgs.wayland
     pkgs.wayland-protocols
     pkgs.libxkbcommon
+    
+    # Audio Libraries
+    pkgs.libpulseaudio
+    pkgs.alsa-lib
+    pkgs.xxd
   ];
 
   # https://devenv.sh/languages/

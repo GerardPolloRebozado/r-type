@@ -14,6 +14,18 @@ namespace Engine {
         }
     }
 
+    void AssetManager::LoadSoundFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop) {
+        if (m_Sounds.contains(alias)) {
+            return;
+        }
+
+        try {
+            m_Sounds[alias] = std::make_unique<Sound>(fileType, data, dataSize, isLoop);
+        } catch (...) {
+            throw std::runtime_error("Failed to load sound from memory: " + alias);
+        }
+    }
+
     Sound &AssetManager::GetSound(const std::string &alias) {
         const auto it = m_Sounds.find(alias);
         if (it == m_Sounds.end()) {
@@ -32,6 +44,35 @@ namespace Engine {
 
     void AssetManager::ClearAll() {
         m_Sounds.clear();
+        m_Musics.clear();
         std::cout << "[AssetManager] Cleared all assets.\n";
     }
 } // namespace Engine
+
+namespace Engine {
+    void AssetManager::LoadMusic(const std::string &alias, const std::string &filePath, bool isLoop) {
+        if (m_Musics.contains(alias)) return;
+        m_Musics[alias] = std::make_unique<Music>(filePath, isLoop);
+    }
+
+    void AssetManager::LoadMusicFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop) {
+        if (m_Musics.contains(alias)) return;
+        m_Musics[alias] = std::make_unique<Music>(fileType, data, dataSize, isLoop);
+    }
+
+    Music &AssetManager::GetMusic(const std::string &alias) {
+        const auto it = m_Musics.find(alias);
+        if (it == m_Musics.end()) {
+            throw std::runtime_error("Music not found: " + alias);
+        }
+        return *it->second;
+    }
+
+    void AssetManager::UnloadMusic(const std::string &alias) {
+        const auto it = m_Musics.find(alias);
+        if (it != m_Musics.end()) {
+            m_Musics.erase(it);
+            std::cout << "[AssetManager] Unloaded music: " << alias << "\n";
+        }
+    }
+}

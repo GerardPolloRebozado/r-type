@@ -7,5 +7,15 @@ add_library(rlImGui STATIC ${RLIMGUI_SOURCES})
 target_include_directories(rlImGui PUBLIC ${rlImGui_SOURCE_DIR})
 target_link_libraries(rlImGui PUBLIC imgui raylib)
 
-add_executable(RTypeEditor main.cpp)
-target_link_libraries(RTypeEditor PRIVATE Engine rlImGui imgui)
+file(GLOB_RECURSE EDITOR_SOURCES "src/*.cpp")
+add_executable(RTypeEditor main.cpp ${EDITOR_SOURCES})
+target_include_directories(RTypeEditor PRIVATE include)
+
+# JSON Serialization for Scene saving
+CPMAddPackage(
+    NAME nlohmann_json
+    GITHUB_REPOSITORY nlohmann/json
+    VERSION 3.11.3
+)
+
+target_link_libraries(RTypeEditor PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)
