@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_EDITORLAYER_HPP_
+#define EDITOR_EDITORLAYER_HPP_
+
 
 #include "ECS/Registry.hpp"
 #include "Panels/IEditorPanel.hpp"
@@ -33,3 +35,4 @@ class EditorLayer {
 };
 
 } // namespace Editor
+#endif // EDITOR_EDITORLAYER_HPP_

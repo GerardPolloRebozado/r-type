@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_PANELS_INSPECTORPANEL_HPP_
+#define EDITOR_PANELS_INSPECTORPANEL_HPP_
+
 
 #include "Panels/IEditorPanel.hpp"
 #include "PluginEditor.hpp"
@@ -31,3 +33,4 @@ class InspectorPanel : public IEditorPanel {
 };
 
 } // namespace Editor
+#endif // EDITOR_PANELS_INSPECTORPANEL_HPP_

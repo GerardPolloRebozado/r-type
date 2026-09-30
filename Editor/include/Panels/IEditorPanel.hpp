@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_PANELS_IEDITORPANEL_HPP_
+#define EDITOR_PANELS_IEDITORPANEL_HPP_
+
 
 #include "ECS/Registry.hpp"
 #include <string>
@@ -17,3 +19,4 @@ class IEditorPanel {
 };
 
 } // namespace Editor
+#endif // EDITOR_PANELS_IEDITORPANEL_HPP_

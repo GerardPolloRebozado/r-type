@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
+#define EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
+
 
 #include "Components/Transform.hpp"
 #include "PluginEditor.hpp"
@@ -58,3 +60,4 @@ class TransformPluginEditor : public IPluginEditor {
 };
 
 } // namespace Editor
+#endif // EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_

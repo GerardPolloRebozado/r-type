@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_PANELS_SCENEVIEWPANEL_HPP_
+#define EDITOR_PANELS_SCENEVIEWPANEL_HPP_
+
 
 #include "Panels/IEditorPanel.hpp"
 #include <string>
@@ -20,3 +22,4 @@ class SceneViewPanel : public IEditorPanel {
 };
 
 } // namespace Editor
+#endif // EDITOR_PANELS_SCENEVIEWPANEL_HPP_

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_SERIALIZATION_SCENESERIALIZER_HPP_
+#define EDITOR_SERIALIZATION_SCENESERIALIZER_HPP_
+
 
 #include "ECS/Registry.hpp"
 #include <string>
@@ -26,3 +28,4 @@ class SceneSerializer {
 };
 
 } // namespace Editor
+#endif // EDITOR_SERIALIZATION_SCENESERIALIZER_HPP_
