@@ -1,6 +1,7 @@
 #include "Core/Application.hpp"
 #include <iostream>
 #include "Plugins/AudioPlugin.hpp"
+#include "BundledAssets.hpp"
 
 int main() {
     std::cout << "======================================\n";
@@ -19,12 +20,16 @@ int main() {
 
 
     auto &assets = app.GetRegistry().GetResource<Engine::AssetManager>();
-    assets.LoadMusic("music", "../Games/Sounds/music.mp3", true);
+    BundledAssets::RegisterAssets(assets);
+
+    if (assets.GetAllMusic().contains("music.mp3")) {
+        assets.GetMusic("music.mp3").SetLooping(true);
+    }
 
     Engine::Entity playerEntity = app.GetRegistry().CreateEntity();
 
     Engine::AudioSource audioData;
-    audioData.assetId = "music";
+    audioData.assetId = "music.mp3";
     audioData.isMusic = true;
     audioData.shouldPlay = true;
 

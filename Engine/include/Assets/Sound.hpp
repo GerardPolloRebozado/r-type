@@ -22,6 +22,13 @@ namespace Engine {
             _sound = raylib::SoundUnmanaged(path);
         }
 
+        Sound(const char *fileType, const unsigned char *data, int dataSize,
+              const bool isLoop = false) : _isLooping(isLoop), _isAlias(false) {
+            const Wave wave = LoadWaveFromMemory(fileType, data, dataSize);
+            _sound = raylib::SoundUnmanaged(LoadSoundFromWave(wave));
+            UnloadWave(wave);
+        }
+
         ~Sound() {
             if (_sound.frameCount > 0) {
                 if (_isAlias) {

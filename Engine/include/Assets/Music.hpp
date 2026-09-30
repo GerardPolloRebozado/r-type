@@ -23,6 +23,12 @@ namespace Engine {
             _music.SetLooping(isLoop);
         }
 
+        Music(const char *fileType, const unsigned char *data, const int dataSize, const bool isLoop = false) {
+            _music = raylib::Music(LoadMusicStreamFromMemory(fileType, data, dataSize));
+            _music.Stop();
+            _music.SetLooping(isLoop);
+        }
+
         // Music streams cannot be easily cloned because they read from disk not from memory, they WON'T BE CLONED
         Music(const Music &) = delete;
 

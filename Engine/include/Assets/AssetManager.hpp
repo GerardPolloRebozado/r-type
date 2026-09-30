@@ -45,12 +45,14 @@ namespace Engine {
         AssetManager &operator=(AssetManager &&) = delete;
 
         void LoadSound(const std::string &alias, const std::string &filePath, bool isLoop = false);
+        void LoadSoundFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop = false);
 
         Sound &GetSound(const std::string &alias);
 
         void UnloadSound(const std::string &alias);
 
         void LoadMusic(const std::string &alias, const std::string &filePath, bool isLoop = false);
+        void LoadMusicFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop = false);
 
         Music &GetMusic(const std::string &alias);
 

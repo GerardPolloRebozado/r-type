@@ -52,6 +52,7 @@ CPMAddPackage(
 add_subdirectory(Engine)
 add_subdirectory(Editor)
 add_subdirectory(Plugins)
+add_subdirectory(Tools)
 
 # games
 add_subdirectory(Games)
