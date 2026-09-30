@@ -9,7 +9,7 @@
 #include <string>
 #include <utility>
 
-#include "raylib.h"
+#include "raylib-cpp.hpp"
 
 namespace Engine {
     struct Text {
