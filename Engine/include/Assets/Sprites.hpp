@@ -9,6 +9,10 @@
 #include <string>
 
 namespace Engine {
+    /**
+     * @class Sprite
+     * @brief Engine wrapper for a visual sprite, utilizing raylib::Texture to handle rendering, scaling, and rotation.
+     */
     class Sprite {
     private:
         raylib::Texture _texture;
@@ -18,6 +22,10 @@ namespace Engine {
         float _rotation;
 
     public:
+        /**
+         * @brief Constructs a new Sprite object by loading a texture from a file.
+         * @param path The file path to the image file.
+         */
         Sprite(const std::string &path) {
             _texture = raylib::Texture(path);
             _sourceRect = raylib::Rectangle(0, 0, static_cast<float>(_texture.GetWidth()), static_cast<float>(_texture.GetHeight()));
@@ -26,24 +34,67 @@ namespace Engine {
             _rotation = 0.0f;
         }
 
+        /**
+         * @brief Draws the sprite to the screen using its current properties (position, scale, rotation, source rect).
+         */
         void Draw() {
             raylib::Rectangle destRect(_position.x, _position.y, _sourceRect.width * _scale.x, _sourceRect.height * _scale.y);
             raylib::Vector2 origin(0, 0);
             _texture.Draw(_sourceRect, destRect, origin, _rotation, raylib::Color::White());
         }
 
+        /**
+         * @brief Gets the underlying raylib texture.
+         * @return Constant reference to the raylib::Texture.
+         */
         const raylib::Texture& GetTexture() const { return _texture; }
         
+        /**
+         * @brief Gets the source rectangle used for drawing a specific part of the texture (useful for sprite sheets).
+         * @return Constant reference to the source raylib::Rectangle.
+         */
         const raylib::Rectangle& GetSourceRect() const { return _sourceRect; }
+
+        /**
+         * @brief Sets the source rectangle used for drawing a specific part of the texture.
+         * @param rect The new source rectangle.
+         */
         void SetSourceRect(const raylib::Rectangle& rect) { _sourceRect = rect; }
 
+        /**
+         * @brief Gets the 2D position of the sprite.
+         * @return Constant reference to the position vector.
+         */
         const raylib::Vector2& GetPosition() const { return _position; }
+
+        /**
+         * @brief Sets the 2D position of the sprite.
+         * @param pos The new position vector.
+         */
         void SetPosition(const raylib::Vector2& pos) { _position = pos; }
 
+        /**
+         * @brief Gets the scale factor of the sprite.
+         * @return Constant reference to the scale vector.
+         */
         const raylib::Vector2& GetScale() const { return _scale; }
+
+        /**
+         * @brief Sets the scale factor of the sprite.
+         * @param scale The new scale vector.
+         */
         void SetScale(const raylib::Vector2& scale) { _scale = scale; }
 
+        /**
+         * @brief Gets the rotation angle of the sprite in degrees.
+         * @return The rotation angle.
+         */
         float GetRotation() const { return _rotation; }
+
+        /**
+         * @brief Sets the rotation angle of the sprite.
+         * @param rot The new rotation angle in degrees.
+         */
         void SetRotation(float rot) { _rotation = rot; }
     };
 }

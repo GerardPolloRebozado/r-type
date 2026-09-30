@@ -50,12 +50,30 @@ namespace Engine {
 
         void UnloadSound(const std::string &alias);
 
+        /**
+         * @brief Loads a sprite texture from a file path and assigns it an alias.
+         * @param alias The unique identifier for the sprite.
+         * @param filePath The file path to the image file.
+         */
         void LoadSprite(const std::string &alias, const std::string &filePath);
 
+        /**
+         * @brief Retrieves a sprite by its alias.
+         * @param alias The unique identifier for the sprite.
+         * @return Reference to the Sprite object.
+         * @throws std::runtime_error if the sprite alias is not found.
+         */
         Sprite &GetSprite(const std::string &alias);
 
+        /**
+         * @brief Unloads a sprite and frees its resources.
+         * @param alias The unique identifier for the sprite.
+         */
         void UnloadSprite(const std::string &alias);
 
+        /**
+         * @brief Clears all loaded assets (sounds and sprites).
+         */
         void ClearAll();
 
     private:
