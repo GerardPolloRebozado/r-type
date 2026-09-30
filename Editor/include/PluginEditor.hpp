@@ -6,12 +6,12 @@
 namespace Editor {
 
 /**
- * @class IComponentEditor
+ * @class IPluginEditor
  * @brief Interface for defining how an engine component is visualized and serialized in the Editor.
  */
-class IComponentEditor {
+class IPluginEditor {
   public:
-    virtual ~IComponentEditor() = default;
+    virtual ~IPluginEditor() = default;
 
     /**
      * @brief The display name of the component in the Inspector.

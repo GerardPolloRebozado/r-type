@@ -1,5 +1,5 @@
 #include "Serialization/SceneSerializer.hpp"
-#include "TransformEditor.hpp"
+#include "Plugins/TransformPluginEditor.hpp"
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -15,7 +15,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     json entitiesJson = json::array();
 
     // We instantiate the editors here (later they will be centralized)
-    TransformEditor transformEditor;
+    TransformPluginEditor transformEditor;
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Engine::Entity entity = static_cast<Engine::Entity>(i);
@@ -51,7 +51,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
 
     std::cout << "Loaded scene: " << sceneJson.value("SceneName", "Unknown") << std::endl;
 
-    TransformEditor transformEditor;
+    TransformPluginEditor transformEditor;
 
     if (sceneJson.contains("Entities")) {
         for (const auto& entityJson : sceneJson["Entities"]) {

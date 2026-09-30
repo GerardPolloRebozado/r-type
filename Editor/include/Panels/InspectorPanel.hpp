@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ComponentEditor.hpp"
 #include "Panels/IEditorPanel.hpp"
+#include "PluginEditor.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,8 +26,8 @@ class InspectorPanel : public IEditorPanel {
     std::string m_Name = "Inspector";
     Engine::Entity m_SelectedEntity = -1;
 
-    // We will hold a list of component editors
-    std::vector<std::unique_ptr<IComponentEditor>> m_ComponentEditors;
+    // We will hold a list of plugin editors
+    std::vector<std::unique_ptr<IPluginEditor>> m_PluginEditors;
 };
 
 } // namespace Editor
