@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_PANELS_HIERARCHYPANEL_HPP_
+#define EDITOR_PANELS_HIERARCHYPANEL_HPP_
+
 
 #include "Panels/IEditorPanel.hpp"
 #include <string>
@@ -29,3 +31,4 @@ class HierarchyPanel : public IEditorPanel {
 };
 
 } // namespace Editor
+#endif // EDITOR_PANELS_HIERARCHYPANEL_HPP_

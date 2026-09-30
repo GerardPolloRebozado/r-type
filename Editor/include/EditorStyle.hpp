@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_EDITORSTYLE_HPP_
+#define EDITOR_EDITORSTYLE_HPP_
+
 
 namespace Editor {
 
@@ -8,3 +10,4 @@ class EditorStyle {
 };
 
 } // namespace Editor
+#endif // EDITOR_EDITORSTYLE_HPP_

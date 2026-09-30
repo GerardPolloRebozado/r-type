@@ -1,4 +1,6 @@
-#pragma once
+#ifndef EDITOR_PLUGINEDITOR_HPP_
+#define EDITOR_PLUGINEDITOR_HPP_
+
 
 #include "ECS/Registry.hpp"
 #include <nlohmann/json.hpp>
@@ -43,3 +45,4 @@ class IPluginEditor {
 };
 
 } // namespace Editor
+#endif // EDITOR_PLUGINEDITOR_HPP_
