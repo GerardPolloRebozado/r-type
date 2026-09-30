@@ -17,11 +17,6 @@ int main() {
     Engine::Application app(config);
 
     Engine::PluginExample plugin;
-    Engine::TextPlugin textPlugin;
-    Engine::TransformPlugin tform;
-
-    tform.Init(app.GetRegistry());
-    textPlugin.Init(app.GetRegistry());
 
     plugin.Init(app.GetRegistry());
 
@@ -45,9 +40,6 @@ int main() {
 
     app.GetRegistry().GetSystem<Engine::SystemExample>()->m_Entities.insert(myEntity);
     //create the entity for a text on the screen
-    Engine::Entity mytextEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(mytextEntity, Engine::Transform{100.0f, 100.0f});
-    Engine::TextPlugin::AttachToEntity(app.GetRegistry(), mytextEntity, "Hello, World!");
 
     app.Run();
 
