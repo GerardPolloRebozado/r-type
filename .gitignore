@@ -79,3 +79,10 @@ vcpkg_installed/
 Testing/
 .cache/
 CPM_Cache/
+CPM_modules/
+_deps/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+cpm/
+cpm-package-lock.cmake
+imgui.ini
