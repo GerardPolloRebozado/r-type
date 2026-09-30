@@ -12,7 +12,8 @@ target_include_directories(EngineHeaders INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/i
 
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
-add_library(Engine STATIC ${SRC_FILES})
+add_library(Engine STATIC ${SRC_FILES}
+        include/Assets/Sprites.hpp)
 target_link_libraries(Engine PUBLIC EngineHeaders)
 
 find_package(PkgConfig REQUIRED)

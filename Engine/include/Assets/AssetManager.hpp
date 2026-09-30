@@ -2,6 +2,7 @@
 #define ENGINE_CORE_ASSETMANAGER_HPP_
 
 #include "Sound.hpp"
+#include "Sprites.hpp"
 #include <unordered_map>
 #include <string>
 #include <memory>
@@ -49,6 +50,12 @@ namespace Engine {
 
         void UnloadSound(const std::string &alias);
 
+        void LoadSprite(const std::string &alias, const std::string &filePath);
+
+        Sprite &GetSprite(const std::string &alias);
+
+        void UnloadSprite(const std::string &alias);
+
         void ClearAll();
 
     private:
@@ -59,6 +66,7 @@ namespace Engine {
         }
 
         std::unordered_map<std::string, std::unique_ptr<Sound> > m_Sounds;
+        std::unordered_map<std::string, std::unique_ptr<Sprite> > m_Sprites;
     };
 } // namespace Engine
 
