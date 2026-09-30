@@ -14,7 +14,7 @@
 namespace Engine {
     struct Text {
         std::string text = "";
-        std::string font = "";
+        Font font = {};
         float fontsize = 10.0f;
         float spacing = 1.0f;
         Color color = WHITE;
@@ -24,7 +24,9 @@ namespace Engine {
          * @param Fontsize The size of the text
          * @param tint The color that is wanted on the text
          */
-        Text(std::string Text, float Fontsize, Color tint) : text(std::move(Text)), fontsize(Fontsize), color(tint)
+        Text(std::string Text = "", float Fontsize = 10.0, Color tint =
+            WHITE) : text(std::move
+            (Text)), fontsize(Fontsize), color(tint)
         {}
         /**
          * @brief Constructor for Text.
@@ -34,8 +36,8 @@ namespace Engine {
          * @param Spacing The space between the characters
          * @param tint The color that is wanted on the text
          */
-        Text(std::string font, std::string Text, float Fontsize, float Spacing, Color tint)
-             : text(std::move(Text)), font(std::move(font)), fontsize(Fontsize), spacing(Spacing), color(tint) {}
+        Text(Font font, std::string Text, float Fontsize, float Spacing, Color tint):
+        text(std::move(Text)), font(std::move(font)), fontsize(Fontsize), spacing(Spacing), color(tint) {}
     };
 }
 #endif //G_ING_500_BAR_5_1_RTYPE_1_TEXT_HPP
