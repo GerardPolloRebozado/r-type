@@ -8,6 +8,7 @@ int main() {
     config.m_ProjectFolder = "Games/EditorGame";
     config.windowWidth = 1280;
     config.windowHeight = 720;
+    config.maximized = true;
 
     Editor::EditorLayer editorLayer;
 

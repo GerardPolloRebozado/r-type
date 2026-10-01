@@ -126,7 +126,7 @@ void EditorLayer::BeginDockSpace() {
         ImGuiID dock_right_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f,
                                                             nullptr, &dock_main_id);
         ImGuiID dock_down_id =
-            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.40f, nullptr, &dock_main_id);
 
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
