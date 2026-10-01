@@ -3,7 +3,7 @@
 
 namespace Editor {
 
-void ConsolePanel::OnImGuiRender(Engine::Registry* registry) {
+void ConsolePanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
     if (ImGui::Begin(m_Name.c_str())) {
         ImGui::Text("Engine logs go here...");
         // TODO: engine logger

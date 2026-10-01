@@ -1,10 +1,11 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Components/Transform.hpp"
+#include "Core/Application.hpp"
 #include <imgui.h>
 
 namespace Editor {
 
-void HierarchyPanel::OnImGuiRender(Engine::Registry* registry) {
+void HierarchyPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
     if (ImGui::Begin(m_Name.c_str())) {
         if (!registry) {
             ImGui::TextDisabled("No Engine Registry linked!");

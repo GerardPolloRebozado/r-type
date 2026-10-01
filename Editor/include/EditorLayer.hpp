@@ -1,8 +1,8 @@
 #ifndef EDITOR_EDITORLAYER_HPP_
 #define EDITOR_EDITORLAYER_HPP_
 
-
 #include "ECS/Registry.hpp"
+#include "EditorConfig.hpp"
 #include "Panels/IEditorPanel.hpp"
 #include <memory>
 #include <vector>
@@ -25,6 +25,10 @@ class EditorLayer {
         m_Registry = registry;
     }
 
+    void SetConfiguration(EditorConfig* config) {
+        m_Configuration = config;
+    }
+
   private:
     void BeginDockSpace();
     void EndDockSpace();
@@ -32,6 +36,7 @@ class EditorLayer {
     std::vector<std::unique_ptr<IEditorPanel>> m_Panels;
     bool m_FirstTimeLayout = true;
     Engine::Registry* m_Registry = nullptr;
+    EditorConfig* m_Configuration = nullptr;
 };
 
 } // namespace Editor

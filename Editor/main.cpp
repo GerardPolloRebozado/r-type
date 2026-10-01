@@ -3,8 +3,9 @@
 #include "Plugins/TransformPlugin.hpp"
 
 int main() {
-    Engine::ApplicationConfig config;
+    Editor::EditorConfig config;
     config.windowTitle = "Engine Editor";
+    config.m_ProjectFolder = "Games/EditorGame";
     config.windowWidth = 1280;
     config.windowHeight = 720;
 
@@ -19,6 +20,7 @@ int main() {
     transformPlugin.Init(app.GetRegistry());
 
     editorLayer.SetRegistry(&app.GetRegistry());
+    editorLayer.SetConfiguration(&config);
     editorLayer.Init();
 
     app.Run();

@@ -1,10 +1,12 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
+#include "Panels/AssetsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/InspectorPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
 #include "Serialization/SceneSerializer.hpp"
+#include <filesystem>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <rlImGui.h>
@@ -15,6 +17,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<HierarchyPanel>());
     AddPanel(std::make_unique<InspectorPanel>());
     AddPanel(std::make_unique<ConsolePanel>());
+    AddPanel(std::make_unique<AssetsPanel>());
     AddPanel(std::make_unique<SceneViewPanel>());
 }
 EditorLayer::~EditorLayer() {
@@ -72,12 +75,22 @@ void EditorLayer::OnUpdate() {
 
     // Render all registered panels
     for (auto& panel : m_Panels) {
-        panel->OnImGuiRender(m_Registry);
+        panel->OnImGuiRender(m_Registry, m_Configuration);
     }
 
     EndDockSpace();
 
     rlImGuiEnd();
+}
+
+namespace fs = std::filesystem;
+
+static fs::path ResolveProjectPath(const fs::path& projectFolder, const fs::path& filePath) {
+    if (filePath.is_absolute()) {
+        return filePath.lexically_normal();
+    }
+
+    return (projectFolder / filePath).lexically_normal();
 }
 
 void EditorLayer::BeginDockSpace() {
@@ -118,6 +131,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
+        ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
 
         ImGui::DockBuilderFinish(dockspace_id);
@@ -128,15 +142,22 @@ void EditorLayer::BeginDockSpace() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
-                if (m_Registry) {
+                if (m_Registry && m_Configuration) {
                     SceneSerializer serializer;
-                    serializer.Serialize("test.scene", *m_Registry);
+
+                    fs::path scenePath =
+                        ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
+                    // Create the project folder if it does not exist.
+                    fs::create_directories(scenePath.parent_path());
+                    serializer.Serialize(scenePath.string(), *m_Registry, m_Configuration);
                 }
             }
             if (ImGui::MenuItem("Load Scene", "Ctrl+O")) {
-                if (m_Registry) {
+                if (m_Registry && m_Configuration) {
                     SceneSerializer serializer;
-                    serializer.Deserialize("test.scene", *m_Registry);
+                    fs::path scenePath =
+                        ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
+                    serializer.Deserialize(scenePath.string(), *m_Registry, m_Configuration);
                 }
             }
             ImGui::EndMenu();
