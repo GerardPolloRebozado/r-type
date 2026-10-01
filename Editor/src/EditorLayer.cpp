@@ -5,6 +5,7 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/InspectorPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
+#include "Panels/PreviewPanel.hpp"
 #include "Serialization/SceneSerializer.hpp"
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
@@ -23,6 +24,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<ConsolePanel>());
     AddPanel(std::make_unique<AssetsPanel>());
     AddPanel(std::make_unique<SceneViewPanel>());
+    AddPanel(std::make_unique<PreviewPanel>());
 }
 EditorLayer::~EditorLayer() {
     Shutdown();
@@ -155,6 +157,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
+        ImGui::DockBuilderDockWindow("Preview", dock_main_id);
 
         ImGui::DockBuilderFinish(dockspace_id);
     }
