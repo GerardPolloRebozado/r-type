@@ -6,14 +6,14 @@
 namespace Engine {
 /**
  * @class TransformSystem
- * @brief A system that updates the Transform component of entities.
+ * @brief A system that updates the Position component of entities.
  *
- * Responsible for processing all entities that have a Transform component.
+ * Stores the previous coordinates before the current frame modifies position.
  */
 class TransformSystem : public System {
   public:
     /**
-     * @brief Updates all entities with a Transform component.
+     * @brief Updates previous position for entities in @ref System::m_Entities.
      * @param registry The ECS registry containing the components.
      * @param dt Delta time for framerate independent movement.
      */
