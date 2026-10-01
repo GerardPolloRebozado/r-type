@@ -10,8 +10,37 @@ add_library(EngineHeaders INTERFACE)
 add_library(Engine::Headers ALIAS EngineHeaders)
 target_include_directories(EngineHeaders INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-file(GLOB_RECURSE SRC_FILES src/*.cpp)
-file(GLOB_RECURSE INC_FILES include/*.hpp)
+set(SRC_FILES
+        src/Assets/AssetManager.cpp
+        src/Core/Application.cpp
+        src/Plugins/StatePlugin.cpp
+        src/Systems/SystemExample.cpp
+        src/Systems/TransformSystem.cpp
+)
+
+set(INC_FILES
+        include/Assets/AssetManager.hpp
+        include/Assets/Music.hpp
+        include/Assets/Sound.hpp
+        include/Components/AudioSource.hpp
+        include/Components/ComponentExample.hpp
+        include/Components/PluginExampleEvents.hpp
+        include/Components/Transform.hpp
+        include/Core/Application.hpp
+        include/ECS/Entity.hpp
+        include/ECS/Registry.hpp
+        include/ECS/System.hpp
+        include/Plugins/AudioPlugin.hpp
+        include/Plugins/IPlugin.hpp
+        include/Plugins/PluginExample.hpp
+        include/Plugins/StatePlugin.hpp
+        include/Plugins/TransformPlugin.hpp
+        include/Resources/StateResource.hpp
+        include/Systems/AudioSystem.hpp
+        include/Systems/StatesSystem.hpp
+        include/Systems/SystemExample.hpp
+        include/Systems/TransformSystem.hpp
+)
 
 add_library(Engine STATIC ${SRC_FILES})
 target_sources(Engine PUBLIC FILE_SET HEADERS BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include FILES ${INC_FILES})

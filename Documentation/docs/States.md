@@ -78,7 +78,7 @@ public:
         if (event.exited.has_value() && event.exited.value() == GameState::MainMenu) {
             
             // Find all entities tagged as MainMenuEntity and destroy them
-            auto view = registry.GetComponents<MainMenuEntity>();
+            auto view = registry.GetComponentsArray<MainMenuEntity>();
             for (auto entity : view) {
                 registry.QueueDestroyEntity(entity);
             }
