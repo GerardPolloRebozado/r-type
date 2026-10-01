@@ -29,28 +29,30 @@ void PreviewPanel::OnImGuiRender(Engine::Registry*, EditorConfig* config) {
 
             if (m_CurrentPreviewPath != selectedPath) {
                 m_CurrentPreviewPath = selectedPath;
-                if (m_PreviewTexture.id != 0) {
-                    UnloadTexture(m_PreviewTexture);
-                    m_PreviewTexture.id = 0;
-                }
 
                 if (IsImageFile(m_CurrentPreviewPath)) {
                     std::string ext =
                         std::filesystem::path(m_CurrentPreviewPath).extension().string();
                     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-                    if (ext == ".gif") {
-                        int animFrames = 0;
-                        Image img = LoadImageAnim(m_CurrentPreviewPath.c_str(), &animFrames);
-                        m_PreviewTexture = LoadTextureFromImage(img);
-                        UnloadImage(img);
-                    } else {
-                        m_PreviewTexture = LoadTexture(m_CurrentPreviewPath.c_str());
+                    try {
+                        if (ext == ".gif") {
+                            int animFrames = 0;
+                            raylib::Image img;
+                            img.Load(m_CurrentPreviewPath, &animFrames);
+                            m_PreviewTexture.Load(img);
+                        } else {
+                            m_PreviewTexture.Load(m_CurrentPreviewPath);
+                        }
+                    } catch (const raylib::RaylibException&) {
+                        m_PreviewTexture.Unload();
                     }
+                } else {
+                    m_PreviewTexture.Unload();
                 }
             }
 
-            if (m_PreviewTexture.id != 0) {
+            if (m_PreviewTexture.IsValid()) {
                 ImGui::Text(
                     "Previewing: %s",
                     std::filesystem::path(m_CurrentPreviewPath).filename().string().c_str());

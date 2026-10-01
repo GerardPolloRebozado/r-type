@@ -2,7 +2,7 @@
 #define EDITOR_PANELS_PREVIEWPANEL_HPP_
 
 #include "Panels/IEditorPanel.hpp"
-#include <raylib.h>
+#include <raylib-cpp.hpp>
 #include <string>
 
 namespace Editor {
@@ -10,11 +10,7 @@ namespace Editor {
 class PreviewPanel : public IEditorPanel {
   public:
     PreviewPanel() = default;
-    ~PreviewPanel() override {
-        if (m_PreviewTexture.id != 0) {
-            UnloadTexture(m_PreviewTexture);
-        }
-    }
+    ~PreviewPanel() override = default;
 
     void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
     const std::string& GetName() const override {
@@ -24,7 +20,7 @@ class PreviewPanel : public IEditorPanel {
   private:
     std::string m_Name = "Preview";
     std::string m_CurrentPreviewPath;
-    Texture2D m_PreviewTexture = {0};
+    raylib::Texture2D m_PreviewTexture;
     bool m_IsOpen = false;
 };
 
