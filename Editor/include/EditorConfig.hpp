@@ -8,6 +8,7 @@ namespace Editor {
 
 struct EditorConfig : public Engine::ApplicationConfig {
     std::string m_ProjectFolder;
+    std::string m_SelectedAssetPath;
 };
 
 } // namespace Editor

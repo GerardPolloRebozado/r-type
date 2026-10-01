@@ -1,5 +1,7 @@
 #include "Panels/AssetsPanel.hpp"
 #include "EditorConfig.hpp"
+#include "EditorLayer.hpp"
+#include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 
 namespace Editor {
@@ -127,7 +129,12 @@ void AssetsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* cfg) {
                 ImGui::PushID(filenameString.c_str());
 
                 if (directoryEntry.is_directory()) {
-                    if (ImGui::Button("[Dir]", ImVec2(thumbnailSize, thumbnailSize))) {
+                    ImGui::PushFont(g_IconFont);
+                    bool clicked =
+                        ImGui::Button(ICON_FA_FOLDER, ImVec2(thumbnailSize, thumbnailSize));
+                    ImGui::PopFont();
+
+                    if (clicked) {
                         /*
                          * Enter the folder and normalize its path.
                          */
@@ -139,7 +146,11 @@ void AssetsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* cfg) {
                         }
                     }
                 } else {
-                    ImGui::Button("[File]", ImVec2(thumbnailSize, thumbnailSize));
+                    ImGui::PushFont(g_IconFont);
+                    if (ImGui::Button(ICON_FA_FILE, ImVec2(thumbnailSize, thumbnailSize))) {
+                        cfg->m_SelectedAssetPath = path.string();
+                    }
+                    ImGui::PopFont();
                 }
 
                 ImGui::TextWrapped("%s", filenameString.c_str());

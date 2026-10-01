@@ -7,7 +7,11 @@
 #include <memory>
 #include <vector>
 
+struct ImFont;
+
 namespace Editor {
+
+extern ImFont* g_IconFont;
 
 class EditorLayer {
   public:

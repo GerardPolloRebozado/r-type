@@ -6,12 +6,16 @@
 #include "Panels/InspectorPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
 #include "Serialization/SceneSerializer.hpp"
+#include <extras/FA6FreeSolidFontData.h>
+#include <extras/IconsFontAwesome6.h>
 #include <filesystem>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <rlImGui.h>
 
 namespace Editor {
+
+ImFont* g_IconFont = nullptr;
 
 EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<HierarchyPanel>());
@@ -29,6 +33,24 @@ void EditorLayer::Init() {
     rlImGuiSetLoadFontsCallback([]() {
         ImGuiIO& io = ImGui::GetIO();
         io.Fonts->AddFontFromFileTTF("Editor/assets/fonts/Inter-Regular.ttf", 16.0f);
+
+        static const ImWchar icons_ranges[] = {ICON_MIN_FA, ICON_MAX_16_FA, 0};
+        ImFontConfig icons_config;
+        icons_config.MergeMode = true;
+        icons_config.PixelSnapH = true;
+        icons_config.FontDataOwnedByAtlas = false;
+
+        io.Fonts->AddFontFromMemoryCompressedTTF(fa_solid_900_compressed_data,
+                                                 fa_solid_900_compressed_size, 16.0f, &icons_config,
+                                                 icons_ranges);
+
+        ImFontConfig icons_config_large;
+        icons_config_large.MergeMode = false;
+        icons_config_large.PixelSnapH = true;
+        icons_config_large.FontDataOwnedByAtlas = false;
+        g_IconFont = io.Fonts->AddFontFromMemoryCompressedTTF(fa_solid_900_compressed_data,
+                                                              fa_solid_900_compressed_size, 48.0f,
+                                                              &icons_config_large, icons_ranges);
     });
 
     rlImGuiBeginInitImGui();
