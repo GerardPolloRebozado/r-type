@@ -3,6 +3,8 @@
 #include <iostream>
 #include <raylib.h>
 
+#include "Systems/TextSystem.hpp"
+
 namespace Engine {
     Application::Application(const ApplicationConfig &config) : m_Config(config), m_IsRunning(false) {
         std::cout << "[Engine] Initializing Application window: " << m_Config.windowTitle << "\n";

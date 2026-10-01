@@ -2,6 +2,9 @@
 #include "Plugins/PluginExample.hpp"
 #include <iostream>
 
+#include "Plugins/TextPlugin.hpp"
+#include "Plugins/TransformPlugin.hpp"
+
 int main() {
     std::cout << "======================================\n";
     std::cout << "      Starting Sandbox Game Demo      \n";
@@ -14,6 +17,7 @@ int main() {
     Engine::Application app(config);
 
     Engine::PluginExample plugin;
+
     plugin.Init(app.GetRegistry());
 
     Engine::Entity myEntity = app.GetRegistry().CreateEntity();
@@ -35,6 +39,7 @@ int main() {
     });
 
     app.GetRegistry().GetSystem<Engine::SystemExample>()->m_Entities.insert(myEntity);
+    //create the entity for a text on the screen
 
     app.Run();
 
