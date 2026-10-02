@@ -58,7 +58,10 @@ void Application::PostUpdate(float dt) {
     BeginDrawing();
     ClearBackground(DARKGRAY);
 
-    // Run ECS Render Systems here in the future
+    // Run ECS Render Systems
+    for (auto const& pair : m_Registry.GetSystems()) {
+        pair.second->Render(m_Registry);
+    }
 
     // Invoke UI Hook (Editor uses this for ImGui)
     if (m_Config.onUI) {
