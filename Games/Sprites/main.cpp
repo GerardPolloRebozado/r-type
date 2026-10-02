@@ -27,10 +27,10 @@ int main() {
     app.GetRegistry().AddComponent(myEntity, Engine::Position{200.0f, 200.0f});
 
     // Add sprite component
-    // Assuming there is an image named 'sprite.png' in the working directory
-    // If there isn't, Raylib will output a warning but won't crash
+    // Use ASSETS_PATH macro defined in CMake to always find the absolute path
+    // regardless of where the executable is run from.
     try {
-        app.GetRegistry().AddComponent(myEntity, Engine::SpriteComponent{"sprite.png"});
+        app.GetRegistry().AddComponent(myEntity, Engine::SpriteComponent{ASSETS_PATH "sprite.png"});
         std::cout << "Added SpriteComponent.\n";
     } catch (...) {
         std::cout << "Could not initialize SpriteComponent. Missing texture?\n";
