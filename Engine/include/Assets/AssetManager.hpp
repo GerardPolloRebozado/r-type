@@ -76,7 +76,6 @@ namespace Engine {
         /**
          * @brief Clears all loaded assets (sounds and sprites).
          */
-        void ClearAll();
         void LoadMusic(const std::string &alias, const std::string &filePath, bool isLoop = false);
         void LoadMusicFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop = false);
 

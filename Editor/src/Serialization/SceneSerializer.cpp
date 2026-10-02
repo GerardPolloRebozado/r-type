@@ -1,5 +1,5 @@
 #include "Serialization/SceneSerializer.hpp"
-#include "Plugins/TransformPluginEditor.hpp"
+#include "Plugins/PositionPluginEditor.hpp"
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -15,14 +15,14 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     json entitiesJson = json::array();
 
     // We instantiate the editors here (later they will be centralized)
-    TransformPluginEditor transformEditor;
+    PositionPluginEditor positionEditor;
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Engine::Entity entity = static_cast<Engine::Entity>(i);
         json entityJson;
         entityJson["EntityID"] = (int)entity;
 
-        transformEditor.Serialize(entity, registry, entityJson);
+        positionEditor.Serialize(entity, registry, entityJson);
 
         entitiesJson.push_back(entityJson);
     }
@@ -51,14 +51,14 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
 
     std::cout << "Loaded scene: " << sceneJson.value("SceneName", "Unknown") << std::endl;
 
-    TransformPluginEditor transformEditor;
+    PositionPluginEditor positionEditor;
 
     if (sceneJson.contains("Entities")) {
         for (const auto& entityJson : sceneJson["Entities"]) {
             Engine::Entity entity = registry.CreateEntity();
 
             // Deserialize components back onto the newly spawned entity
-            transformEditor.Deserialize(entity, registry, entityJson);
+            positionEditor.Deserialize(entity, registry, entityJson);
         }
     }
 

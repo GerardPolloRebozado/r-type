@@ -3,7 +3,7 @@
 #include <iostream>
 
 #include "Plugins/TextPlugin.hpp"
-#include "Plugins/TransformPlugin.hpp"
+#include "Plugins/PositionPlugin.hpp"
 
 int main() {
     std::cout << "======================================\n";
@@ -17,14 +17,14 @@ int main() {
     Engine::Application app(config);
 
     Engine::TextPlugin textPlugin;
-    Engine::TransformPlugin transform;
+    Engine::PositionPlugin position;
 
-    transform.Init(app.GetRegistry());
+    position.Init(app.GetRegistry());
     textPlugin.Init(app.GetRegistry());
 
     //create the entity for a text on the screen
     Engine::Entity mytextEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(mytextEntity, Engine::Transform{100.0f, 100.0f});
+    app.GetRegistry().AddComponent(mytextEntity, Engine::Position{100.0f, 100.0f});
     Engine::TextPlugin::AttachToEntity(app.GetRegistry(), mytextEntity, "Hello, World!");
 
     app.Run();

@@ -25,7 +25,7 @@ class CollisionSystem : public System {
   public:
     /**
      * @brief Runs overlap detection and updates contact state for this frame.
-     * @param registry ECS registry with transforms and colliders.
+     * @param registry ECS registry with positions and colliders.
      * @param dt Delta time (unused for pure overlap tests; kept for @ref System API).
      */
     void Update(Registry& registry, float dt) override;
