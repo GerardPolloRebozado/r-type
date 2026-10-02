@@ -9,7 +9,6 @@
 #include "IPlugin.hpp"
 #include "Components/Text.hpp"
 #include "Systems/TextSystem.hpp"
-#include "Components/Transform.hpp"
 
 namespace Engine {
     class TextPlugin : public IPlugin {
