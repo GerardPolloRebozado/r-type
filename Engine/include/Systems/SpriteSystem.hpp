@@ -12,7 +12,17 @@ class Registry;
  */
 class SpriteSystem : public System {
 public:
+    /**
+     * @brief Updates the sprite positions based on their transform components.
+     * @param registry The ECS registry containing the entities.
+     * @param dt The delta time since the last frame.
+     */
     void Update(Registry& registry, float dt) override;
+
+    /**
+     * @brief Renders all entities that have a SpriteComponent.
+     * @param registry The ECS registry containing the entities.
+     */
     void Render(Registry& registry) override;
 };
 } // namespace Engine

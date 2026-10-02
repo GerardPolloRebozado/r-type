@@ -13,6 +13,10 @@ namespace Engine {
  */
 class SpritePlugin : public IPlugin {
 public:
+    /**
+     * @brief Initializes the SpritePlugin by registering the SpriteComponent and SpriteSystem.
+     * @param registry The ECS registry where components and systems are registered.
+     */
     void Init(Registry& registry) override {
         registry.RegisterComponent<SpriteComponent>();
         registry.RegisterSystem<SpriteSystem>();
