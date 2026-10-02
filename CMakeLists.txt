@@ -56,3 +56,4 @@ add_subdirectory(Plugins)
 # games
 add_subdirectory(Games/R-Type)
 add_subdirectory(Games/Example)
+add_subdirectory(Games/Sprites)
