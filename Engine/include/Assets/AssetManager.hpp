@@ -3,10 +3,10 @@
 
 #include "Sound.hpp"
 #include "Sprites.hpp"
+#include "Music.hpp"
 #include <unordered_map>
 #include <string>
 #include <memory>
-#include <stdexcept>
 #include <iostream>
 #include <utility>
 
@@ -31,9 +31,10 @@ namespace Engine {
             }
         };
 
-        static AssetManager &GetInstance() {
-            static AssetManager instance;
-            return instance;
+        AssetManager() = default;
+
+        ~AssetManager() {
+            ClearAll();
         }
 
         AssetManager(const AssetManager &) = delete;
@@ -45,6 +46,7 @@ namespace Engine {
         AssetManager &operator=(AssetManager &&) = delete;
 
         void LoadSound(const std::string &alias, const std::string &filePath, bool isLoop = false);
+        void LoadSoundFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop = false);
 
         Sound &GetSound(const std::string &alias);
 
@@ -75,16 +77,23 @@ namespace Engine {
          * @brief Clears all loaded assets (sounds and sprites).
          */
         void ClearAll();
+        void LoadMusic(const std::string &alias, const std::string &filePath, bool isLoop = false);
+        void LoadMusicFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop = false);
 
-    private:
-        AssetManager() = default;
+        Music &GetMusic(const std::string &alias);
 
-        ~AssetManager() {
-            ClearAll();
+        void UnloadMusic(const std::string &alias);
+
+        void ClearAll();
+
+        std::unordered_map<std::string, std::unique_ptr<Music> > &GetAllMusic() {
+            return m_Musics;
         }
 
+    private:
         std::unordered_map<std::string, std::unique_ptr<Sound> > m_Sounds;
         std::unordered_map<std::string, std::unique_ptr<Sprite> > m_Sprites;
+        std::unordered_map<std::string, std::unique_ptr<Music> > m_Musics;
     };
 } // namespace Engine
 

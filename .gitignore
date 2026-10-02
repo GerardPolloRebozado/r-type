@@ -82,3 +82,13 @@ CPM_Cache/
 
 #MacOs
 .Ds_Store
+CPM_modules/
+_deps/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+cpm/
+cpm-package-lock.cmake
+imgui.ini
+
+# IDE
+.cursor/
