@@ -8,12 +8,12 @@ class Registry;
 
 /**
  * @class SpriteSystem
- * @brief System that updates and draws SpriteComponent based on Transform.
+ * @brief System that updates and draws SpriteComponent based on Position.
  */
 class SpriteSystem : public System {
 public:
     /**
-     * @brief Updates the sprite positions based on their transform components.
+     * @brief Updates the sprite positions based on their position components.
      * @param registry The ECS registry containing the entities.
      * @param dt The delta time since the last frame.
      */

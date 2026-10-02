@@ -1,7 +1,7 @@
 #include "Core/Application.hpp"
-#include "Plugins/TransformPlugin.hpp"
+#include "Plugins/PositionPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
-#include "Components/Transform.hpp"
+#include "Components/Position.hpp"
 #include "Components/SpriteComponent.hpp"
 #include <iostream>
 
@@ -13,8 +13,8 @@ int main() {
     Engine::Application app(config);
 
     // Initialize plugins
-    Engine::TransformPlugin transformPlugin;
-    transformPlugin.Init(app.GetRegistry());
+    Engine::PositionPlugin positionPlugin;
+    positionPlugin.Init(app.GetRegistry());
 
     Engine::SpritePlugin spritePlugin;
     spritePlugin.Init(app.GetRegistry());
@@ -23,8 +23,8 @@ int main() {
     Engine::Entity myEntity = app.GetRegistry().CreateEntity();
     std::cout << "Spawned entity: " << myEntity << "\n";
 
-    // Add transform (position 200, 200)
-    app.GetRegistry().AddComponent(myEntity, Engine::Transform{200.0f, 200.0f});
+    // Add position (position 200, 200)
+    app.GetRegistry().AddComponent(myEntity, Engine::Position{200.0f, 200.0f});
 
     // Add sprite component
     // Assuming there is an image named 'sprite.png' in the working directory

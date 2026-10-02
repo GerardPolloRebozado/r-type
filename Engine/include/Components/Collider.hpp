@@ -38,8 +38,8 @@ struct Collider {
      * @brief Constructs a collider with explicit size and defaults.
      * @param width Box width in world units.
      * @param height Box height in world units.
-     * @param offsetX Offset from entity transform to box center on X.
-     * @param offsetY Offset from entity transform to box center on Y.
+     * @param offsetX Offset from entity position to box center on X.
+     * @param offsetY Offset from entity position to box center on Y.
      * @param enabled Whether collision queries include this collider.
      * @param isTrigger Trigger vs solid semantics for future physics.
      */

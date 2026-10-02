@@ -7,7 +7,7 @@
 #include "../../include/Systems/TextSystem.hpp"
 
 #include "Components/Text.hpp"
-#include "Components/Transform.hpp"
+#include "Components/Position.hpp"
 #include "ECS/Registry.hpp"
 
 namespace Engine {
@@ -15,7 +15,7 @@ namespace Engine {
     {
         for (const auto& entity : m_Entities) {
             const auto& txt =  registry.GetComponent<Text>(entity);
-            const auto& pos = registry.GetComponent<Transform>(entity);
+            const auto& pos = registry.GetComponent<Position>(entity);
             if (txt.font.texture.id == 0) {
                 DrawText(txt.text.c_str(), pos.x, pos.y, txt.fontsize, txt
                     .color);
