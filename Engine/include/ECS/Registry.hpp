@@ -76,6 +76,14 @@ namespace Engine {
             }
         }
 
+        auto begin() { return m_ComponentMap.begin(); }
+        auto end() { return m_ComponentMap.end(); }
+        auto begin() const { return m_ComponentMap.begin(); }
+        auto end() const { return m_ComponentMap.end(); }
+        void clear() { m_ComponentMap.clear(); }
+
+        size_t size() const { return m_ComponentMap.size(); }
+
     private:
         std::unordered_map<Entity, T> m_ComponentMap;
     };
@@ -211,7 +219,7 @@ namespace Engine {
         std::shared_ptr<ComponentArray<T> > GetComponentArray() {
             const std::type_index typeName = typeid(T);
             if (!m_ComponentArrays.contains(typeName)) {
-                throw std::runtime_error("Component not registered before use.");
+                throw std::runtime_error("Component not registered before use: " + std::string(typeName.name()));
             }
             return std::static_pointer_cast<ComponentArray<T> >(m_ComponentArrays[typeName]);
         }
@@ -237,7 +245,7 @@ namespace Engine {
          * @return Reference to the created resource.
          */
         template<typename T, typename... Args>
-        T &EmplaceResource(Args &&... args) {
+        T &AddResource(Args &&... args) {
             auto res = std::make_shared<T>(std::forward<Args>(args)...);
             m_Resources[typeid(T)] = res;
             return *res;

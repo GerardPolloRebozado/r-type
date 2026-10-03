@@ -1,0 +1,5 @@
+project(OnStateChange)
+set(CMAKE_BUILD_TYPE Debug)
+add_executable(OnStateChange main.cpp)
+target_include_directories(OnStateChange PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(OnStateChange PRIVATE Engine)

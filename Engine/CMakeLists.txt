@@ -13,9 +13,9 @@ target_include_directories(EngineHeaders INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/i
 set(SRC_FILES
         src/Assets/AssetManager.cpp
         src/Core/Application.cpp
-        src/Plugins/StatePlugin.cpp
         src/Systems/SystemExample.cpp
         src/Systems/TransformSystem.cpp
+        src/Systems/TextSystem.cpp
 )
 
 set(INC_FILES
@@ -33,13 +33,13 @@ set(INC_FILES
         include/Plugins/AudioPlugin.hpp
         include/Plugins/IPlugin.hpp
         include/Plugins/PluginExample.hpp
-        include/Plugins/StatePlugin.hpp
         include/Plugins/TransformPlugin.hpp
         include/Resources/StateResource.hpp
         include/Systems/AudioSystem.hpp
         include/Systems/StatesSystem.hpp
         include/Systems/SystemExample.hpp
         include/Systems/TransformSystem.hpp
+        include/Systems/TextSystem.hpp
 )
 
 add_library(Engine STATIC ${SRC_FILES})

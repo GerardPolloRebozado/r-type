@@ -20,13 +20,14 @@ namespace Engine {
             auto &state = registry.GetResource<State<T> >();
             auto &nextState = registry.GetResource<NextState<T> >();
 
-            if (registry.HasResource<StateTransitionEvent<T> >()) {
-                auto &event = registry.GetResource<StateTransitionEvent<T> >();
-                event.exited = std::nullopt;
-                event.entered = std::nullopt;
-            }
+            // if (registry.HasResource<StateTransitionEvent<T> >()) {
+            //     auto &event = registry.GetResource<StateTransitionEvent<T> >();
+            //     event.exited = std::nullopt;
+            //     event.entered = std::nullopt;
+            // }
 
             if (nextState.value.has_value()) {
+                std::cout << "Changing state" << std::endl;
                 T prev = state.value;
                 T next = nextState.value.value();
 
@@ -35,6 +36,7 @@ namespace Engine {
 
                     if (registry.HasResource<StateTransitionEvent<T> >()) {
                         auto &event = registry.GetResource<StateTransitionEvent<T> >();
+                        std::cout << "Changing state" << std::endl;
                         event.exited = prev;
                         event.entered = next;
                     }
