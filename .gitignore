@@ -86,3 +86,6 @@ CPackSourceConfig.cmake
 cpm/
 cpm-package-lock.cmake
 imgui.ini
+
+# IDE
+.cursor/

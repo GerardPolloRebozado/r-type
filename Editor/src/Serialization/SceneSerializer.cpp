@@ -1,4 +1,5 @@
 #include "Serialization/SceneSerializer.hpp"
+#include "EditorConfig.hpp"
 #include "Plugins/TransformPluginEditor.hpp"
 #include <fstream>
 #include <iostream>
@@ -8,9 +9,22 @@ using json = nlohmann::json;
 
 namespace Editor {
 
-void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& registry) {
+void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& registry,
+                                EditorConfig* config) {
     json sceneJson;
     sceneJson["SceneName"] = "Untitled";
+
+    if (config) {
+        json projectConfiguration;
+        projectConfiguration["ProjectFolder"] = config->m_ProjectFolder;
+        projectConfiguration["WindowTitle"] = config->windowTitle;
+        projectConfiguration["WindowWidth"] = config->windowWidth;
+        projectConfiguration["WindowHeight"] = config->windowHeight;
+        projectConfiguration["TargetFPS"] = config->targetFPS;
+        projectConfiguration["BuildExecutableName"] = config->m_BuildExecutableName;
+        projectConfiguration["BuildWindowTitle"] = config->m_BuildWindowTitle;
+        sceneJson["Configuration"] = projectConfiguration;
+    }
 
     json entitiesJson = json::array();
 
@@ -39,7 +53,8 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     }
 }
 
-bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry& registry) {
+bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry& registry,
+                                  EditorConfig* config) {
     std::ifstream fin(filepath);
     if (!fin.is_open()) {
         std::cerr << "Failed to open file for reading: " << filepath << std::endl;
@@ -50,6 +65,31 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     fin >> sceneJson;
 
     std::cout << "Loaded scene: " << sceneJson.value("SceneName", "Unknown") << std::endl;
+
+    if (config && sceneJson.contains("Configuration")) {
+        auto projectConfiguration = sceneJson["Configuration"];
+        if (projectConfiguration.contains("ProjectFolder")) {
+            config->m_ProjectFolder = projectConfiguration["ProjectFolder"];
+        }
+        if (projectConfiguration.contains("WindowTitle")) {
+            config->windowTitle = projectConfiguration["WindowTitle"];
+        }
+        if (projectConfiguration.contains("WindowWidth")) {
+            config->windowWidth = projectConfiguration["WindowWidth"];
+        }
+        if (projectConfiguration.contains("WindowHeight")) {
+            config->windowHeight = projectConfiguration["WindowHeight"];
+        }
+        if (projectConfiguration.contains("TargetFPS")) {
+            config->targetFPS = projectConfiguration["TargetFPS"];
+        }
+        if (projectConfiguration.contains("BuildExecutableName")) {
+            config->m_BuildExecutableName = projectConfiguration["BuildExecutableName"];
+        }
+        if (projectConfiguration.contains("BuildWindowTitle")) {
+            config->m_BuildWindowTitle = projectConfiguration["BuildWindowTitle"];
+        }
+    }
 
     TransformPluginEditor transformEditor;
 

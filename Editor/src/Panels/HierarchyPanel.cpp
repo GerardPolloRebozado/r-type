@@ -1,10 +1,10 @@
 #include "Panels/HierarchyPanel.hpp"
-#include "Components/Transform.hpp"
+#include "Components/Position.hpp"
 #include <imgui.h>
 
 namespace Editor {
 
-void HierarchyPanel::OnImGuiRender(Engine::Registry* registry) {
+void HierarchyPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
     if (ImGui::Begin(m_Name.c_str())) {
         if (!registry) {
             ImGui::TextDisabled("No Engine Registry linked!");
@@ -15,7 +15,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry* registry) {
                                                    ImGuiPopupFlags_NoOpenOverItems)) {
                 if (ImGui::MenuItem("Create Empty Entity")) {
                     Engine::Entity newEntity = registry->CreateEntity();
-                    registry->AddComponent<Engine::Transform>(newEntity, Engine::Transform(0, 0));
+                    registry->AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
                     m_SelectedEntity = newEntity;
                     m_SelectedIndex = (int)newEntity; // Temporary simple selection map
                 }
