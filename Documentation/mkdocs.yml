@@ -46,11 +46,17 @@ nav:
   - Getting Started:
     - Step-by-Step Tutorial: getting_started/tutorial.md
     - Your First Game: getting_started/first_game.md
+  - Concepts:
+    - Registry: concepts/registry.md
+    - Components: concepts/component.md
+    - Systems: concepts/system.md
+    - Plugins: concepts/plugin.md
   - Engine Manual:
     - ECS Architecture: engine/ecs.md
     - Systems & Components: engine/systems.md
     - Asset Management: engine/assets.md
     - Plugins: engine/plugins.md
+    - State Management: engine/states.md
     - Networking: engine/networking.md
   - Editor Manual:
     - Interface Overview: editor/interface.md
