@@ -1,4 +1,62 @@
-# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
-site_name: Game Engine
+site_name: R-Type Engine
+site_description: Documentation for the R-Type Engine and Editor
 theme:
   name: material
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - toc.integrate
+    - search.suggest
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdoxy:
+      projects:
+        Engine:
+          src-dirs: ../Engine/include
+          full-doc: True
+          doxy-cfg:
+            PROJECT_NAME: "R-Type Engine"
+            OPTIMIZE_OUTPUT_FOR_C: NO
+            EXTRACT_ALL: YES
+            EXTRACT_PRIVATE: YES
+            EXTRACT_STATIC: YES
+
+nav:
+  - About:
+    - Introduction: index.md
+    - Features: about/features.md
+  - Getting Started:
+    - Step-by-Step Tutorial: getting_started/tutorial.md
+    - Your First Game: getting_started/first_game.md
+  - Engine Manual:
+    - ECS Architecture: engine/ecs.md
+    - Systems & Components: engine/systems.md
+    - Asset Management: engine/assets.md
+    - Plugins: engine/plugins.md
+    - Networking: engine/networking.md
+  - Editor Manual:
+    - Interface Overview: editor/interface.md
+    - Using Plugins: editor/plugins.md
+    - Scene Serialization: editor/serialization.md
+  - API Reference:
+    - Classes: Engine/annotated.md
+    - Files: Engine/files.md
+    - Namespaces: Engine/namespaces.md

@@ -89,3 +89,7 @@ imgui.ini
 
 # IDE
 .cursor/
+
+# Documentation
+Documentation/site/
+Documentation/doxygen_output/
