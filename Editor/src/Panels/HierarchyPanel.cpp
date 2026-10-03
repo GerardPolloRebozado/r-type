@@ -4,7 +4,7 @@
 
 namespace Editor {
 
-void HierarchyPanel::OnImGuiRender(Engine::Registry* registry) {
+void HierarchyPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
     if (ImGui::Begin(m_Name.c_str())) {
         if (!registry) {
             ImGui::TextDisabled("No Engine Registry linked!");

@@ -9,21 +9,33 @@
 #include "IPlugin.hpp"
 #include "Components/Text.hpp"
 #include "Systems/TextSystem.hpp"
-#include "Components/Transform.hpp"
 
 namespace Engine {
     class TextPlugin : public IPlugin {
     public:
-        void Init(Registry&registry) override
-        {
+        void Init(Registry &registry) override {
             registry.RegisterComponent<Text>();
             registry.RegisterSystem<TextSystem>();
         };
 
-        static void AttachToEntity(Registry& registry, Entity entity, std::string txt) {
+        static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt) {
             registry.AddComponent(entity, Text{txt, 10.0f, WHITE});
             registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
             registry.AddComponent(entity, Transform{});
+        }
+
+
+        static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt, float fontSize) {
+            registry.AddComponent(entity, Text{txt, fontSize, WHITE});
+            registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
+            registry.AddComponent(entity, Transform{});
+        }
+
+        static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt, float fontSize,
+                                   const Transform position) {
+            registry.AddComponent(entity, Text{txt, fontSize, WHITE});
+            registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
+            registry.AddComponent(entity, position);
         }
     };
 }

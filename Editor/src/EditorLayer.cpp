@@ -1,21 +1,33 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
+#include "Panels/AssetsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/InspectorPanel.hpp"
+#include "Panels/PreviewPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
+#include "Panels/SettingsPanel.hpp"
 #include "Serialization/SceneSerializer.hpp"
+#include <cstdlib>
+#include <extras/FA6FreeSolidFontData.h>
+#include <extras/IconsFontAwesome6.h>
+#include <filesystem>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <rlImGui.h>
 
 namespace Editor {
 
+ImFont* g_IconFont = nullptr;
+
 EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<HierarchyPanel>());
     AddPanel(std::make_unique<InspectorPanel>());
     AddPanel(std::make_unique<ConsolePanel>());
+    AddPanel(std::make_unique<AssetsPanel>());
     AddPanel(std::make_unique<SceneViewPanel>());
+    AddPanel(std::make_unique<PreviewPanel>());
+    AddPanel(std::make_unique<SettingsPanel>());
 }
 EditorLayer::~EditorLayer() {
     Shutdown();
@@ -26,6 +38,24 @@ void EditorLayer::Init() {
     rlImGuiSetLoadFontsCallback([]() {
         ImGuiIO& io = ImGui::GetIO();
         io.Fonts->AddFontFromFileTTF("Editor/assets/fonts/Inter-Regular.ttf", 16.0f);
+
+        static const ImWchar icons_ranges[] = {ICON_MIN_FA, ICON_MAX_16_FA, 0};
+        ImFontConfig icons_config;
+        icons_config.MergeMode = true;
+        icons_config.PixelSnapH = true;
+        icons_config.FontDataOwnedByAtlas = false;
+
+        io.Fonts->AddFontFromMemoryCompressedTTF(fa_solid_900_compressed_data,
+                                                 fa_solid_900_compressed_size, 16.0f, &icons_config,
+                                                 icons_ranges);
+
+        ImFontConfig icons_config_large;
+        icons_config_large.MergeMode = false;
+        icons_config_large.PixelSnapH = true;
+        icons_config_large.FontDataOwnedByAtlas = false;
+        g_IconFont = io.Fonts->AddFontFromMemoryCompressedTTF(fa_solid_900_compressed_data,
+                                                              fa_solid_900_compressed_size, 48.0f,
+                                                              &icons_config_large, icons_ranges);
     });
 
     rlImGuiBeginInitImGui();
@@ -72,12 +102,22 @@ void EditorLayer::OnUpdate() {
 
     // Render all registered panels
     for (auto& panel : m_Panels) {
-        panel->OnImGuiRender(m_Registry);
+        panel->OnImGuiRender(m_Registry, m_Configuration);
     }
 
     EndDockSpace();
 
     rlImGuiEnd();
+}
+
+namespace fs = std::filesystem;
+
+static fs::path ResolveProjectPath(const fs::path& projectFolder, const fs::path& filePath) {
+    if (filePath.is_absolute()) {
+        return filePath.lexically_normal();
+    }
+
+    return (projectFolder / filePath).lexically_normal();
 }
 
 void EditorLayer::BeginDockSpace() {
@@ -95,9 +135,12 @@ void EditorLayer::BeginDockSpace() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(
+        ImGuiStyleVar_FramePadding,
+        ImVec2(ImGui::GetStyle().FramePadding.x, ImGui::GetStyle().FramePadding.y + 4.0f));
 
     ImGui::Begin("MainDockSpaceWindow", nullptr, window_flags);
-    ImGui::PopStyleVar(3);
+    ImGui::PopStyleVar(4);
 
     ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 
@@ -113,12 +156,14 @@ void EditorLayer::BeginDockSpace() {
         ImGuiID dock_right_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f,
                                                             nullptr, &dock_main_id);
         ImGuiID dock_down_id =
-            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.40f, nullptr, &dock_main_id);
 
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
+        ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
+        ImGui::DockBuilderDockWindow("Preview", dock_main_id);
 
         ImGui::DockBuilderFinish(dockspace_id);
     }
@@ -128,19 +173,84 @@ void EditorLayer::BeginDockSpace() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
-                if (m_Registry) {
+                if (m_Registry && m_Configuration) {
                     SceneSerializer serializer;
-                    serializer.Serialize("test.scene", *m_Registry);
+                    fs::path scenePath =
+                        ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
+                    fs::create_directories(scenePath.parent_path());
+                    serializer.Serialize(scenePath.string(), *m_Registry, m_Configuration);
                 }
             }
             if (ImGui::MenuItem("Load Scene", "Ctrl+O")) {
-                if (m_Registry) {
+                if (m_Registry && m_Configuration) {
                     SceneSerializer serializer;
-                    serializer.Deserialize("test.scene", *m_Registry);
+                    fs::path scenePath =
+                        ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
+                    serializer.Deserialize(scenePath.string(), *m_Registry, m_Configuration);
                 }
             }
             ImGui::EndMenu();
         }
+
+        if (ImGui::MenuItem("Settings")) {
+            SettingsPanel::s_IsOpen = true;
+        }
+
+        float button_size = 30.0f;
+        float spacing = 5.0f;
+        float total_width = (button_size * 2) + spacing;
+        float center_pos = ImGui::GetWindowWidth() / 2.0f - total_width / 2.0f;
+
+        if (ImGui::GetCursorPosX() < center_pos) {
+            ImGui::SetCursorPosX(center_pos);
+        }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+        ImVec4 normalBg = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+        ImVec4 hoverBg = ImVec4(0.2f, 0.5f, 0.9f, 1.0f);
+        ImVec4 redBg = ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
+
+        bool isBuilding = SettingsPanel::s_IsBuilding.load();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, isBuilding ? redBg : normalBg);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, isBuilding ? redBg : hoverBg);
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+
+        if (ImGui::Button(ICON_FA_HAMMER, ImVec2(button_size, 0))) {
+            if (!isBuilding) {
+                SettingsPanel::StartBuild(m_Configuration, m_Registry);
+            }
+        }
+        ImGui::PopStyleColor(3);
+
+        if (isBuilding) {
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Building %.0f%%", SettingsPanel::s_BuildProgress.load() * 100.f);
+            }
+        }
+
+        ImGui::SameLine(0, spacing);
+
+        ImGui::PushStyleColor(ImGuiCol_Button, normalBg);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverBg);
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+
+        if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
+            if (m_Configuration) {
+                std::string exePath =
+                    m_Configuration->m_ProjectFolder + "/" + m_Configuration->m_BuildExecutableName;
+                if (std::filesystem::exists(exePath)) {
+                    std::string cmd = "cd " + m_Configuration->m_ProjectFolder + " && ./" +
+                                      m_Configuration->m_BuildExecutableName + " &";
+                    std::system(cmd.c_str());
+                }
+            }
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::PopStyleVar(2);
         ImGui::EndMenuBar();
     }
 }

@@ -56,3 +56,5 @@ add_subdirectory(Tools)
 
 # games
 add_subdirectory(Games)
+
+include(.editor_build.cmake OPTIONAL)
