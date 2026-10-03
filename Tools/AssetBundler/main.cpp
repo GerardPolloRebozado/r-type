@@ -8,13 +8,13 @@
 namespace fs = std::filesystem;
 
 std::string getValidVariableName(std::string name) {
-    for (char& c : name) {
+    for (char &c: name) {
         if (!isalnum(c)) c = '_';
     }
     return name;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " <assets_dir> <output.hpp>\n";
         return 1;
@@ -41,16 +41,16 @@ int main(int argc, char** argv) {
     std::vector<AssetInfo> assets;
 
     if (fs::exists(assetsDir) && fs::is_directory(assetsDir)) {
-        for (const auto& entry : fs::recursive_directory_iterator(assetsDir)) {
+        for (const auto &entry: fs::recursive_directory_iterator(assetsDir)) {
             if (!entry.is_regular_file()) continue;
 
             std::string path = entry.path().string();
             std::string ext = entry.path().extension().string();
             std::string filename = entry.path().filename().string();
-            
+
             std::string alias = entry.path().lexically_relative(assetsDir).string();
             std::replace(alias.begin(), alias.end(), '\\', '/');
-            
+
             std::string varName = getValidVariableName(alias);
 
             std::ifstream in(path, std::ios::binary);
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
             }
 
             out << "inline const unsigned char " << varName << "[] = {\n    ";
-            
+
             char c;
             int count = 0;
             while (in.get(c)) {
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
             }
             out << std::dec << "\n};\n";
             out << "inline const int " << varName << "_size = " << count << ";\n\n";
-            
+
             assets.push_back({varName, ext, alias});
         }
     } else {
@@ -77,20 +77,21 @@ int main(int argc, char** argv) {
     }
 
     out << "inline void RegisterAssets(Engine::AssetManager& manager) {\n";
-    for (const auto& a : assets) {
+    for (const auto &a: assets) {
         if (a.extension == ".wav" || a.extension == ".mp3" || a.extension == ".ogg" || a.extension == ".flac") {
-            // Check if it's music (e.g., in a 'music' folder, or 'music'/'bgm' in name)
-            std::string lowerAlias = a.alias;
-            std::transform(lowerAlias.begin(), lowerAlias.end(), lowerAlias.begin(), ::tolower);
-            if (lowerAlias.find("music") != std::string::npos || lowerAlias.find("bgm") != std::string::npos) {
-                out << "    manager.LoadMusicFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", " 
-                    << a.varName << ", " << a.varName << "_size);\n";
+            if (a.alias.find("music") != std::string::npos || a.alias.find("bgm") != std::string::npos) {
+                out << "    manager.LoadMusicFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", "
+                        << a.varName << ", " << a.varName << "_size);\n";
             } else {
-                out << "    manager.LoadSoundFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", " 
-                    << a.varName << ", " << a.varName << "_size);\n";
+                out << "    manager.LoadSoundFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", "
+                        << a.varName << ", " << a.varName << "_size);\n";
             }
         }
         // Additional asset types (Fonts, Textures) can be added here when AssetManager supports them
+        if (a.extension == ".ttf" || a.extension == ".otf") {
+            out << "    manager.LoadFontFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", "
+                    << a.varName << ", " << a.varName << "_size);\n";
+        }
     }
     out << "}\n\n";
     out << "} // namespace BundledAssets\n";
