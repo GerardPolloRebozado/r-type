@@ -2,6 +2,7 @@
 #include <iostream>
 #include <ranges>
 
+#include "Components/Position.hpp"
 #include "Plugins/TextPlugin.hpp"
 #include "Systems/StatesSystem.hpp"
 
@@ -58,12 +59,12 @@ int main() {
     app.GetRegistry().RegisterSystem<Engine::StatesSystem<GameState> >();
     app.GetRegistry().RegisterSystem<KeySystem>();
     app.GetRegistry().RegisterSystem<MainMenuCleanupSystem>();
-    app.GetRegistry().RegisterComponent<Engine::Transform>();
+    app.GetRegistry().RegisterComponent<Engine::Position>();
     const auto menuText = app.GetRegistry().CreateEntity();
     Engine::TextPlugin text_plugin;
     text_plugin.Init(app.GetRegistry());
     Engine::TextPlugin::AttachToEntity(app.GetRegistry(), menuText, "This text will disapear when you press G", 50.0,
-                                       Engine::Transform{960.0f, 500.0f});
+                                       Engine::Position{960.0f, 500.0f});
     app.GetRegistry().AddComponent(menuText, MainMenuEntity{});
 
     app.Run();
