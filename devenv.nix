@@ -44,6 +44,7 @@
     pkgs.libpulseaudio
     pkgs.alsa-lib
     pkgs.xxd
+    pkgs.doxygen
   ];
 
   # https://devenv.sh/languages/
@@ -68,7 +69,6 @@
   # https://devenv.sh/basics/
   enterShell = ''
     hello         # Run scripts directly
-    git --version # Use packages
   '';
 
   # https://devenv.sh/tasks/

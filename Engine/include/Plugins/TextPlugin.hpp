@@ -7,6 +7,7 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP
 #include "IPlugin.hpp"
+#include "Components/Position.hpp"
 #include "Components/Text.hpp"
 #include "Systems/TextSystem.hpp"
 
@@ -21,18 +22,18 @@ namespace Engine {
         static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt) {
             registry.AddComponent(entity, Text{txt, 10.0f, WHITE});
             registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-            registry.AddComponent(entity, Transform{});
+            registry.AddComponent(entity, Position{});
         }
 
 
         static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt, float fontSize) {
             registry.AddComponent(entity, Text{txt, fontSize, WHITE});
             registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-            registry.AddComponent(entity, Transform{});
+            registry.AddComponent(entity, Position{});
         }
 
         static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt, float fontSize,
-                                   const Transform position) {
+                                   const Position position) {
             registry.AddComponent(entity, Text{txt, fontSize, WHITE});
             registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
             registry.AddComponent(entity, position);

@@ -25,7 +25,7 @@ set(INC_FILES
         include/Components/AudioSource.hpp
         include/Components/ComponentExample.hpp
         include/Components/PluginExampleEvents.hpp
-        include/Components/Transform.hpp
+        include/Components/Position.hpp
         include/Core/Application.hpp
         include/ECS/Entity.hpp
         include/ECS/Registry.hpp
@@ -38,7 +38,6 @@ set(INC_FILES
         include/Systems/AudioSystem.hpp
         include/Systems/StatesSystem.hpp
         include/Systems/SystemExample.hpp
-        include/Systems/TransformSystem.hpp
         include/Systems/TextSystem.hpp
 )
 
