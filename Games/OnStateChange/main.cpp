@@ -33,9 +33,6 @@ public:
         if (event.exited.has_value() && event.exited.value() == GameState::MainMenu) {
             // Find all entities tagged as MainMenuEntity and destroy them
             const auto view = registry.GetComponentArray<MainMenuEntity>();
-            if (view->size() < 1) {
-                return;
-            }
             for (const auto key: *view | std::views::keys) {
                 registry.QueueDestroyEntity(key);
             }

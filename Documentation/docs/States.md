@@ -18,10 +18,16 @@ Initialize the states by adding the resources to the registry at startup:
 enum class GameState { MainMenu, Playing, Paused };
 
 // Set initial state to MainMenu
-registry.AddResource(Engine::State<GameState>(GameState::MainMenu));
+registry.AddResource<Engine::State<GameState>>(Engine::State<GameState>(GameState::MainMenu));
 
 // Initialize the empty queue
-registry.AddResource(Engine::NextState<GameState>());
+registry.AddResource<Engine::NextState<GameState>>(Engine::NextState<GameState>());
+
+// Initialize the state transition event resource
+registry.AddResource<Engine::StateTransitionEvent<GameState>>();
+
+// Register the states system
+registry.RegisterSystem<Engine::StatesSystem<GameState>>();
 ```
 
 ### Transitioning States
@@ -66,21 +72,23 @@ Create a system that runs every frame but only executes its logic if the transit
 `MainMenu`.
 
 ```cpp
+#include <ranges>
+
 class MainMenuCleanupSystem : public Engine::System {
 public:
     void Update(Engine::Registry &registry, float dt) override {
         // Ensure the event resource exists
         if (!registry.HasResource<Engine::StateTransitionEvent<GameState>>()) return;
         
-        auto &event = registry.GetResource<Engine::StateTransitionEvent<GameState>>();
+        const auto &event = registry.GetResource<Engine::StateTransitionEvent<GameState>>();
 
         // Check if we JUST exited the MainMenu state this frame
         if (event.exited.has_value() && event.exited.value() == GameState::MainMenu) {
             
             // Find all entities tagged as MainMenuEntity and destroy them
-            auto view = registry.GetComponentsArray<MainMenuEntity>();
-            for (auto entity : view) {
-                registry.QueueDestroyEntity(entity);
+            const auto view = registry.GetComponentArray<MainMenuEntity>();
+            for (const auto key: *view | std::views::keys) {
+                registry.QueueDestroyEntity(key);
             }
         }
     }
