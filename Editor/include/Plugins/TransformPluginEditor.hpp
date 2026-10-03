@@ -3,6 +3,7 @@
 
 #include "Components/Position.hpp"
 #include "PluginEditor.hpp"
+#include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 #include <string>
 
@@ -14,9 +15,8 @@ class TransformPluginEditor : public IPluginEditor {
         return "Position";
     }
 
-    // We will replace this with a proper FontAwesome/Material icon macro later
     const char* GetIcon() const override {
-        return "[T]";
+        return ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT;
     }
 
     bool OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) override {

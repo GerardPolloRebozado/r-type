@@ -1,8 +1,8 @@
 #ifndef ENGINE_CORE_APPLICATION_HPP_
 #define ENGINE_CORE_APPLICATION_HPP_
 #include "ECS/Registry.hpp"
-#include <string>
 #include <functional>
+#include <string>
 
 namespace Engine {
 /**
@@ -12,6 +12,7 @@ namespace Engine {
 struct ApplicationConfig {
     int windowWidth = 1280;
     int windowHeight = 720;
+    bool maximized = false;
     std::string windowTitle = "Game Engine";
     int targetFPS = 60;
     std::function<void()> onUI = nullptr;

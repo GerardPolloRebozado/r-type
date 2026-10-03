@@ -1,7 +1,6 @@
 #ifndef EDITOR_PANELS_INSPECTORPANEL_HPP_
 #define EDITOR_PANELS_INSPECTORPANEL_HPP_
 
-
 #include "Panels/IEditorPanel.hpp"
 #include "PluginEditor.hpp"
 #include <memory>
@@ -15,7 +14,7 @@ class InspectorPanel : public IEditorPanel {
     InspectorPanel();
     ~InspectorPanel() override = default;
 
-    void OnImGuiRender(Engine::Registry* registry) override;
+    void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
     const std::string& GetName() const override {
         return m_Name;
     }

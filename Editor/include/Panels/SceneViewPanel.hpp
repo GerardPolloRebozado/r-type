@@ -1,7 +1,6 @@
 #ifndef EDITOR_PANELS_SCENEVIEWPANEL_HPP_
 #define EDITOR_PANELS_SCENEVIEWPANEL_HPP_
 
-
 #include "Panels/IEditorPanel.hpp"
 #include <string>
 
@@ -12,7 +11,7 @@ class SceneViewPanel : public IEditorPanel {
     SceneViewPanel() = default;
     ~SceneViewPanel() override = default;
 
-    void OnImGuiRender(Engine::Registry* registry) override;
+    void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
     const std::string& GetName() const override {
         return m_Name;
     }
