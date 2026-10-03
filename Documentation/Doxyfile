@@ -1,0 +1,15 @@
+PROJECT_NAME           = "R-Type Engine"
+OUTPUT_DIRECTORY       = doxygen_output
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+GENERATE_RTF           = NO
+GENERATE_HTML          = NO
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+INPUT                  = ../Engine/include ../Editor/include
+RECURSIVE              = YES
+OPTIMIZE_OUTPUT_FOR_C  = NO
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+QUIET                  = YES
