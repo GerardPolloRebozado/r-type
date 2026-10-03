@@ -19,7 +19,7 @@ namespace Engine {
                 DrawText(txt.text.c_str(), pos.x, pos.y, txt.fontsize, txt
                          .color);
             } else
-                DrawTextEx(txt.font, txt.text.c_str(), {pos.x, pos.y}, txt.fontsize, txt.spacing, txt.color);
+                DrawTextEx(txt.font, txt.text.c_str(), {.x = pos.x, .y = pos.y}, txt.fontsize, txt.spacing, txt.color);
         }
     }
 } // Engine
