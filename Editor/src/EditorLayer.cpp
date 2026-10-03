@@ -4,9 +4,11 @@
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/InspectorPanel.hpp"
-#include "Panels/SceneViewPanel.hpp"
 #include "Panels/PreviewPanel.hpp"
+#include "Panels/SceneViewPanel.hpp"
+#include "Panels/SettingsPanel.hpp"
 #include "Serialization/SceneSerializer.hpp"
+#include <cstdlib>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
 #include <filesystem>
@@ -25,6 +27,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<AssetsPanel>());
     AddPanel(std::make_unique<SceneViewPanel>());
     AddPanel(std::make_unique<PreviewPanel>());
+    AddPanel(std::make_unique<SettingsPanel>());
 }
 EditorLayer::~EditorLayer() {
     Shutdown();
@@ -132,9 +135,12 @@ void EditorLayer::BeginDockSpace() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(
+        ImGuiStyleVar_FramePadding,
+        ImVec2(ImGui::GetStyle().FramePadding.x, ImGui::GetStyle().FramePadding.y + 4.0f));
 
     ImGui::Begin("MainDockSpaceWindow", nullptr, window_flags);
-    ImGui::PopStyleVar(3);
+    ImGui::PopStyleVar(4);
 
     ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 
@@ -169,10 +175,8 @@ void EditorLayer::BeginDockSpace() {
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
                 if (m_Registry && m_Configuration) {
                     SceneSerializer serializer;
-
                     fs::path scenePath =
                         ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
-                    // Create the project folder if it does not exist.
                     fs::create_directories(scenePath.parent_path());
                     serializer.Serialize(scenePath.string(), *m_Registry, m_Configuration);
                 }
@@ -187,6 +191,66 @@ void EditorLayer::BeginDockSpace() {
             }
             ImGui::EndMenu();
         }
+
+        if (ImGui::MenuItem("Settings")) {
+            SettingsPanel::s_IsOpen = true;
+        }
+
+        float button_size = 30.0f;
+        float spacing = 5.0f;
+        float total_width = (button_size * 2) + spacing;
+        float center_pos = ImGui::GetWindowWidth() / 2.0f - total_width / 2.0f;
+
+        if (ImGui::GetCursorPosX() < center_pos) {
+            ImGui::SetCursorPosX(center_pos);
+        }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+        ImVec4 normalBg = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+        ImVec4 hoverBg = ImVec4(0.2f, 0.5f, 0.9f, 1.0f);
+        ImVec4 redBg = ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
+
+        bool isBuilding = SettingsPanel::s_IsBuilding.load();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, isBuilding ? redBg : normalBg);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, isBuilding ? redBg : hoverBg);
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+
+        if (ImGui::Button(ICON_FA_HAMMER, ImVec2(button_size, 0))) {
+            if (!isBuilding) {
+                SettingsPanel::StartBuild(m_Configuration, m_Registry);
+            }
+        }
+        ImGui::PopStyleColor(3);
+
+        if (isBuilding) {
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Building %.0f%%", SettingsPanel::s_BuildProgress.load() * 100.f);
+            }
+        }
+
+        ImGui::SameLine(0, spacing);
+
+        ImGui::PushStyleColor(ImGuiCol_Button, normalBg);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverBg);
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+
+        if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
+            if (m_Configuration) {
+                std::string exePath =
+                    m_Configuration->m_ProjectFolder + "/" + m_Configuration->m_BuildExecutableName;
+                if (std::filesystem::exists(exePath)) {
+                    std::string cmd = "cd " + m_Configuration->m_ProjectFolder + " && ./" +
+                                      m_Configuration->m_BuildExecutableName + " &";
+                    std::system(cmd.c_str());
+                }
+            }
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::PopStyleVar(2);
         ImGui::EndMenuBar();
     }
 }
