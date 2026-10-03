@@ -9,7 +9,6 @@
 {
   # https://devenv.sh/basics/
   env.GREET = "devenv";
-  env.VCPKG_ROOT = "${pkgs.vcpkg}/share/vcpkg";
   env.LD_LIBRARY_PATH = lib.makeLibraryPath [
     pkgs.libpulseaudio
     pkgs.alsa-lib
@@ -23,7 +22,6 @@
 
   # https://devenv.sh/packages/
   packages = [
-    pkgs.vcpkg
     pkgs.cmake
     pkgs.autoconf
     pkgs.autoconf-archive
