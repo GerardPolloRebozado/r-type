@@ -37,6 +37,7 @@ namespace Editor {
     }
 
     void EditorLayer::Init() {
+        m_Registry->AddResource<HierarchyPanelSelectedEntity>();
         // Set a callback to load custom fonts instead of the default rlImGui font
         rlImGuiSetLoadFontsCallback([]() {
             ImGuiIO &io = ImGui::GetIO();
@@ -107,9 +108,9 @@ namespace Editor {
             }
         }
 
-        if (hierarchy && inspector) {
-            inspector->SetSelectedEntity(hierarchy->GetSelectedEntity());
-        }
+        // if (hierarchy && inspector) {
+        //     inspector->SetSelectedEntity(hierarchy->GetSelectedEntity());
+        // }
 
         // Render all registered panels
         for (auto &panel: m_Panels) {
