@@ -1,8 +1,8 @@
 #include "Serialization/SceneSerializer.hpp"
 #include "EditorConfig.hpp"
+#include "Logging/Logger.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include <fstream>
-#include <iostream>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -47,9 +47,9 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     if (fout.is_open()) {
         fout << sceneJson.dump(4);
         fout.close();
-        std::cout << "Successfully saved scene to " << filepath << std::endl;
+        log_info("Successfully saved scene to " + filepath);
     } else {
-        std::cerr << "Failed to open file for writing: " << filepath << std::endl;
+        log_error("Failed to open file for writing: " + filepath);
     }
 }
 
@@ -57,14 +57,14 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
                                   EditorConfig* config) {
     std::ifstream fin(filepath);
     if (!fin.is_open()) {
-        std::cerr << "Failed to open file for reading: " << filepath << std::endl;
+        log_error("Failed to open file for reading: " + filepath);
         return false;
     }
 
     json sceneJson;
     fin >> sceneJson;
 
-    std::cout << "Loaded scene: " << sceneJson.value("SceneName", "Unknown") << std::endl;
+    log_info("Loaded scene: " + sceneJson.value("SceneName", "Unknown"));
 
     PositionPluginEditor positionEditor;
     if (config && sceneJson.contains("Configuration")) {

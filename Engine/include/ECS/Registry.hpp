@@ -1,11 +1,9 @@
 #ifndef ENGINE_ECS_REGISTRY_HPP_
 #define ENGINE_ECS_REGISTRY_HPP_
-#include <iostream>
-
 #include "Entity.hpp"
+#include "Errors/EcsErrors.hpp"
 #include "System.hpp"
 #include <memory>
-#include <stdexcept>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
@@ -221,8 +219,8 @@ class Registry {
     template <typename T> std::shared_ptr<ComponentArray<T>> GetComponentArray() {
         const std::type_index typeName = typeid(T);
         if (!m_ComponentArrays.contains(typeName)) {
-            throw std::runtime_error("Component not registered before use: " +
-                                     std::string(typeName.name()));
+            throw ErrorEcs("GetComponentArray: component not registered before use: " +
+                           std::string(typeName.name()));
         }
         return std::static_pointer_cast<ComponentArray<T>>(m_ComponentArrays[typeName]);
     }
@@ -260,7 +258,7 @@ class Registry {
      */
     template <typename T> T& GetResource() {
         if (!HasResource<T>()) {
-            throw std::runtime_error("Resource not found in registry.");
+            throw ErrorEcs("GetResource: resource not found in registry.");
         }
         return *std::static_pointer_cast<T>(m_Resources.at(typeid(T)));
     }

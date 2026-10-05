@@ -4,7 +4,6 @@
 #include "Music.hpp"
 #include "Sound.hpp"
 #include "Sprites.hpp"
-#include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -17,19 +16,6 @@ namespace Engine {
  */
 class AssetManager {
   public:
-    class FileNotFoundException : public std::exception {
-        std::string _file;
-
-      public:
-        const char* what() const noexcept override {
-            static std::string msg;
-            msg = "The file: " + _file + " was not found";
-            return msg.c_str();
-        }
-
-        FileNotFoundException(std::string file) : _file(std::move(file)) {}
-    };
-
     AssetManager() = default;
 
     ~AssetManager() {
@@ -64,7 +50,7 @@ class AssetManager {
      * @brief Retrieves a sprite by its alias.
      * @param alias The unique identifier for the sprite.
      * @return Reference to the Sprite object.
-     * @throws std::runtime_error if the sprite alias is not found.
+     * @throws ErrorAsset if the sprite alias is not found.
      */
     Sprite& GetSprite(const std::string& alias);
 
