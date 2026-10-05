@@ -6,13 +6,13 @@
 
 namespace Editor {
 
-void AssetsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* cfg) {
+void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
     if (!ImGui::Begin(m_Name.c_str())) {
         ImGui::End();
         return;
     }
 
-    if (!cfg || cfg->m_ProjectFolder.empty()) {
+    if (cfg.m_ProjectFolder.empty()) {
         ImGui::Text("No project loaded.");
         ImGui::End();
         return;
@@ -21,7 +21,7 @@ void AssetsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* cfg) {
     std::error_code error;
 
     std::filesystem::path projectPath =
-        std::filesystem::weakly_canonical(std::filesystem::path(cfg->m_ProjectFolder), error);
+        std::filesystem::weakly_canonical(std::filesystem::path(cfg.m_ProjectFolder), error);
 
     if (error || !std::filesystem::exists(projectPath) ||
         !std::filesystem::is_directory(projectPath)) {
@@ -148,7 +148,7 @@ void AssetsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* cfg) {
                 } else {
                     ImGui::PushFont(g_IconFont);
                     if (ImGui::Button(ICON_FA_FILE, ImVec2(thumbnailSize, thumbnailSize))) {
-                        cfg->m_SelectedAssetPath = path.string();
+                        cfg.m_SelectedAssetPath = path.string();
                     }
                     ImGui::PopFont();
                 }
@@ -171,4 +171,4 @@ namespace Editor {
 const std::string& AssetsPanel::GetName() const {
     return m_Name;
 }
-}
+} // namespace Editor

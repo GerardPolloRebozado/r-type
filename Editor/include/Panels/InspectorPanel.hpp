@@ -14,10 +14,10 @@ class InspectorPanel : public IEditorPanel {
     InspectorPanel();
     ~InspectorPanel() override = default;
 
-    void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
+    void OnImGuiRender(Engine::Registry& registry, EditorConfig& config) override;
     const std::string& GetName() const override;
 
-    void SetSelectedEntity(Engine::Entity* entity);
+    void SetSelectedEntity(Engine::Entity entity);
 
   private:
     std::string m_Name = "Inspector";

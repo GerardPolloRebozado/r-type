@@ -13,14 +13,14 @@ class SettingsPanel : public IEditorPanel {
     SettingsPanel() = default;
     ~SettingsPanel() override;
 
-    void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
+    void OnImGuiRender(Engine::Registry& registry, EditorConfig& config) override;
     const std::string& GetName() const override;
 
     static std::atomic<float> s_BuildProgress;
     static std::atomic<bool> s_IsBuilding;
     static bool s_IsOpen;
 
-    static void StartBuild(EditorConfig* config, Engine::Registry* registry);
+    static void StartBuild(EditorConfig& config, Engine::Registry& registry);
 
   private:
     std::string m_Name = "Settings";

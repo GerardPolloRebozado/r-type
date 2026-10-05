@@ -16,7 +16,7 @@ class HierarchyPanel : public IEditorPanel {
 
     ~HierarchyPanel() override = default;
 
-    void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
+    void OnImGuiRender(Engine::Registry& registry, EditorConfig& config) override;
 
     const std::string& GetName() const override;
 

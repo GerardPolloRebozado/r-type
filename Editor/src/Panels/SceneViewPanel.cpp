@@ -15,15 +15,15 @@ SceneViewPanel::~SceneViewPanel() {
     m_GameTexture.Unload();
 }
 
-void SceneViewPanel::RenderGame(Engine::Registry& registry, EditorConfig* config) {
+void SceneViewPanel::RenderGame(Engine::Registry& registry, EditorConfig& config) {
 
     if (m_GameTexture.id == 0) {
-        m_GameTexture = raylib::RenderTexture2D(config->windowWidth, config->windowHeight);
+        m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
     }
     bool hasWidthChanged = m_GameTexture.GetTexture().GetSize().x;
     bool hasHeightChanged = m_GameTexture.GetTexture().GetSize().y;
     if (hasWidthChanged || hasHeightChanged) {
-        m_GameTexture = raylib::RenderTexture2D(config->windowWidth, config->windowHeight);
+        m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
     }
     m_GameTexture.BeginMode();
     ClearBackground(BLACK);
@@ -37,7 +37,7 @@ static bool IsPointInRect(const ImVec2& pt, const ImVec2& min, const ImVec2& max
     return pt.x >= min.x && pt.x <= max.x && pt.y >= min.y && pt.y <= max.y;
 }
 
-void SceneViewPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
+void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     if (ImGui::Begin(m_Name.c_str())) {
         ImVec2 viewportMinRegion = ImGui::GetWindowContentRegionMin();
@@ -53,7 +53,8 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
 
         // Draw the Game Texture
         // We calculate aspect ratio to center it
-        float aspect = (float)m_GameTexture.texture.width / (float)m_GameTexture.texture.height;
+        float aspect = static_cast<float>(m_GameTexture.texture.width) /
+                       static_cast<float>(m_GameTexture.texture.height);
         ImVec2 drawSize = viewportSize;
         if (drawSize.x / aspect <= drawSize.y) {
             drawSize.y = drawSize.x / aspect;
@@ -66,19 +67,19 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
         cursor.y += (viewportSize.y - drawSize.y) * 0.5f;
         ImGui::SetCursorPos(cursor);
 
-        rlImGuiImageRect(&m_GameTexture.texture, (int)drawSize.x, (int)drawSize.y,
-                         Rectangle{0, 0, (float)m_GameTexture.texture.width,
-                                   -(float)m_GameTexture.texture.height});
+        rlImGuiImageRect(&m_GameTexture.texture, static_cast<int>(drawSize.x),
+                         static_cast<int>(drawSize.y),
+                         Rectangle{0, 0, static_cast<float>(m_GameTexture.texture.width),
+                                   -static_cast<float>(m_GameTexture.texture.height)});
 
         ImVec2 textureScreenPos = ImGui::GetItemRectMin();
-        float scaleX = drawSize.x / (float)m_GameTexture.texture.width;
-        float scaleY = drawSize.y / (float)m_GameTexture.texture.height;
+        float scaleX = drawSize.x / static_cast<float>(m_GameTexture.texture.width);
+        float scaleY = drawSize.y / static_cast<float>(m_GameTexture.texture.height);
 
-        if (registry && registry->HasResource<HierarchyPanelSelectedEntity>()) {
-            auto& selected = registry->GetResource<HierarchyPanelSelectedEntity>();
-            if (selected.entity != -1 &&
-                registry->HasComponent<Engine::Position>(selected.entity)) {
-                auto& pos = registry->GetComponent<Engine::Position>(selected.entity);
+        if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
+            auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
+            if (selected.entity != -1 && registry.HasComponent<Engine::Position>(selected.entity)) {
+                auto& pos = registry.GetComponent<Engine::Position>(selected.entity);
 
                 // Map game coordinates to screen coordinates inside the Scene view
                 ImVec2 entityScreenPos = ImVec2(textureScreenPos.x + pos.x * scaleX,

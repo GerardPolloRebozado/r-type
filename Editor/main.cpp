@@ -23,8 +23,8 @@ int main() {
     Engine::PositionPlugin positionPlugin;
     positionPlugin.Init(app.GetRegistry());
 
-    editorLayer.SetRegistry(&app.GetRegistry());
-    editorLayer.SetConfiguration(&config);
+    editorLayer.SetRegistry(app.GetRegistry());
+    editorLayer.SetConfiguration(config);
     editorLayer.Init();
 
     app.Run();

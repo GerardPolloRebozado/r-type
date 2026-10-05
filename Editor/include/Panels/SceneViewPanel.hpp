@@ -12,8 +12,8 @@ class SceneViewPanel : public IEditorPanel {
     SceneViewPanel();
     ~SceneViewPanel() override;
 
-    void RenderGame(Engine::Registry& registry, EditorConfig* config);
-    void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
+    void RenderGame(Engine::Registry& registry, EditorConfig& config);
+    void OnImGuiRender(Engine::Registry& registry, EditorConfig& config) override;
     const std::string& GetName() const override;
 
   private:
