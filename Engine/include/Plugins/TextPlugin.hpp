@@ -60,7 +60,7 @@ class TextPlugin : public IPlugin {
      * @param position World position for rendering the text.
      */
     static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt,
-                               float fontSize, const Position position);
+                               float fontSize, const Position& position);
 };
 } // namespace Engine
 #endif // G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP

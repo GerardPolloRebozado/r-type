@@ -18,15 +18,15 @@ const char* TextPluginEditor::GetIcon() const {
     return ICON_FA_FONT;
 }
 
-bool TextPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Registry& registry) {
+bool TextPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) {
     if (!registry.HasComponent<Engine::Text>(entity)) {
         return false;
     }
 
     auto& text = registry.GetComponent<Engine::Text>(entity);
 
-    std::string header = std::string(GetIcon()) + " " + GetName();
-    bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+    const std::string header = std::string(GetIcon()) + " " + GetName();
+    const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 
     bool remove = false;
     if (ImGui::BeginPopupContextItem()) {
@@ -37,12 +37,12 @@ bool TextPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Regist
     }
 
     if (isOpen) {
-        if (ImGui::InputText("Text", &m_Text)) {
-            text.text = m_Text;
-        }
-        float fontSize = 12;
-        if (ImGui::InputFloat("Font Size", &fontSize)) {
-            text.text = m_Text;
+        ImGui::InputText("Text", &text.text);
+        int fontSize = static_cast<int>(text.fontsize);
+        if (ImGui::InputInt("Font Size", &fontSize)) {
+            if (fontSize > 0) {
+                text.fontsize = static_cast<float>(fontSize);
+            }
         }
     }
 
@@ -77,7 +77,7 @@ bool TextPluginEditor::HasComponent(Engine::Entity entity, Engine::Registry& reg
 }
 
 void TextPluginEditor::AddComponent(Engine::Entity entity, Engine::Registry& registry) {
-    Engine::TextPlugin::AttachToEntity(registry, entity, "Hello universe", 12.0f, {0.0, 0.0});
+    Engine::TextPlugin::AttachToEntity(registry, entity, "Hello universe", 12.0f);
 }
 
 void TextPluginEditor::RemoveComponent(Engine::Entity entity, Engine::Registry& registry) {
