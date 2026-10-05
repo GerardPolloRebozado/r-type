@@ -50,7 +50,10 @@ class Sprite {
 
     /**
      * @brief Sets the source rectangle used for drawing a specific part of the texture.
+     * Negative width or height is allowed and flips the sprite on that axis.
      * @param rect The new source rectangle.
+     * @throws std::invalid_argument If width or height is 0, or if the rectangle lies
+     * outside the texture.
      */
     void SetSourceRect(const raylib::Rectangle& rect);
 
@@ -63,6 +66,7 @@ class Sprite {
     /**
      * @brief Sets the scale factor of the sprite.
      * @param scale The new scale vector.
+     * @throws std::invalid_argument If either component is less than or equal to 0.
      */
     void SetScale(const raylib::Vector2& scale);
 

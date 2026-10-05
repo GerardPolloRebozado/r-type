@@ -6,7 +6,8 @@
 namespace Engine {
 /**
  * @struct AudioSource
- * @brief A pure ECS data component for triggering audio playback.
+ * @brief A pure ECS data component for triggering audio playback, when data is modified the audio
+ * will read to use using the Audio system
  */
 struct AudioSource {
     std::string assetId;
