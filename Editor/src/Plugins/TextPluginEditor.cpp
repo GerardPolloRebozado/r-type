@@ -18,7 +18,7 @@ const char* TextPluginEditor::GetIcon() const {
     return ICON_FA_FONT;
 }
 
-bool TextPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Registry& registry) {
+bool TextPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) {
     if (!registry.HasComponent<Engine::Text>(entity)) {
         return false;
     }

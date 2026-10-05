@@ -70,7 +70,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
     cmakeOut << "file(GLOB_RECURSE EDITOR_PLUGINS Editor/src/Plugins/*.cpp)\n"
              << "add_executable(" << exeNameStr << " " << projFolder
-             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp ${EDITOR_PLUGINS})\n"
+             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp"
+             << " Editor/src/Plugins/PositionPluginEditor.cpp "
+                "Editor/src/Plugins/TextPluginEditor.cpp ${EDITOR_PLUGINS})\n"
              << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
              << "target_link_libraries(" << exeNameStr
              << " PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)\n"

@@ -3,6 +3,8 @@
 #include "Logging/Logger.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
+
+#include "Plugins/TextPluginEditor.hpp"
 #include <fstream>
 #include <nlohmann/json.hpp>
 
