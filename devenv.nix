@@ -45,6 +45,8 @@
     pkgs.alsa-lib
     pkgs.xxd
     pkgs.doxygen
+
+    pkgs.lefthook
   ];
 
   # https://devenv.sh/languages/
