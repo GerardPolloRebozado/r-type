@@ -1,39 +1,52 @@
 #include "Panels/InspectorPanel.hpp"
-#include "Core/Application.hpp"
 #include "Plugins/TransformPluginEditor.hpp"
 #include <imgui.h>
 
 #include "Panels/HierarchyPanel.hpp"
 
 namespace Editor {
-    InspectorPanel::InspectorPanel() {
-        m_PluginEditors.push_back(std::make_unique<TransformPluginEditor>());
+InspectorPanel::InspectorPanel() {
+    m_PluginEditors.push_back(std::make_unique<TransformPluginEditor>());
+}
+
+void InspectorPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* config) {
+    auto& selected = registry->GetResource<HierarchyPanelSelectedEntity>();
+    if (ImGui::Begin(m_Name.c_str())) {
+        if (selected.entity != -1 && registry) {
+            ImGui::TextDisabled("Entity %d", static_cast<int>(selected.entity));
+            ImGui::Separator();
+
+            for (auto& editor : m_PluginEditors) {
+                editor->OnImGuiRender(selected.entity, *registry);
+            }
+        } else {
+            ImGui::TextDisabled("No entity selected");
+        }
     }
 
-    void InspectorPanel::OnImGuiRender(Engine::Registry *registry, EditorConfig *config) {
-        auto &selected = registry->GetResource<HierarchyPanelSelectedEntity>();
-        if (ImGui::Begin(m_Name.c_str())) {
-            if (selected.entity != -1 && registry) {
-                ImGui::TextDisabled("Entity %d", static_cast<int>(selected.entity));
-                ImGui::Separator();
-
-                for (auto &editor: m_PluginEditors) {
-                    editor->OnImGuiRender(selected.entity, *registry);
-                }
-            } else {
-                ImGui::TextDisabled("No entity selected");
-            }
-        }
-
-        if (ImGui::BeginPopupContextWindow("InsPectorContextMenu",
-                                           ImGuiPopupFlags_MouseButtonRight |
+    if (ImGui::BeginPopupContextWindow("InspectorContextMenu",
+                                       ImGuiPopupFlags_MouseButtonRight |
                                            ImGuiPopupFlags_NoOpenOverItems)) {
-            if (ImGui::MenuItem("Add component")) {
-                auto &selectedEntity = registry->GetResource<HierarchyPanelSelectedEntity>();
-                registry->AddComponent<Engine::Position>(selectedEntity.entity, Engine::Position(0, 0));
+        if (selected.entity != -1 && registry) {
+            bool anyAvailable = false;
+            for (auto& editor : m_PluginEditors) {
+                if (!editor->HasComponent(selected.entity, *registry)) {
+                    anyAvailable = true;
+                    std::string menuItem =
+                        std::string(editor->GetIcon()) + " Add " + editor->GetName();
+                    if (ImGui::MenuItem(menuItem.c_str())) {
+                        editor->AddComponent(selected.entity, *registry);
+                    }
+                }
             }
-            ImGui::EndPopup();
+            if (!anyAvailable) {
+                ImGui::TextDisabled("All plugins added");
+            }
+        } else {
+            ImGui::TextDisabled("No entity selected");
         }
-        ImGui::End();
+        ImGui::EndPopup();
     }
+    ImGui::End();
+}
 } // namespace Editor
