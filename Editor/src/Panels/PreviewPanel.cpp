@@ -14,8 +14,8 @@ static bool IsImageFile(const std::string& path) {
            ext == ".tga";
 }
 
-void PreviewPanel::OnImGuiRender(Engine::Registry*, EditorConfig* config) {
-    if (config && !config->m_SelectedAssetPath.empty()) {
+void PreviewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
+    if (!config.m_SelectedAssetPath.empty()) {
         m_IsOpen = true;
     }
 
@@ -24,8 +24,8 @@ void PreviewPanel::OnImGuiRender(Engine::Registry*, EditorConfig* config) {
     }
 
     if (ImGui::Begin(m_Name.c_str())) {
-        if (config && !config->m_SelectedAssetPath.empty()) {
-            std::string selectedPath = config->m_SelectedAssetPath;
+        if (!config.m_SelectedAssetPath.empty()) {
+            std::string selectedPath = config.m_SelectedAssetPath;
 
             if (m_CurrentPreviewPath != selectedPath) {
                 m_CurrentPreviewPath = selectedPath;
@@ -59,7 +59,8 @@ void PreviewPanel::OnImGuiRender(Engine::Registry*, EditorConfig* config) {
                 ImGui::Separator();
 
                 ImVec2 avail = ImGui::GetContentRegionAvail();
-                float aspect = (float)m_PreviewTexture.width / (float)m_PreviewTexture.height;
+                float aspect = static_cast<float>(m_PreviewTexture.width) /
+                               static_cast<float>(m_PreviewTexture.height);
                 ImVec2 size;
                 if (avail.x / aspect <= avail.y) {
                     size.x = avail.x;
@@ -74,7 +75,8 @@ void PreviewPanel::OnImGuiRender(Engine::Registry*, EditorConfig* config) {
                 cursor.y += (avail.y - size.y) * 0.5f;
                 ImGui::SetCursorPos(cursor);
 
-                rlImGuiImageSize(&m_PreviewTexture, (int)size.x, (int)size.y);
+                rlImGuiImageSize(&m_PreviewTexture, static_cast<int>(size.x),
+                                 static_cast<int>(size.y));
             } else {
                 ImGui::Text(
                     "Previewing: %s",
@@ -94,4 +96,4 @@ namespace Editor {
 const std::string& PreviewPanel::GetName() const {
     return m_Name;
 }
-}
+} // namespace Editor

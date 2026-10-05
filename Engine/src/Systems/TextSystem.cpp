@@ -11,7 +11,7 @@
 #include "ECS/Registry.hpp"
 
 namespace Engine {
-void TextSystem::Update(Registry& registry, float dt) {
+void TextSystem::Render(Registry& registry) {
     for (const auto& [entity, txt] : *registry.GetComponentArray<Text>()) {
         if (registry.HasComponent<Position>(entity)) {
             const auto& pos = registry.GetComponent<Position>(entity);

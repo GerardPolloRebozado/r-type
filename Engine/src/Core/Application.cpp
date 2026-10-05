@@ -57,19 +57,30 @@ void Application::Update(float dt) {
 }
 
 void Application::PostUpdate(float dt) {
-    BeginDrawing();
-    ClearBackground(DARKGRAY);
+    if (m_Config.customRender) {
+        m_Config.customRender(m_Registry);
 
-    // Run ECS Render Systems
-    for (auto const& pair : m_Registry.GetSystems()) {
-        pair.second->Render(m_Registry);
+        BeginDrawing();
+        ClearBackground(BLACK);
+        if (m_Config.onUI) {
+            m_Config.onUI();
+        }
+        EndDrawing();
+    } else {
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        // Run ECS Render Systems
+        for (auto const& pair : m_Registry.GetSystems()) {
+            pair.second->Render(m_Registry);
+        }
+
+        // Invoke UI Hook (Editor uses this for ImGui)
+        if (m_Config.onUI) {
+            m_Config.onUI();
+        }
+
+        EndDrawing();
     }
-
-    // Invoke UI Hook (Editor uses this for ImGui)
-    if (m_Config.onUI) {
-        m_Config.onUI();
-    }
-
-    EndDrawing();
 }
 } // namespace Engine

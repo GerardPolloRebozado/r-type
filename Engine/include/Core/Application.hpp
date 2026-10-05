@@ -2,6 +2,7 @@
 #define ENGINE_CORE_APPLICATION_HPP_
 #include "ECS/Registry.hpp"
 #include <functional>
+#include <raylib.h>
 #include <string>
 
 namespace Engine {
@@ -16,6 +17,7 @@ struct ApplicationConfig {
     std::string windowTitle = "Game Engine";
     int targetFPS = 60;
     std::function<void()> onUI = nullptr;
+    std::function<void(Registry&)> customRender = nullptr;
 };
 
 /**
@@ -46,10 +48,15 @@ class Application {
         m_IsRunning = false;
     }
 
+    RenderTexture2D& GetGameTexture() {
+        return m_GameTexture;
+    }
+
   private:
     ApplicationConfig m_Config;
     Registry m_Registry;
     bool m_IsRunning;
+    RenderTexture2D m_GameTexture;
 
     void PreUpdate(float dt);
     void Update(float dt);

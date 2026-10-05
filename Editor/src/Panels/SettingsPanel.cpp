@@ -1,11 +1,14 @@
 #include "Panels/SettingsPanel.hpp"
 #include "EditorConfig.hpp"
 #include "Serialization/SceneSerializer.hpp"
+#include <algorithm>
+#include <array>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <imgui.h>
 #include <iostream>
+#include <memory>
 #include <regex>
 
 namespace Editor {
@@ -21,33 +24,36 @@ SettingsPanel::~SettingsPanel() {
     }
 }
 
-void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry) {
+void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry) {
     s_IsBuilding = true;
     s_BuildProgress = 0.0f;
 
     // Serialize current state
-    std::string projFolder = config->m_ProjectFolder;
+    std::string projFolder = config.m_ProjectFolder;
     std::string scenePathStr = projFolder + "/test.scene";
     SceneSerializer serializer;
-    serializer.Serialize(scenePathStr, *registry, config);
+    serializer.Serialize(scenePathStr, registry, &config);
 
-    std::string exeNameStr = config->m_BuildExecutableName;
-    std::string winTitleStr = config->m_BuildWindowTitle;
+    std::string exeNameStr = config.m_BuildExecutableName;
+    std::string winTitleStr = config.m_BuildWindowTitle;
     std::string mainCppPath = projFolder + "/main.cpp";
 
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
             << "#include \"Serialization/SceneSerializer.hpp\"\n"
-            << "#include \"Plugins/TransformPlugin.hpp\"\n\n"
+            << "#include \"Plugins/PositionPlugin.hpp\"\n"
+            << "#include \"Plugins/TextPlugin.hpp\"\n\n"
             << "int main() {\n"
             << "    Engine::ApplicationConfig config;\n"
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
-            << "    config.windowWidth = " << config->windowWidth << ";\n"
-            << "    config.windowHeight = " << config->windowHeight << ";\n"
-            << "    config.targetFPS = " << config->targetFPS << ";\n\n"
+            << "    config.windowWidth = " << config.windowWidth << ";\n"
+            << "    config.windowHeight = " << config.windowHeight << ";\n"
+            << "    config.targetFPS = " << config.targetFPS << ";\n\n"
             << "    Engine::Application app(config);\n"
-            << "    Engine::TransformPlugin transformPlugin;\n"
-            << "    transformPlugin.Init(app.GetRegistry());\n\n"
+            << "    Engine::PositionPlugin positionPlugin;\n"
+            << "    positionPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::TextPlugin textPlugin;\n"
+            << "    textPlugin.Init(app.GetRegistry());\n\n"
             << "    Editor::SceneSerializer serializer;\n"
             << "    serializer.Deserialize(\"test.scene\", app.GetRegistry(), nullptr);\n\n"
             << "    app.Run();\n"
@@ -62,8 +68,9 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
     }
 
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
-    cmakeOut << "add_executable(" << exeNameStr << " " << projFolder
-             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp)\n"
+    cmakeOut << "file(GLOB_RECURSE EDITOR_PLUGINS Editor/src/Plugins/*.cpp)\n"
+             << "add_executable(" << exeNameStr << " " << projFolder
+             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp ${EDITOR_PLUGINS})\n"
              << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
              << "target_link_libraries(" << exeNameStr
              << " PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)\n"
@@ -74,24 +81,29 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
     cmakeOut.close();
 
     std::string cmd = "cmake -B " + rootPath + "/build -S " + rootPath + " && make -C " + rootPath +
-                      "/build " + exeNameStr + " -j$(nproc) 2>&1";
+                      "/build " + exeNameStr + " -j$(nproc) 2>&1; rm -f " + mainCppPath;
 
     if (s_BuildThread.joinable()) {
         s_BuildThread.join();
     }
 
     s_BuildThread = std::thread([cmd]() {
-        FILE* pipe = popen(cmd.c_str(), "r");
+        struct PipeDeleter {
+            void operator()(FILE* p) const {
+                pclose(p);
+            }
+        };
+        std::unique_ptr<FILE, PipeDeleter> pipe(popen(cmd.c_str(), "r"));
         if (!pipe) {
             s_IsBuilding = false;
             return;
         }
 
-        char buffer[256];
+        std::array<char, 256> buffer;
         std::regex progressRegex("\\[\\s*(\\d+)%\\]");
 
-        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-            std::string line(buffer);
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+            std::string line(buffer.data());
             std::smatch match;
             if (std::regex_search(line, match, progressRegex)) {
                 if (match.size() > 1) {
@@ -101,14 +113,13 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
             }
         }
 
-        pclose(pipe);
         s_IsBuilding = false;
         s_BuildProgress = 1.0f;
     });
 }
 
-void SettingsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* config) {
-    if (!s_IsOpen || !config) {
+void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
+    if (!s_IsOpen) {
         return;
     }
 
@@ -116,30 +127,36 @@ void SettingsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* conf
         ImGui::Text("Build Configuration");
         ImGui::Separator();
 
-        static char exeName[256];
-        static char winTitle[256];
+        static std::array<char, 256> exeName;
+        static std::array<char, 256> winTitle;
         static bool initialized = false;
 
         if (!initialized) {
-            strncpy(exeName, config->m_BuildExecutableName.c_str(), sizeof(exeName));
-            strncpy(winTitle, config->m_BuildWindowTitle.c_str(), sizeof(winTitle));
+            exeName.fill('\0');
+            winTitle.fill('\0');
+            std::copy_n(config.m_BuildExecutableName.begin(),
+                        std::min(config.m_BuildExecutableName.size(), exeName.size() - 1),
+                        exeName.begin());
+            std::copy_n(config.m_BuildWindowTitle.begin(),
+                        std::min(config.m_BuildWindowTitle.size(), winTitle.size() - 1),
+                        winTitle.begin());
             initialized = true;
         }
 
-        if (ImGui::InputText("Executable Name", exeName, sizeof(exeName))) {
-            config->m_BuildExecutableName = exeName;
+        if (ImGui::InputText("Executable Name", exeName.data(), exeName.size())) {
+            config.m_BuildExecutableName = exeName.data();
         }
-        if (ImGui::InputText("Window Title", winTitle, sizeof(winTitle))) {
-            config->m_BuildWindowTitle = winTitle;
+        if (ImGui::InputText("Window Title", winTitle.data(), winTitle.size())) {
+            config.m_BuildWindowTitle = winTitle.data();
         }
 
         ImGui::Spacing();
         ImGui::Text("Window Settings");
         ImGui::Separator();
 
-        ImGui::InputInt("Window Width", &config->windowWidth);
-        ImGui::InputInt("Window Height", &config->windowHeight);
-        ImGui::InputInt("Target FPS", &config->targetFPS);
+        ImGui::InputInt("Window Width", &config.windowWidth);
+        ImGui::InputInt("Window Height", &config.windowHeight);
+        ImGui::InputInt("Target FPS", &config.targetFPS);
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -157,4 +174,4 @@ namespace Editor {
 const std::string& SettingsPanel::GetName() const {
     return m_Name;
 }
-}
+} // namespace Editor

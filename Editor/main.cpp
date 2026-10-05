@@ -14,6 +14,9 @@ int main() {
     Editor::EditorLayer editorLayer;
 
     config.onUI = [&editorLayer]() { editorLayer.OnUpdate(); };
+    config.customRender = [&editorLayer](Engine::Registry& registry) {
+        editorLayer.OnRenderGame(registry);
+    };
 
     Engine::Application app(config);
 
@@ -23,8 +26,8 @@ int main() {
     Engine::TextPlugin text_plugin;
     text_plugin.Init(app.GetRegistry());
 
-    editorLayer.SetRegistry(&app.GetRegistry());
-    editorLayer.SetConfiguration(&config);
+    editorLayer.SetRegistry(app.GetRegistry());
+    editorLayer.SetConfiguration(config);
     editorLayer.Init();
 
     app.Run();

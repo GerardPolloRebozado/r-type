@@ -99,3 +99,5 @@ Documentation/doxygen_output/
 
 #Other
 *.png
+
+*.scene

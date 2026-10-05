@@ -16,7 +16,6 @@
 #include <imgui_internal.h>
 #include <rlImGui.h>
 
-#include "Assets/AssetManager.hpp"
 #include "BundledAssets.hpp"
 
 namespace Editor {
@@ -111,7 +110,9 @@ void EditorLayer::OnUpdate() {
 
     // Render all registered panels
     for (auto& panel : m_Panels) {
-        panel->OnImGuiRender(m_Registry, m_Configuration);
+        if (m_Registry && m_Configuration) {
+            panel->OnImGuiRender(*m_Registry, *m_Configuration);
+        }
     }
 
     EndDockSpace();
@@ -229,7 +230,9 @@ void EditorLayer::BeginDockSpace() {
 
         if (ImGui::Button(ICON_FA_HAMMER, ImVec2(button_size, 0))) {
             if (!isBuilding) {
-                SettingsPanel::StartBuild(m_Configuration, m_Registry);
+                if (m_Configuration && m_Registry) {
+                    SettingsPanel::StartBuild(*m_Configuration, *m_Registry);
+                }
             }
         }
         ImGui::PopStyleColor(3);
@@ -270,11 +273,22 @@ void EditorLayer::EndDockSpace() {
 } // namespace Editor
 
 namespace Editor {
-void EditorLayer::SetRegistry(Engine::Registry* registry) {
-    m_Registry = registry;
+void EditorLayer::SetRegistry(Engine::Registry& registry) {
+    m_Registry = &registry;
 }
 
-void EditorLayer::SetConfiguration(EditorConfig* config) {
-    m_Configuration = config;
+void EditorLayer::SetConfiguration(EditorConfig& config) {
+    m_Configuration = &config;
 }
+
+void EditorLayer::OnRenderGame(Engine::Registry& registry) {
+    for (auto& panel : m_Panels) {
+        if (auto sceneView = dynamic_cast<SceneViewPanel*>(panel.get())) {
+            if (m_Configuration) {
+                sceneView->RenderGame(registry, *m_Configuration);
+            }
+            break;
+        }
+    }
 }
+} // namespace Editor

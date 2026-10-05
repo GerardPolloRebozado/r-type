@@ -11,7 +11,7 @@ class ConsolePanel : public IEditorPanel {
     ConsolePanel() = default;
     ~ConsolePanel() override = default;
 
-    void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
+    void OnImGuiRender(Engine::Registry& registry, EditorConfig& config) override;
     const std::string& GetName() const override;
 
   private:

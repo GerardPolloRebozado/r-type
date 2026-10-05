@@ -19,7 +19,7 @@ const char* TextPluginEditor::GetIcon() const {
 }
 
 bool TextPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Registry& registry) {
-    if (!registry.HasComponent<Engine::Position>(entity)) {
+    if (!registry.HasComponent<Engine::Text>(entity)) {
         return false;
     }
 
@@ -56,7 +56,7 @@ bool TextPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Regist
 
 void TextPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& registry,
                                  nlohmann::json& outEntityJson) {
-    if (registry.HasComponent<Engine::Position>(entity)) {
+    if (registry.HasComponent<Engine::Text>(entity)) {
         auto& text = registry.GetComponent<Engine::Text>(entity);
         outEntityJson["TextComponent"] = {{"text", text.text}, {"fontSize", text.fontsize}};
     }
@@ -65,7 +65,7 @@ void TextPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& regist
 void TextPluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& registry,
                                    const nlohmann::json& inEntityJson) {
     if (inEntityJson.contains("TextComponent")) {
-        const auto& textJson = inEntityJson["PositionComponent"];
+        const auto& textJson = inEntityJson["TextComponent"];
         const std::string text = textJson.value("text", "");
         const float fontSize = textJson.value("fontSize", 12.0f);
         Engine::TextPlugin::AttachToEntity(registry, entity, text, fontSize);

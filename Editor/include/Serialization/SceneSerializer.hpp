@@ -23,10 +23,8 @@ class SceneSerializer {
   public:
     SceneSerializer() = default;
 
-    void Serialize(const std::string& filepath, Engine::Registry& registry,
-                   EditorConfig* config = nullptr);
-    bool Deserialize(const std::string& filepath, Engine::Registry& registry,
-                     EditorConfig* config = nullptr);
+    void Serialize(const std::string& filepath, Engine::Registry& registry, EditorConfig* config);
+    bool Deserialize(const std::string& filepath, Engine::Registry& registry, EditorConfig* config);
 };
 
 } // namespace Editor
