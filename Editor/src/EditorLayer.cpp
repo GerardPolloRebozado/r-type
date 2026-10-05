@@ -16,7 +16,6 @@
 #include <imgui_internal.h>
 #include <rlImGui.h>
 
-#include "Assets/AssetManager.hpp"
 #include "BundledAssets.hpp"
 
 namespace Editor {
@@ -281,7 +280,7 @@ void EditorLayer::SetConfiguration(EditorConfig* config) {
 void EditorLayer::OnRenderGame(Engine::Registry& registry) {
     for (auto& panel : m_Panels) {
         if (auto sceneView = dynamic_cast<SceneViewPanel*>(panel.get())) {
-            sceneView->RenderGame(registry);
+            sceneView->RenderGame(registry, m_Configuration);
             break;
         }
     }

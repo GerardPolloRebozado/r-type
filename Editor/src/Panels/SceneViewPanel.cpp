@@ -1,8 +1,7 @@
 #include "Panels/SceneViewPanel.hpp"
 #include "Components/Position.hpp"
-#include "Core/Application.hpp"
+#include "EditorConfig.hpp"
 #include "Panels/HierarchyPanel.hpp"
-#include <cmath>
 #include <imgui.h>
 #include <rlImGui.h>
 
@@ -16,9 +15,15 @@ SceneViewPanel::~SceneViewPanel() {
     m_GameTexture.Unload();
 }
 
-void SceneViewPanel::RenderGame(Engine::Registry& registry) {
+void SceneViewPanel::RenderGame(Engine::Registry& registry, EditorConfig* config) {
+
     if (m_GameTexture.id == 0) {
-        m_GameTexture = raylib::RenderTexture2D(1280, 720);
+        m_GameTexture = raylib::RenderTexture2D(config->windowWidth, config->windowHeight);
+    }
+    bool hasWidthChanged = m_GameTexture.GetTexture().GetSize().x;
+    bool hasHeightChanged = m_GameTexture.GetTexture().GetSize().y;
+    if (hasWidthChanged || hasHeightChanged) {
+        m_GameTexture = raylib::RenderTexture2D(config->windowWidth, config->windowHeight);
     }
     m_GameTexture.BeginMode();
     ClearBackground(BLACK);
