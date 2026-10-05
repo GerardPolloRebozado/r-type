@@ -12,3 +12,9 @@ void ConsolePanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
 }
 
 } // namespace Editor
+
+namespace Editor {
+const std::string& ConsolePanel::GetName() const {
+    return m_Name;
+}
+}

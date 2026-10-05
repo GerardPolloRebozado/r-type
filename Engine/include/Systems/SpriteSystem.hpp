@@ -11,7 +11,7 @@ class Registry;
  * @brief System that draws SpriteComponent based on Position.
  */
 class SpriteSystem : public System {
-public:
+  public:
     /**
      * @brief Renders all entities that have both a Position and a SpriteComponent,
      *        at Position plus the sprite's offset.

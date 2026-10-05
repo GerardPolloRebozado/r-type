@@ -89,3 +89,9 @@ void PreviewPanel::OnImGuiRender(Engine::Registry*, EditorConfig* config) {
 }
 
 } // namespace Editor
+
+namespace Editor {
+const std::string& PreviewPanel::GetName() const {
+    return m_Name;
+}
+}

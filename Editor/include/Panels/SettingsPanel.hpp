@@ -14,9 +14,7 @@ class SettingsPanel : public IEditorPanel {
     ~SettingsPanel() override;
 
     void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
-    const std::string& GetName() const override {
-        return m_Name;
-    }
+    const std::string& GetName() const override;
 
     static std::atomic<float> s_BuildProgress;
     static std::atomic<bool> s_IsBuilding;

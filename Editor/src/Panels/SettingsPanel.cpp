@@ -152,3 +152,9 @@ void SettingsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* conf
 }
 
 } // namespace Editor
+
+namespace Editor {
+const std::string& SettingsPanel::GetName() const {
+    return m_Name;
+}
+}

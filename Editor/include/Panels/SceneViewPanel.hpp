@@ -12,9 +12,7 @@ class SceneViewPanel : public IEditorPanel {
     ~SceneViewPanel() override = default;
 
     void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
-    const std::string& GetName() const override {
-        return m_Name;
-    }
+    const std::string& GetName() const override;
 
   private:
     std::string m_Name = "Scene";

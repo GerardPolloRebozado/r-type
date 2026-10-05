@@ -25,13 +25,9 @@ class EditorLayer {
     // Register a new panel to the editor
     void AddPanel(std::unique_ptr<IEditorPanel> panel);
 
-    void SetRegistry(Engine::Registry* registry) {
-        m_Registry = registry;
-    }
+    void SetRegistry(Engine::Registry* registry);
 
-    void SetConfiguration(EditorConfig* config) {
-        m_Configuration = config;
-    }
+    void SetConfiguration(EditorConfig* config);
 
   private:
     void BeginDockSpace();

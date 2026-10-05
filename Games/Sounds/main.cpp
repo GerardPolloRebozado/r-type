@@ -1,7 +1,7 @@
-#include "Core/Application.hpp"
-#include <iostream>
-#include "Plugins/AudioPlugin.hpp"
 #include "BundledAssets.hpp"
+#include "Core/Application.hpp"
+#include "Plugins/AudioPlugin.hpp"
+#include <iostream>
 
 int main() {
     std::cout << "======================================\n";
@@ -18,8 +18,7 @@ int main() {
     Engine::AudioPlugin audioPlugin;
     audioPlugin.Init(app.GetRegistry());
 
-
-    auto &assets = app.GetRegistry().GetResource<Engine::AssetManager>();
+    auto& assets = app.GetRegistry().GetResource<Engine::AssetManager>();
     BundledAssets::RegisterAssets(assets);
 
     if (assets.GetAllMusic().contains("music.mp3")) {

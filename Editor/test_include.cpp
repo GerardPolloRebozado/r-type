@@ -1,3 +1,3 @@
-#include "extras/IconsFontAwesome6.h"
 #include "extras/FA6FreeSolidFontData.h"
+#include "extras/IconsFontAwesome6.h"
 int main() {}

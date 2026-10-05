@@ -13,17 +13,13 @@ namespace Engine {
  * @brief Plugin that bundles the SpriteComponent and SpriteSystem.
  */
 class SpritePlugin : public IPlugin {
-public:
+  public:
     /**
      * @brief Initializes the SpritePlugin by registering the SpriteComponent and SpriteSystem.
      * Also registers Position, which SpriteSystem needs to place sprites.
      * @param registry The ECS registry where components and systems are registered.
      */
-    void Init(Registry& registry) override {
-        registry.RegisterComponent<Position>();
-        registry.RegisterComponent<SpriteComponent>();
-        registry.RegisterSystem<SpriteSystem>();
-    }
+    void Init(Registry& registry) override;
 
     /**
      * @brief Attaches a SpriteComponent to an entity and ensures it has a Position.
@@ -32,10 +28,7 @@ public:
      * @param entity The entity to attach the sprite to.
      * @param sprite The sprite component to attach.
      */
-    static void AttachToEntity(Registry& registry, Entity entity, const SpriteComponent& sprite) {
-        registry.AddComponent(entity, sprite);
-        registry.AddComponent(entity, Position{});
-    }
+    static void AttachToEntity(Registry& registry, Entity entity, const SpriteComponent& sprite);
 };
 } // namespace Engine
 

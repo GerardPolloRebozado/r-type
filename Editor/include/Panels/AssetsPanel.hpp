@@ -13,9 +13,7 @@ class AssetsPanel : public IEditorPanel {
     ~AssetsPanel() override = default;
 
     void OnImGuiRender(Engine::Registry* registry, EditorConfig* config) override;
-    const std::string& GetName() const override {
-        return m_Name;
-    }
+    const std::string& GetName() const override;
 
   private:
     std::string m_Name = "Assets";
