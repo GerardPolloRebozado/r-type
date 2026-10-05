@@ -6,8 +6,8 @@
 */
 #include "../../include/Systems/TextSystem.hpp"
 
-#include "Components/Position.hpp"
 #include "Components/Text.hpp"
+#include "Components/Position.hpp"
 #include "ECS/Registry.hpp"
 
 namespace Engine {

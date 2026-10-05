@@ -7,6 +7,7 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_TEXTSYSTEM_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_TEXTSYSTEM_HPP
 #include "ECS/System.hpp"
+#include "Components/Position.hpp"
 
 namespace Engine {
     class TextSystem : public System {

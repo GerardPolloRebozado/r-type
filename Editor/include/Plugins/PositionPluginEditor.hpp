@@ -1,5 +1,5 @@
-#ifndef EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
-#define EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
+#ifndef EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
+#define EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
 
 #include "Components/Position.hpp"
 #include "PluginEditor.hpp"
@@ -10,14 +10,14 @@
 namespace Editor {
 
 /**
- * @class TransformPluginEditor
+ * @class PositionPluginEditor
  * @brief Editor plugin for managing and visualizing the Position component.
  *
  * This class provides the UI logic to display, edit, add, and remove
  * the Position component within the Editor's Inspector Panel.
  * It also handles JSON serialization and deserialization for the component.
  */
-class TransformPluginEditor : public IPluginEditor {
+class PositionPluginEditor : public IPluginEditor {
   public:
     /**
      * @brief Gets the display name of the plugin.
@@ -81,4 +81,4 @@ class TransformPluginEditor : public IPluginEditor {
 };
 
 } // namespace Editor
-#endif // EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
+#endif // EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_

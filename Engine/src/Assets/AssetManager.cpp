@@ -44,8 +44,37 @@ namespace Engine {
         }
     }
 
+    void AssetManager::LoadSprite(const std::string &alias, const std::string &filePath) {
+        if (m_Sprites.contains(alias)) {
+            return;
+        }
+
+        try {
+            m_Sprites[alias] = std::make_unique<Sprite>(filePath);
+        } catch (...) {
+            throw FileNotFoundException(filePath);
+        }
+    }
+
+    Sprite &AssetManager::GetSprite(const std::string &alias) {
+        const auto it = m_Sprites.find(alias);
+        if (it == m_Sprites.end()) {
+            throw std::runtime_error("Sprite not found: " + alias);
+        }
+        return *it->second;
+    }
+
+    void AssetManager::UnloadSprite(const std::string &alias) {
+        const auto it = m_Sprites.find(alias);
+        if (it != m_Sprites.end()) {
+            m_Sprites.erase(it);
+            std::cout << "[AssetManager] Unloaded sprite: " << alias << "\n";
+        }
+    }
+
     void AssetManager::ClearAll() {
         m_Sounds.clear();
+        m_Sprites.clear();
         m_Musics.clear();
         std::cout << "[AssetManager] Cleared all assets.\n";
     }

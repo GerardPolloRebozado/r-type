@@ -14,7 +14,7 @@ struct Position {
     float prevX;
     float prevY;
 
-    /** @brief True when (x, y) differs from (prevX, prevY); updated by @ref TransformSystem. */
+    /** @brief True when (x, y) differs from (prevX, prevY); updated by @ref PositionSystem. */
     bool moved;
 
     /**

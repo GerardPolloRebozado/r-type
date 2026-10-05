@@ -1,12 +1,14 @@
 #include "Panels/InspectorPanel.hpp"
-#include "Plugins/TransformPluginEditor.hpp"
+#include "Core/Application.hpp"
+#include "Plugins/PositionPluginEditor.hpp"
+#include <cstring>
 #include <imgui.h>
 
 #include "Panels/HierarchyPanel.hpp"
 
 namespace Editor {
 InspectorPanel::InspectorPanel() {
-    m_PluginEditors.push_back(std::make_unique<TransformPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* config) {

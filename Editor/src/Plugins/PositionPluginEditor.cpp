@@ -1,19 +1,19 @@
-#include "Plugins/TransformPluginEditor.hpp"
+#include "Plugins/PositionPluginEditor.hpp"
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 #include <string>
 
 namespace Editor {
 
-const char* TransformPluginEditor::GetName() const {
+const char* PositionPluginEditor::GetName() const {
     return "Position";
 }
 
-const char* TransformPluginEditor::GetIcon() const {
+const char* PositionPluginEditor::GetIcon() const {
     return ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT;
 }
 
-bool TransformPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) {
+bool PositionPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) {
     if (!registry.HasComponent<Engine::Position>(entity)) {
         return false;
     }
@@ -47,7 +47,7 @@ bool TransformPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
     return true;
 }
 
-void TransformPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& registry,
+void PositionPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& registry,
                                       nlohmann::json& outEntityJson) {
     if (registry.HasComponent<Engine::Position>(entity)) {
         auto& position = registry.GetComponent<Engine::Position>(entity);
@@ -55,7 +55,7 @@ void TransformPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& r
     }
 }
 
-void TransformPluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& registry,
+void PositionPluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& registry,
                                         const nlohmann::json& inEntityJson) {
     if (inEntityJson.contains("PositionComponent")) {
         auto positionJson = inEntityJson["PositionComponent"];
@@ -70,15 +70,15 @@ void TransformPluginEditor::Deserialize(Engine::Entity entity, Engine::Registry&
     }
 }
 
-bool TransformPluginEditor::HasComponent(Engine::Entity entity, Engine::Registry& registry) {
+bool PositionPluginEditor::HasComponent(Engine::Entity entity, Engine::Registry& registry) {
     return registry.HasComponent<Engine::Position>(entity);
 }
 
-void TransformPluginEditor::AddComponent(Engine::Entity entity, Engine::Registry& registry) {
+void PositionPluginEditor::AddComponent(Engine::Entity entity, Engine::Registry& registry) {
     registry.AddComponent<Engine::Position>(entity, Engine::Position(0, 0));
 }
 
-void TransformPluginEditor::RemoveComponent(Engine::Entity entity, Engine::Registry& registry) {
+void PositionPluginEditor::RemoveComponent(Engine::Entity entity, Engine::Registry& registry) {
     registry.RemoveComponent<Engine::Position>(entity);
 }
 

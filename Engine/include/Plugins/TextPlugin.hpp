@@ -7,9 +7,9 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP
 #include "IPlugin.hpp"
-#include "Components/Position.hpp"
 #include "Components/Text.hpp"
 #include "Systems/TextSystem.hpp"
+#include "Components/Position.hpp"
 
 namespace Engine {
     class TextPlugin : public IPlugin {
@@ -22,6 +22,7 @@ namespace Engine {
         static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt) {
             registry.AddComponent(entity, Text{txt, 10.0f, WHITE});
             registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
+            registry.AddComponent(entity, Position{});
             registry.AddComponent(entity, Position{});
         }
 
