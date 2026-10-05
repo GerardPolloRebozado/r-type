@@ -1,11 +1,11 @@
 #include "Core/Application.hpp"
+#include "Logging/Logger.hpp"
 #include <chrono>
-#include <iostream>
 #include <raylib.h>
 
 namespace Engine {
 Application::Application(const ApplicationConfig& config) : m_Config(config), m_IsRunning(false) {
-    std::cout << "[Engine] Initializing Application window: " << m_Config.windowTitle << "\n";
+    log_info("[Engine] Initializing Application window: " + m_Config.windowTitle);
 
     unsigned int maximizedFlag = config.maximized ? FLAG_WINDOW_MAXIMIZED : 0;
 
@@ -16,7 +16,7 @@ Application::Application(const ApplicationConfig& config) : m_Config(config), m_
 }
 
 Application::~Application() {
-    std::cout << "[Engine] Shutting down Application...\n";
+    log_info("[Engine] Shutting down Application...");
     CloseWindow();
 }
 
@@ -27,7 +27,7 @@ void Application::Run() {
     double lag = 0.0;
     const double MS_PER_UPDATE = 1.0 / m_Config.targetFPS;
 
-    std::cout << "[Engine] Entering main game loop.\n";
+    log_info("[Engine] Entering main game loop.");
 
     while (m_IsRunning && !WindowShouldClose()) {
         auto currentTime = std::chrono::high_resolution_clock::now();
