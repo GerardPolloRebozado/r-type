@@ -3,6 +3,8 @@
 #include <iostream>
 #include <raylib.h>
 
+#include "Plugins/TagPlugin.hpp"
+
 namespace Engine {
     Application::Application(const ApplicationConfig &config) : m_Config(config), m_IsRunning(false) {
         std::cout << "[Engine] Initializing Application window: " << m_Config.windowTitle << "\n";
@@ -13,6 +15,8 @@ namespace Engine {
 
         InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
         SetTargetFPS(m_Config.targetFPS);
+
+        TagPlugin{}.Init(m_Registry);
     }
 
     Application::~Application() {
