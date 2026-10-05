@@ -38,7 +38,7 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
             << "#include \"Serialization/SceneSerializer.hpp\"\n"
-            << "#include \"Plugins/TransformPlugin.hpp\"\n\n"
+            << "#include \"Plugins/PositionPlugin.hpp\"\n\n"
             << "int main() {\n"
             << "    Engine::ApplicationConfig config;\n"
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
@@ -46,8 +46,8 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
             << "    config.windowHeight = " << config->windowHeight << ";\n"
             << "    config.targetFPS = " << config->targetFPS << ";\n\n"
             << "    Engine::Application app(config);\n"
-            << "    Engine::TransformPlugin transformPlugin;\n"
-            << "    transformPlugin.Init(app.GetRegistry());\n\n"
+            << "    Engine::PositionPlugin positionPlugin;\n"
+            << "    positionPlugin.Init(app.GetRegistry());\n\n"
             << "    Editor::SceneSerializer serializer;\n"
             << "    serializer.Deserialize(\"test.scene\", app.GetRegistry(), nullptr);\n\n"
             << "    app.Run();\n"
@@ -62,8 +62,9 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
     }
 
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
-    cmakeOut << "add_executable(" << exeNameStr << " " << projFolder
-             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp)\n"
+    cmakeOut << "file(GLOB_RECURSE EDITOR_PLUGINS Editor/src/Plugins/*.cpp)\n"
+             << "add_executable(" << exeNameStr << " " << projFolder
+             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp ${EDITOR_PLUGINS})\n"
              << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
              << "target_link_libraries(" << exeNameStr
              << " PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)\n"
@@ -157,4 +158,4 @@ namespace Editor {
 const std::string& SettingsPanel::GetName() const {
     return m_Name;
 }
-}
+} // namespace Editor

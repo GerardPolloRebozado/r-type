@@ -13,6 +13,9 @@ int main() {
     Editor::EditorLayer editorLayer;
 
     config.onUI = [&editorLayer]() { editorLayer.OnUpdate(); };
+    config.customRender = [&editorLayer](Engine::Registry& registry) {
+        editorLayer.OnRenderGame(registry);
+    };
 
     Engine::Application app(config);
 

@@ -277,4 +277,13 @@ void EditorLayer::SetRegistry(Engine::Registry* registry) {
 void EditorLayer::SetConfiguration(EditorConfig* config) {
     m_Configuration = config;
 }
+
+void EditorLayer::OnRenderGame(Engine::Registry& registry) {
+    for (auto& panel : m_Panels) {
+        if (auto sceneView = dynamic_cast<SceneViewPanel*>(panel.get())) {
+            sceneView->RenderGame(registry);
+            break;
+        }
+    }
 }
+} // namespace Editor
