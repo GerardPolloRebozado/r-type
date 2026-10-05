@@ -30,7 +30,8 @@ int main() {
     // Use ASSETS_PATH macro defined in CMake to always find the absolute path
     // regardless of where the executable is run from.
     try {
-        app.GetRegistry().AddComponent(myEntity, Engine::SpriteComponent{ASSETS_PATH "sprite.png"});
+        Engine::SpritePlugin::AttachToEntity(app.GetRegistry(), myEntity,
+                                             Engine::SpriteComponent{ASSETS_PATH "sprite.png"});
         std::cout << "Added SpriteComponent.\n";
     } catch (...) {
         std::cout << "Could not initialize SpriteComponent. Missing texture?\n";
