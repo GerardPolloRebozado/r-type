@@ -1,5 +1,5 @@
-#ifndef EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
-#define EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
+#ifndef EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
+#define EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
 
 #include "Components/Position.hpp"
 #include "PluginEditor.hpp"
@@ -9,7 +9,7 @@
 
 namespace Editor {
 
-class TransformPluginEditor : public IPluginEditor {
+class PositionPluginEditor : public IPluginEditor {
   public:
     const char* GetName() const override {
         return "Position";
@@ -63,4 +63,4 @@ class TransformPluginEditor : public IPluginEditor {
 };
 
 } // namespace Editor
-#endif // EDITOR_PLUGINS_TRANSFORMPLUGINEDITOR_HPP_
+#endif // EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_

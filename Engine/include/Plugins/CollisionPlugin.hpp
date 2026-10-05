@@ -14,7 +14,7 @@ namespace Engine {
  * @brief Bundles collider data, collision events, and @ref CollisionSystem.
  *
  * Does not register @ref Position; entities need a position (e.g. via
- * @ref TransformPlugin) for world-space overlap tests.
+ * @ref PositionPlugin) for world-space overlap tests.
  */
 class CollisionPlugin : public IPlugin {
   public:

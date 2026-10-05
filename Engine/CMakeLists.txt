@@ -14,8 +14,10 @@ set(SRC_FILES
         src/Assets/AssetManager.cpp
         src/Core/Application.cpp
         src/Systems/SystemExample.cpp
-        src/Systems/TransformSystem.cpp
         src/Systems/TextSystem.cpp
+        src/Systems/PositionSystem.cpp
+        src/Systems/SpriteSystem.cpp
+        src/Assets/Sprite.cpp
 )
 
 set(INC_FILES
@@ -39,10 +41,10 @@ set(INC_FILES
         include/Systems/StatesSystem.hpp
         include/Systems/SystemExample.hpp
         include/Systems/TextSystem.hpp
+        include/Assets/Sprites.hpp
 )
 
 add_library(Engine STATIC ${SRC_FILES})
-target_sources(Engine PUBLIC FILE_SET HEADERS BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include FILES ${INC_FILES})
 target_link_libraries(Engine PUBLIC EngineHeaders)
 
 find_package(PkgConfig REQUIRED)

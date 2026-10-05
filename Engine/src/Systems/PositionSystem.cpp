@@ -1,8 +1,8 @@
-#include "Systems/TransformSystem.hpp"
+#include "Systems/PositionSystem.hpp"
 #include "Components/Position.hpp"
 
 namespace Engine {
-void TransformSystem::Update(Registry& registry, float dt) {
+void PositionSystem::Update(Registry& registry, float dt) {
     (void)dt;
 
     for (Entity const entity : m_Entities) {
