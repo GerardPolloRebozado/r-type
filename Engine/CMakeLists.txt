@@ -16,6 +16,10 @@ file(GLOB_RECURSE INC_FILES "include/*.hpp")
 add_library(Engine STATIC ${SRC_FILES})
 target_link_libraries(Engine PUBLIC EngineHeaders)
 
+set(ENGINE_LOG_LEVEL "ENGINE_LOG_INFO" CACHE STRING
+    "Minimum Engine log level (ENGINE_LOG_ERROR, ENGINE_LOG_DEBUG, ENGINE_LOG_INFO)")
+target_compile_definitions(Engine PUBLIC ENGINE_LOG_LEVEL=${ENGINE_LOG_LEVEL})
+
 find_package(PkgConfig REQUIRED)
 set(RAYLIB_CPP_INCLUDE_DIRS ${raylib-cpp_SOURCE_DIR}/include)
 target_include_directories(Engine PUBLIC

@@ -26,7 +26,6 @@ void TextPlugin::AttachToEntity(Registry& registry, const Entity entity, const s
 void TextPlugin::AttachToEntity(Registry& registry, const Entity entity, const std::string& txt,
                                 float fontSize, const Position position) {
     registry.AddComponent(entity, Text{txt, fontSize, WHITE});
-    registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
     registry.AddComponent(entity, position);
 }
 } // namespace Engine

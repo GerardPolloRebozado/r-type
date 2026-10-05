@@ -3,6 +3,8 @@
 //
 
 #include "Assets/Sprites.hpp"
+#include "Errors/AssetErrors.hpp"
+#include <cmath>
 
 namespace Engine {
 Sprite::Sprite(const std::string& path) : _texture(path) {
@@ -28,6 +30,13 @@ const raylib::Rectangle& Sprite::GetSourceRect() const {
 }
 
 void Sprite::SetSourceRect(const raylib::Rectangle& rect) {
+    if (rect.width == 0.0f || rect.height == 0.0f)
+        throw ErrorAsset("Sprite::SetSourceRect: width and height must be non-zero");
+    float texWidth = static_cast<float>(_texture.GetWidth());
+    float texHeight = static_cast<float>(_texture.GetHeight());
+    if (rect.x < 0.0f || rect.y < 0.0f || rect.x + std::fabs(rect.width) > texWidth ||
+        rect.y + std::fabs(rect.height) > texHeight)
+        throw ErrorAsset("Sprite::SetSourceRect: rectangle is outside the texture");
     _sourceRect = rect;
 }
 
@@ -36,6 +45,8 @@ const raylib::Vector2& Sprite::GetScale() const {
 }
 
 void Sprite::SetScale(const raylib::Vector2& scale) {
+    if (!(scale.x > 0.0f) || !(scale.y > 0.0f))
+        throw ErrorAsset("Sprite::SetScale: scale components must be greater than 0");
     _scale = scale;
 }
 

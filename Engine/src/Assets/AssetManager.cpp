@@ -1,5 +1,6 @@
 #include "Assets/AssetManager.hpp"
-#include <iostream>
+#include "Errors/AssetErrors.hpp"
+#include "Logging/Logger.hpp"
 #include <raylib-cpp.hpp>
 
 namespace Engine {
@@ -11,7 +12,7 @@ void AssetManager::LoadSound(const std::string& alias, const std::string& filePa
     try {
         m_Sounds[alias] = std::make_unique<Sound>(filePath, isLoop);
     } catch (...) {
-        throw FileNotFoundException(filePath);
+        throw ErrorAsset("The file: " + filePath + " was not found");
     }
 }
 
@@ -24,14 +25,14 @@ void AssetManager::LoadSoundFromMemory(const std::string& alias, const char* fil
     try {
         m_Sounds[alias] = std::make_unique<Sound>(fileType, data, dataSize, isLoop);
     } catch (...) {
-        throw std::runtime_error("Failed to load sound from memory: " + alias);
+        throw ErrorAsset("Failed to load sound from memory: " + alias);
     }
 }
 
 Sound& AssetManager::GetSound(const std::string& alias) {
     const auto it = m_Sounds.find(alias);
     if (it == m_Sounds.end()) {
-        throw std::runtime_error("Sound not found: " + alias);
+        throw ErrorAsset("Sound not found: " + alias);
     }
     return *it->second;
 }
@@ -40,7 +41,7 @@ void AssetManager::UnloadSound(const std::string& alias) {
     const auto it = m_Sounds.find(alias);
     if (it != m_Sounds.end()) {
         m_Sounds.erase(it);
-        std::cout << "[AssetManager] Unloaded sound: " << alias << "\n";
+        log_info("[AssetManager] Unloaded sound: " + alias);
     }
 }
 
@@ -52,14 +53,14 @@ void AssetManager::LoadSprite(const std::string& alias, const std::string& fileP
     try {
         m_Sprites[alias] = std::make_unique<Sprite>(filePath);
     } catch (...) {
-        throw FileNotFoundException(filePath);
+        throw ErrorAsset("The file: " + filePath + " was not found");
     }
 }
 
 Sprite& AssetManager::GetSprite(const std::string& alias) {
     const auto it = m_Sprites.find(alias);
     if (it == m_Sprites.end()) {
-        throw std::runtime_error("Sprite not found: " + alias);
+        throw ErrorAsset("Sprite not found: " + alias);
     }
     return *it->second;
 }
@@ -68,7 +69,7 @@ void AssetManager::UnloadSprite(const std::string& alias) {
     const auto it = m_Sprites.find(alias);
     if (it != m_Sprites.end()) {
         m_Sprites.erase(it);
-        std::cout << "[AssetManager] Unloaded sprite: " << alias << "\n";
+        log_info("[AssetManager] Unloaded sprite: " + alias);
     }
 }
 
@@ -76,7 +77,7 @@ void AssetManager::ClearAll() {
     m_Sounds.clear();
     m_Sprites.clear();
     m_Musics.clear();
-    std::cout << "[AssetManager] Cleared all assets.\n";
+    log_info("[AssetManager] Cleared all assets.");
 }
 
 void AssetManager::LoadFontFromMemory(const std::string& alias, const std::string& fileType,
@@ -92,7 +93,7 @@ void AssetManager::LoadFontFromMemory(const std::string& alias, const std::strin
 raylib::Font& AssetManager::GetFont(const std::string& alias) {
     const auto it = m_Fonts.find(alias);
     if (it == m_Fonts.end()) {
-        throw std::runtime_error("Sound not found: " + alias);
+        throw ErrorAsset("Font not found: " + alias);
     }
     return *it->second;
 }
@@ -117,7 +118,7 @@ void AssetManager::LoadMusicFromMemory(const std::string& alias, const char* fil
 Music& AssetManager::GetMusic(const std::string& alias) {
     const auto it = m_Musics.find(alias);
     if (it == m_Musics.end()) {
-        throw std::runtime_error("Music not found: " + alias);
+        throw ErrorAsset("Music not found: " + alias);
     }
     return *it->second;
 }
@@ -126,7 +127,7 @@ void AssetManager::UnloadMusic(const std::string& alias) {
     const auto it = m_Musics.find(alias);
     if (it != m_Musics.end()) {
         m_Musics.erase(it);
-        std::cout << "[AssetManager] Unloaded music: " << alias << "\n";
+        log_info("[AssetManager] Unloaded music: " + alias);
     }
 }
 } // namespace Engine
