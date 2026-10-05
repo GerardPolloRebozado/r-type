@@ -2,6 +2,7 @@
 #define ENGINE_ECS_REGISTRY_HPP_
 #include <iostream>
 
+#include "Components/Tags.hpp"
 #include "Entity.hpp"
 #include "System.hpp"
 #include <memory>
@@ -88,11 +89,15 @@ namespace Engine {
     class Registry {
     public:
         /**
-         * @brief Creates a new entity.
+         * @brief Creates a new entity with an empty @ref Tags component.
          * @return The ID of the newly created entity.
          */
         Entity CreateEntity() {
-            return {m_NextEntityId++};
+            Entity entity = {m_NextEntityId++};
+
+            RegisterComponent<Tags>();
+            AddComponent(entity, Tags{});
+            return entity;
         }
 
 

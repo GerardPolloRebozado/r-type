@@ -3,6 +3,7 @@
 #include <iostream>
 #include <raylib.h>
 
+#include "Plugins/TagPlugin.hpp"
 #include "Systems/TextSystem.hpp"
 
 namespace Engine {
@@ -13,6 +14,8 @@ namespace Engine {
 
 
         SetTargetFPS(m_Config.targetFPS);
+
+        TagPlugin{}.Init(m_Registry);
     }
 
     Application::~Application() {
