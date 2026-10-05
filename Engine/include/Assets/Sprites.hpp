@@ -17,7 +17,6 @@ namespace Engine {
     private:
         raylib::Texture _texture;
         raylib::Rectangle _sourceRect;
-        raylib::Vector2 _position;
         raylib::Vector2 _scale;
         float _rotation;
 
@@ -29,9 +28,10 @@ namespace Engine {
         Sprite(const std::string &path);
 
         /**
-         * @brief Draws the sprite to the screen using its current properties (position, scale, rotation, source rect).
+         * @brief Draws the sprite to the screen at the given position using its current properties (scale, rotation, source rect).
+         * @param position The world-space position to draw the sprite at.
          */
-        void Draw();
+        void Draw(const raylib::Vector2& position);
 
         /**
          * @brief Gets the underlying raylib texture.
@@ -50,18 +50,6 @@ namespace Engine {
          * @param rect The new source rectangle.
          */
         void SetSourceRect(const raylib::Rectangle& rect);
-
-        /**
-         * @brief Gets the 2D position of the sprite.
-         * @return Constant reference to the position vector.
-         */
-        const raylib::Vector2& GetPosition() const;
-
-        /**
-         * @brief Sets the 2D position of the sprite.
-         * @param pos The new position vector.
-         */
-        void SetPosition(const raylib::Vector2& pos);
 
         /**
          * @brief Gets the scale factor of the sprite.

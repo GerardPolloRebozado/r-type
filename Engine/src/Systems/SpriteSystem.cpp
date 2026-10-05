@@ -5,7 +5,7 @@
 
 namespace Engine {
 
-void SpriteSystem::Update(Registry& registry, float dt) {
+void SpriteSystem::Render(Registry& registry) {
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Entity entity{i};
         if (registry.HasComponent<Position>(entity) &&
@@ -14,20 +14,8 @@ void SpriteSystem::Update(Registry& registry, float dt) {
             auto& spriteComp = registry.GetComponent<SpriteComponent>(entity);
 
             if (spriteComp.sprite) {
-                spriteComp.sprite->SetPosition({position.x, position.y});
-            }
-        }
-    }
-}
-
-void SpriteSystem::Render(Registry& registry) {
-    for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        Entity entity{i};
-        if (registry.HasComponent<SpriteComponent>(entity)) {
-            auto& spriteComp = registry.GetComponent<SpriteComponent>(entity);
-
-            if (spriteComp.sprite) {
-                spriteComp.sprite->Draw();
+                spriteComp.sprite->Draw(
+                    {position.x + spriteComp.offsetX, position.y + spriteComp.offsetY});
             }
         }
     }
