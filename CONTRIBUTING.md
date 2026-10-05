@@ -48,6 +48,7 @@ To provide even more clarity in a massive project, scopes can be divided into su
 * **`editor/ui`**: ImGui layouts, styling, custom widgets.
 * **`editor/inspector`**: Component tweaking windows.
 * **`editor/hierarchy`**: Entity list and selection logic.
+* **`editor/preview`**: Game & Asset preview.
 * **`editor/build`**: Game-building related process from the editor.
 * **`editor/serialize`**: Scene saving/loading to JSON.
 
