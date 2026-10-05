@@ -81,7 +81,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     cmakeOut.close();
 
     std::string cmd = "cmake -B " + rootPath + "/build -S " + rootPath + " && make -C " + rootPath +
-                      "/build " + exeNameStr + " -j$(nproc) 2>&1";
+                      "/build " + exeNameStr + " -j$(nproc) 2>&1; rm -f " + mainCppPath;
 
     if (s_BuildThread.joinable()) {
         s_BuildThread.join();
