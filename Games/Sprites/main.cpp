@@ -1,8 +1,8 @@
+#include "Components/Position.hpp"
+#include "Components/SpriteComponent.hpp"
 #include "Core/Application.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
-#include "Components/Position.hpp"
-#include "Components/SpriteComponent.hpp"
 #include <iostream>
 
 int main() {

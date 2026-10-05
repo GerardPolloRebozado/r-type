@@ -1,20 +1,22 @@
-#include <iostream>
-#include <fstream>
+#include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <algorithm>
 
 namespace fs = std::filesystem;
 
 std::string getValidVariableName(std::string name) {
-    for (char &c: name) {
-        if (!isalnum(c)) c = '_';
+    for (char& c : name) {
+        if (!isalnum(c)) {
+            c = '_';
+        }
     }
     return name;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " <assets_dir> <output.hpp>\n";
         return 1;
@@ -41,8 +43,10 @@ int main(int argc, char **argv) {
     std::vector<AssetInfo> assets;
 
     if (fs::exists(assetsDir) && fs::is_directory(assetsDir)) {
-        for (const auto &entry: fs::recursive_directory_iterator(assetsDir)) {
-            if (!entry.is_regular_file()) continue;
+        for (const auto& entry : fs::recursive_directory_iterator(assetsDir)) {
+            if (!entry.is_regular_file()) {
+                continue;
+            }
 
             std::string path = entry.path().string();
             std::string ext = entry.path().extension().string();
@@ -65,7 +69,9 @@ int main(int argc, char **argv) {
             int count = 0;
             while (in.get(c)) {
                 out << "0x" << std::hex << (static_cast<int>(c) & 0xff) << ", ";
-                if (++count % 12 == 0) out << "\n    ";
+                if (++count % 12 == 0) {
+                    out << "\n    ";
+                }
             }
             out << std::dec << "\n};\n";
             out << "inline const int " << varName << "_size = " << count << ";\n\n";
@@ -73,24 +79,28 @@ int main(int argc, char **argv) {
             assets.push_back({varName, ext, alias});
         }
     } else {
-        std::cerr << "Warning: Assets directory " << assetsDir << " does not exist or is not a directory.\n";
+        std::cerr << "Warning: Assets directory " << assetsDir
+                  << " does not exist or is not a directory.\n";
     }
 
     out << "inline void RegisterAssets(Engine::AssetManager& manager) {\n";
-    for (const auto &a: assets) {
-        if (a.extension == ".wav" || a.extension == ".mp3" || a.extension == ".ogg" || a.extension == ".flac") {
-            if (a.alias.find("music") != std::string::npos || a.alias.find("bgm") != std::string::npos) {
-                out << "    manager.LoadMusicFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", "
-                        << a.varName << ", " << a.varName << "_size);\n";
+    for (const auto& a : assets) {
+        if (a.extension == ".wav" || a.extension == ".mp3" || a.extension == ".ogg" ||
+            a.extension == ".flac") {
+            if (a.alias.find("music") != std::string::npos ||
+                a.alias.find("bgm") != std::string::npos) {
+                out << "    manager.LoadMusicFromMemory(\"" << a.alias << "\", \"" << a.extension
+                    << "\", " << a.varName << ", " << a.varName << "_size);\n";
             } else {
-                out << "    manager.LoadSoundFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", "
-                        << a.varName << ", " << a.varName << "_size);\n";
+                out << "    manager.LoadSoundFromMemory(\"" << a.alias << "\", \"" << a.extension
+                    << "\", " << a.varName << ", " << a.varName << "_size);\n";
             }
         }
-        // Additional asset types (Fonts, Textures) can be added here when AssetManager supports them
+        // Additional asset types (Fonts, Textures) can be added here when AssetManager supports
+        // them
         if (a.extension == ".ttf" || a.extension == ".otf") {
-            out << "    manager.LoadFontFromMemory(\"" << a.alias << "\", \"" << a.extension << "\", "
-                    << a.varName << ", " << a.varName << "_size);\n";
+            out << "    manager.LoadFontFromMemory(\"" << a.alias << "\", \"" << a.extension
+                << "\", " << a.varName << ", " << a.varName << "_size);\n";
         }
     }
     out << "}\n\n";

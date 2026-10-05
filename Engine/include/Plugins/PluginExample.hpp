@@ -19,8 +19,8 @@ class PluginExample : public IPlugin {
     }
 
     /**
-     * @brief A helper function to easily bundle all related plugin components onto a specific entity.
-     * Prevents the game developer from having to manually call AddComponent multiple times.
+     * @brief A helper function to easily bundle all related plugin components onto a specific
+     * entity. Prevents the game developer from having to manually call AddComponent multiple times.
      */
     static void AttachToEntity(Registry& registry, Entity entity) {
         registry.AddComponent(entity, ComponentExample{0.0f, 0});

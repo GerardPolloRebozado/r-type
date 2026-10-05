@@ -13,7 +13,7 @@ namespace Engine {
  * @brief Plugin that bundles the SpriteComponent and SpriteSystem.
  */
 class SpritePlugin : public IPlugin {
-public:
+  public:
     /**
      * @brief Initializes the SpritePlugin by registering the SpriteComponent and SpriteSystem.
      * Also registers Position, which SpriteSystem needs to place sprites.

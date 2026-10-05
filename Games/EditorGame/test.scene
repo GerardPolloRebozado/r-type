@@ -1,0 +1,13 @@
+{
+    "Configuration": {
+        "BuildExecutableName": "Game",
+        "BuildWindowTitle": "Game",
+        "ProjectFolder": "Games/EditorGame",
+        "TargetFPS": 60,
+        "WindowHeight": 720,
+        "WindowTitle": "Engine Editor",
+        "WindowWidth": 1280
+    },
+    "Entities": [],
+    "SceneName": "Untitled"
+}
