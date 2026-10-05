@@ -12,27 +12,45 @@
 #include "raylib-cpp.hpp"
 
 namespace Engine {
+/**
+ * @struct Text
+ * @brief Component representing 2D renderable text in the ECS.
+ *
+ * Holds string content, font reference, font size, character spacing, and tint color.
+ * Rendered by @ref TextSystem at the entity's @ref Position.
+ */
 struct Text {
+    /** @brief Content string to display. */
     std::string text = "";
+
+    /** @brief Raylib Font asset used for rendering (default font if texture.id == 0). */
     Font font = {};
+
+    /** @brief Font size in pixels. */
     float fontsize = 10.0f;
+
+    /** @brief Spacing between characters. */
     float spacing = 1.0f;
+
+    /** @brief Tint color of the text. */
     Color color = WHITE;
+
     /**
-     * @brief Constructor for Text.
-     * @param Text The text that is going to be displayed
-     * @param Fontsize The size of the text
-     * @param tint The color that is wanted on the text
+     * @brief Constructs a Text component with default font.
+     * @param Text The text string to be displayed.
+     * @param Fontsize The size of the text in pixels.
+     * @param tint The color tint for rendering.
      */
-    Text(std::string Text = "", float Fontsize = 10.0, Color tint = WHITE)
+    Text(std::string Text = "", float Fontsize = 10.0f, Color tint = WHITE)
         : text(std::move(Text)), fontsize(Fontsize), color(tint) {}
+
     /**
-     * @brief Constructor for Text.
-     * @param font The type of font
-     * @param Text The text that is going to be displayed
-     * @param Fontsize The size of the text
-     * @param Spacing The space between the characters
-     * @param tint The color that is wanted on the text
+     * @brief Constructs a Text component with a custom font and character spacing.
+     * @param font The Raylib Font asset to use.
+     * @param Text The text string to be displayed.
+     * @param Fontsize The size of the text in pixels.
+     * @param Spacing The space between characters in pixels.
+     * @param tint The color tint for rendering.
      */
     Text(Font font, std::string Text, float Fontsize, float Spacing, Color tint)
         : text(std::move(Text)), font(std::move(font)), fontsize(Fontsize), spacing(Spacing),
