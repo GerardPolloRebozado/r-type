@@ -63,3 +63,7 @@ To provide even more clarity in a massive project, scopes can be divided into su
 * `style(engine/core): replace pragma once with ifndef include guards`
 * `build(editor/ui): add imgui bindings to vcpkg dependencies`
 * `docs(tooling): update CONTRIBUTING.md with commit guidelines`
+
+## Auto formatting
+We use git hooks in order to format on commit, you can install them using [lefthook](https://lefthook.dev/configuration/Hook/), once you have it installed run `lefthook install` to setup the git hooks
+
