@@ -34,7 +34,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     TextPluginEditor textEditor;
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        Engine::Entity entity = static_cast<Engine::Entity>(i);
+        Engine::Entity entity = i;
         json entityJson;
         entityJson["EntityID"] = static_cast<int>(entity);
 
@@ -69,8 +69,6 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
 
     log_info("Loaded scene: " + sceneJson.value("SceneName", "Unknown"));
 
-    PositionPluginEditor positionEditor;
-    TextPluginEditor textEditor;
     if (config && sceneJson.contains("Configuration")) {
         auto projectConfiguration = sceneJson["Configuration"];
         if (projectConfiguration.contains("ProjectFolder")) {
@@ -96,6 +94,8 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         }
     }
 
+    PositionPluginEditor positionEditor;
+    TextPluginEditor textEditor;
     if (sceneJson.contains("Entities")) {
         for (const auto& entityJson : sceneJson["Entities"]) {
             Engine::Entity entity = registry.CreateEntity();

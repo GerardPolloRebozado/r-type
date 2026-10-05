@@ -32,7 +32,7 @@ class TextPluginEditor : public IPluginEditor {
     const char* GetIcon() const override;
 
     /**
-     * @brief Renders the ImGui interface for the Position component.
+     * @brief Renders the ImGui interface for the Text component.
      * @param entity The entity currently selected in the editor.
      * @param registry The ECS registry containing the entity.
      * @return True if the component was rendered, false if the entity lacks the component.
@@ -40,7 +40,7 @@ class TextPluginEditor : public IPluginEditor {
     bool OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) override;
 
     /**
-     * @brief Serializes the Position component into a JSON object.
+     * @brief Serializes the Text component into a JSON object.
      * @param entity The entity whose component is being serialized.
      * @param registry The ECS registry containing the entity.
      * @param outEntityJson The JSON object to append the serialized data to.
@@ -49,7 +49,7 @@ class TextPluginEditor : public IPluginEditor {
                    nlohmann::json& outEntityJson) override;
 
     /**
-     * @brief Deserializes the Position component from a JSON object.
+     * @brief Deserializes the Text component from a JSON object.
      * @param entity The entity to attach the deserialized component to.
      * @param registry The ECS registry to add the component to.
      * @param inEntityJson The JSON object containing the component data.
@@ -58,30 +58,27 @@ class TextPluginEditor : public IPluginEditor {
                      const nlohmann::json& inEntityJson) override;
 
     /**
-     * @brief Checks if the given entity possesses a Position component.
+     * @brief Checks if the given entity possesses a Text component.
      * @param entity The entity to check.
      * @param registry The ECS registry.
-     * @return True if the entity has a Position component, false otherwise.
+     * @return True if the entity has a Text component, false otherwise.
      */
     bool HasComponent(Engine::Entity entity, Engine::Registry& registry) override;
 
     /**
-     * @brief Adds a default-initialized Position component to the entity.
+     * @brief Adds a default-initialized Text component to the entity.
      * @param entity The entity to add the component to.
      * @param registry The ECS registry.
      */
     void AddComponent(Engine::Entity entity, Engine::Registry& registry) override;
 
     /**
-     * @brief Removes the Position component from the entity.
+     * @brief Removes the Text component from the entity.
      * @param entity The entity to remove the component from.
      * @param registry The ECS registry.
      */
     void RemoveComponent(Engine::Entity entity, Engine::Registry& registry) override;
-
-  private:
-    std::string m_Text;
 };
 
 } // namespace Editor
-#endif // EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
+#endif // EDITOR_PLUGINS_TEXTPLUGINEDITOR_HPP_
