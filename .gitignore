@@ -93,5 +93,6 @@ imgui.ini
 # IDE
 .cursor/
 
-# Others
-sprite.png
+# Documentation
+Documentation/site/
+Documentation/doxygen_output/

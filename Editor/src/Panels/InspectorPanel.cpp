@@ -1,4 +1,5 @@
 #include "Panels/InspectorPanel.hpp"
+#include "Core/Application.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include <cstring>
 #include <imgui.h>
@@ -9,7 +10,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
 }
 
-void InspectorPanel::OnImGuiRender(Engine::Registry* registry) {
+void InspectorPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
     if (ImGui::Begin(m_Name.c_str())) {
         if (m_SelectedEntity != -1 && registry) {
             ImGui::TextDisabled("Entity %d", (int)m_SelectedEntity);

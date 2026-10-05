@@ -1,11 +1,11 @@
 #ifndef EDITOR_SERIALIZATION_SCENESERIALIZER_HPP_
 #define EDITOR_SERIALIZATION_SCENESERIALIZER_HPP_
 
-
 #include "ECS/Registry.hpp"
 #include <string>
 
 namespace Editor {
+struct EditorConfig;
 
 /**
  * @brief Handles serialization of the active Scene/Registry to and from disk.
@@ -23,8 +23,10 @@ class SceneSerializer {
   public:
     SceneSerializer() = default;
 
-    void Serialize(const std::string& filepath, Engine::Registry& registry);
-    bool Deserialize(const std::string& filepath, Engine::Registry& registry);
+    void Serialize(const std::string& filepath, Engine::Registry& registry,
+                   EditorConfig* config = nullptr);
+    bool Deserialize(const std::string& filepath, Engine::Registry& registry,
+                     EditorConfig* config = nullptr);
 };
 
 } // namespace Editor

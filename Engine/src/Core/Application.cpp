@@ -3,15 +3,15 @@
 #include <iostream>
 #include <raylib.h>
 
-#include "Systems/TextSystem.hpp"
-
 namespace Engine {
     Application::Application(const ApplicationConfig &config) : m_Config(config), m_IsRunning(false) {
         std::cout << "[Engine] Initializing Application window: " << m_Config.windowTitle << "\n";
-        SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+
+        unsigned int maximizedFlag = config.maximized ? FLAG_WINDOW_MAXIMIZED : 0;
+
+        SetConfigFlags(FLAG_WINDOW_RESIZABLE | maximizedFlag);
+
         InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
-
-
         SetTargetFPS(m_Config.targetFPS);
     }
 

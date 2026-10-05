@@ -15,7 +15,7 @@ namespace Engine {
     public:
         void Init(Registry &registry) override {
             if (!registry.HasResource<AssetManager>()) {
-                registry.EmplaceResource<AssetManager>();
+                registry.AddResource<AssetManager>();
             }
 
             InitAudioDevice();
