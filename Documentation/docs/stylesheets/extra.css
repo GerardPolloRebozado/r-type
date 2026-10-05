@@ -1,0 +1,45 @@
+:root > * {
+  /* Editor Background Colors */
+  --md-sys-color-background: #383838;
+  --md-sys-color-surface: #2e2e2e;
+  --md-sys-color-surface-variant: #242424;
+  
+  /* Text Colors */
+  --md-sys-color-on-background: #c7c7c7;
+  --md-sys-color-on-surface: #c7c7c7;
+  
+  /* Accent Colors (Blueish Highlights) */
+  --md-sys-color-primary: #478ed9;
+  --md-sys-color-primary-container: #478ed9;
+  --md-primary-fg-color: #478ed9;
+  --md-primary-fg-color--light: #478ed9;
+  --md-primary-fg-color--dark: #478ed9;
+  --md-accent-fg-color: #478ed9;
+  --md-accent-fg-color--transparent: rgba(71, 142, 217, 0.1);
+  
+  /* Code block backgrounds (Matching Editor) */
+  --md-code-bg-color: #242424;
+}
+
+/* Adjustments for specific UI elements to look more like the Editor */
+.md-header {
+  background-color: #2e2e2e;
+  box-shadow: none;
+  border-bottom: 2px solid #242424;
+}
+
+
+
+code {
+  background-color: #242424 !important;
+  color: #c7c7c7;
+  border-radius: 2px;
+}
+
+pre > code {
+  border: 1px solid #2e2e2e;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #478ed9;
+}

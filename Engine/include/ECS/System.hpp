@@ -17,6 +17,7 @@ class System {
   public:
     virtual ~System() = default;
     virtual void Update(Registry& registry, float dt) {}
+    virtual void Render(Registry& registry) {}
 
     std::set<Entity> m_Entities;
 };

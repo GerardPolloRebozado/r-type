@@ -1,12 +1,14 @@
 #include "Core/Application.hpp"
 #include "EditorLayer.hpp"
-#include "Plugins/TransformPlugin.hpp"
+#include "Plugins/PositionPlugin.hpp"
 
 int main() {
-    Engine::ApplicationConfig config;
+    Editor::EditorConfig config;
     config.windowTitle = "Engine Editor";
+    config.m_ProjectFolder = "Games/EditorGame";
     config.windowWidth = 1280;
     config.windowHeight = 720;
+    config.maximized = true;
 
     Editor::EditorLayer editorLayer;
 
@@ -14,11 +16,12 @@ int main() {
 
     Engine::Application app(config);
 
-    // Initialize engine plugins (registers Transform component & system)
-    Engine::TransformPlugin transformPlugin;
-    transformPlugin.Init(app.GetRegistry());
+    // Initialize engine plugins (registers Position component & system)
+    Engine::PositionPlugin positionPlugin;
+    positionPlugin.Init(app.GetRegistry());
 
     editorLayer.SetRegistry(&app.GetRegistry());
+    editorLayer.SetConfiguration(&config);
     editorLayer.Init();
 
     app.Run();

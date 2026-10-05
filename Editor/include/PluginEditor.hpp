@@ -1,7 +1,6 @@
 #ifndef EDITOR_PLUGINEDITOR_HPP_
 #define EDITOR_PLUGINEDITOR_HPP_
 
-
 #include "ECS/Registry.hpp"
 #include <nlohmann/json.hpp>
 
@@ -42,6 +41,21 @@ class IPluginEditor {
      */
     virtual void Deserialize(Engine::Entity entity, Engine::Registry& registry,
                              const nlohmann::json& inEntityJson) = 0;
+
+    /**
+     * @brief Checks if the entity has this component.
+     */
+    virtual bool HasComponent(Engine::Entity entity, Engine::Registry& registry) = 0;
+
+    /**
+     * @brief Adds a default-initialized instance of the component to the entity.
+     */
+    virtual void AddComponent(Engine::Entity entity, Engine::Registry& registry) = 0;
+
+    /**
+     * @brief Removes the component from the entity.
+     */
+    virtual void RemoveComponent(Engine::Entity entity, Engine::Registry& registry) = 0;
 };
 
 } // namespace Editor

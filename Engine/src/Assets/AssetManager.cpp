@@ -1,5 +1,6 @@
 #include "Assets/AssetManager.hpp"
 #include <iostream>
+#include <raylib-cpp.hpp>
 
 namespace Engine {
     void AssetManager::LoadSound(const std::string &alias, const std::string &filePath, bool isLoop) {
@@ -14,7 +15,8 @@ namespace Engine {
         }
     }
 
-    void AssetManager::LoadSoundFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop) {
+    void AssetManager::LoadSoundFromMemory(const std::string &alias, const char *fileType, const unsigned char *data,
+                                           int dataSize, bool isLoop) {
         if (m_Sounds.contains(alias)) {
             return;
         }
@@ -42,10 +44,56 @@ namespace Engine {
         }
     }
 
+    void AssetManager::LoadSprite(const std::string &alias, const std::string &filePath) {
+        if (m_Sprites.contains(alias)) {
+            return;
+        }
+
+        try {
+            m_Sprites[alias] = std::make_unique<Sprite>(filePath);
+        } catch (...) {
+            throw FileNotFoundException(filePath);
+        }
+    }
+
+    Sprite &AssetManager::GetSprite(const std::string &alias) {
+        const auto it = m_Sprites.find(alias);
+        if (it == m_Sprites.end()) {
+            throw std::runtime_error("Sprite not found: " + alias);
+        }
+        return *it->second;
+    }
+
+    void AssetManager::UnloadSprite(const std::string &alias) {
+        const auto it = m_Sprites.find(alias);
+        if (it != m_Sprites.end()) {
+            m_Sprites.erase(it);
+            std::cout << "[AssetManager] Unloaded sprite: " << alias << "\n";
+        }
+    }
+
     void AssetManager::ClearAll() {
         m_Sounds.clear();
+        m_Sprites.clear();
         m_Musics.clear();
         std::cout << "[AssetManager] Cleared all assets.\n";
+    }
+
+    void AssetManager::LoadFontFromMemory(const std::string &alias, const std::string &fileType,
+                                          const unsigned char *fileData, int dataSize, int fontSize, int *fontChars,
+                                          int charsCount) {
+        if (m_Fonts.contains(alias)) return;
+        m_Fonts[alias] = std::make_unique<raylib::Font>(fileType, fileData, dataSize, fontSize,
+                                                        fontChars,
+                                                        charsCount);
+    }
+
+    raylib::Font &AssetManager::GetFont(const std::string &alias) {
+        const auto it = m_Fonts.find(alias);
+        if (it == m_Fonts.end()) {
+            throw std::runtime_error("Sound not found: " + alias);
+        }
+        return *it->second;
     }
 } // namespace Engine
 
@@ -55,7 +103,8 @@ namespace Engine {
         m_Musics[alias] = std::make_unique<Music>(filePath, isLoop);
     }
 
-    void AssetManager::LoadMusicFromMemory(const std::string &alias, const char *fileType, const unsigned char *data, int dataSize, bool isLoop) {
+    void AssetManager::LoadMusicFromMemory(const std::string &alias, const char *fileType, const unsigned char *data,
+                                           int dataSize, bool isLoop) {
         if (m_Musics.contains(alias)) return;
         m_Musics[alias] = std::make_unique<Music>(fileType, data, dataSize, isLoop);
     }

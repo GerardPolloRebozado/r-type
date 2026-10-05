@@ -11,6 +11,8 @@
 #include <typeindex>
 #include <unordered_map>
 
+#include "Resources/StateResource.hpp"
+
 namespace Engine {
     /**
      * @class IComponentArray
@@ -74,6 +76,14 @@ namespace Engine {
                 RemoveData(entity);
             }
         }
+
+        auto begin() { return m_ComponentMap.begin(); }
+        auto end() { return m_ComponentMap.end(); }
+        auto begin() const { return m_ComponentMap.begin(); }
+        auto end() const { return m_ComponentMap.end(); }
+        void clear() { m_ComponentMap.clear(); }
+
+        size_t size() const { return m_ComponentMap.size(); }
 
     private:
         std::unordered_map<Entity, T> m_ComponentMap;
@@ -214,7 +224,7 @@ namespace Engine {
         std::shared_ptr<ComponentArray<T> > GetComponentArray() {
             const std::type_index typeName = typeid(T);
             if (!m_ComponentArrays.contains(typeName)) {
-                throw std::runtime_error("Component not registered before use.");
+                throw std::runtime_error("Component not registered before use: " + std::string(typeName.name()));
             }
             return std::static_pointer_cast<ComponentArray<T> >(m_ComponentArrays[typeName]);
         }
@@ -239,8 +249,8 @@ namespace Engine {
          * @tparam Args Constructor argument types.
          * @return Reference to the created resource.
          */
-        template <typename T, typename... Args>
-        T& EmplaceResource(Args&&... args) {
+        template<typename T, typename... Args>
+        T &AddResource(Args &&... args) {
             auto res = std::make_shared<T>(std::forward<Args>(args)...);
             m_Resources[typeid(T)] = res;
             return *res;
@@ -251,20 +261,20 @@ namespace Engine {
          * @tparam T The resource type.
          * @return Reference to the resource.
          */
-        template <typename T>
-        T& GetResource() {
+        template<typename T>
+        T &GetResource() {
             if (!HasResource<T>()) {
                 throw std::runtime_error("Resource not found in registry.");
             }
             return *std::static_pointer_cast<T>(m_Resources.at(typeid(T)));
         }
-        
+
         /**
          * @brief Checks if a resource exists.
          * @tparam T The resource type.
          * @return True if the resource exists.
          */
-        template <typename T>
+        template<typename T>
         bool HasResource() const {
             return m_Resources.contains(typeid(T));
         }
@@ -273,7 +283,7 @@ namespace Engine {
         Entity m_NextEntityId = 0;
         std::unordered_map<std::type_index, std::shared_ptr<IComponentArray> > m_ComponentArrays;
         std::unordered_map<std::type_index, std::shared_ptr<System> > m_Systems;
-        std::unordered_map<std::type_index, std::shared_ptr<void>> m_Resources;
+        std::unordered_map<std::type_index, std::shared_ptr<void> > m_Resources;
         std::vector<Entity> m_EntitiesToDestroy;
     };
 } // namespace Engine

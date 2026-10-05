@@ -1,34 +1,29 @@
 #ifndef EDITOR_PANELS_HIERARCHYPANEL_HPP_
 #define EDITOR_PANELS_HIERARCHYPANEL_HPP_
 
-
 #include "Panels/IEditorPanel.hpp"
 #include <string>
 
 namespace Editor {
+    struct HierarchyPanelSelectedEntity {
+        Engine::Entity entity = -1;
+        int index = -1;
+    };
 
-class HierarchyPanel : public IEditorPanel {
-  public:
-    HierarchyPanel() = default;
-    ~HierarchyPanel() override = default;
+    class HierarchyPanel : public IEditorPanel {
+    public:
+        HierarchyPanel() = default;
 
-    void OnImGuiRender(Engine::Registry* registry) override;
-    const std::string& GetName() const override {
-        return m_Name;
-    }
+        ~HierarchyPanel() override = default;
 
-    Engine::Entity* GetSelectedEntity() {
-        if (m_SelectedIndex >= 0 && m_SelectedEntity != -1) {
-            return &m_SelectedEntity;
+        void OnImGuiRender(Engine::Registry *registry, EditorConfig *config) override;
+
+        const std::string &GetName() const override {
+            return m_Name;
         }
-        return nullptr;
-    }
 
-  private:
-    std::string m_Name = "Hierarchy";
-    int m_SelectedIndex = -1;
-    Engine::Entity m_SelectedEntity = -1;
-};
-
+    private:
+        std::string m_Name = "Hierarchy";
+    };
 } // namespace Editor
 #endif // EDITOR_PANELS_HIERARCHYPANEL_HPP_

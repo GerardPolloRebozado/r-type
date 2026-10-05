@@ -79,6 +79,9 @@ vcpkg_installed/
 Testing/
 .cache/
 CPM_Cache/
+
+#MacOs
+.Ds_Store
 CPM_modules/
 _deps/
 CPackConfig.cmake
@@ -89,3 +92,7 @@ imgui.ini
 
 # IDE
 .cursor/
+
+# Documentation
+Documentation/site/
+Documentation/doxygen_output/

@@ -1,9 +1,10 @@
 #include "Panels/SceneViewPanel.hpp"
+#include "Core/Application.hpp"
 #include <imgui.h>
 
 namespace Editor {
 
-void SceneViewPanel::OnImGuiRender(Engine::Registry* registry) {
+void SceneViewPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
     if (ImGui::Begin(m_Name.c_str())) {
         ImGui::Text("Game viewport will be rendered here...");
         // TODO: Render a Framebuffer texture from Raylib, or something, idk yet

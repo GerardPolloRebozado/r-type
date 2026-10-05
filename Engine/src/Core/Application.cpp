@@ -4,15 +4,16 @@
 #include <raylib.h>
 
 #include "Plugins/TagPlugin.hpp"
-#include "Systems/TextSystem.hpp"
 
 namespace Engine {
     Application::Application(const ApplicationConfig &config) : m_Config(config), m_IsRunning(false) {
         std::cout << "[Engine] Initializing Application window: " << m_Config.windowTitle << "\n";
-        SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+
+        unsigned int maximizedFlag = config.maximized ? FLAG_WINDOW_MAXIMIZED : 0;
+
+        SetConfigFlags(FLAG_WINDOW_RESIZABLE | maximizedFlag);
+
         InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
-
-
         SetTargetFPS(m_Config.targetFPS);
 
         TagPlugin{}.Init(m_Registry);
@@ -64,7 +65,10 @@ namespace Engine {
         BeginDrawing();
         ClearBackground(DARKGRAY);
 
-        // Run ECS Render Systems here in the future
+        // Run ECS Render Systems
+        for (auto const& pair : m_Registry.GetSystems()) {
+          pair.second->Render(m_Registry);
+        }
 
         // Invoke UI Hook (Editor uses this for ImGui)
         if (m_Config.onUI) {
