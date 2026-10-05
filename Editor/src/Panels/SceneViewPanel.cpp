@@ -20,8 +20,8 @@ void SceneViewPanel::RenderGame(Engine::Registry& registry, EditorConfig& config
     if (m_GameTexture.id == 0) {
         m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
     }
-    bool hasWidthChanged = m_GameTexture.GetTexture().GetSize().x;
-    bool hasHeightChanged = m_GameTexture.GetTexture().GetSize().y;
+    bool hasWidthChanged = m_GameTexture.GetTexture().GetSize().x != config.windowWidth;
+    bool hasHeightChanged = m_GameTexture.GetTexture().GetSize().y != config.windowHeight;
     if (hasWidthChanged || hasHeightChanged) {
         m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
     }

@@ -1,6 +1,7 @@
 #include "Serialization/SceneSerializer.hpp"
 #include "EditorConfig.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
+#include "Plugins/TextPluginEditor.hpp"
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -30,6 +31,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
 
     // We instantiate the editors here (later they will be centralized)
     PositionPluginEditor positionEditor;
+    TextPluginEditor textEditor;
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Engine::Entity entity = static_cast<Engine::Entity>(i);
@@ -37,6 +39,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
         entityJson["EntityID"] = static_cast<int>(entity);
 
         positionEditor.Serialize(entity, registry, entityJson);
+        textEditor.Serialize(entity, registry, entityJson);
 
         entitiesJson.push_back(entityJson);
     }
@@ -67,7 +70,8 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     std::cout << "Loaded scene: " << sceneJson.value("SceneName", "Unknown") << std::endl;
 
     PositionPluginEditor positionEditor;
-    if (sceneJson.contains("Configuration")) {
+    TextPluginEditor textEditor;
+    if (config && sceneJson.contains("Configuration")) {
         auto projectConfiguration = sceneJson["Configuration"];
         if (projectConfiguration.contains("ProjectFolder")) {
             config->m_ProjectFolder = projectConfiguration["ProjectFolder"];
@@ -98,6 +102,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
 
             // Deserialize components back onto the newly spawned entity
             positionEditor.Deserialize(entity, registry, entityJson);
+            textEditor.Deserialize(entity, registry, entityJson);
         }
     }
 

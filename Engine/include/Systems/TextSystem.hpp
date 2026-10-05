@@ -25,7 +25,7 @@ class TextSystem : public System {
      * @param registry Main ECS registry containing entities and components.
      * @param dt Delta time for the frame in seconds (unused for static text rendering).
      */
-    void Update(Registry& registry, float dt) override;
+    void Render(Registry& registry) override;
 };
 } // namespace Engine
 

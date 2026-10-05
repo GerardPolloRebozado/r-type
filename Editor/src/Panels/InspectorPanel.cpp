@@ -62,8 +62,7 @@ const std::string& InspectorPanel::GetName() const {
 } // namespace Editor
 
 namespace Editor {
-// TODO: rawptr
-void InspectorPanel::SetSelectedEntity(Engine::Entity* entity) {
-    m_SelectedEntity = (entity ? *entity : -1);
+void InspectorPanel::SetSelectedEntity(Engine::Entity entity) {
+    m_SelectedEntity = entity;
 }
 } // namespace Editor
