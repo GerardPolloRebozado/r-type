@@ -96,3 +96,6 @@ imgui.ini
 # Documentation
 Documentation/site/
 Documentation/doxygen_output/
+
+#Other
+*.png
