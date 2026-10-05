@@ -1,5 +1,6 @@
 #include "Core/Application.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/TextPlugin.hpp"
 #include "Serialization/SceneSerializer.hpp"
 
 int main() {
@@ -12,6 +13,8 @@ int main() {
     Engine::Application app(config);
     Engine::PositionPlugin positionPlugin;
     positionPlugin.Init(app.GetRegistry());
+    Engine::TextPlugin textPlugin;
+    textPlugin.Init(app.GetRegistry());
 
     Editor::SceneSerializer serializer;
     serializer.Deserialize("test.scene", app.GetRegistry(), nullptr);

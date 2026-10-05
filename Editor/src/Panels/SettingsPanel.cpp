@@ -38,7 +38,8 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
             << "#include \"Serialization/SceneSerializer.hpp\"\n"
-            << "#include \"Plugins/TransformPlugin.hpp\"\n\n"
+            << "#include \"Plugins/PositionPlugin.hpp\"\n"
+            << "#include \"Plugins/TextPlugin.hpp\"\n\n"
             << "int main() {\n"
             << "    Engine::ApplicationConfig config;\n"
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
@@ -46,8 +47,10 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
             << "    config.windowHeight = " << config->windowHeight << ";\n"
             << "    config.targetFPS = " << config->targetFPS << ";\n\n"
             << "    Engine::Application app(config);\n"
-            << "    Engine::TransformPlugin transformPlugin;\n"
-            << "    transformPlugin.Init(app.GetRegistry());\n\n"
+            << "    Engine::PositionPlugin positionPlugin;\n"
+            << "    positionPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::TextPlugin textPlugin;\n"
+            << "    textPlugin.Init(app.GetRegistry());\n\n"
             << "    Editor::SceneSerializer serializer;\n"
             << "    serializer.Deserialize(\"test.scene\", app.GetRegistry(), nullptr);\n\n"
             << "    app.Run();\n"
@@ -62,15 +65,17 @@ void SettingsPanel::StartBuild(EditorConfig* config, Engine::Registry* registry)
     }
 
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
-    cmakeOut << "add_executable(" << exeNameStr << " " << projFolder
-             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp)\n"
-             << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
-             << "target_link_libraries(" << exeNameStr
-             << " PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)\n"
-             << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
-             << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr
-             << "> ${CMAKE_CURRENT_SOURCE_DIR}/" << projFolder << "/" << exeNameStr << "\n"
-             << ")\n";
+    cmakeOut
+        << "add_executable(" << exeNameStr << " " << projFolder
+        << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp"
+        << " Editor/src/Plugins/PositionPluginEditor.cpp Editor/src/Plugins/TextPluginEditor.cpp)\n"
+        << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
+        << "target_link_libraries(" << exeNameStr
+        << " PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)\n"
+        << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
+        << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr
+        << "> ${CMAKE_CURRENT_SOURCE_DIR}/" << projFolder << "/" << exeNameStr << "\n"
+        << ")\n";
     cmakeOut.close();
 
     std::string cmd = "cmake -B " + rootPath + "/build -S " + rootPath + " && make -C " + rootPath +
@@ -157,4 +162,4 @@ namespace Editor {
 const std::string& SettingsPanel::GetName() const {
     return m_Name;
 }
-}
+} // namespace Editor
