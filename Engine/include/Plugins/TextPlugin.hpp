@@ -14,31 +14,15 @@
 namespace Engine {
 class TextPlugin : public IPlugin {
   public:
-    void Init(Registry& registry) override {
-        registry.RegisterComponent<Text>();
-        registry.RegisterSystem<TextSystem>();
-    };
+    void Init(Registry& registry) override;
 
-    static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt) {
-        registry.AddComponent(entity, Text{txt, 10.0f, WHITE});
-        registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-        registry.AddComponent(entity, Position{});
-        registry.AddComponent(entity, Position{});
-    }
+    static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt);
 
     static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt,
-                               float fontSize) {
-        registry.AddComponent(entity, Text{txt, fontSize, WHITE});
-        registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-        registry.AddComponent(entity, Position{});
-    }
+                               float fontSize);
 
     static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt,
-                               float fontSize, const Position position) {
-        registry.AddComponent(entity, Text{txt, fontSize, WHITE});
-        registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-        registry.AddComponent(entity, position);
-    }
+                               float fontSize, const Position position);
 };
 } // namespace Engine
 #endif // G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP

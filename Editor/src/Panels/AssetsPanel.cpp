@@ -166,3 +166,9 @@ void AssetsPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* cfg) {
 }
 
 } // namespace Editor
+
+namespace Editor {
+const std::string& AssetsPanel::GetName() const {
+    return m_Name;
+}
+}

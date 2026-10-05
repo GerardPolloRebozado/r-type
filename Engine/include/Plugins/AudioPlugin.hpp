@@ -13,16 +13,7 @@ namespace Engine {
  */
 class AudioPlugin : public IPlugin {
   public:
-    void Init(Registry& registry) override {
-        if (!registry.HasResource<AssetManager>()) {
-            registry.AddResource<AssetManager>();
-        }
-
-        InitAudioDevice();
-        registry.RegisterComponent<AudioSource>();
-
-        registry.RegisterSystem<AudioSystem>();
-    }
+    void Init(Registry& registry) override;
 };
 } // namespace Engine
 

@@ -268,3 +268,13 @@ void EditorLayer::EndDockSpace() {
     ImGui::End(); // End MainDockSpaceWindow
 }
 } // namespace Editor
+
+namespace Editor {
+void EditorLayer::SetRegistry(Engine::Registry* registry) {
+    m_Registry = registry;
+}
+
+void EditorLayer::SetConfiguration(EditorConfig* config) {
+    m_Configuration = config;
+}
+}

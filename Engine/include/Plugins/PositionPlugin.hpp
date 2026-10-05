@@ -19,11 +19,7 @@ class PositionPlugin : public IPlugin {
      * @brief Initializes the Position plugin.
      * @param registry The main ECS registry.
      */
-    void Init(Registry& registry) override {
-        registry.RegisterComponent<Position>();
-
-        registry.RegisterSystem<PositionSystem>();
-    }
+    void Init(Registry& registry) override;
 };
 } // namespace Engine
 

@@ -39,3 +39,9 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
     ImGui::End();
 }
 } // namespace Editor
+
+namespace Editor {
+const std::string& HierarchyPanel::GetName() const {
+    return m_Name;
+}
+}
