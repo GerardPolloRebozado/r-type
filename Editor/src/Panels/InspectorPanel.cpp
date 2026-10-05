@@ -5,10 +5,12 @@
 #include <imgui.h>
 
 #include "Panels/HierarchyPanel.hpp"
+#include "Plugins/TextPluginEditor.hpp"
 
 namespace Editor {
 InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<TextPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* config) {
@@ -57,10 +59,10 @@ namespace Editor {
 const std::string& InspectorPanel::GetName() const {
     return m_Name;
 }
-}
+} // namespace Editor
 
 namespace Editor {
 void InspectorPanel::SetSelectedEntity(Engine::Entity* entity) {
     m_SelectedEntity = (entity ? *entity : -1);
 }
-}
+} // namespace Editor

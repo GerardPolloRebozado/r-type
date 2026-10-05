@@ -1,6 +1,7 @@
 #include "Core/Application.hpp"
 #include "EditorLayer.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/TextPlugin.hpp"
 
 int main() {
     Editor::EditorConfig config;
@@ -19,6 +20,8 @@ int main() {
     // Initialize engine plugins (registers Position component & system)
     Engine::PositionPlugin positionPlugin;
     positionPlugin.Init(app.GetRegistry());
+    Engine::TextPlugin text_plugin;
+    text_plugin.Init(app.GetRegistry());
 
     editorLayer.SetRegistry(&app.GetRegistry());
     editorLayer.SetConfiguration(&config);
