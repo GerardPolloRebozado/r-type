@@ -1,8 +1,9 @@
+#include "Components/Position.hpp"
+#include "Components/SpriteComponent.hpp"
 #include "Core/Application.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
-#include "Components/Position.hpp"
-#include "Components/SpriteComponent.hpp"
+#include <exception>
 #include <iostream>
 
 int main() {
@@ -33,8 +34,8 @@ int main() {
         Engine::SpritePlugin::AttachToEntity(app.GetRegistry(), myEntity,
                                              Engine::SpriteComponent{ASSETS_PATH "sprite.png"});
         std::cout << "Added SpriteComponent.\n";
-    } catch (...) {
-        std::cout << "Could not initialize SpriteComponent. Missing texture?\n";
+    } catch (const std::exception& e) {
+        std::cerr << "Could not initialize SpriteComponent: " << e.what() << "\n";
     }
 
     app.Run();

@@ -2,8 +2,8 @@
 #include "Plugins/PluginExample.hpp"
 #include <iostream>
 
-#include "Plugins/TextPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/TextPlugin.hpp"
 
 int main() {
     std::cout << "======================================\n";
@@ -22,7 +22,7 @@ int main() {
     position.Init(app.GetRegistry());
     textPlugin.Init(app.GetRegistry());
 
-    //create the entity for a text on the screen
+    // create the entity for a text on the screen
     Engine::Entity mytextEntity = app.GetRegistry().CreateEntity();
     app.GetRegistry().AddComponent(mytextEntity, Engine::Position{100.0f, 100.0f});
     Engine::TextPlugin::AttachToEntity(app.GetRegistry(), mytextEntity, "Hello, World!");

@@ -6,39 +6,61 @@
 */
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP
-#include "IPlugin.hpp"
-#include "Components/Text.hpp"
-#include "Systems/TextSystem.hpp"
 #include "Components/Position.hpp"
+#include "Components/Text.hpp"
+#include "IPlugin.hpp"
+#include "Systems/TextSystem.hpp"
 
 namespace Engine {
-    class TextPlugin : public IPlugin {
-    public:
-        void Init(Registry &registry) override {
-            registry.RegisterComponent<Text>();
-            registry.RegisterSystem<TextSystem>();
-        };
+/**
+ * @class TextPlugin
+ * @brief Bundles @ref Text component registration and @ref TextSystem into the ECS.
+ *
+ * Provides convenient helper methods to attach text components to entities with
+ * automatic @ref Position validation and default values.
+ */
+class TextPlugin : public IPlugin {
+  public:
+    /**
+     * @brief Registers the @ref Text component and @ref TextSystem with the registry.
+     * @param registry Main ECS registry.
+     */
+    void Init(Registry& registry) override;
 
-        static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt) {
-            registry.AddComponent(entity, Text{txt, 10.0f, WHITE});
-            registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-            registry.AddComponent(entity, Position{});
-            registry.AddComponent(entity, Position{});
-        }
+    /**
+     * @brief Attaches a default @ref Text component to an entity.
+     *
+     * Automatically adds a default @ref Position component if the entity does not already possess
+     * one.
+     * @param registry Main ECS registry.
+     * @param entity Target entity to attach text to.
+     * @param txt Text content string to display.
+     */
+    static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt);
 
+    /**
+     * @brief Attaches a @ref Text component with a specified font size to an entity.
+     *
+     * Automatically adds a default @ref Position component if the entity does not already possess
+     * one.
+     * @param registry Main ECS registry.
+     * @param entity Target entity to attach text to.
+     * @param txt Text content string to display.
+     * @param fontSize Size of the font in pixels.
+     */
+    static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt,
+                               float fontSize);
 
-        static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt, float fontSize) {
-            registry.AddComponent(entity, Text{txt, fontSize, WHITE});
-            registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-            registry.AddComponent(entity, Position{});
-        }
-
-        static void AttachToEntity(Registry &registry, const Entity entity, const std::string &txt, float fontSize,
-                                   const Position position) {
-            registry.AddComponent(entity, Text{txt, fontSize, WHITE});
-            registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-            registry.AddComponent(entity, position);
-        }
-    };
-}
-#endif //G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP
+    /**
+     * @brief Attaches a @ref Text component with a specified font size and explicit position.
+     * @param registry Main ECS registry.
+     * @param entity Target entity to attach text to.
+     * @param txt Text content string to display.
+     * @param fontSize Size of the font in pixels.
+     * @param position World position for rendering the text.
+     */
+    static void AttachToEntity(Registry& registry, const Entity entity, const std::string& txt,
+                               float fontSize, const Position position);
+};
+} // namespace Engine
+#endif // G_ING_500_BAR_5_1_RTYPE_1_TEXTPLUGIN_HPP

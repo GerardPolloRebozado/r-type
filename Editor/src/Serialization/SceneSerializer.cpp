@@ -1,6 +1,6 @@
 #include "Serialization/SceneSerializer.hpp"
-#include "Plugins/PositionPluginEditor.hpp"
 #include "EditorConfig.hpp"
+#include "Plugins/PositionPluginEditor.hpp"
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>

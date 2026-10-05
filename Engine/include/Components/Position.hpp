@@ -22,8 +22,7 @@ struct Position {
      * @param x The initial X position.
      * @param y The initial Y position.
      */
-    Position(float x = 0.0f, float y = 0.0f)
-        : x(x), y(y), prevX(x), prevY(y), moved(false) {}
+    Position(float x = 0.0f, float y = 0.0f) : x(x), y(y), prevX(x), prevY(y), moved(false) {}
 };
 } // namespace Engine
 

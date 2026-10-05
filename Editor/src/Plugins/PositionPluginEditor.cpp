@@ -48,7 +48,7 @@ bool PositionPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
 }
 
 void PositionPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& registry,
-                                      nlohmann::json& outEntityJson) {
+                                     nlohmann::json& outEntityJson) {
     if (registry.HasComponent<Engine::Position>(entity)) {
         auto& position = registry.GetComponent<Engine::Position>(entity);
         outEntityJson["PositionComponent"] = {{"x", position.x}, {"y", position.y}};
@@ -56,7 +56,7 @@ void PositionPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& re
 }
 
 void PositionPluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& registry,
-                                        const nlohmann::json& inEntityJson) {
+                                       const nlohmann::json& inEntityJson) {
     if (inEntityJson.contains("PositionComponent")) {
         auto positionJson = inEntityJson["PositionComponent"];
         float x = positionJson.value("x", 0.0f);

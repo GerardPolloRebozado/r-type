@@ -13,3 +13,9 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig*) {
 }
 
 } // namespace Editor
+
+namespace Editor {
+const std::string& SceneViewPanel::GetName() const {
+    return m_Name;
+}
+}

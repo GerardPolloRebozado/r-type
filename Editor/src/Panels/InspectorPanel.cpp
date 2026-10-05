@@ -52,3 +52,15 @@ void InspectorPanel::OnImGuiRender(Engine::Registry* registry, EditorConfig* con
     ImGui::End();
 }
 } // namespace Editor
+
+namespace Editor {
+const std::string& InspectorPanel::GetName() const {
+    return m_Name;
+}
+}
+
+namespace Editor {
+void InspectorPanel::SetSelectedEntity(Engine::Entity* entity) {
+    m_SelectedEntity = (entity ? *entity : -1);
+}
+}

@@ -2,8 +2,8 @@
 #include "Plugins/PluginExample.hpp"
 #include <iostream>
 
-#include "Plugins/TextPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/TextPlugin.hpp"
 
 int main() {
     std::cout << "======================================\n";
@@ -39,7 +39,7 @@ int main() {
     });
 
     app.GetRegistry().GetSystem<Engine::SystemExample>()->m_Entities.insert(myEntity);
-    //create the entity for a text on the screen
+    // create the entity for a text on the screen
 
     app.Run();
 

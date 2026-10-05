@@ -1,7 +1,6 @@
 #ifndef EDITOR_EDITORSTYLE_HPP_
 #define EDITOR_EDITORSTYLE_HPP_
 
-
 namespace Editor {
 
 class EditorStyle {
