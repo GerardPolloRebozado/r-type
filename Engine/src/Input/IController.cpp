@@ -4,6 +4,6 @@
 ** File description:
 ** IController.cpp
 */
-#include "IController.hpp"
+#include "../../include/Inputs/IController.hpp"
 
 namespace Engine {} // namespace Engine
