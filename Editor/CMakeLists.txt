@@ -51,7 +51,6 @@ set(INC_FILES
         include/Plugins/PositionPluginEditor.hpp
         include/Plugins/TextPluginEditor.hpp
         include/Serialization/SceneSerializer.hpp
-        src/EditorConfig.cpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
