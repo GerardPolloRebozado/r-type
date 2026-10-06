@@ -3,6 +3,7 @@
 #include "Components/SpriteComponent.hpp"
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
+#include <iostream>
 #include <string>
 
 namespace Editor {
@@ -106,8 +107,13 @@ void SpritePluginEditor::Serialize(Engine::Entity entity, Engine::Registry& regi
     if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
         auto& spriteComp = registry.GetComponent<Engine::SpriteComponent>(entity);
         std::string path = spriteComp.assetPath;
+        std::string filename = path;
+        auto lastSlash = path.find_last_of("/\\");
+        if (lastSlash != std::string::npos) {
+            filename = path.substr(lastSlash + 1);
+        }
         outEntityJson["SpriteComponent"] = {
-            {"path", path}, {"offsetX", spriteComp.offsetX}, {"offsetY", spriteComp.offsetY}};
+            {"path", filename}, {"offsetX", spriteComp.offsetX}, {"offsetY", spriteComp.offsetY}};
     }
 }
 
@@ -129,7 +135,12 @@ void SpritePluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& re
                 } else {
                     spr = std::make_shared<Engine::Sprite>(path);
                 }
+            } catch (const std::exception& e) {
+                std::cerr << "[SpritePluginEditor] Failed to deserialize sprite from path: " << path
+                          << " - Error: " << e.what() << "\n";
             } catch (...) {
+                std::cerr << "[SpritePluginEditor] Failed to deserialize sprite from path: " << path
+                          << " (Unknown Error)\n";
             }
         }
         registry.AddComponent<Engine::SpriteComponent>(
