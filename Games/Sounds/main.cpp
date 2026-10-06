@@ -22,10 +22,10 @@ int main() {
     BundledAssets::RegisterAssets(assets);
 
     if (assets.GetAllMusic().contains("music.mp3")) {
-        assets.GetMusic("music.mp3").SetLooping(true);
+        assets.GetMusic("music.mp3")->SetLooping(true);
     }
 
-    Engine::Entity playerEntity = app.GetRegistry().CreateEntity();
+    const Engine::Entity playerEntity = app.GetRegistry().CreateEntity();
 
     Engine::AudioSource audioData;
     audioData.assetId = "music.mp3";
