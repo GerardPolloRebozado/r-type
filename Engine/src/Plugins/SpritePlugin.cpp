@@ -9,6 +9,8 @@ void SpritePlugin::Init(Registry& registry) {
 
 void SpritePlugin::AttachToEntity(Registry& registry, Entity entity, const SpriteComponent& sprite) {
     registry.AddComponent(entity, sprite);
-    registry.AddComponent(entity, Position{});
+    if (!registry.HasComponent<Position>(entity)) {
+        registry.AddComponent(entity, Position{});
+    }
 }
 }
