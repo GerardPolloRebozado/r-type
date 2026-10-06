@@ -4,9 +4,7 @@
 ** File description:
 ** InputManager.cpp
 */
-#include "../../include/Inputs/InputManager.hpp"
-
-#include "Keyboard.hpp"
+#include "Inputs/InputManager.hpp"
 
 namespace Engine {
 InputManager::InputManager() {}

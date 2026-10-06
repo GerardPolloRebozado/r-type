@@ -16,18 +16,6 @@ namespace Engine {
  * @enum ActionType
  * @brief Abstract game actions independent of physical input devices.
  */
-typedef enum ActionType {
-    NO_ACTION = 0,
-    ACTION_UP,
-    ACTION_DOWN,
-    ACTION_LEFT,
-    ACTION_RIGHT,
-    ACTION_1,
-    ACTION_2,
-    ACTION_3,
-    ACTION_4,
-    MAX_ACTION
-} ActionType;
 
 /**
  * @class IController
@@ -36,36 +24,35 @@ typedef enum ActionType {
  * Translates hardware or remote input into abstract @ref ActionType values stored in an action
  * queue.
  */
+enum DeviceType { KEYBOARD, MOUSE, GAMEPAD, TOUCH };
+struct Keybind {
+    int key;
+    int composeKey;
+    DeviceType type;
+};
 class IController {
   public:
-    using Kmap = std::unordered_map<int, ActionType>;
-
+    using Action = std::string;
+    using Kmap = std::unordered_map<Action, std::vector<Keybind>>;
     virtual ~IController() = default;
-
-    /**
-     * @brief Polls device input state.
-     */
-    virtual void poll() = 0;
-
     /**
      * @brief Updates the active action queue based on current hardware input.
      */
     virtual void Update() = 0;
 
-    /**
-     * @brief Sets default key/button bindings for this controller.
-     */
-    virtual void setDefaultKeymap() = 0;
+    virtual void addKeybind(Action action, Keybind kb) = 0;
+    virtual bool isActionActive(const std::string& action) const = 0;
+    virtual const std::vector<std::string>& getActiveActions() const = 0;
 
     /**
      * @brief Returns the list of actions triggered during the current frame.
      * @return Const reference to the active action queue.
      */
-    virtual const std::vector<ActionType>& getActionQueue() = 0;
+    virtual const std::vector<std::pair<DeviceType, Action>>& getActionQueue() = 0;
 
   protected:
     /** @brief Active actions triggered during this tick/frame. */
-    std::vector<ActionType> _actionQueue;
+    std::vector<std::pair<DeviceType, Action>> _actionQueue;
 
     /** @brief Mapping of physical key codes to abstract actions. */
     Kmap m_keymap;

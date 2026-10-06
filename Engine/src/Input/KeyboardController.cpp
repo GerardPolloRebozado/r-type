@@ -4,9 +4,9 @@
 ** File description:
 ** KeyboardController.cpp
 */
-#include "../../include/Inputs/KeyboardController.hpp"
-#include <iostream>
+#include "Inputs/KeyboardController.hpp"
 namespace Engine {
+
 KeyboardController::KeyboardController() {
     setDefaultKeymap();
 }
@@ -17,7 +17,6 @@ void KeyboardController::Update() {
     _actionQueue.clear();
     for (const auto& [key, action] : m_keymap) {
         if (IsKeyDown(key)) {
-            std::cout << action << std::endl;
             _actionQueue.push_back(action);
         }
     }
@@ -25,10 +24,6 @@ void KeyboardController::Update() {
 
 const std::vector<ActionType>& KeyboardController::getActionQueue() {
     return _actionQueue;
-}
-
-void KeyboardController::poll() {
-    Update();
 }
 
 void KeyboardController::setDefaultKeymap() {

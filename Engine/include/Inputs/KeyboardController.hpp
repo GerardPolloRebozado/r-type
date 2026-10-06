@@ -23,11 +23,6 @@ class KeyboardController : public IController {
     ~KeyboardController() override;
 
     /**
-     * @brief Polls keyboard input (delegates to Update).
-     */
-    void poll() override;
-
-    /**
      * @brief Configures standard WASD and action key mappings.
      */
     void setDefaultKeymap() override;
