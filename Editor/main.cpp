@@ -1,6 +1,7 @@
 #include "Core/Application.hpp"
 #include "EditorLayer.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
 
 int main() {
@@ -25,6 +26,8 @@ int main() {
     positionPlugin.Init(app.GetRegistry());
     Engine::TextPlugin text_plugin;
     text_plugin.Init(app.GetRegistry());
+    Engine::SpritePlugin spritePlugin;
+    spritePlugin.Init(app.GetRegistry());
 
     editorLayer.SetRegistry(app.GetRegistry());
     editorLayer.SetConfiguration(config);

@@ -15,9 +15,9 @@ namespace Engine {
  */
 struct SpriteComponent {
     /**
-     * @brief Shared pointer to the underlying Sprite.
+     * @brief Alias for the sprite in the AssetManager.
      */
-    std::shared_ptr<Sprite> sprite;
+    std::string spriteAlias;
 
     /** @brief Horizontal offset from Position.x to the sprite's top-left corner. */
     float offsetX;
@@ -26,23 +26,13 @@ struct SpriteComponent {
     float offsetY;
 
     /**
-     * @brief Constructs a SpriteComponent from a file path.
-     * @param path The file path to the image file.
+     * @brief Constructs a SpriteComponent with an alias.
+     * @param alias The alias of the sprite in AssetManager.
      * @param offsetX Offset from entity position on X.
      * @param offsetY Offset from entity position on Y.
      */
-    SpriteComponent(const std::string& path, float offsetX = 0.0f, float offsetY = 0.0f)
-        : sprite(std::make_shared<Sprite>(path)), offsetX(offsetX), offsetY(offsetY) {}
-
-    /**
-     * @brief Constructs a SpriteComponent with an optional existing sprite pointer.
-     * @param spritePtr A shared pointer to an existing Sprite. Defaults to nullptr.
-     * @param offsetX Offset from entity position on X.
-     * @param offsetY Offset from entity position on Y.
-     */
-    SpriteComponent(std::shared_ptr<Sprite> spritePtr = nullptr, float offsetX = 0.0f,
-                    float offsetY = 0.0f)
-        : sprite(spritePtr), offsetX(offsetX), offsetY(offsetY) {}
+    SpriteComponent(const std::string& alias = "", float offsetX = 0.0f, float offsetY = 0.0f)
+        : spriteAlias(alias), offsetX(offsetX), offsetY(offsetY) {}
 };
 } // namespace Engine
 

@@ -31,6 +31,7 @@ set(SRC_FILES
         src/Panels/SettingsPanel.cpp
         src/Plugins/PositionPluginEditor.cpp
         src/Plugins/TextPluginEditor.cpp
+        src/Plugins/SpritePluginEditor.cpp
         src/Serialization/SceneSerializer.cpp
 )
 
@@ -49,6 +50,7 @@ set(INC_FILES
         include/PluginEditor.hpp
         include/Plugins/PositionPluginEditor.hpp
         include/Plugins/TextPluginEditor.hpp
+        include/Plugins/SpritePluginEditor.hpp
         include/Serialization/SceneSerializer.hpp
 )
 
