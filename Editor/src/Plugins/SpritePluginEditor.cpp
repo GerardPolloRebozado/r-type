@@ -35,12 +35,12 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
 
     if (isOpen) {
         // Sprite path
-        std::string currentPath = spriteComp.spriteAlias;
+        std::string currentPath = spriteComp.assetPath;
         char buffer[256];
         strncpy(buffer, currentPath.c_str(), sizeof(buffer));
         buffer[sizeof(buffer) - 1] = '\0';
 
-        ImGui::Text("Path / Alias");
+        ImGui::Text("Path");
         ImGui::SameLine();
         if (ImGui::InputText("##SpritePath", buffer, sizeof(buffer),
                              ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -48,8 +48,13 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
             if (!newPath.empty() && newPath != currentPath) {
                 try {
                     if (registry.HasResource<Engine::AssetManager>()) {
-                        registry.GetResource<Engine::AssetManager>().LoadSprite(newPath, newPath);
-                        spriteComp.spriteAlias = newPath;
+                        auto& am = registry.GetResource<Engine::AssetManager>();
+                        am.LoadSprite(newPath, newPath);
+                        spriteComp.sprite = am.GetSprite(newPath);
+                        spriteComp.assetPath = newPath;
+                    } else {
+                        spriteComp.sprite = std::make_shared<Engine::Sprite>(newPath);
+                        spriteComp.assetPath = newPath;
                     }
                 } catch (...) {
                     // Could not load sprite
@@ -65,8 +70,13 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
                 std::string newPath(path);
                 try {
                     if (registry.HasResource<Engine::AssetManager>()) {
-                        registry.GetResource<Engine::AssetManager>().LoadSprite(newPath, newPath);
-                        spriteComp.spriteAlias = newPath;
+                        auto& am = registry.GetResource<Engine::AssetManager>();
+                        am.LoadSprite(newPath, newPath);
+                        spriteComp.sprite = am.GetSprite(newPath);
+                        spriteComp.assetPath = newPath;
+                    } else {
+                        spriteComp.sprite = std::make_shared<Engine::Sprite>(newPath);
+                        spriteComp.assetPath = newPath;
                     }
                 } catch (...) {
                     // Could not load sprite
@@ -95,7 +105,7 @@ void SpritePluginEditor::Serialize(Engine::Entity entity, Engine::Registry& regi
                                    nlohmann::json& outEntityJson) {
     if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
         auto& spriteComp = registry.GetComponent<Engine::SpriteComponent>(entity);
-        std::string path = spriteComp.spriteAlias;
+        std::string path = spriteComp.assetPath;
         outEntityJson["SpriteComponent"] = {
             {"path", path}, {"offsetX", spriteComp.offsetX}, {"offsetY", spriteComp.offsetY}};
     }
@@ -109,16 +119,21 @@ void SpritePluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& re
         float offsetX = spriteJson.value("offsetX", 0.0f);
         float offsetY = spriteJson.value("offsetY", 0.0f);
 
+        std::shared_ptr<Engine::Sprite> spr = nullptr;
         if (!path.empty()) {
             try {
                 if (registry.HasResource<Engine::AssetManager>()) {
-                    registry.GetResource<Engine::AssetManager>().LoadSprite(path, path);
+                    auto& am = registry.GetResource<Engine::AssetManager>();
+                    am.LoadSprite(path, path);
+                    spr = am.GetSprite(path);
+                } else {
+                    spr = std::make_shared<Engine::Sprite>(path);
                 }
             } catch (...) {
             }
         }
         registry.AddComponent<Engine::SpriteComponent>(
-            entity, Engine::SpriteComponent(path, offsetX, offsetY));
+            entity, Engine::SpriteComponent(spr, path, offsetX, offsetY));
     }
 }
 
@@ -127,7 +142,9 @@ bool SpritePluginEditor::HasComponent(Engine::Entity entity, Engine::Registry& r
 }
 
 void SpritePluginEditor::AddComponent(Engine::Entity entity, Engine::Registry& registry) {
-    registry.AddComponent<Engine::SpriteComponent>(entity, Engine::SpriteComponent("", 0.0f, 0.0f));
+    std::shared_ptr<Engine::Sprite> nullSprite = nullptr;
+    registry.AddComponent<Engine::SpriteComponent>(
+        entity, Engine::SpriteComponent(nullSprite, "", 0.0f, 0.0f));
 }
 
 void SpritePluginEditor::RemoveComponent(Engine::Entity entity, Engine::Registry& registry) {

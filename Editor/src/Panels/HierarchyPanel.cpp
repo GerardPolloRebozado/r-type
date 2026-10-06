@@ -39,20 +39,25 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                         const char* path = (const char*)payload->Data;
                         std::string newPath(path);
                         try {
+                            std::shared_ptr<Engine::Sprite> spr = nullptr;
                             if (registry.HasResource<Engine::AssetManager>()) {
-                                registry.GetResource<Engine::AssetManager>().LoadSprite(newPath,
-                                                                                        newPath);
+                                auto& am = registry.GetResource<Engine::AssetManager>();
+                                am.LoadSprite(newPath, newPath);
+                                spr = am.GetSprite(newPath);
+                            } else {
+                                spr = std::make_shared<Engine::Sprite>(newPath);
                             }
                             if (!registry.HasComponent<Engine::Position>(entity)) {
                                 registry.AddComponent<Engine::Position>(entity,
                                                                         Engine::Position(0, 0));
                             }
                             if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
-                                registry.GetComponent<Engine::SpriteComponent>(entity).spriteAlias =
-                                    newPath;
+                                auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
+                                sc.sprite = spr;
+                                sc.assetPath = newPath;
                             } else {
                                 registry.AddComponent<Engine::SpriteComponent>(
-                                    entity, Engine::SpriteComponent(newPath));
+                                    entity, Engine::SpriteComponent(spr, newPath));
                             }
                         } catch (...) {
                         }
@@ -70,13 +75,18 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 const char* path = (const char*)payload->Data;
                 std::string newPath(path);
                 try {
+                    std::shared_ptr<Engine::Sprite> spr = nullptr;
                     if (registry.HasResource<Engine::AssetManager>()) {
-                        registry.GetResource<Engine::AssetManager>().LoadSprite(newPath, newPath);
+                        auto& am = registry.GetResource<Engine::AssetManager>();
+                        am.LoadSprite(newPath, newPath);
+                        spr = am.GetSprite(newPath);
+                    } else {
+                        spr = std::make_shared<Engine::Sprite>(newPath);
                     }
                     const Engine::Entity newEntity = registry.CreateEntity();
                     registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
                     registry.AddComponent<Engine::SpriteComponent>(
-                        newEntity, Engine::SpriteComponent(newPath));
+                        newEntity, Engine::SpriteComponent(spr, newPath));
                     selected.entity = newEntity;
                     selected.index = static_cast<int>(newEntity);
                 } catch (...) {
