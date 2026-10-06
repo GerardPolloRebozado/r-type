@@ -5,12 +5,14 @@
 #include <imgui.h>
 
 #include "Panels/HierarchyPanel.hpp"
+#include "Plugins/SpritePluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
 
 namespace Editor {
 InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<TextPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<SpritePluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {

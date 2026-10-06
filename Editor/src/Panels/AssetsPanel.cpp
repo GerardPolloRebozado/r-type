@@ -151,6 +151,15 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
                     ImGui::PopFont();
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+                        std::string relativePath =
+                            std::filesystem::relative(path, std::filesystem::current_path())
+                                .string();
+                        ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", relativePath.c_str(),
+                                                  relativePath.size() + 1);
+                        ImGui::Text("%s", filenameString.c_str());
+                        ImGui::EndDragDropSource();
+                    }
                 }
 
                 ImGui::TextWrapped("%s", filenameString.c_str());
