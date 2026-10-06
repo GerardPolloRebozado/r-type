@@ -29,12 +29,12 @@ void AssetManager::LoadSoundFromMemory(const std::string& alias, const char* fil
     }
 }
 
-Sound& AssetManager::GetSound(const std::string& alias) {
+std::shared_ptr<Sound> AssetManager::GetSound(const std::string& alias) {
     const auto it = m_Sounds.find(alias);
     if (it == m_Sounds.end()) {
         throw ErrorAsset("Sound not found: " + alias);
     }
-    return *it->second;
+    return it->second;
 }
 
 void AssetManager::UnloadSound(const std::string& alias) {
@@ -57,12 +57,12 @@ void AssetManager::LoadSprite(const std::string& alias, const std::string& fileP
     }
 }
 
-Sprite& AssetManager::GetSprite(const std::string& alias) {
+std::shared_ptr<Sprite> AssetManager::GetSprite(const std::string& alias) {
     const auto it = m_Sprites.find(alias);
     if (it == m_Sprites.end()) {
         throw ErrorAsset("Sprite not found: " + alias);
     }
-    return *it->second;
+    return it->second;
 }
 
 void AssetManager::UnloadSprite(const std::string& alias) {
@@ -90,16 +90,14 @@ void AssetManager::LoadFontFromMemory(const std::string& alias, const std::strin
                                                     fontChars, charsCount);
 }
 
-raylib::Font& AssetManager::GetFont(const std::string& alias) {
+std::shared_ptr<raylib::Font> AssetManager::GetFont(const std::string& alias) {
     const auto it = m_Fonts.find(alias);
     if (it == m_Fonts.end()) {
         throw ErrorAsset("Font not found: " + alias);
     }
-    return *it->second;
+    return it->second;
 }
-} // namespace Engine
 
-namespace Engine {
 void AssetManager::LoadMusic(const std::string& alias, const std::string& filePath, bool isLoop) {
     if (m_Musics.contains(alias)) {
         return;
@@ -115,12 +113,12 @@ void AssetManager::LoadMusicFromMemory(const std::string& alias, const char* fil
     m_Musics[alias] = std::make_unique<Music>(fileType, data, dataSize, isLoop);
 }
 
-Music& AssetManager::GetMusic(const std::string& alias) {
+std::shared_ptr<Music> AssetManager::GetMusic(const std::string& alias) {
     const auto it = m_Musics.find(alias);
     if (it == m_Musics.end()) {
         throw ErrorAsset("Music not found: " + alias);
     }
-    return *it->second;
+    return it->second;
 }
 
 void AssetManager::UnloadMusic(const std::string& alias) {

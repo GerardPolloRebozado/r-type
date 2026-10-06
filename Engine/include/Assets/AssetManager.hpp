@@ -7,7 +7,6 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <utility>
 
 namespace Engine {
 /**
@@ -35,7 +34,7 @@ class AssetManager {
     void LoadSoundFromMemory(const std::string& alias, const char* fileType,
                              const unsigned char* data, int dataSize, bool isLoop = false);
 
-    Sound& GetSound(const std::string& alias);
+    std::shared_ptr<Sound> GetSound(const std::string& alias);
 
     void UnloadSound(const std::string& alias);
 
@@ -52,7 +51,7 @@ class AssetManager {
      * @return Reference to the Sprite object.
      * @throws ErrorAsset if the sprite alias is not found.
      */
-    Sprite& GetSprite(const std::string& alias);
+    std::shared_ptr<Sprite> GetSprite(const std::string& alias);
 
     /**
      * @brief Unloads a sprite and frees its resources.
@@ -68,7 +67,7 @@ class AssetManager {
     void LoadMusicFromMemory(const std::string& alias, const char* fileType,
                              const unsigned char* data, int dataSize, bool isLoop = false);
 
-    Music& GetMusic(const std::string& alias);
+    std::shared_ptr<Music> GetMusic(const std::string& alias);
 
     void UnloadMusic(const std::string& alias);
 
@@ -89,17 +88,17 @@ class AssetManager {
                             const unsigned char* fileData, int dataSize, int fontSize = 12,
                             int* fontChars = nullptr, int charsCount = 0);
 
-    raylib::Font& GetFont(const std::string& alias);
+    std::shared_ptr<raylib::Font> GetFont(const std::string& alias);
 
-    std::unordered_map<std::string, std::unique_ptr<Music>>& GetAllMusic() {
+    std::unordered_map<std::string, std::shared_ptr<Music>>& GetAllMusic() {
         return m_Musics;
     }
 
   private:
-    std::unordered_map<std::string, std::unique_ptr<Sound>> m_Sounds;
-    std::unordered_map<std::string, std::unique_ptr<Sprite>> m_Sprites;
-    std::unordered_map<std::string, std::unique_ptr<Music>> m_Musics;
-    std::unordered_map<std::string, std::unique_ptr<raylib::Font>> m_Fonts;
+    std::unordered_map<std::string, std::shared_ptr<Sound>> m_Sounds;
+    std::unordered_map<std::string, std::shared_ptr<Sprite>> m_Sprites;
+    std::unordered_map<std::string, std::shared_ptr<Music>> m_Musics;
+    std::unordered_map<std::string, std::shared_ptr<raylib::Font>> m_Fonts;
 };
 } // namespace Engine
 

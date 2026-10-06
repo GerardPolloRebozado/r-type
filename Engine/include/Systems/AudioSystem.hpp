@@ -39,12 +39,12 @@ class AudioSystem : public System {
 
             if (audio.shouldPlay) {
                 if (audio.isMusic) {
-                    auto& music = assetManager.GetMusic(audio.assetId);
-                    music.Play();
+                    auto music = assetManager.GetMusic(audio.assetId);
+                    music->Play();
                 } else {
-                    Sound alias = assetManager.GetSound(audio.assetId);
-                    alias.Play();
-                    m_ActiveSounds.push_back(std::move(alias));
+                    auto alias = assetManager.GetSound(audio.assetId);
+                    alias->Play();
+                    m_ActiveSounds.push_back(*alias);
                 }
 
                 audio.shouldPlay = false;
@@ -53,7 +53,7 @@ class AudioSystem : public System {
 
             if (audio.shouldStop) {
                 if (audio.isMusic) {
-                    assetManager.GetMusic(audio.assetId).Stop();
+                    assetManager.GetMusic(audio.assetId)->Stop();
                 }
 
                 audio.shouldStop = false;
