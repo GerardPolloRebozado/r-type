@@ -15,6 +15,8 @@ class KeyboardController : public IController {
     ~KeyboardController() override;
     void poll() override;
     void setDefaultKeymap() override;
+    void Update() override;
+    const std::vector<ActionType>& getActionQueue() override;
 };
 } // namespace Engine
 
