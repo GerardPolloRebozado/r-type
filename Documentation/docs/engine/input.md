@@ -1,6 +1,6 @@
 # Input Management
 
-The Input Management subsystem provides a hardware-agnostic, multi-device input architecture for the R-Type Engine. It decouples low-level physical input polling (Raylib keyboard, gamepads, network packets) from the ECS simulation and gameplay logic.
+The Input Management subsystem provides a hardware-agnostic, dynamic multi-device input architecture for the R-Type Engine (inspired by Godot's `InputMap`). It decouples low-level physical input polling (Raylib keyboard, mouse buttons, gamepads, network packets) from the ECS simulation and gameplay logic.
 
 ---
 
@@ -9,26 +9,27 @@ The Input Management subsystem provides a hardware-agnostic, multi-device input 
 The input pipeline consists of four main layers:
 
 ```
-[ Hardware Devices (Keyboard / Gamepad) ]
+[ Hardware Devices (Keyboard / Mouse / Gamepad) ]
                     ↓
-[ IController / KeyboardController ]  ──> Translates hardware keys to ActionType enums
+[ IController / KeyboardController ]  ──> Translates hardware signals to string-based actions
                     ↓
 [ InputManager (Global Resource) ]   ──> Polled once per frame during Application::PreUpdate
                     ↓
-[ ECS Gameplay Systems ]             ──> Reads active actions for entities with Input component
+[ ECS Gameplay Systems ]             ──> Checks actions for entities with the Input component
 ```
 
-1. **`Engine::ActionType`:** An enum representing abstract gameplay actions (`ACTION_UP`, `ACTION_DOWN`, `ACTION_LEFT`, `ACTION_RIGHT`, `ACTION_1`, etc.).
-2. **`Engine::IController`:** Abstract interface representing a physical or virtual input device. Concrete implementations like `KeyboardController` poll hardware and maintain an active action queue.
-3. **`Engine::InputManager` (Resource):** A global ECS resource holding controller instances mapped to player IDs (`playerId`).
-4. **`Engine::Input` (Component):** A lightweight ECS component that tags an entity with a `playerIdx` and an `isActive` toggle.
-5. **`Engine::InputPlugin` (Plugin):** Helper plugin that registers the `Input` component and initializes the `InputManager` resource.
+1. **`Engine::DeviceType` & `Engine::Keybind`:** Identifies the device category (`KEYBOARD`, `MOUSE`, `GAMEPAD`, `TOUCH`) and binds a specific key code (plus optional combo modifier).
+2. **`Engine::IController`:** Abstract interface representing a player's controller. Maintains a map of `std::string` actions to vectors of `Keybind`s (`m_keymap`) and updates `getActiveActions()` each tick.
+3. **`Engine::KeyboardController`:** Multi-device controller implementation that polls Raylib keyboard, mouse, and gamepad APIs.
+4. **`Engine::InputManager` (Resource):** A global ECS resource holding controller instances mapped to player IDs (`playerId`).
+5. **`Engine::Input` (Component):** A lightweight ECS component tagging an entity with a `playerIdx` and an `isActive` toggle.
+6. **`Engine::InputPlugin` (Plugin):** Helper plugin that registers the `Input` component and initializes the `InputManager` resource.
 
 ---
 
-## 1. Setup & Initialization
+## 1. Setup & Dynamic Binding
 
-To enable input management, initialize the `InputPlugin` and configure player controllers at startup:
+Game developers can bind arbitrary custom actions to any combination of keyboard, mouse, or gamepad inputs:
 
 ```cpp
 #include "Core/Application.hpp"
@@ -39,14 +40,21 @@ To enable input management, initialize the `InputPlugin` and configure player co
 Engine::InputPlugin inputPlugin;
 inputPlugin.Init(app.GetRegistry());
 
-// Fetch the InputManager resource and bind Player 1 to the keyboard
 auto& inputManager = app.GetRegistry().GetResource<Engine::InputManager>();
 inputManager.AddPlayer(1, std::make_unique<Engine::KeyboardController>());
-```
+auto* p1 = inputManager.GetController(1);
 
-`InputPlugin::Init()` automatically registers:
-- `Engine::Input` component.
-- `Engine::InputManager` resource (if not already added).
+// Dynamic runtime bindings for Player 1:
+if (p1) {
+    p1->addKeybind("MOVE_UP", {KEY_W, 0, Engine::KEYBOARD});
+    p1->addKeybind("MOVE_UP", {KEY_UP, 0, Engine::KEYBOARD}); // Alternate binding
+
+    // Multi-device bindings: Shoot with Space, Left Mouse Click, or Gamepad A button
+    p1->addKeybind("SHOOT", {KEY_SPACE, 0, Engine::KEYBOARD});
+    p1->addKeybind("SHOOT", {MOUSE_BUTTON_LEFT, 0, Engine::MOUSE});
+    p1->addKeybind("SHOOT", {GAMEPAD_BUTTON_RIGHT_FACE_DOWN, 0, Engine::GAMEPAD});
+}
+```
 
 ---
 
@@ -70,7 +78,7 @@ The `Input` component has two fields:
 
 ## 3. Reading Input in Gameplay Systems
 
-Gameplay systems should read from the `InputManager` resource and iterate over entities with the `Input` component:
+Gameplay systems query the `InputManager` by action name without needing to know which physical device triggered it:
 
 ```cpp
 #include "ECS/System.hpp"
@@ -93,22 +101,27 @@ public:
                 continue; // Skip inactive entities
             }
 
-            Engine::IController* controller = inputManager.GetController(input.playerIdx);
+            auto* controller = inputManager.GetController(input.playerIdx);
             if (!controller) {
                 continue;
             }
 
             auto& pos = registry.GetComponent<Engine::Position>(entity);
-            const auto& actions = controller->getActionQueue();
 
-            for (Engine::ActionType action : actions) {
-                switch (action) {
-                    case Engine::ACTION_UP:    pos.y -= 250.0f * dt; break;
-                    case Engine::ACTION_DOWN:  pos.y += 250.0f * dt; break;
-                    case Engine::ACTION_LEFT:  pos.x -= 250.0f * dt; break;
-                    case Engine::ACTION_RIGHT: pos.x += 250.0f * dt; break;
-                    default: break;
-                }
+            if (controller->isActionActive("MOVE_UP")) {
+                pos.y -= 250.0f * dt;
+            }
+            if (controller->isActionActive("MOVE_DOWN")) {
+                pos.y += 250.0f * dt;
+            }
+            if (controller->isActionActive("MOVE_LEFT")) {
+                pos.x -= 250.0f * dt;
+            }
+            if (controller->isActionActive("MOVE_RIGHT")) {
+                pos.x += 250.0f * dt;
+            }
+            if (controller->isActionActive("SHOOT")) {
+                // Fire projectile logic...
             }
         }
     }
@@ -117,24 +130,7 @@ public:
 
 ---
 
-## 4. Default Keyboard Mappings
+## 4. Multi-Player & Extensibility
 
-The `KeyboardController` provides standard default bindings:
-
-| Action | Default Key |
-| :--- | :--- |
-| `ACTION_UP` | `W` |
-| `ACTION_DOWN` | `S` |
-| `ACTION_LEFT` | `A` |
-| `ACTION_RIGHT` | `D` |
-| `ACTION_1` | `Space` |
-| `ACTION_2` | `Left Shift` |
-| `ACTION_3` | `E` |
-| `ACTION_4` | `Q` |
-
----
-
-## 5. Multi-Player & Extensibility
-
-- **Local Multiplayer:** Add additional players by calling `inputManager.AddPlayer(2, std::make_unique<GamepadController>(0));`. Entities with `playerIdx = 2` will automatically read from Gamepad 0.
-- **Custom Devices & Network:** Create custom controllers by subclassing `Engine::IController` and overriding `poll()`, `Update()`, `setDefaultKeymap()`, and `getActionQueue()`. For network multiplayer, a `NetworkController` can populate the action queue directly from incoming network packets.
+- **Local Multiplayer:** Add additional players via `inputManager.AddPlayer(2, std::make_unique<Engine::KeyboardController>(1 /* gamepad index 1 */));`.
+- **Custom Devices & Network:** Create custom controllers by subclassing `Engine::IController` and overriding `Update()`, `addKeybind()`, `isActionActive()`, and `getActiveActions()`. A `NetworkController` can populate `_activeActions` directly from incoming network packets.

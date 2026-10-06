@@ -17,7 +17,9 @@ void InputManager::AddPlayer(int playerId, std::unique_ptr<IController> controll
 
 void InputManager::Update() {
     for (const auto& control : m_controllers) {
-        control.second->Update();
+        if (control.second) {
+            control.second->Update();
+        }
     }
 }
 
@@ -28,4 +30,5 @@ IController* InputManager::GetController(int playerId) {
     }
     return nullptr;
 }
+
 } // namespace Engine
