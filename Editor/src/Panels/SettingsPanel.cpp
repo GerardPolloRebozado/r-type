@@ -12,7 +12,6 @@
 #include <regex>
 
 namespace Editor {
-
 std::atomic<float> SettingsPanel::s_BuildProgress = 0.0f;
 std::atomic<bool> SettingsPanel::s_IsBuilding = false;
 bool SettingsPanel::s_IsOpen = false;
@@ -169,7 +168,6 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
     }
     ImGui::End();
 }
-
 } // namespace Editor
 
 namespace Editor {
