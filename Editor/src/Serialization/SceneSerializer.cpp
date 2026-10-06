@@ -39,6 +39,11 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
         Engine::Entity entity = i;
         json entityJson;
         entityJson["EntityID"] = static_cast<int>(entity);
+        if (config) {
+            if (auto it = config->m_EntityNames.find(entity); it != config->m_EntityNames.end()) {
+                entityJson["Name"] = it->second;
+            }
+        }
 
         positionEditor.Serialize(entity, registry, entityJson);
         textEditor.Serialize(entity, registry, entityJson);
@@ -102,6 +107,9 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         for (const auto& entityJson : sceneJson["Entities"]) {
             Engine::Entity entity = registry.CreateEntity();
 
+            if (config && entityJson.contains("Name")) {
+                config->m_EntityNames[entity] = entityJson["Name"].get<std::string>();
+            }
             // Deserialize components back onto the newly spawned entity
             positionEditor.Deserialize(entity, registry, entityJson);
             textEditor.Deserialize(entity, registry, entityJson);

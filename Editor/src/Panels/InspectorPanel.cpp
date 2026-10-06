@@ -3,6 +3,8 @@
 #include "Plugins/PositionPluginEditor.hpp"
 #include <cstring>
 #include <imgui.h>
+#include "EditorConfig.hpp"
+#include "misc/cpp/imgui_stdlib.h"
 
 #include "Panels/HierarchyPanel.hpp"
 #include "Plugins/TextPluginEditor.hpp"
@@ -17,7 +19,17 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
     auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
     if (ImGui::Begin(m_Name.c_str())) {
         if (selected.entity != -1) {
-            ImGui::TextDisabled("Entity %d", static_cast<int>(selected.entity));
+            auto it = config.m_EntityNames.find(selected.entity);
+            std::string name = it != config.m_EntityNames.end() ? it->second : "";
+            const std::string hint = "Entity " + std::to_string(selected.entity);
+            if (ImGui::InputTextWithHint("Name", hint.c_str(), &name)) {
+                if (name.empty()) {
+                    config.m_EntityNames.erase(selected.entity);
+                } else {
+                    config.m_EntityNames[selected.entity] = name;
+                }
+            }
+            ImGui::TextDisabled("ID: %d", static_cast<int>(selected.entity));
             ImGui::Separator();
 
             for (auto& editor : m_PluginEditors) {
