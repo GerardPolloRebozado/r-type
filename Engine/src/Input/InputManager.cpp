@@ -9,15 +9,25 @@
 #include "Keyboard.hpp"
 
 namespace Engine {
-InputManager::InputManager(int playerId) {}
+InputManager::InputManager() {}
 
-InputManager::~InputManager() {}
+InputManager::~InputManager() = default;
 
 void InputManager::AddPlayer(int playerId, std::unique_ptr<IController> controller) {
-    m_controllers.insert(playerId, controller);
+    m_controllers[playerId] = std::move(controller);
 }
 
-std::unique_ptr<IController> InputManager::GetController(int playerId) {
-    return std::move(m_controllers.at(playerId));
+void InputManager::Update() {
+    for (const auto& control : m_controllers) {
+        control.second->Update();
+    }
+}
+
+IController* InputManager::GetController(int playerId) {
+    auto it = m_controllers.find(playerId);
+    if (it != m_controllers.end()) {
+        return it->second.get();
+    }
+    return nullptr;
 }
 } // namespace Engine

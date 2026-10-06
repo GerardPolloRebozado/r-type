@@ -5,18 +5,19 @@
 ** KeyboardController.cpp
 */
 #include "../../include/Inputs/KeyboardController.hpp"
-
+#include <iostream>
 namespace Engine {
 KeyboardController::KeyboardController() {
     setDefaultKeymap();
 }
 
-KeyboardController::~KeyboardController() {}
+KeyboardController::~KeyboardController() = default;
 
 void KeyboardController::Update() {
     _actionQueue.clear();
     for (const auto& [key, action] : m_keymap) {
         if (IsKeyDown(key)) {
+            std::cout << action << std::endl;
             _actionQueue.push_back(action);
         }
     }

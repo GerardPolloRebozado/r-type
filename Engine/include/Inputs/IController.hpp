@@ -7,6 +7,8 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_ICONTROLLER_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_ICONTROLLER_HPP
 #include "raylib-cpp.hpp"
+#include <map>
+#include <unordered_map>
 #include <vector>
 
 namespace Engine {
@@ -24,9 +26,9 @@ typedef enum ActionType {
 } ActionType;
 class IController {
   public:
-    using Kmap = std::map<int, ActionType>;
+    using Kmap = std::unordered_map<int, ActionType>;
 
-    virtual ~IController();
+    virtual ~IController() = default;
     virtual void poll() = 0;
     virtual void Update() = 0;
     virtual void setDefaultKeymap() = 0;

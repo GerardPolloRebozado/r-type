@@ -8,6 +8,7 @@
 #define G_ING_500_BAR_5_1_RTYPE_1_INPUTMANAGER_HPP
 #include <map>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "IController.hpp"
@@ -16,17 +17,14 @@ namespace Engine {
 
 class InputManager {
   public:
-    InputManager(int playerId);
+    InputManager();
     ~InputManager();
     void AddPlayer(int playerId, std::unique_ptr<IController> controller);
-    std::unique_ptr<IController> GetController(int playerId);
-    void Update() {
-        for (const auto& control : m_controllers) {
-        }
-    }
+    void Update();
+    IController* GetController(int playerId);
 
   private:
-    std::map<int, std::unique_ptr<IController>> m_controllers;
+    std::unordered_map<int, std::unique_ptr<IController>> m_controllers;
 };
 } // namespace Engine
 
