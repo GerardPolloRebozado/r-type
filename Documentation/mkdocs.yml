@@ -57,6 +57,7 @@ nav:
     - Asset Management: engine/assets.md
     - Plugins: engine/plugins.md
     - Text Rendering: engine/text.md
+    - Input Management: engine/input.md
     - State Management: engine/states.md
     - Networking: engine/networking.md
   - Editor Manual:

@@ -3,6 +3,8 @@
 #include <chrono>
 #include <raylib.h>
 
+#include "Inputs/InputManager.hpp"
+
 namespace Engine {
 Application::Application(const ApplicationConfig& config) : m_Config(config), m_IsRunning(false) {
     log_info("[Engine] Initializing Application window: " + m_Config.windowTitle);
@@ -48,7 +50,11 @@ void Application::Run() {
     }
 }
 
-void Application::PreUpdate(float dt) {}
+void Application::PreUpdate(float dt) {
+    if (m_Registry.HasResource<InputManager>()) {
+        m_Registry.GetResource<InputManager>().Update();
+    }
+}
 
 void Application::Update(float dt) {
     for (auto const& pair : m_Registry.GetSystems()) {
