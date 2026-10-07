@@ -57,8 +57,11 @@ void Application::PreUpdate(float dt) {
 }
 
 void Application::Update(float dt) {
-    for (auto const& pair : m_Registry.GetSystems()) {
-        pair.second->Update(m_Registry, dt);
+    // Update order follows plugin registration (not the systems map); HierarchyPlugin before PositionPlugin.
+    auto const& systems = m_Registry.GetSystems();
+
+    for (std::type_index const& systemId : m_Registry.GetSystemUpdateOrder()) {
+        systems.at(systemId)->Update(m_Registry, dt);
     }
 }
 
@@ -77,8 +80,10 @@ void Application::PostUpdate(float dt) {
         ClearBackground(BLACK);
 
         // Run ECS Render Systems
-        for (auto const& pair : m_Registry.GetSystems()) {
-            pair.second->Render(m_Registry);
+        auto const& systems = m_Registry.GetSystems();
+
+        for (std::type_index const& systemId : m_Registry.GetSystemRenderOrder()) {
+            systems.at(systemId)->Render(m_Registry);
         }
 
         // Invoke UI Hook (Editor uses this for ImGui)

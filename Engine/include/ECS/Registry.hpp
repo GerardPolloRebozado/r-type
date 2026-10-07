@@ -1,8 +1,10 @@
 #ifndef ENGINE_ECS_REGISTRY_HPP_
 #define ENGINE_ECS_REGISTRY_HPP_
+#include "Components/Parent.hpp"
 #include "Entity.hpp"
 #include "Errors/EcsErrors.hpp"
 #include "System.hpp"
+#include <algorithm>
 #include <memory>
 #include <typeindex>
 #include <unordered_map>
@@ -39,7 +41,7 @@ template <typename T> class ComponentArray : public IComponentArray {
      * @param component The component data.
      */
     void InsertData(Entity entity, T component) {
-        m_ComponentMap[entity] = component;
+        m_ComponentMap.insert_or_assign(entity, std::move(component));
     }
 
     /**
@@ -115,13 +117,11 @@ class Registry {
     }
 
     /**
-     * @brief Destroys an entity, removing it from all systems and deleting its components.
+     * @brief Destroys an entity and its entire subtree (entities with @ref Parent pointing here).
      * @param entity The ID of the entity to destroy.
      */
     void DestroyEntity(const Entity entity) {
-        for (auto const& pair : m_ComponentArrays) {
-            pair.second->EntityDestroyed(entity);
-        }
+        DestroyEntityWithDescendants(entity);
     }
 
     /**
@@ -198,6 +198,11 @@ class Registry {
         std::type_index typeName = typeid(T);
         auto system = std::make_shared<T>();
         m_Systems[typeName] = system;
+        if (std::find(m_SystemUpdateOrder.begin(), m_SystemUpdateOrder.end(), typeName) ==
+            m_SystemUpdateOrder.end()) {
+            m_SystemUpdateOrder.push_back(typeName);
+            m_SystemRenderOrder.push_back(typeName);
+        }
         return system;
     }
 
@@ -230,6 +235,20 @@ class Registry {
      */
     const std::unordered_map<std::type_index, std::shared_ptr<System>>& GetSystems() const {
         return m_Systems;
+    }
+
+    /**
+     * @brief Registration order for @ref System::Update (stable across frames).
+     */
+    const std::vector<std::type_index>& GetSystemUpdateOrder() const {
+        return m_SystemUpdateOrder;
+    }
+
+    /**
+     * @brief Registration order for @ref System::Render (stable across frames).
+     */
+    const std::vector<std::type_index>& GetSystemRenderOrder() const {
+        return m_SystemRenderOrder;
     }
 
     /**
@@ -273,9 +292,40 @@ class Registry {
     }
 
   private:
+    /**
+     * @brief Recursively destroys descendants first (Parent scan), then strips @p entity components.
+     *
+     * Same behavior for immediate @ref DestroyEntity and deferred @ref QueueDestroyEntity /
+     * @ref FlushQueues so grouped hierarchies never leave orphaned children.
+     */
+    void DestroyEntityWithDescendants(Entity entity) {
+        if (m_ComponentArrays.contains(typeid(Parent))) {
+            auto parentArray = GetComponentArray<Parent>();
+            std::vector<Entity> children;
+
+            children.reserve(parentArray->size());
+
+            for (auto const& entry : *parentArray) {
+                if (entry.second.parent == entity) {
+                    children.push_back(entry.first);
+                }
+            }
+
+            for (Entity const child : children) {
+                DestroyEntityWithDescendants(child);
+            }
+        }
+
+        for (auto const& pair : m_ComponentArrays) {
+            pair.second->EntityDestroyed(entity);
+        }
+    }
+
     Entity m_NextEntityId = 0;
     std::unordered_map<std::type_index, std::shared_ptr<IComponentArray>> m_ComponentArrays;
     std::unordered_map<std::type_index, std::shared_ptr<System>> m_Systems;
+    std::vector<std::type_index> m_SystemUpdateOrder;
+    std::vector<std::type_index> m_SystemRenderOrder;
     std::unordered_map<std::type_index, std::shared_ptr<void>> m_Resources;
     std::vector<Entity> m_EntitiesToDestroy;
 };
