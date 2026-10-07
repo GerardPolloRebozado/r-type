@@ -1,13 +1,23 @@
+#include "BundledAssets.hpp"
 #include "Core/Application.hpp"
 #include "EditorLayer.hpp"
+#include "EditorStyle.hpp"
+#include "Gallery.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
+#include "imgui.h"
+#include "raylib.hpp"
+#include "rlImGui.h"
+#include <extras/FA6FreeSolidFontData.h>
+#include <extras/IconsFontAwesome6.h>
 
-int main() {
+using std::string;
+
+void RunEditor(string projectFolder) {
     Editor::EditorConfig config;
     config.windowTitle = "Engine Editor";
-    config.m_ProjectFolder = "Games/EditorGame";
+    config.m_ProjectFolder = projectFolder;
     config.windowWidth = 1280;
     config.windowHeight = 720;
     config.maximized = true;
@@ -36,6 +46,38 @@ int main() {
     app.Run();
 
     editorLayer.Shutdown();
+}
+
+int main() {
+    const int screenWidth = 1280;
+    const int screenHeight = 720;
+
+    InitWindow(screenWidth, screenHeight, "Raylib Gallery");
+    SetTargetFPS(60);
+
+    rlImGuiSetLoadFontsCallback(LoadGalleryFonts);
+
+    rlImGuiBeginInitImGui();
+
+    Editor::EditorStyle::Apply();
+
+    rlImGuiEndInitImGui();
+
+    while (!WindowShouldClose()) {
+        BeginDrawing();
+        ClearBackground(DARKGRAY);
+
+        rlImGuiBegin();
+
+        DrawGallery();
+
+        rlImGuiEnd();
+
+        EndDrawing();
+    }
+
+    rlImGuiShutdown();
+    CloseWindow();
 
     return 0;
 }
