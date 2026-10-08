@@ -37,7 +37,7 @@ class EditorLayer {
     std::vector<std::unique_ptr<IEditorPanel>> m_Panels;
     bool m_FirstTimeLayout = true;
     Engine::Registry* m_Registry = nullptr;
-    EditorConfig* m_Configuration = nullptr;
+    std::unique_ptr<EditorConfig> m_Configuration = nullptr;
 };
 
 } // namespace Editor
