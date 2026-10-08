@@ -72,6 +72,9 @@ void EditorLayer::Init() {
 
     rlImGuiEndInitImGui();
 
+    SceneSerializer serializer;
+    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, m_Configuration);
+
     // Enable docking feature
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -191,14 +194,9 @@ void EditorLayer::BeginDockSpace() {
                     serializer.Serialize(scenePath.string(), *m_Registry, m_Configuration);
                 }
             }
-            if (ImGui::MenuItem("Load Scene", "Ctrl+O")) {
-                if (m_Registry && m_Configuration) {
-                    SceneSerializer serializer;
-                    fs::path scenePath =
-                        ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
-                    serializer.Deserialize(scenePath.string(), *m_Registry, m_Configuration);
-                }
-            }
+            // if (ImGui::MenuItem("Load Scene", "Ctrl+O"))
+            // TODO: either pop up a list of projects/folders? or go back to the project gallery
+
             ImGui::EndMenu();
         }
 

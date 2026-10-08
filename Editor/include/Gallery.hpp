@@ -16,7 +16,7 @@ struct ProjectData {
 
 class Gallery {
   public:
-    void DrawGallery();
+    std::string DrawGallery();
 
   private:
     std::vector<ProjectData> FindProjects();

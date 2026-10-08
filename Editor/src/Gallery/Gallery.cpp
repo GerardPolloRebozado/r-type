@@ -8,6 +8,7 @@
 #include <extras/IconsFontAwesome6.h>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <vector>
 
 ImFont* g_IconFont = nullptr;
@@ -17,7 +18,6 @@ void LoadGalleryFonts() {
 
     ImFontConfig regularConfig{};
     regularConfig.FontDataOwnedByAtlas = false;
-
     io.Fonts->AddFontFromMemoryTTF(
         const_cast<unsigned char*>(BundledAssets::fonts_Inter_Regular_ttf),
         BundledAssets::fonts_Inter_Regular_ttf_size, 16.0f, &regularConfig);
@@ -111,9 +111,10 @@ std::vector<ProjectData> Gallery::FindProjects() {
     return projects;
 }
 
-void Editor::Gallery::DrawGallery() {
+std::string Editor::Gallery::DrawGallery() {
     static std::vector<ProjectData> projects = FindProjects();
     static char searchBuffer[128] = "";
+    std::string scenePath = "";
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -221,7 +222,9 @@ void Editor::Gallery::DrawGallery() {
                     ImVec2 p = ImGui::GetCursorScreenPos();
 
                     if (ImGui::InvisibleButton("##click", ImGui::GetContentRegionAvail())) {
-                        // Logic when a project is clicked
+                        std::filesystem::path path = projects[i].path;
+                        path /= "test.scene"; // TODO: save "lastOpenScene" in json.
+                        scenePath = path;
                     }
 
                     if (ImGui::IsItemHovered()) {
@@ -293,6 +296,10 @@ void Editor::Gallery::DrawGallery() {
 
                 ImGui::PopID();
                 ImGui::Spacing();
+
+                if (scenePath != "") {
+                    break;
+                }
             }
         } else {
             ImGui::Spacing();
@@ -306,5 +313,6 @@ void Editor::Gallery::DrawGallery() {
     }
     ImGui::End();
     ImGui::PopStyleVar();
+    return scenePath;
 }
 } // namespace Editor

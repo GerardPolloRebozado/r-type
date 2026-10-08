@@ -11,6 +11,7 @@ struct EditorConfig : public Engine::ApplicationConfig {
     std::string m_SelectedAssetPath;
     std::string m_BuildExecutableName = "Game";
     std::string m_BuildWindowTitle = "Game";
+    std::string m_InitialScenePath;
 };
 
 } // namespace Editor

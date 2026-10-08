@@ -11,13 +11,19 @@
 #include "rlImGui.h"
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
+#include <filesystem>
 
 using std::string;
 
-void RunEditor(string projectFolder) {
+void RunEditor(string scenePathString) {
     Editor::EditorConfig config;
+
+    std::filesystem::path projectFolder = scenePathString;
+    projectFolder = projectFolder.parent_path();
+
     config.windowTitle = "Engine Editor";
     config.m_ProjectFolder = projectFolder;
+    config.m_InitialScenePath = scenePathString;
     config.windowWidth = 1280;
     config.windowHeight = 720;
     config.maximized = true;
@@ -61,6 +67,7 @@ int main() {
 
     Editor::EditorStyle::Apply();
     Editor::Gallery gallery;
+    std::string scenePath;
 
     rlImGuiEndInitImGui();
 
@@ -70,7 +77,10 @@ int main() {
 
         rlImGuiBegin();
 
-        gallery.DrawGallery();
+        scenePath = gallery.DrawGallery();
+        if (scenePath != "") {
+            break;
+        }
 
         rlImGuiEnd();
 
@@ -79,6 +89,8 @@ int main() {
 
     rlImGuiShutdown();
     CloseWindow();
+
+    RunEditor(scenePath);
 
     return 0;
 }
