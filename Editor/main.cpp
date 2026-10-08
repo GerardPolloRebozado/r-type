@@ -71,16 +71,13 @@ int main() {
 
     rlImGuiEndInitImGui();
 
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && scenePath == "") {
         BeginDrawing();
         ClearBackground(DARKGRAY);
 
         rlImGuiBegin();
 
         scenePath = gallery.DrawGallery();
-        if (scenePath != "") {
-            break;
-        }
 
         rlImGuiEnd();
 
@@ -90,7 +87,8 @@ int main() {
     rlImGuiShutdown();
     CloseWindow();
 
-    RunEditor(scenePath);
-
+    if (scenePath != "") {
+        RunEditor(scenePath);
+    }
     return 0;
 }

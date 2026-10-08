@@ -34,6 +34,7 @@ set(SRC_FILES
         src/Plugins/TextPluginEditor.cpp
         src/Plugins/SpritePluginEditor.cpp
         src/Serialization/SceneSerializer.cpp
+        src/Utils/Multiplatform.cpp
 )
 
 set(INC_FILES
@@ -54,6 +55,7 @@ set(INC_FILES
         include/Plugins/TextPluginEditor.hpp
         include/Plugins/SpritePluginEditor.hpp
         include/Serialization/SceneSerializer.hpp
+        include/MultiplatformUtils.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
