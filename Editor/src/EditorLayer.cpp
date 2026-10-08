@@ -73,7 +73,7 @@ void EditorLayer::Init() {
     rlImGuiEndInitImGui();
 
     SceneSerializer serializer;
-    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, m_Configuration);
+    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, *m_Configuration);
 
     // Enable docking feature
     ImGuiIO& io = ImGui::GetIO();
@@ -191,7 +191,8 @@ void EditorLayer::BeginDockSpace() {
                     fs::path scenePath =
                         ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
                     fs::create_directories(scenePath.parent_path());
-                    serializer.Serialize(scenePath.string(), *m_Registry, m_Configuration);
+                    serializer.Serialize(scenePath.string(), *m_Registry, *m_Configuration);
+                    serializer.UpdateProjectList(*m_Configuration);
                 }
             }
             // if (ImGui::MenuItem("Load Scene", "Ctrl+O"))
@@ -276,7 +277,7 @@ void EditorLayer::SetRegistry(Engine::Registry& registry) {
 }
 
 void EditorLayer::SetConfiguration(EditorConfig& config) {
-    m_Configuration = &config;
+    m_Configuration = std::make_unique<EditorConfig>(config);
 }
 
 void EditorLayer::OnRenderGame(Engine::Registry& registry) {

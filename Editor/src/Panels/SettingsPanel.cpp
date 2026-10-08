@@ -31,7 +31,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     std::string projFolder = config.m_ProjectFolder;
     std::string scenePathStr = projFolder + "/test.scene";
     SceneSerializer serializer;
-    serializer.Serialize(scenePathStr, registry, &config);
+    serializer.Serialize(scenePathStr, registry, config);
 
     std::string exeNameStr = config.m_BuildExecutableName;
     std::string winTitleStr = config.m_BuildWindowTitle;
