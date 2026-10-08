@@ -60,6 +60,7 @@ int main() {
     rlImGuiBeginInitImGui();
 
     Editor::EditorStyle::Apply();
+    Editor::Gallery gallery;
 
     rlImGuiEndInitImGui();
 
@@ -69,7 +70,7 @@ int main() {
 
         rlImGuiBegin();
 
-        DrawGallery();
+        gallery.DrawGallery();
 
         rlImGuiEnd();
 

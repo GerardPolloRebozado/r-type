@@ -1,9 +1,14 @@
+#include "Gallery.hpp"
 #include "BundledAssets.hpp"
 #include "EditorLayer.hpp"
 #include "imgui.h"
+#include "nlohmann/json.hpp"
 #include <algorithm>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
+#include <filesystem>
+#include <fstream>
+#include <vector>
 
 ImFont* g_IconFont = nullptr;
 
@@ -46,14 +51,68 @@ struct ProjectData {
     std::string engineVersion;
 };
 
-void DrawGallery() {
-    static std::vector<ProjectData> projects = {
-        {"My Awesome Game", "A platformer with cool mechanics.", "2 hours ago",
-         "/home/user/games/awesome", "v0.0.1-beta"},
-        {"RPG Maker Clone", "An RPG engine.", "Yesterday", "/home/user/games/rpg", "v0.0.1-beta"},
-        {"Shooter", "Top down shooter.", "3 days ago", "/home/user/games/shooter", "v0.0.1-alpha"},
-        {"R-Type", "Networking based shoot em up", "Last week", "/home/user/games/rtype",
-         "v0.0.1-alpha"}};
+std::filesystem::path configDirectory() {
+#ifdef _WIN32
+    if (const char* appData = std::getenv("APPDATA")) {
+        return std::filesystem::path(appData) / "rtype";
+    }
+    throw std::runtime_error("APPDATA is not set");
+
+#elif defined(__APPLE__)
+    if (const char* home = std::getenv("HOME")) {
+        return std::filesystem::path(home) / "Library" / "Application Support" / "rtype";
+    }
+    throw std::runtime_error("HOME is not set");
+
+#else // Linux and other Unix-like systems
+    if (const char* xdgConfig = std::getenv("XDG_CONFIG_HOME"); xdgConfig && *xdgConfig) {
+        return std::filesystem::path(xdgConfig) / "rtype";
+    }
+
+    if (const char* home = std::getenv("HOME")) {
+        return std::filesystem::path(home) / ".config" / "rtype";
+    }
+    throw std::runtime_error("Neither XDG_CONFIG_HOME nor HOME is set");
+#endif
+}
+namespace Editor {
+
+std::vector<ProjectData> Gallery::FindProjects() {
+    const auto settingsPath =
+        configDirectory() / "projects.json"; // the / operator is overloaded to concatenate
+
+    if (!std::filesystem::exists(settingsPath)) {
+        return {};
+    }
+
+    std::ifstream file(settingsPath);
+    if (!file) {
+        throw std::runtime_error("Could not open " + settingsPath.string());
+    }
+
+    const nlohmann::json data = nlohmann::json::parse(file);
+    if (!data.is_array()) {
+        throw std::runtime_error("Expected a JSON array in " + settingsPath.string());
+    }
+
+    std::vector<ProjectData> projects;
+    projects.reserve(data.size());
+
+    for (const auto& item : data) {
+        if (!item.is_object()) {
+            continue;
+        }
+
+        projects.push_back({item.value("name", ""), item.value("description", ""),
+                            item.value("lastOpened", ""), item.value("path", ""),
+                            item.value("engineVersion", "")});
+    }
+
+    return projects;
+}
+
+void Editor::Gallery::DrawGallery() {
+    static std::vector<ProjectData> projects = FindProjects();
     static char searchBuffer[128] = "";
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -248,3 +307,4 @@ void DrawGallery() {
     ImGui::End();
     ImGui::PopStyleVar();
 }
+} // namespace Editor
