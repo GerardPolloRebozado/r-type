@@ -1,6 +1,7 @@
 #include "Gallery.hpp"
 #include "BundledAssets.hpp"
 #include "EditorLayer.hpp"
+#include "MultiplatformUtils.hpp"
 #include "imgui.h"
 #include "nlohmann/json.hpp"
 #include <algorithm>
@@ -42,44 +43,11 @@ void LoadGalleryFonts() {
                                                           fa_solid_900_compressed_size, 48.0f,
                                                           &largeIconConfig, iconRanges);
 }
-
-struct ProjectData {
-    std::string name;
-    std::string description;
-    std::string lastOpened;
-    std::string path;
-    std::string engineVersion;
-};
-
-std::filesystem::path configDirectory() {
-#ifdef _WIN32
-    if (const char* appData = std::getenv("APPDATA")) {
-        return std::filesystem::path(appData) / "rtype";
-    }
-    throw std::runtime_error("APPDATA is not set");
-
-#elif defined(__APPLE__)
-    if (const char* home = std::getenv("HOME")) {
-        return std::filesystem::path(home) / "Library" / "Application Support" / "rtype";
-    }
-    throw std::runtime_error("HOME is not set");
-
-#else // Linux and other Unix-like systems
-    if (const char* xdgConfig = std::getenv("XDG_CONFIG_HOME"); xdgConfig && *xdgConfig) {
-        return std::filesystem::path(xdgConfig) / "rtype";
-    }
-
-    if (const char* home = std::getenv("HOME")) {
-        return std::filesystem::path(home) / ".config" / "rtype";
-    }
-    throw std::runtime_error("Neither XDG_CONFIG_HOME nor HOME is set");
-#endif
-}
 namespace Editor {
 
 std::vector<ProjectData> Gallery::FindProjects() {
     const auto settingsPath =
-        configDirectory() / "projects.json"; // the / operator is overloaded to concatenate
+        ConfigDirectory() / "projects.json"; // the / operator is overloaded to concatenate
 
     if (!std::filesystem::exists(settingsPath)) {
         return {};
@@ -112,7 +80,7 @@ std::vector<ProjectData> Gallery::FindProjects() {
 }
 
 std::string Editor::Gallery::DrawGallery() {
-    static std::vector<ProjectData> projects = FindProjects();
+    static std::vector<ProjectData> projects = Gallery::FindProjects();
     static char searchBuffer[128] = "";
     std::string scenePath = "";
 
@@ -266,7 +234,7 @@ std::string Editor::Gallery::DrawGallery() {
                     ImGui::TextDisabled("Engine: %s", projects[i].engineVersion.c_str());
 
                     ImGui::SetCursorScreenPos(ImVec2(p.x + rightAlign, p.y + 45));
-                    ImGui::TextDisabled("Opened: %s", lastOpenedStr.c_str());
+                    ImGui::TextDisabled("Last opened: %s", FormatDate(lastOpenedStr).c_str());
 
                     ImGui::SetCursorScreenPos(ImVec2(p.x + ImGui::GetWindowWidth() - 50, p.y + 25));
 

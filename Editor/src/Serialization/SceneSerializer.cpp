@@ -1,11 +1,12 @@
 #include "Serialization/SceneSerializer.hpp"
 #include "EditorConfig.hpp"
+#include "Gallery.hpp"
 #include "Logging/Logger.hpp"
+#include "MultiplatformUtils.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
-#include "Plugins/TextPluginEditor.hpp"
-
 #include "Plugins/SpritePluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
+#include <algorithm>
 #include <fstream>
 #include <nlohmann/json.hpp>
 
@@ -13,7 +14,42 @@ using json = nlohmann::json;
 
 namespace Editor {
 
-void SceneSerializer::UpdateProjectList(EditorConfig& config) {}
+std::int64_t UnixTimestampSeconds() {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
+void SceneSerializer::UpdateProjectList(EditorConfig& config) {
+    auto projects = Gallery::FindProjects();
+
+    auto it = std::find_if(projects.begin(), projects.end(), [&config](const ProjectData& project) {
+        return project.path == config.m_ProjectFolder;
+    });
+
+    if (it == projects.end()) {
+        return;
+    }
+
+    it->lastOpened = std::to_string(UnixTimestampSeconds());
+
+    nlohmann::json data = nlohmann::json::array();
+    for (const auto& project : projects) {
+        data.push_back({{"name", project.name},
+                        {"description", project.description},
+                        {"lastOpened", project.lastOpened},
+                        {"path", project.path},
+                        {"engineVersion", project.engineVersion}});
+    }
+
+    const auto settingsPath = ConfigDirectory() / "projects.json";
+    std::ofstream file(settingsPath);
+    if (!file) {
+        throw std::runtime_error("Could not open " + settingsPath.string());
+    }
+
+    file << data.dump(2) << '\n';
+}
 
 void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& registry,
                                 EditorConfig& config) {

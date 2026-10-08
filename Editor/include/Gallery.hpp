@@ -17,9 +17,7 @@ struct ProjectData {
 class Gallery {
   public:
     std::string DrawGallery();
-
-  private:
-    std::vector<ProjectData> FindProjects();
+    static std::vector<ProjectData> FindProjects();
 };
 }; // namespace Editor
 
