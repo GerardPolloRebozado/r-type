@@ -7,6 +7,8 @@
 #include <misc/cpp/imgui_stdlib.h>
 
 #include "Panels/HierarchyPanel.hpp"
+#include "Plugins/RotationPluginEditor.hpp"
+#include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
 
@@ -14,6 +16,8 @@ namespace Editor {
 InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<TextPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<ShapePluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<RotationPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<SpritePluginEditor>());
 }
 
@@ -22,7 +26,8 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
     if (ImGui::Begin(m_Name.c_str())) {
         if (selected.entity != -1) {
             const bool hasName = registry.HasComponent<Engine::Name>(selected.entity);
-            std::string name = hasName ? registry.GetComponent<Engine::Name>(selected.entity).value : "";
+            std::string name =
+                hasName ? registry.GetComponent<Engine::Name>(selected.entity).value : "";
             const std::string hint = "Entity " + std::to_string(selected.entity);
             ImGui::PushID(static_cast<int>(selected.entity));
             if (ImGui::InputTextWithHint("Name", hint.c_str(), &name)) {

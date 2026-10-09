@@ -1,5 +1,6 @@
 #include "Panels/SceneViewPanel.hpp"
 #include "Components/Position.hpp"
+#include "Components/Rotation.hpp"
 #include "EditorConfig.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include <imgui.h>
@@ -111,9 +112,30 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 bool hoveringY = IsPointInRect(mousePos, yMin, yMax);
                 bool hoveringCenter = IsPointInRect(mousePos, centerMin, centerMax);
 
+                // Check rotation ring hitbox
+                float rotRingRadius = 60.0f;
+                float rotRingThickness = 5.0f;
+                float distToCenter =
+                    std::hypot(mousePos.x - entityScreenPos.x, mousePos.y - entityScreenPos.y);
+                bool hoveringRot = false;
+                if (registry.HasComponent<Engine::Rotation>(selected.entity)) {
+                    if (distToCenter >= rotRingRadius - rotRingThickness &&
+                        distToCenter <= rotRingRadius + rotRingThickness) {
+                        hoveringRot = true;
+                    }
+                }
+
                 if (ImGui::IsWindowHovered()) {
                     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                        if (hoveringCenter) {
+                        if (hoveringRot) {
+                            m_GizmoState = GizmoState::DraggingRotation;
+                            // Calculate initial angle to mouse
+                            float dx = mousePos.x - entityScreenPos.x;
+                            float dy = mousePos.y - entityScreenPos.y;
+                            auto& rot = registry.GetComponent<Engine::Rotation>(selected.entity);
+                            m_InitialDragAngle = std::atan2(dy, dx) * (180.0f / 3.1415926535f);
+                            m_InitialEntityAngle = rot.angle;
+                        } else if (hoveringCenter) {
                             m_GizmoState = GizmoState::DraggingBoth;
                             m_DragOffset[0] = entityScreenPos.x - mousePos.x;
                             m_DragOffset[1] = entityScreenPos.y - mousePos.y;
@@ -140,6 +162,20 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                     pos.x = (mousePos.x + m_DragOffset[0] - textureScreenPos.x) / scaleX;
                 } else if (m_GizmoState == GizmoState::DraggingY) {
                     pos.y = (mousePos.y + m_DragOffset[1] - textureScreenPos.y) / scaleY;
+                } else if (m_GizmoState == GizmoState::DraggingRotation) {
+                    float dx = mousePos.x - entityScreenPos.x;
+                    float dy = mousePos.y - entityScreenPos.y;
+                    float currentMouseAngle = std::atan2(dy, dx) * (180.0f / 3.1415926535f);
+                    float deltaAngle = currentMouseAngle - m_InitialDragAngle;
+                    auto& rot = registry.GetComponent<Engine::Rotation>(selected.entity);
+                    rot.angle = m_InitialEntityAngle + deltaAngle;
+                    // Normalize to 0-360
+                    while (rot.angle < 0.0f) {
+                        rot.angle += 360.0f;
+                    }
+                    while (rot.angle >= 360.0f) {
+                        rot.angle -= 360.0f;
+                    }
                 }
 
                 entityScreenPos = ImVec2(textureScreenPos.x + pos.x * scaleX,
@@ -173,6 +209,29 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 // Draw Center Square (Yellow)
                 drawList->AddRectFilled(ImVec2(entityScreenPos.x - 5, entityScreenPos.y - 5),
                                         ImVec2(entityScreenPos.x + 5, entityScreenPos.y + 5), colC);
+
+                // Draw Rotation Ring (Blue)
+                if (registry.HasComponent<Engine::Rotation>(selected.entity)) {
+                    ImU32 colRot = (hoveringRot || m_GizmoState == GizmoState::DraggingRotation)
+                                       ? IM_COL32(100, 100, 255, 255)
+                                       : IM_COL32(50, 50, 200, 255);
+                    drawList->AddCircle(entityScreenPos, rotRingRadius, colRot, 32,
+                                        rotRingThickness);
+
+                    // Draw a notch to indicate current angle
+                    auto& rot = registry.GetComponent<Engine::Rotation>(selected.entity);
+                    float angleRad = rot.angle * (3.1415926535f / 180.0f);
+                    ImVec2 notchStart = ImVec2(
+                        entityScreenPos.x + std::cos(angleRad) * (rotRingRadius - rotRingThickness),
+                        entityScreenPos.y +
+                            std::sin(angleRad) * (rotRingRadius - rotRingThickness));
+                    ImVec2 notchEnd =
+                        ImVec2(entityScreenPos.x +
+                                   std::cos(angleRad) * (rotRingRadius + rotRingThickness + 5.0f),
+                               entityScreenPos.y +
+                                   std::sin(angleRad) * (rotRingRadius + rotRingThickness + 5.0f));
+                    drawList->AddLine(notchStart, notchEnd, IM_COL32(255, 255, 255, 255), 3.0f);
+                }
             }
         }
     }

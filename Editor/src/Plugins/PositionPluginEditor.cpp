@@ -23,25 +23,12 @@ bool PositionPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
     std::string header = std::string(GetIcon()) + " " + GetName();
     bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 
-    bool remove = false;
-    if (ImGui::BeginPopupContextItem()) {
-        if (ImGui::MenuItem("Remove Component")) {
-            remove = true;
-        }
-        ImGui::EndPopup();
-    }
-
     if (isOpen) {
         float pos[2] = {position.x, position.y};
         if (ImGui::DragFloat2("Position", pos, 0.1f)) {
             position.x = pos[0];
             position.y = pos[1];
         }
-    }
-
-    if (remove) {
-        RemoveComponent(entity, registry);
-        return false;
     }
 
     return true;

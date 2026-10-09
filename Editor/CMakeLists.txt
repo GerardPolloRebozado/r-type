@@ -34,6 +34,8 @@ set(SRC_FILES
         src/Plugins/PositionPluginEditor.cpp
         src/Plugins/TextPluginEditor.cpp
         src/Plugins/SpritePluginEditor.cpp
+        src/Plugins/ShapePluginEditor.cpp
+        src/Plugins/RotationPluginEditor.cpp
         src/Serialization/SceneSerializer.cpp
         src/Utils/Multiplatform.cpp
 )
@@ -56,6 +58,8 @@ set(INC_FILES
         include/Plugins/PositionPluginEditor.hpp
         include/Plugins/TextPluginEditor.hpp
         include/Plugins/SpritePluginEditor.hpp
+        include/Plugins/ShapePluginEditor.hpp
+        include/Plugins/RotationPluginEditor.hpp
         include/Serialization/SceneSerializer.hpp
         include/MultiplatformUtils.hpp
 )

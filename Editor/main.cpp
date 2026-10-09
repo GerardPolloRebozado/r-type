@@ -4,6 +4,8 @@
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/RotationPlugin.hpp"
+#include "Plugins/ShapePlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
 #include "imgui.h"
@@ -44,6 +46,10 @@ void RunEditor(string scenePathString) {
     text_plugin.Init(app.GetRegistry());
     Engine::SpritePlugin spritePlugin;
     spritePlugin.Init(app.GetRegistry());
+    Engine::ShapePlugin shapePlugin;
+    shapePlugin.Init(app.GetRegistry());
+    Engine::RotationPlugin rotationPlugin;
+    rotationPlugin.Init(app.GetRegistry());
 
     editorLayer.SetRegistry(app.GetRegistry());
     editorLayer.SetConfiguration(config);
