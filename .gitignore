@@ -101,3 +101,5 @@ Documentation/doxygen_output/
 *.png
 
 *.scene
+
+portable-file-dialogs.h
