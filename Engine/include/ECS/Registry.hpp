@@ -1,6 +1,8 @@
 #ifndef ENGINE_ECS_REGISTRY_HPP_
 #define ENGINE_ECS_REGISTRY_HPP_
 #include "Components/Parent.hpp"
+#include "Components/Position.hpp"
+#include "Components/Rotation.hpp"
 #include "Entity.hpp"
 #include "Errors/EcsErrors.hpp"
 #include "System.hpp"
@@ -108,12 +110,20 @@ template <typename T> class ComponentArray : public IComponentArray {
  */
 class Registry {
   public:
+    Registry() {
+        RegisterComponent<Position>();
+        RegisterComponent<Rotation>();
+    }
+
     /**
-     * @brief Creates a new entity.
+     * @brief Creates a new entity and gives it a default Position and Rotation.
      * @return The ID of the newly created entity.
      */
     Entity CreateEntity() {
-        return {m_NextEntityId++};
+        Entity entity = {m_NextEntityId++};
+        AddComponent<Position>(entity, Position(0, 0));
+        AddComponent<Rotation>(entity, Rotation(0.0f));
+        return entity;
     }
 
     /**
@@ -293,7 +303,8 @@ class Registry {
 
   private:
     /**
-     * @brief Recursively destroys descendants first (Parent scan), then strips @p entity components.
+     * @brief Recursively destroys descendants first (Parent scan), then strips @p entity
+     * components.
      *
      * Same behavior for immediate @ref DestroyEntity and deferred @ref QueueDestroyEntity /
      * @ref FlushQueues so grouped hierarchies never leave orphaned children.

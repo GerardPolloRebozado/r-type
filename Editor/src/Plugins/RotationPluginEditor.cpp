@@ -26,14 +26,6 @@ bool RotationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 
-    bool remove = false;
-    if (ImGui::BeginPopupContextItem()) {
-        if (ImGui::MenuItem("Remove Component")) {
-            remove = true;
-        }
-        ImGui::EndPopup();
-    }
-
     if (isOpen) {
         // Simple dial/gizmo for rotation
         ImGui::DragFloat("Angle (deg)", &rot.angle, 1.0f, 0.0f, 360.0f);
@@ -72,11 +64,6 @@ bool RotationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
         ImVec2 line_end = ImVec2(center.x + std::cos(angle_rad) * radius,
                                  center.y + std::sin(angle_rad) * radius);
         draw_list->AddLine(center, line_end, IM_COL32(255, 100, 100, 255), 2.0f);
-    }
-
-    if (remove) {
-        RemoveComponent(entity, registry);
-        return false;
     }
 
     return true;

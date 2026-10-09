@@ -2,6 +2,7 @@
 #include "Assets/AssetManager.hpp"
 #include "Components/Name.hpp"
 #include "Components/Position.hpp"
+#include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
 #include <imgui.h>
 #include <string>
@@ -16,7 +17,6 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                                                ImGuiPopupFlags_NoOpenOverItems)) {
             if (ImGui::MenuItem("Create Empty Entity")) {
                 const Engine::Entity newEntity = registry.CreateEntity();
-                // registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
                 selected.entity = newEntity;
                 selected.index = static_cast<int>(newEntity); // Temporary simple selection map
             }
@@ -28,7 +28,8 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         } else {
             for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
                 const auto entity = i;
-                std::string label = Engine::GetEntityName(registry, entity) + "##" + std::to_string(entity);
+                std::string label =
+                    Engine::GetEntityName(registry, entity) + "##" + std::to_string(entity);
                 if (ImGui::Selectable(label.c_str(), selected.index == static_cast<int>(i))) {
                     selected.index = static_cast<int>(i);
                     selected.entity = entity;
@@ -51,6 +52,10 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                             if (!registry.HasComponent<Engine::Position>(entity)) {
                                 registry.AddComponent<Engine::Position>(entity,
                                                                         Engine::Position(0, 0));
+                            }
+                            if (!registry.HasComponent<Engine::Rotation>(entity)) {
+                                registry.AddComponent<Engine::Rotation>(entity,
+                                                                        Engine::Rotation(0.0f));
                             }
                             if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
                                 auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
@@ -85,7 +90,6 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                         spr = std::make_shared<Engine::Sprite>(newPath);
                     }
                     const Engine::Entity newEntity = registry.CreateEntity();
-                    registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
                     registry.AddComponent<Engine::SpriteComponent>(
                         newEntity, Engine::SpriteComponent(spr, newPath));
                     selected.entity = newEntity;
