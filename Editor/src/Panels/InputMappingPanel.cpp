@@ -31,9 +31,11 @@ const char* InputMappingPanel::GetKeyName(int key, Engine::DeviceType type) cons
                 return "Mouse Right";
             case MOUSE_BUTTON_MIDDLE:
                 return "Mouse Middle";
-            default:
-                snprintf(buf, sizeof(buf), "Mouse %d", key);
-                return buf;
+            default: {
+                static std::string mouseBuf;
+                mouseBuf = "Mouse " + std::to_string(key);
+                return mouseBuf.c_str();
+            }
         }
     }
 
@@ -75,16 +77,19 @@ const char* InputMappingPanel::GetKeyName(int key, Engine::DeviceType type) cons
                 return "GP L3";
             case GAMEPAD_BUTTON_RIGHT_THUMB:
                 return "GP R3";
-            default:
-                snprintf(buf, sizeof(buf), "GP %d", key);
-                return buf;
+            default: {
+                static std::string gpBuf;
+                gpBuf = "GP " + std::to_string(key);
+                return gpBuf.c_str();
+            }
         }
     }
 
     // KEYBOARD
     if (key >= 32 && key <= 126) {
-        snprintf(buf, sizeof(buf), "%c", (char)key);
-        return buf;
+        static std::string asciiBuf;
+        asciiBuf = std::string(1, (char)key);
+        return asciiBuf.c_str();
     }
 
     switch (key) {
@@ -166,8 +171,9 @@ const char* InputMappingPanel::GetKeyName(int key, Engine::DeviceType type) cons
             return "F12";
     }
 
-    snprintf(buf, sizeof(buf), "Key %d", key);
-    return buf;
+    static std::string keyBuf;
+    keyBuf = "Key " + std::to_string(key);
+    return keyBuf.c_str();
 }
 
 void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
@@ -237,20 +243,11 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                         ImGui::Button("Press key...", ImVec2(-FLT_MIN, 0));
                         int pressedKey = -1;
                         if (kb.type == Engine::MOUSE) {
-                            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                                pressedKey = MOUSE_BUTTON_LEFT;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-                                pressedKey = MOUSE_BUTTON_RIGHT;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) {
-                                pressedKey = MOUSE_BUTTON_MIDDLE;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_SIDE)) {
-                                pressedKey = MOUSE_BUTTON_SIDE;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_EXTRA)) {
-                                pressedKey = MOUSE_BUTTON_EXTRA;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_FORWARD)) {
-                                pressedKey = MOUSE_BUTTON_FORWARD;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_BACK)) {
-                                pressedKey = MOUSE_BUTTON_BACK;
+                            for (int i = MOUSE_BUTTON_LEFT; i <= MOUSE_BUTTON_BACK; i++) {
+                                if (IsMouseButtonPressed(i)) {
+                                    pressedKey = i;
+                                    break;
+                                }
                             }
                         } else if (kb.type == Engine::GAMEPAD) {
                             for (int i = 1; i <= 18; i++) {
@@ -293,12 +290,11 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                         }
 
                         if (pressedKey == -1) {
-                            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                                pressedKey = MOUSE_BUTTON_LEFT;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-                                pressedKey = MOUSE_BUTTON_RIGHT;
-                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) {
-                                pressedKey = MOUSE_BUTTON_MIDDLE;
+                            for (int i = MOUSE_BUTTON_LEFT; i <= MOUSE_BUTTON_BACK; i++) {
+                                if (IsMouseButtonPressed(i)) {
+                                    pressedKey = i;
+                                    break;
+                                }
                             }
                         }
 
