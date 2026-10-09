@@ -1,4 +1,5 @@
 #include "Serialization/SceneSerializer.hpp"
+#include "Components/Name.hpp"
 #include "EditorConfig.hpp"
 #include "Gallery.hpp"
 #include "Logging/Logger.hpp"
@@ -77,6 +78,9 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
         Engine::Entity entity = i;
         json entityJson;
         entityJson["EntityID"] = static_cast<int>(entity);
+        if (registry.HasComponent<Engine::Name>(entity)) {
+            entityJson["Name"] = registry.GetComponent<Engine::Name>(entity).value;
+        }
 
         positionEditor.Serialize(entity, registry, entityJson);
         textEditor.Serialize(entity, registry, entityJson);
@@ -142,6 +146,10 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         for (const auto& entityJson : sceneJson["Entities"]) {
             Engine::Entity entity = registry.CreateEntity();
 
+            if (entityJson.contains("Name") && entityJson["Name"].is_string()) {
+                registry.AddComponent<Engine::Name>(
+                    entity, Engine::Name(entityJson["Name"].get<std::string>()));
+            }
             // Deserialize components back onto the newly spawned entity
             positionEditor.Deserialize(entity, registry, entityJson);
             textEditor.Deserialize(entity, registry, entityJson);
