@@ -20,7 +20,6 @@ target_include_directories(rlImGui PUBLIC ${rlImGui_SOURCE_DIR})
 target_link_libraries(rlImGui PUBLIC imgui raylib)
 
 set(SRC_FILES
-        src/EditorConfig.cpp
         src/EditorLayer.cpp
         src/EditorStyle.cpp
         src/Panels/AssetsPanel.cpp
