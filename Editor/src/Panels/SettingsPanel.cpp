@@ -42,7 +42,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Serialization/SceneSerializer.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
-            << "#include \"Plugins/SpritePlugin.hpp\"\n\n"
+            << "#include \"Plugins/SpritePlugin.hpp\"\n"
+            << "#include \"Inputs/InputManager.hpp\"\n"
+            << "#include \"Inputs/Controller.hpp\"\n\n"
             << "int main() {\n"
             << "    Engine::ApplicationConfig config;\n"
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
@@ -56,7 +58,19 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    textPlugin.Init(app.GetRegistry());\n"
             << "    Engine::SpritePlugin spritePlugin;\n"
             << "    spritePlugin.Init(app.GetRegistry());\n\n"
-            << "    Editor::SceneSerializer serializer;\n"
+            << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
+            << "    auto controller = std::make_unique<Engine::Controller>();\n";
+
+    for (const auto& [action, keybinds] : config.m_InputMap) {
+        for (const auto& kb : keybinds) {
+            mainOut << "    controller->addKeybind(\"" << action << "\", {" << kb.key << ", "
+                    << kb.composeKey << ", static_cast<Engine::DeviceType>("
+                    << static_cast<int>(kb.type) << ")});\n";
+        }
+    }
+    mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";
+
+    mainOut << "    Editor::SceneSerializer serializer;\n"
             << "    serializer.Deserialize(\"test.scene\", app.GetRegistry(), nullptr);\n\n"
             << "    app.Run();\n"
             << "    return 0;\n"

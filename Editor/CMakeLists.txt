@@ -29,6 +29,7 @@ set(SRC_FILES
         src/Panels/PreviewPanel.cpp
         src/Panels/SceneViewPanel.cpp
         src/Panels/SettingsPanel.cpp
+        src/Panels/InputMappingPanel.cpp
         src/Gallery/Gallery.cpp
         src/Plugins/PositionPluginEditor.cpp
         src/Plugins/TextPluginEditor.cpp
@@ -49,6 +50,7 @@ set(INC_FILES
         include/Panels/PreviewPanel.hpp
         include/Panels/SceneViewPanel.hpp
         include/Panels/SettingsPanel.hpp
+        include/Panels/InputMappingPanel.hpp
         include/Gallery.hpp
         include/PluginEditor.hpp
         include/Plugins/PositionPluginEditor.hpp
