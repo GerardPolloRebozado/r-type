@@ -237,8 +237,17 @@ std::string Editor::Gallery::DrawGallery() {
                             outFile << data.dump(4);
                         }
 
-                        projects = Gallery::FindProjects();
                         ImGui::CloseCurrentPopup();
+
+                        ProjectData project = {
+                            .name = newProject.value("name", ""),
+                            .description = newProject.value("description", ""),
+                            .lastOpened = newProject.value("lastOpened", ""),
+                            .path = newProject.value("path", ""),
+                            .engineVersion = newProject.value("engineVersion", ""),
+                        };
+
+                        projects.push_back(project);
 
                         projName[0] = '\0';
                         projDesc[0] = '\0';
