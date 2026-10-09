@@ -3,6 +3,7 @@
 #include "Panels/AssetsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
+#include "Panels/InputMappingPanel.hpp"
 #include "Panels/InspectorPanel.hpp"
 #include "Panels/PreviewPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
@@ -29,6 +30,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<SceneViewPanel>());
     AddPanel(std::make_unique<PreviewPanel>());
     AddPanel(std::make_unique<SettingsPanel>());
+    AddPanel(std::make_unique<InputMappingPanel>());
 }
 
 EditorLayer::~EditorLayer() {
@@ -176,6 +178,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
+        ImGui::DockBuilderDockWindow(ICON_FA_GAMEPAD " Input Map", dock_main_id);
         ImGui::DockBuilderDockWindow("Preview", dock_main_id);
 
         ImGui::DockBuilderFinish(dockspace_id);
@@ -199,6 +202,10 @@ void EditorLayer::BeginDockSpace() {
             // TODO: either pop up a list of projects/folders? or go back to the project gallery
 
             ImGui::EndMenu();
+        }
+
+        if (ImGui::MenuItem("Input Map")) {
+            InputMappingPanel::s_IsOpen = true;
         }
 
         if (ImGui::MenuItem("Settings")) {

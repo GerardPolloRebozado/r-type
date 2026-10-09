@@ -67,6 +67,26 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     projectConfiguration["BuildWindowTitle"] = config.m_BuildWindowTitle;
     sceneJson["Configuration"] = projectConfiguration;
 
+    json inputMapJson = json::object();
+    for (const auto& [action, keybinds] : config.m_InputMap) {
+        json keybindsJson = json::array();
+        for (const auto& kb : keybinds) {
+            json kbJson;
+            kbJson["key"] = kb.key;
+            kbJson["composeKey"] = kb.composeKey;
+            kbJson["type"] = static_cast<int>(kb.type);
+            keybindsJson.push_back(kbJson);
+        }
+        inputMapJson[action] = keybindsJson;
+    }
+
+    std::string inputFilePath = config.m_ProjectFolder + "/input.json";
+    std::ofstream inputOut(inputFilePath);
+    if (inputOut.is_open()) {
+        inputOut << inputMapJson.dump(4);
+        inputOut.close();
+    }
+
     json entitiesJson = json::array();
 
     // We instantiate the editors here (later they will be centralized)
@@ -136,6 +156,25 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         }
         if (projectConfiguration.contains("BuildWindowTitle")) {
             config.m_BuildWindowTitle = projectConfiguration["BuildWindowTitle"];
+        }
+    }
+
+    std::string inputFilePath = config.m_ProjectFolder + "/input.json";
+    std::ifstream inputIn(inputFilePath);
+    if (inputIn.is_open()) {
+        json inputMapJson;
+        inputIn >> inputMapJson;
+        config.m_InputMap.clear();
+        for (auto it = inputMapJson.begin(); it != inputMapJson.end(); ++it) {
+            std::vector<Engine::Keybind> keybinds;
+            for (const auto& kbJson : it.value()) {
+                Engine::Keybind kb;
+                kb.key = kbJson.value("key", 0);
+                kb.composeKey = kbJson.value("composeKey", 0);
+                kb.type = static_cast<Engine::DeviceType>(kbJson.value("type", 0));
+                keybinds.push_back(kb);
+            }
+            config.m_InputMap[it.key()] = keybinds;
         }
     }
 
