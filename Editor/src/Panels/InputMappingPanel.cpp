@@ -88,6 +88,8 @@ const char* InputMappingPanel::GetKeyName(int key, Engine::DeviceType type) cons
     }
 
     switch (key) {
+        case KEY_SPACE:
+            return "Space";
         case KEY_ENTER:
             return "Enter";
         case KEY_ESCAPE:
