@@ -1,10 +1,10 @@
 #include "Panels/InspectorPanel.hpp"
+#include "Components/Name.hpp"
 #include "Core/Application.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include <cstring>
 #include <imgui.h>
-#include "EditorConfig.hpp"
-#include "misc/cpp/imgui_stdlib.h"
+#include <misc/cpp/imgui_stdlib.h>
 
 #include "Panels/HierarchyPanel.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
@@ -21,16 +21,20 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
     auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
     if (ImGui::Begin(m_Name.c_str())) {
         if (selected.entity != -1) {
-            auto it = config.m_EntityNames.find(selected.entity);
-            std::string name = it != config.m_EntityNames.end() ? it->second : "";
+            const bool hasName = registry.HasComponent<Engine::Name>(selected.entity);
+            std::string name = hasName ? registry.GetComponent<Engine::Name>(selected.entity).value : "";
             const std::string hint = "Entity " + std::to_string(selected.entity);
+            ImGui::PushID(static_cast<int>(selected.entity));
             if (ImGui::InputTextWithHint("Name", hint.c_str(), &name)) {
                 if (name.empty()) {
-                    config.m_EntityNames.erase(selected.entity);
+                    registry.RemoveComponent<Engine::Name>(selected.entity);
+                } else if (hasName) {
+                    registry.GetComponent<Engine::Name>(selected.entity).value = name;
                 } else {
-                    config.m_EntityNames[selected.entity] = name;
+                    registry.AddComponent<Engine::Name>(selected.entity, Engine::Name(name));
                 }
             }
+            ImGui::PopID();
             ImGui::TextDisabled("ID: %d", static_cast<int>(selected.entity));
             ImGui::Separator();
 

@@ -1,4 +1,5 @@
 #include "Core/Application.hpp"
+#include "Components/Name.hpp"
 #include "Logging/Logger.hpp"
 #include <chrono>
 #include <raylib.h>
@@ -13,6 +14,8 @@ Application::Application(const ApplicationConfig& config) : m_Config(config), m_
 
     InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
     SetTargetFPS(m_Config.targetFPS);
+
+    m_Registry.RegisterComponent<Name>();
 }
 
 Application::~Application() {

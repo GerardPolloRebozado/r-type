@@ -1,7 +1,7 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Assets/AssetManager.hpp"
+#include "Components/Name.hpp"
 #include "Components/Position.hpp"
-#include "EditorConfig.hpp"
 #include "Components/SpriteComponent.hpp"
 #include <imgui.h>
 #include <string>
@@ -28,7 +28,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         } else {
             for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
                 const auto entity = i;
-                std::string label = config.GetEntityName(entity) + "##" + std::to_string(entity);
+                std::string label = Engine::GetEntityName(registry, entity) + "##" + std::to_string(entity);
                 if (ImGui::Selectable(label.c_str(), selected.index == static_cast<int>(i))) {
                     selected.index = static_cast<int>(i);
                     selected.entity = entity;
