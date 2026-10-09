@@ -229,6 +229,7 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
 
                     // Key
                     ImGui::TableSetColumnIndex(1);
+                    ImGui::PushID("KeyCol");
                     if (m_IsListeningForKey && m_ListeningAction == actionName &&
                         m_ListeningKeybindIndex == bindIndex && !m_ListeningIsModifier) {
                         ImGui::Button("Press key...", ImVec2(-FLT_MIN, 0));
@@ -245,9 +246,11 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                             m_ListeningIsModifier = false;
                         }
                     }
+                    ImGui::PopID();
 
                     // Modifier (ComposeKey)
                     ImGui::TableSetColumnIndex(2);
+                    ImGui::PushID("ModCol");
                     if (m_IsListeningForKey && m_ListeningAction == actionName &&
                         m_ListeningKeybindIndex == bindIndex && m_ListeningIsModifier) {
                         ImGui::Button("Press key...", ImVec2(-FLT_MIN, 0));
@@ -266,6 +269,7 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                             m_ListeningIsModifier = true;
                         }
                     }
+                    ImGui::PopID();
 
                     // Delete Bind
                     ImGui::TableSetColumnIndex(3);
