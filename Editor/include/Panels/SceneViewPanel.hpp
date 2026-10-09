@@ -19,9 +19,11 @@ class SceneViewPanel : public IEditorPanel {
   private:
     std::string m_Name = "Scene";
 
-    enum class GizmoState { None, DraggingX, DraggingY, DraggingBoth };
+    enum class GizmoState { None, DraggingX, DraggingY, DraggingBoth, DraggingRotation };
     GizmoState m_GizmoState = GizmoState::None;
     float m_DragOffset[2] = {0.0f, 0.0f};
+    float m_InitialDragAngle = 0.0f;
+    float m_InitialEntityAngle = 0.0f;
 
     raylib::RenderTexture2D m_GameTexture;
 };

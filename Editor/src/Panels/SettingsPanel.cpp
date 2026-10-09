@@ -43,6 +43,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
             << "#include \"Plugins/SpritePlugin.hpp\"\n"
+            << "#include \"Plugins/ShapePlugin.hpp\"\n"
+            << "#include \"Plugins/RotationPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n\n"
             << "int main() {\n"
@@ -57,7 +59,11 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    Engine::TextPlugin textPlugin;\n"
             << "    textPlugin.Init(app.GetRegistry());\n"
             << "    Engine::SpritePlugin spritePlugin;\n"
-            << "    spritePlugin.Init(app.GetRegistry());\n\n"
+            << "    spritePlugin.Init(app.GetRegistry());\n"
+            << "    Engine::ShapePlugin shapePlugin;\n"
+            << "    shapePlugin.Init(app.GetRegistry());\n"
+            << "    Engine::RotationPlugin rotationPlugin;\n"
+            << "    rotationPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 

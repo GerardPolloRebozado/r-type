@@ -5,6 +5,8 @@
 #include "Logging/Logger.hpp"
 #include "MultiplatformUtils.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
+#include "Plugins/RotationPluginEditor.hpp"
+#include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
 #include <algorithm>
@@ -93,6 +95,8 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     PositionPluginEditor positionEditor;
     TextPluginEditor textEditor;
     SpritePluginEditor spriteEditor;
+    ShapePluginEditor shapeEditor;
+    RotationPluginEditor rotationEditor;
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Engine::Entity entity = i;
@@ -105,6 +109,8 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
         positionEditor.Serialize(entity, registry, entityJson);
         textEditor.Serialize(entity, registry, entityJson);
         spriteEditor.Serialize(entity, registry, entityJson);
+        shapeEditor.Serialize(entity, registry, entityJson);
+        rotationEditor.Serialize(entity, registry, entityJson);
 
         entitiesJson.push_back(entityJson);
     }
@@ -181,6 +187,8 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     PositionPluginEditor positionEditor;
     TextPluginEditor textEditor;
     SpritePluginEditor spriteEditor;
+    ShapePluginEditor shapeEditor;
+    RotationPluginEditor rotationEditor;
     if (sceneJson.contains("Entities")) {
         for (const auto& entityJson : sceneJson["Entities"]) {
             Engine::Entity entity = registry.CreateEntity();
@@ -193,6 +201,8 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
             positionEditor.Deserialize(entity, registry, entityJson);
             textEditor.Deserialize(entity, registry, entityJson);
             spriteEditor.Deserialize(entity, registry, entityJson);
+            shapeEditor.Deserialize(entity, registry, entityJson);
+            rotationEditor.Deserialize(entity, registry, entityJson);
         }
     }
 
