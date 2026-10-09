@@ -4,6 +4,7 @@
 #include "MultiplatformUtils.hpp"
 #include "imgui.h"
 #include "nlohmann/json.hpp"
+#include "portable-file-dialogs.h"
 #include <algorithm>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
@@ -55,12 +56,18 @@ std::vector<ProjectData> Gallery::FindProjects() {
 
     std::ifstream file(settingsPath);
     if (!file) {
-        throw std::runtime_error("Could not open " + settingsPath.string());
+        return {};
     }
 
-    const nlohmann::json data = nlohmann::json::parse(file);
+    nlohmann::json data;
+    try {
+        data = nlohmann::json::parse(file);
+    } catch (const nlohmann::json::parse_error&) {
+        return {};
+    }
+
     if (!data.is_array()) {
-        throw std::runtime_error("Expected a JSON array in " + settingsPath.string());
+        return {};
     }
 
     std::vector<ProjectData> projects;
@@ -154,6 +161,96 @@ std::string Editor::Gallery::DrawGallery() {
 
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_PLUS " New Project", ImVec2(120, 0))) {
+                ImGui::OpenPopup("Create New Project");
+            }
+
+            ImGui::SetNextWindowSize(ImVec2(400, 0), ImGuiCond_Appearing);
+            if (ImGui::BeginPopupModal("Create New Project", nullptr,
+                                       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                                           ImGuiWindowFlags_AlwaysAutoResize)) {
+                static char projName[128] = "";
+                static char projDesc[256] = "";
+                static char projPath[512] = "";
+
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+
+                ImGui::Text("Project Name:");
+                ImGui::SetNextItemWidth(300.0f);
+                ImGui::InputText("##projName", projName, IM_ARRAYSIZE(projName));
+
+                ImGui::Spacing();
+
+                ImGui::Text("Description:");
+                ImGui::InputTextMultiline("##projDesc", projDesc, IM_ARRAYSIZE(projDesc),
+                                          ImVec2(300.0f, 60.0f));
+
+                ImGui::Spacing();
+
+                ImGui::Text("Path:");
+                ImGui::SetNextItemWidth(250.0f);
+                ImGui::InputText("##projPath", projPath, IM_ARRAYSIZE(projPath));
+
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_FOLDER_OPEN " Browse...")) {
+                    auto dir =
+                        pfd::select_folder("Select Project Directory", pfd::path::home()).result();
+                    if (!dir.empty()) {
+                        strncpy(projPath, dir.c_str(), IM_ARRAYSIZE(projPath) - 1);
+                    }
+                }
+
+                ImGui::PopStyleVar();
+                ImGui::PopStyleColor(2);
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                if (ImGui::Button("Create", ImVec2(120, 0))) {
+                    if (strlen(projName) > 0 && strlen(projPath) > 0) {
+                        nlohmann::json newProject = {
+                            {"name", std::string(projName)},
+                            {"description", std::string(projDesc)},
+                            {"path", std::string(projPath)},
+                            {"lastOpened", std::to_string(std::time(nullptr))},
+                            {"engineVersion", "1.0.0"}};
+
+                        const auto settingsPath = ConfigDirectory() / "projects.json";
+                        nlohmann::json data = nlohmann::json::array();
+
+                        if (std::filesystem::exists(settingsPath)) {
+                            std::ifstream file(settingsPath);
+                            if (file) {
+                                try {
+                                    data = nlohmann::json::parse(file);
+                                } catch (...) {
+                                }
+                            }
+                        }
+
+                        data.push_back(newProject);
+
+                        std::ofstream outFile(settingsPath);
+                        if (outFile) {
+                            outFile << data.dump(4);
+                        }
+
+                        projects = Gallery::FindProjects();
+                        ImGui::CloseCurrentPopup();
+
+                        projName[0] = '\0';
+                        projDesc[0] = '\0';
+                        projPath[0] = '\0';
+                    }
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
             }
 
             ImGui::SameLine();
