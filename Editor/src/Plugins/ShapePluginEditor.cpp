@@ -1,9 +1,11 @@
 #include "Plugins/ShapePluginEditor.hpp"
 #include "Components/ShapeComponent.hpp"
 #include "Plugins/ShapePlugin.hpp"
-#include "misc/cpp/imgui_stdlib.h"
-#include <extras/IconsFontAwesome6.h>
+// clang-format off
 #include <imgui.h>
+#include "misc/cpp/imgui_stdlib.h"
+// clang-format on
+#include <extras/IconsFontAwesome6.h>
 
 namespace Editor {
 
