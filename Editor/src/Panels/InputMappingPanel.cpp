@@ -17,7 +17,7 @@ const std::string& InputMappingPanel::GetName() const {
 }
 
 const char* InputMappingPanel::GetKeyName(int key, Engine::DeviceType type) const {
-    if (key == 0) {
+    if (key == 0 && type == Engine::KEYBOARD) {
         return "None";
     }
 
@@ -235,8 +235,38 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                     if (m_IsListeningForKey && m_ListeningAction == actionName &&
                         m_ListeningKeybindIndex == bindIndex && !m_ListeningIsModifier) {
                         ImGui::Button("Press key...", ImVec2(-FLT_MIN, 0));
-                        int pressedKey = GetKeyPressed();
-                        if (pressedKey != 0) {
+                        int pressedKey = -1;
+                        if (kb.type == Engine::MOUSE) {
+                            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                                pressedKey = MOUSE_BUTTON_LEFT;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                                pressedKey = MOUSE_BUTTON_RIGHT;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) {
+                                pressedKey = MOUSE_BUTTON_MIDDLE;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_SIDE)) {
+                                pressedKey = MOUSE_BUTTON_SIDE;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_EXTRA)) {
+                                pressedKey = MOUSE_BUTTON_EXTRA;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_FORWARD)) {
+                                pressedKey = MOUSE_BUTTON_FORWARD;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_BACK)) {
+                                pressedKey = MOUSE_BUTTON_BACK;
+                            }
+                        } else if (kb.type == Engine::GAMEPAD) {
+                            for (int i = 1; i <= 18; i++) {
+                                if (IsGamepadButtonPressed(0, i)) {
+                                    pressedKey = i;
+                                    break;
+                                }
+                            }
+                        } else {
+                            pressedKey = GetKeyPressed();
+                            if (pressedKey == 0) {
+                                pressedKey = -1;
+                            }
+                        }
+
+                        if (pressedKey != -1) {
                             kb.key = pressedKey;
                             m_IsListeningForKey = false;
                         }
@@ -256,8 +286,23 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                     if (m_IsListeningForKey && m_ListeningAction == actionName &&
                         m_ListeningKeybindIndex == bindIndex && m_ListeningIsModifier) {
                         ImGui::Button("Press key...", ImVec2(-FLT_MIN, 0));
-                        int pressedKey = GetKeyPressed();
-                        if (pressedKey != 0) {
+                        int pressedKey = -1;
+                        int k = GetKeyPressed();
+                        if (k != 0) {
+                            pressedKey = k;
+                        }
+
+                        if (pressedKey == -1) {
+                            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                                pressedKey = MOUSE_BUTTON_LEFT;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                                pressedKey = MOUSE_BUTTON_RIGHT;
+                            } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) {
+                                pressedKey = MOUSE_BUTTON_MIDDLE;
+                            }
+                        }
+
+                        if (pressedKey != -1) {
                             kb.composeKey = pressedKey;
                             m_IsListeningForKey = false;
                         }
