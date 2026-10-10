@@ -28,7 +28,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     s_BuildProgress = 0.0f;
 
     // Serialize current state
-    std::string projFolder = config.m_ProjectFolder;
+    std::string projFolder = std::filesystem::absolute(config.m_ProjectFolder).string();
     std::string scenePathStr = projFolder + "/test.scene";
     SceneSerializer serializer;
     serializer.Serialize(scenePathStr, registry, config);
@@ -39,6 +39,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
+            << "#include <optional>\n"
             << "#include \"Serialization/SceneSerializer.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
@@ -76,9 +77,18 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     }
     mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";
 
-    mainOut << "    Editor::SceneSerializer serializer;\n"
-            << "    serializer.Deserialize(\"test.scene\", app.GetRegistry(), nullptr);\n\n"
-            << "    app.Run();\n"
+    mainOut << "    Editor::SceneSerializer serializer;\n";
+
+    if (std::filesystem::exists(projFolder) && std::filesystem::is_directory(projFolder)) {
+        for (const auto& entry : std::filesystem::directory_iterator(projFolder)) {
+            if (entry.path().extension() == ".scene") {
+                mainOut << "    serializer.Deserialize(\"" << entry.path().filename().string()
+                        << "\", app.GetRegistry(), std::nullopt);\n";
+            }
+        }
+    }
+
+    mainOut << "\n    app.Run();\n"
             << "    return 0;\n"
             << "}\n";
     mainOut.close();
@@ -91,27 +101,31 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
     cmakeOut << "file(GLOB_RECURSE EDITOR_PLUGINS Editor/src/Plugins/*.cpp)\n"
-             << "add_executable(" << exeNameStr << " " << projFolder
-             << "/main.cpp Editor/src/Serialization/SceneSerializer.cpp"
+             << "add_executable(" << exeNameStr << " \"" << projFolder
+             << "/main.cpp\" Editor/src/Serialization/SceneSerializer.cpp"
              << " Editor/src/Plugins/PositionPluginEditor.cpp "
                 "Editor/src/Plugins/TextPluginEditor.cpp ${EDITOR_PLUGINS})\n"
              << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
+             << "target_compile_definitions(" << exeNameStr << " PRIVATE GAME_EXPORT)\n"
              << "target_link_libraries(" << exeNameStr
              << " PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)\n"
              << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
-             << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr
-             << "> ${CMAKE_CURRENT_SOURCE_DIR}/" << projFolder << "/" << exeNameStr << "\n"
+             << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
+             << projFolder << "/" << exeNameStr << "\"\n"
              << ")\n";
     cmakeOut.close();
 
-    std::string cmd = "cmake -B " + rootPath + "/build -S " + rootPath + " && make -C " + rootPath +
-                      "/build " + exeNameStr + " -j$(nproc) 2>&1; rm -f " + mainCppPath;
+    std::string buildDir = projFolder + "/.build";
+    std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath +
+                      "\" -DEDITOR_BUILD=ON && make -C \"" + buildDir + "\" \"" + exeNameStr +
+                      "\" -j$(nproc) 2>&1; rm -f \"" + mainCppPath + "\"";
 
     if (s_BuildThread.joinable()) {
         s_BuildThread.join();
     }
 
     s_BuildThread = std::thread([cmd]() {
+        s_BuildProgress = 0.01f; // Show at least 1% so the user knows it started
         struct PipeDeleter {
             void operator()(FILE* p) const {
                 pclose(p);

@@ -2,6 +2,8 @@
 #define EDITOR_SERIALIZATION_SCENESERIALIZER_HPP_
 
 #include "ECS/Registry.hpp"
+#include <functional>
+#include <optional>
 #include <string>
 
 namespace Editor {
@@ -24,7 +26,8 @@ class SceneSerializer {
     SceneSerializer() = default;
 
     void Serialize(const std::string& filepath, Engine::Registry& registry, EditorConfig& config);
-    bool Deserialize(const std::string& filepath, Engine::Registry& registry, EditorConfig& config);
+    bool Deserialize(const std::string& filepath, Engine::Registry& registry,
+                     std::optional<std::reference_wrapper<EditorConfig>> config = std::nullopt);
     void UpdateProjectList(EditorConfig& config);
 };
 
