@@ -1,5 +1,5 @@
 #include "Systems/CollisionSystem.hpp"
-#include "Components/Collider.hpp"
+#include "Components/ColliderComponent.hpp"
 #include "Components/CollisionEvents.hpp"
 #include "Components/Name.hpp"
 #include "Components/Position.hpp"
@@ -21,7 +21,7 @@ void CollisionSystem::Update(Registry& registry, float) {
             continue;
         }
 
-        const auto& colA = registry.GetComponent<Collider>(a);
+        const auto& colA = registry.GetComponent<ColliderComponent>(a);
         const auto& posA = registry.GetComponent<Position>(a);
         const auto& rotA = registry.GetComponent<Rotation>(a);
         std::optional<ShapeComponent> shapeA = colA.shape;
@@ -38,7 +38,7 @@ void CollisionSystem::Update(Registry& registry, float) {
             if (!IsCollidable(registry, b)) {
                 continue;
             }
-            const auto& colB = registry.GetComponent<Collider>(b);
+            const auto& colB = registry.GetComponent<ColliderComponent>(b);
             const auto& posB = registry.GetComponent<Position>(b);
             const auto& rotB = registry.GetComponent<Rotation>(b);
             std::optional<ShapeComponent> shapeB = colB.shape;
@@ -69,11 +69,13 @@ void CollisionSystem::Update(Registry& registry, float) {
     for (const auto& pair : m_ActiveContacts) {
         if (!currentContacts.contains(pair)) {
             bool isTrigger = false;
-            if (registry.HasComponent<Collider>(pair.first)) {
-                isTrigger = isTrigger || registry.GetComponent<Collider>(pair.first).isTrigger;
+            if (registry.HasComponent<ColliderComponent>(pair.first)) {
+                isTrigger =
+                    isTrigger || registry.GetComponent<ColliderComponent>(pair.first).isTrigger;
             }
-            if (registry.HasComponent<Collider>(pair.second)) {
-                isTrigger = isTrigger || registry.GetComponent<Collider>(pair.second).isTrigger;
+            if (registry.HasComponent<ColliderComponent>(pair.second)) {
+                isTrigger =
+                    isTrigger || registry.GetComponent<ColliderComponent>(pair.second).isTrigger;
             }
             ExitContact(registry, pair.first, pair.second, isTrigger);
         }
@@ -103,7 +105,7 @@ void CollisionSystem::GetCollidableEntities(Registry& registry,
     }
 
     try {
-        auto colliders = registry.GetComponentArray<Collider>();
+        auto colliders = registry.GetComponentArray<ColliderComponent>();
         collidableEntities.reserve(colliders->size());
         for (const auto& [entity, collider] : *colliders) {
             if (collider.enabled && registry.HasComponent<Position>(entity)) {
@@ -116,10 +118,11 @@ void CollisionSystem::GetCollidableEntities(Registry& registry,
 }
 
 bool CollisionSystem::IsCollidable(Registry& registry, Entity entity) {
-    if (!registry.HasComponent<Position>(entity) || !registry.HasComponent<Collider>(entity)) {
+    if (!registry.HasComponent<Position>(entity) ||
+        !registry.HasComponent<ColliderComponent>(entity)) {
         return false;
     }
-    return registry.GetComponent<Collider>(entity).enabled;
+    return registry.GetComponent<ColliderComponent>(entity).enabled;
 }
 
 void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool isTrigger) {

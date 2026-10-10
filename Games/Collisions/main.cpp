@@ -1,4 +1,4 @@
-#include "Components/Collider.hpp"
+#include "Components/ColliderComponent.hpp"
 #include "Components/CollisionEvents.hpp"
 #include "Components/Input.hpp"
 #include "Components/Position.hpp"
@@ -6,7 +6,7 @@
 #include "Core/Application.hpp"
 #include "Inputs/Controller.hpp"
 #include "Inputs/InputManager.hpp"
-#include "Plugins/CollisionPlugin.hpp"
+#include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
@@ -82,7 +82,7 @@ class ColliderBorderRenderSystem : public Engine::System {
         const auto& activeContacts = collisionSystem->GetActiveContacts();
 
         try {
-            auto colliders = registry.GetComponentArray<Engine::Collider>();
+            auto colliders = registry.GetComponentArray<Engine::ColliderComponent>();
             for (const auto& [entity, col] : *colliders) {
                 if (!col.enabled || !registry.HasComponent<Engine::Position>(entity) ||
                     !registry.HasComponent<Engine::ShapeComponent>(entity)) {
@@ -126,7 +126,7 @@ int main() {
     Engine::TextPlugin textPlugin;
     textPlugin.Init(app.GetRegistry());
 
-    Engine::CollisionPlugin colPlugin;
+    Engine::ColliderPlugin colPlugin;
     colPlugin.Init(app.GetRegistry());
 
     Engine::InputPlugin inputPlugin;
@@ -166,7 +166,7 @@ int main() {
     solidShape.filled = true;
     solidShape.color = GREEN;
     app.GetRegistry().AddComponent(solidEntity, solidShape);
-    app.GetRegistry().AddComponent(solidEntity, Engine::Collider(true, false));
+    app.GetRegistry().AddComponent(solidEntity, Engine::ColliderComponent(true, false));
 
     Engine::CollisionEvents solidEvents;
     solidEvents.onCollisionEnter.emplace_back(
@@ -191,7 +191,8 @@ int main() {
     triggerShape.filled = true;
     triggerShape.color = YELLOW;
     app.GetRegistry().AddComponent(triggerEntity, triggerShape);
-    app.GetRegistry().AddComponent(triggerEntity, Engine::Collider(true, true)); // isTrigger = true
+    app.GetRegistry().AddComponent(triggerEntity, Engine::ColliderComponent(true, true));
+    // isTrigger = true
 
     Engine::CollisionEvents triggerEvents;
     triggerEvents.onTriggerEnter.emplace_back(
@@ -215,7 +216,7 @@ int main() {
     playerShape.filled = true;
     playerShape.color = GREEN;
     app.GetRegistry().AddComponent(playerEntity, playerShape);
-    app.GetRegistry().AddComponent(playerEntity, Engine::Collider(true, false));
+    app.GetRegistry().AddComponent(playerEntity, Engine::ColliderComponent(true, false));
     Engine::InputPlugin::AttachToEntity(app.GetRegistry(), playerEntity, 1);
 
     Engine::CollisionEvents playerEvents;

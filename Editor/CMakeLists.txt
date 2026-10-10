@@ -62,6 +62,8 @@ set(INC_FILES
         include/Plugins/RotationPluginEditor.hpp
         include/Serialization/SceneSerializer.hpp
         include/MultiplatformUtils.hpp
+        include/Plugins/ColliderPluginEditor.hpp
+        src/Plugins/ColliderPLuginEditor.cpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
@@ -77,10 +79,10 @@ CPMAddPackage(
 # Portable File Dialogs
 set(PFD_URL "https://raw.githubusercontent.com/samhocevar/portable-file-dialogs/master/portable-file-dialogs.h")
 set(PFD_DEST "${CMAKE_CURRENT_BINARY_DIR}/include/portable-file-dialogs.h")
-if(NOT EXISTS "${PFD_DEST}")
+if (NOT EXISTS "${PFD_DEST}")
     message(STATUS "Downloading portable-file-dialogs.h...")
     file(DOWNLOAD "${PFD_URL}" "${PFD_DEST}")
-endif()
+endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 target_link_libraries(RTypeEditor PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)

@@ -3,6 +3,7 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
+#include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
@@ -11,6 +12,7 @@
 #include "imgui.h"
 #include "raylib.hpp"
 #include "rlImGui.h"
+
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
 #include <filesystem>
@@ -50,6 +52,8 @@ void RunEditor(const string& scenePathString) {
     shapePlugin.Init(app.GetRegistry());
     Engine::RotationPlugin rotationPlugin;
     rotationPlugin.Init(app.GetRegistry());
+    Engine::ColliderPlugin colliderPlugin;
+    colliderPlugin.Init(app.GetRegistry());
 
     editorLayer.SetRegistry(app.GetRegistry());
     editorLayer.SetConfiguration(config);

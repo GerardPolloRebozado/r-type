@@ -8,10 +8,10 @@
 
 namespace Engine {
 /**
- * @struct Collider
+ * @struct ColliderComponent
  * @brief 2D Axis-aligned bounding box collider integrated with Raylib Rectangle.
  */
-struct Collider {
+struct ColliderComponent {
 
     /**
      * @brief Optional as the entity already has a shape, if a shape is defined in the collider, the
@@ -28,14 +28,14 @@ struct Collider {
     /**
      * @brief Constructs a collider with explicit dimensions and offsets.
      */
-    Collider(const bool enabled = true, const bool isTrigger = false)
+    ColliderComponent(const bool enabled = true, const bool isTrigger = false)
         : enabled(enabled), isTrigger(isTrigger) {}
 
     /**
      * @brief Constructs a collider directly from a Raylib Rectangle (x = offsetX, y = offsetY).
      */
-    explicit Collider(const std::optional<ShapeComponent>& shape, const bool enabled = true,
-                      const bool isTrigger = false)
+    explicit ColliderComponent(const std::optional<ShapeComponent>& shape,
+                               const bool enabled = true, const bool isTrigger = false)
         : shape(shape), enabled(enabled), isTrigger(isTrigger) {}
 };
 } // namespace Engine

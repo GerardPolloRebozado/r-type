@@ -1,7 +1,7 @@
 #ifndef ENGINE_PLUGINS_COLLISIONPLUGIN_HPP_
 #define ENGINE_PLUGINS_COLLISIONPLUGIN_HPP_
 
-#include "Components/Collider.hpp"
+#include "Components/ColliderComponent.hpp"
 #include "Components/CollisionEvents.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
@@ -11,10 +11,10 @@
 
 namespace Engine {
 /**
- * @class CollisionPlugin
+ * @class ColliderPlugin
  * @brief Bundles collider data, collision events, and @ref CollisionSystem.
  */
-class CollisionPlugin : public IPlugin {
+class ColliderPlugin : public IPlugin {
   public:
     /**
      * @brief Registers collider-related components, Position, and the collision system.
@@ -33,6 +33,9 @@ class CollisionPlugin : public IPlugin {
     static void AttachToEntity(Registry& registry, Entity entity,
                                const std::optional<ShapeComponent>& shape = std::nullopt,
                                bool enabled = true, bool isTrigger = false);
+
+    static void AttachToEntity(Registry& registry, Entity entity,
+                               const ColliderComponent& collider);
 };
 } // namespace Engine
 

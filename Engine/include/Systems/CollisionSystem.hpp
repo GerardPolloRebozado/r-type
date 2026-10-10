@@ -1,7 +1,7 @@
 #ifndef ENGINE_SYSTEMS_COLLISIONSYSTEM_HPP_
 #define ENGINE_SYSTEMS_COLLISIONSYSTEM_HPP_
 
-#include "Components/Collider.hpp"
+#include "Components/ColliderComponent.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
 #include "ECS/System.hpp"
