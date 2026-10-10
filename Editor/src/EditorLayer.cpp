@@ -75,7 +75,7 @@ void EditorLayer::Init() {
     rlImGuiEndInitImGui();
 
     SceneSerializer serializer;
-    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, *m_Configuration);
+    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, m_Configuration.get());
 
     // Enable docking feature
     ImGuiIO& io = ImGui::GetIO();
@@ -257,11 +257,12 @@ void EditorLayer::BeginDockSpace() {
 
         if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
             if (m_Configuration) {
-                std::string exePath =
-                    m_Configuration->m_ProjectFolder + "/" + m_Configuration->m_BuildExecutableName;
+                std::string exePath = m_Configuration->m_ProjectFolder + "/.build/" +
+                                      m_Configuration->m_BuildExecutableName;
                 if (std::filesystem::exists(exePath)) {
-                    std::string cmd = "cd " + m_Configuration->m_ProjectFolder + " && ./" +
-                                      m_Configuration->m_BuildExecutableName + " &";
+                    std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder +
+                                      "\" && ./.build/" + m_Configuration->m_BuildExecutableName +
+                                      " &";
                     std::system(cmd.c_str());
                 }
             }

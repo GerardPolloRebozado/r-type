@@ -24,7 +24,8 @@ class SceneSerializer {
     SceneSerializer() = default;
 
     void Serialize(const std::string& filepath, Engine::Registry& registry, EditorConfig& config);
-    bool Deserialize(const std::string& filepath, Engine::Registry& registry, EditorConfig& config);
+    bool Deserialize(const std::string& filepath, Engine::Registry& registry,
+                     EditorConfig* config = nullptr);
     void UpdateProjectList(EditorConfig& config);
 };
 

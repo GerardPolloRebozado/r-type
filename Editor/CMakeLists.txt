@@ -9,15 +9,7 @@ add_custom_command(
         COMMENT "Bundling assets for Editor..."
 )
 
-file(GLOB IMGUI_SOURCES ${imgui_SOURCE_DIR}/*.cpp)
-list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp)
-add_library(imgui STATIC ${IMGUI_SOURCES})
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 
-file(GLOB RLIMGUI_SOURCES ${rlImGui_SOURCE_DIR}/*.cpp)
-add_library(rlImGui STATIC ${RLIMGUI_SOURCES})
-target_include_directories(rlImGui PUBLIC ${rlImGui_SOURCE_DIR})
-target_link_libraries(rlImGui PUBLIC imgui raylib)
 
 set(SRC_FILES
         src/EditorLayer.cpp
@@ -67,12 +59,7 @@ set(INC_FILES
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
 target_include_directories(RTypeEditor PRIVATE include ${CMAKE_CURRENT_BINARY_DIR})
 
-# JSON Serialization for Scene saving
-CPMAddPackage(
-        NAME nlohmann_json
-        GITHUB_REPOSITORY nlohmann/json
-        VERSION 3.11.3
-)
+
 
 # Portable File Dialogs
 set(PFD_URL "https://raw.githubusercontent.com/samhocevar/portable-file-dialogs/master/portable-file-dialogs.h")
