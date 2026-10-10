@@ -6,6 +6,8 @@
 #include <exception>
 #include <iostream>
 
+#include "Assets/AssetManager.hpp"
+
 int main() {
     Engine::ApplicationConfig config;
     config.windowTitle = "Sprite Component Demo";
@@ -26,13 +28,11 @@ int main() {
 
     // Add position (position 200, 200)
     app.GetRegistry().AddComponent(myEntity, Engine::Position{200.0f, 200.0f});
+    auto& assets = app.GetRegistry().GetResource<Engine::AssetManager>();
 
-    // Add sprite component
-    // Use ASSETS_PATH macro defined in CMake to always find the absolute path
-    // regardless of where the executable is run from.
     try {
-        Engine::SpritePlugin::AttachToEntity(app.GetRegistry(), myEntity,
-                                             Engine::SpriteComponent{ASSETS_PATH "sprite.png"});
+        Engine::SpritePlugin::AttachToEntity(
+            app.GetRegistry(), myEntity, Engine::SpriteComponent{assets.GetSprite("sprite.png")});
         std::cout << "Added SpriteComponent.\n";
     } catch (const std::exception& e) {
         std::cerr << "Could not initialize SpriteComponent: " << e.what() << "\n";

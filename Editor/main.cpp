@@ -17,7 +17,7 @@
 
 using std::string;
 
-void RunEditor(string scenePathString) {
+void RunEditor(const string& scenePathString) {
     Editor::EditorConfig config;
 
     std::filesystem::path projectFolder = scenePathString;

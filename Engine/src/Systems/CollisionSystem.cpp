@@ -1,75 +1,88 @@
 #include "Systems/CollisionSystem.hpp"
 #include "Components/Collider.hpp"
 #include "Components/CollisionEvents.hpp"
+#include "Components/Name.hpp"
 #include "Components/Position.hpp"
+#include <raylib-cpp.hpp>
+#include <raymath.hpp>
 #include <vector>
 
 namespace Engine {
-namespace helpers {
-struct Aabb {
-    float minX;
-    float minY;
-    float maxX;
-    float maxY;
-};
 
-Aabb BuildAabb(Registry& registry, Entity entity) {
-    Position& position = registry.GetComponent<Position>(entity);
-    Collider& collider = registry.GetComponent<Collider>(entity);
-    float centerX = position.x + collider.offsetX;
-    float centerY = position.y + collider.offsetY;
-    float halfW = collider.width * 0.5f;
-    float halfH = collider.height * 0.5f;
-
-    Aabb box;
-    box.minX = centerX - halfW;
-    box.maxX = centerX + halfW;
-    box.minY = centerY - halfH;
-    box.maxY = centerY + halfH;
-    return box;
-}
-
-bool AabbOverlap(const Aabb& a, const Aabb& b) {
-    return a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY;
-}
-} // namespace helpers
-
-void CollisionSystem::Update(Registry& registry, float dt) {
-    (void)dt;
-
-    std::vector<Entity> movedEntities;
+void CollisionSystem::Update(Registry& registry, float) {
     std::vector<Entity> collidableEntities;
+    GetCollidableEntities(registry, collidableEntities);
 
-    // Pass 1: who can collide, and who moved this frame
-    GetCollidableEntities(registry, collidableEntities, movedEntities);
+    std::set<EntityPair> currentContacts;
 
-    // Pass 2: each moved entity vs every collider. Update contact set + game callbacks.
-    for (Entity const moved : movedEntities) {
-        for (Entity const other : collidableEntities) {
-            if (moved == other) {
+    for (size_t i = 0; i < collidableEntities.size(); ++i) {
+        Entity const a = collidableEntities[i];
+        if (!IsCollidable(registry, a)) {
+            continue;
+        }
+
+        const auto& colA = registry.GetComponent<Collider>(a);
+        const auto& posA = registry.GetComponent<Position>(a);
+        const auto& rotA = registry.GetComponent<Rotation>(a);
+        std::optional<ShapeComponent> shapeA = colA.shape;
+        if (!shapeA.has_value() && registry.HasComponent<ShapeComponent>(a)) {
+            shapeA = registry.GetComponent<ShapeComponent>(a);
+        } else if (!shapeA.has_value()) {
+            throw std::runtime_error("Collider must have a shape or a shape in the entity: " +
+                                     registry.GetComponent<Name>(a).value);
+        }
+        const auto& vecA = shapeA->GetShapeVectors(rotA, posA);
+
+        for (size_t j = i + 1; j < collidableEntities.size(); ++j) {
+            Entity const b = collidableEntities[j];
+            if (!IsCollidable(registry, b)) {
                 continue;
             }
+            const auto& colB = registry.GetComponent<Collider>(b);
+            const auto& posB = registry.GetComponent<Position>(b);
+            const auto& rotB = registry.GetComponent<Rotation>(b);
+            std::optional<ShapeComponent> shapeB = colB.shape;
+            if (!shapeB.has_value() && registry.HasComponent<ShapeComponent>(b)) {
+                shapeB = registry.GetComponent<ShapeComponent>(b);
+            } else if (!shapeB.has_value()) {
+                throw std::runtime_error("Collider must have a shape or a shape in the entity: " +
+                                         registry.GetComponent<Name>(a).value);
+                ;
+            }
+            const auto& vecB = shapeB->GetShapeVectors(rotB, posB);
 
-            EntityPair pair = MakeOrderedPair(moved, other);
-            bool overlapping = AreOverlapping(registry, moved, other);
+            if (CheckPolygonCollision(vecA, vecB)) {
+                EntityPair pair = MakeOrderedPair(a, b);
+                currentContacts.insert(pair);
 
-            if (overlapping) {
-                // First frame of contact: fire enter once, then remember the pair.
-                if (m_ActiveContacts.find(pair) == m_ActiveContacts.end()) {
-                    EnterContact(registry, moved, other);
-                    m_ActiveContacts.insert(pair);
+                const bool isTrigger = colA.isTrigger || colB.isTrigger;
+                if (!m_ActiveContacts.contains(pair)) {
+                    EnterContact(registry, a, b, isTrigger);
+                } else {
+                    StayContact(registry, a, b, isTrigger);
                 }
-            } else if (m_ActiveContacts.find(pair) != m_ActiveContacts.end()) {
-                // Was touching last time we tracked it, but not anymore, so fire exit.
-                ExitContact(registry, moved, other);
-                m_ActiveContacts.erase(pair);
             }
         }
     }
+
+    // Fire exit events for contacts that no longer exist
+    for (const auto& pair : m_ActiveContacts) {
+        if (!currentContacts.contains(pair)) {
+            bool isTrigger = false;
+            if (registry.HasComponent<Collider>(pair.first)) {
+                isTrigger = isTrigger || registry.GetComponent<Collider>(pair.first).isTrigger;
+            }
+            if (registry.HasComponent<Collider>(pair.second)) {
+                isTrigger = isTrigger || registry.GetComponent<Collider>(pair.second).isTrigger;
+            }
+            ExitContact(registry, pair.first, pair.second, isTrigger);
+        }
+    }
+
+    m_ActiveContacts = std::move(currentContacts);
 }
 
-CollisionSystem::EntityPair CollisionSystem::MakeOrderedPair(Entity a, Entity b) {
-    // Same pair regardless of argument order (needed for std::set lookup).
+CollisionSystem::EntityPair CollisionSystem::MakeOrderedPair(Entity a, Entity b) noexcept {
     if (a < b) {
         return EntityPair{a, b};
     }
@@ -77,19 +90,28 @@ CollisionSystem::EntityPair CollisionSystem::MakeOrderedPair(Entity a, Entity b)
 }
 
 void CollisionSystem::GetCollidableEntities(Registry& registry,
-                                            std::vector<Entity>& collidableEntities,
-                                            std::vector<Entity>& movedEntities) const {
+                                            std::vector<Entity>& collidableEntities) const {
     collidableEntities.clear();
-    movedEntities.clear();
 
-    for (Entity const entity : m_Entities) {
-        if (!IsCollidable(registry, entity)) {
-            continue;
+    if (!m_Entities.empty()) {
+        for (Entity const entity : m_Entities) {
+            if (IsCollidable(registry, entity)) {
+                collidableEntities.push_back(entity);
+            }
         }
-        collidableEntities.push_back(entity);
-        if (registry.GetComponent<Position>(entity).moved) {
-            movedEntities.push_back(entity);
+        return;
+    }
+
+    try {
+        auto colliders = registry.GetComponentArray<Collider>();
+        collidableEntities.reserve(colliders->size());
+        for (const auto& [entity, collider] : *colliders) {
+            if (collider.enabled && registry.HasComponent<Position>(entity)) {
+                collidableEntities.push_back(entity);
+            }
         }
+    } catch (const ErrorEcs&) {
+        // Colliders not registered
     }
 }
 
@@ -100,43 +122,161 @@ bool CollisionSystem::IsCollidable(Registry& registry, Entity entity) {
     return registry.GetComponent<Collider>(entity).enabled;
 }
 
-bool CollisionSystem::AreOverlapping(Registry& registry, Entity a, Entity b) {
-    if (!IsCollidable(registry, a) || !IsCollidable(registry, b)) {
-        return false;
+void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool isTrigger) {
+    if (registry.HasComponent<CollisionEvents>(a)) {
+        auto events = registry.GetComponent<CollisionEvents>(a);
+        for (const auto& hook : events.onCollisionEnter) {
+            if (hook) {
+                hook(a, b);
+            }
+        }
+        if (isTrigger) {
+            for (const auto& hook : events.onTriggerEnter) {
+                if (hook) {
+                    hook(a, b);
+                }
+            }
+        }
     }
-    helpers::Aabb boxA = helpers::BuildAabb(registry, a);
-    helpers::Aabb boxB = helpers::BuildAabb(registry, b);
-    return helpers::AabbOverlap(boxA, boxB);
+
+    if (registry.HasComponent<CollisionEvents>(b)) {
+        auto events = registry.GetComponent<CollisionEvents>(b);
+        for (const auto& hook : events.onCollisionEnter) {
+            if (hook) {
+                hook(b, a);
+            }
+        }
+        if (isTrigger) {
+            for (const auto& hook : events.onTriggerEnter) {
+                if (hook) {
+                    hook(b, a);
+                }
+            }
+        }
+    }
 }
 
-void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b) {
-    // Notify both sides; each callback gets (self, other) with the correct "self" id.
+void CollisionSystem::StayContact(Registry& registry, const Entity a, const Entity b,
+                                  const bool isTrigger) {
     if (registry.HasComponent<CollisionEvents>(a)) {
-        CollisionEvents& events = registry.GetComponent<CollisionEvents>(a);
-        for (auto& hook : events.onCollisionEnter) {
-            hook(a, b);
+        auto events = registry.GetComponent<CollisionEvents>(a);
+        for (const auto& hook : events.onCollisionStay) {
+            if (hook) {
+                hook(a, b);
+            }
+        }
+        if (isTrigger) {
+            for (const auto& hook : events.onTriggerStay) {
+                if (hook) {
+                    hook(a, b);
+                }
+            }
         }
     }
+
     if (registry.HasComponent<CollisionEvents>(b)) {
-        CollisionEvents& events = registry.GetComponent<CollisionEvents>(b);
-        for (auto& hook : events.onCollisionEnter) {
-            hook(b, a);
+        auto events = registry.GetComponent<CollisionEvents>(b);
+        for (const auto& hook : events.onCollisionStay) {
+            if (hook) {
+                hook(b, a);
+            }
+        }
+        if (isTrigger) {
+            for (const auto& hook : events.onTriggerStay) {
+                if (hook) {
+                    hook(b, a);
+                }
+            }
         }
     }
 }
 
-void CollisionSystem::ExitContact(Registry& registry, Entity a, Entity b) {
+void CollisionSystem::ExitContact(Registry& registry, const Entity a, const Entity b,
+                                  const bool isTrigger) {
     if (registry.HasComponent<CollisionEvents>(a)) {
-        CollisionEvents& events = registry.GetComponent<CollisionEvents>(a);
-        for (auto& hook : events.onCollisionExit) {
-            hook(a, b);
+        auto events = registry.GetComponent<CollisionEvents>(a);
+        for (const auto& hook : events.onCollisionExit) {
+            if (hook) {
+                hook(a, b);
+            }
+        }
+        if (isTrigger) {
+            for (const auto& hook : events.onTriggerExit) {
+                if (hook) {
+                    hook(a, b);
+                }
+            }
         }
     }
+
     if (registry.HasComponent<CollisionEvents>(b)) {
-        CollisionEvents& events = registry.GetComponent<CollisionEvents>(b);
-        for (auto& hook : events.onCollisionExit) {
-            hook(b, a);
+        auto events = registry.GetComponent<CollisionEvents>(b);
+        for (const auto& hook : events.onCollisionExit) {
+            if (hook) {
+                hook(b, a);
+            }
+        }
+        if (isTrigger) {
+            for (const auto& hook : events.onTriggerExit) {
+                if (hook) {
+                    hook(b, a);
+                }
+            }
         }
     }
 }
+
+std::pair<float, float> CollisionSystem::ProjectOnAxis(const std::vector<raylib::Vector2>& vertices,
+                                                       const Vector2 axis) {
+    {
+        float min = std::numeric_limits<float>::max();
+        float max = std::numeric_limits<float>::lowest();
+
+        for (const auto& [x, y] : vertices) {
+            const float projection = x * axis.x + y * axis.y;
+            if (projection < min) {
+                min = projection;
+            }
+            if (projection > max) {
+                max = projection;
+            }
+        }
+
+        return {min, max};
+    }
+
+    std::set<EntityPair> m_ActiveContacts;
+};
+
+bool Engine::CollisionSystem::CheckPolygonCollision(const std::vector<raylib::Vector2>& polyA,
+                                                    const std::vector<raylib::Vector2>& polyB) {
+    const std::vector<raylib::Vector2> vectors[2] = {polyA, polyB};
+
+    for (auto& vec : vectors) {
+        const auto currentPoly = vec;
+        for (size_t i = 0; i < currentPoly.size(); ++i) {
+            const Vector2 va = currentPoly[i];
+            const Vector2 vb = currentPoly[(i + 1) % currentPoly.size()];
+
+            auto [x, y] = Vector2Subtract(vb, va);
+
+            const Vector2 perpendicular = {-y, x};
+            const float length = Vector2Length(perpendicular);
+            if (length == 0.0f) {
+                continue;
+            }
+            const Vector2 axis = {perpendicular.x / length, perpendicular.y / length};
+
+            auto [minA, maxA] = ProjectOnAxis(polyA, axis);
+            auto [minB, maxB] = ProjectOnAxis(polyB, axis);
+
+            if (maxA < minB || maxB < minA) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 } // namespace Engine

@@ -7,32 +7,32 @@
 #include "ECS/Registry.hpp"
 #include "Plugins/IPlugin.hpp"
 #include "Systems/CollisionSystem.hpp"
+#include <raylib.h>
 
 namespace Engine {
 /**
  * @class CollisionPlugin
  * @brief Bundles collider data, collision events, and @ref CollisionSystem.
- *
- * Does not register @ref Position; entities need a position (e.g. via
- * @ref PositionPlugin) for world-space overlap tests.
  */
 class CollisionPlugin : public IPlugin {
   public:
     /**
-     * @brief Registers collider-related components and the collision system.
+     * @brief Registers collider-related components, Position, and the collision system.
      * @param registry Main ECS registry.
      */
     void Init(Registry& registry) override;
 
     /**
-     * @brief Attaches default collider and event hooks to an entity.
+     * @brief Attaches collider and event hooks to an entity.
      * @param registry Main ECS registry.
-     * @param entity Target entity (caller must register it with @ref CollisionSystem::m_Entities).
-     * @param width Initial collider width.
-     * @param height Initial collider height.
+     * @param entity Target entity.
+     * @param shape Optional shape that will be used to designate the area
+     * @param enabled Whether collision queries include this collider.
+     * @param isTrigger Trigger vs solid semantics.
      */
-    static void AttachToEntity(Registry& registry, Entity entity, float width = 1.0f,
-                               float height = 1.0f);
+    static void AttachToEntity(Registry& registry, Entity entity,
+                               const std::optional<ShapeComponent>& shape = std::nullopt,
+                               bool enabled = true, bool isTrigger = false);
 };
 } // namespace Engine
 

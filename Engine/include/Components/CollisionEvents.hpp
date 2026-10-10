@@ -10,16 +10,40 @@ namespace Engine {
  * @struct CollisionEvents
  * @brief Per-entity callbacks for collision lifetime (Unity / Godot style).
  *
- * @ref CollisionSystem invokes these when overlap with another collider begins
- * or ends. Callbacks must not destroy entities synchronously; use
+ * @ref CollisionSystem invokes these when overlap with another collider begins,
+ * persists, or ends. Callbacks must not destroy entities synchronously; use
  * @ref Registry::QueueDestroyEntity instead.
  */
 struct CollisionEvents {
-    /** @brief Fired once when a new overlap with @p other begins. */
-    std::vector<std::function<void(Entity self, Entity other)>> onCollisionEnter;
+    using Callback = std::function<void(Entity self, Entity other)>;
 
-    /** @brief Fired once when an overlap with @p other ends. */
-    std::vector<std::function<void(Entity self, Entity other)>> onCollisionExit;
+    /** @brief Fired once when a new overlap begins. */
+    std::vector<Callback> onCollisionEnter;
+
+    /** @brief Fired each frame while overlapping */
+    std::vector<Callback> onCollisionStay;
+
+    /** @brief Fired once when an overlap ends. */
+    std::vector<Callback> onCollisionExit;
+
+    /** @brief Fired once when a trigger overlap enters*/
+    std::vector<Callback> onTriggerEnter;
+
+    /** @brief Fired each frame while trigger overlapping. */
+    std::vector<Callback> onTriggerStay;
+
+    /** @brief Fired once when a trigger overlap ends */
+    std::vector<Callback> onTriggerExit;
+
+    /** @brief Clears all registered callbacks. */
+    void Clear() {
+        onCollisionEnter.clear();
+        onCollisionStay.clear();
+        onCollisionExit.clear();
+        onTriggerEnter.clear();
+        onTriggerStay.clear();
+        onTriggerExit.clear();
+    }
 };
 } // namespace Engine
 
