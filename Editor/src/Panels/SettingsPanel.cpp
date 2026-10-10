@@ -39,6 +39,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
+            << "#include <optional>\n"
             << "#include \"Serialization/SceneSerializer.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
@@ -82,7 +83,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         for (const auto& entry : std::filesystem::directory_iterator(projFolder)) {
             if (entry.path().extension() == ".scene") {
                 mainOut << "    serializer.Deserialize(\"" << entry.path().filename().string()
-                        << "\", app.GetRegistry(), nullptr);\n";
+                        << "\", app.GetRegistry(), std::nullopt);\n";
             }
         }
     }

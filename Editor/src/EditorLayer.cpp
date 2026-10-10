@@ -75,7 +75,7 @@ void EditorLayer::Init() {
     rlImGuiEndInitImGui();
 
     SceneSerializer serializer;
-    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, m_Configuration.get());
+    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, *m_Configuration);
 
     // Enable docking feature
     ImGuiIO& io = ImGui::GetIO();
