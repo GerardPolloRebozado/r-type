@@ -7,6 +7,7 @@
 #include <misc/cpp/imgui_stdlib.h>
 
 #include "Panels/HierarchyPanel.hpp"
+#include "Plugins/ColliderPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
 #include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
@@ -19,6 +20,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<ShapePluginEditor>());
     m_PluginEditors.push_back(std::make_unique<RotationPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<SpritePluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {

@@ -1,0 +1,5 @@
+project(Collisions)
+set(CMAKE_BUILD_TYPE Debug)
+add_executable(Collisions main.cpp)
+target_include_directories(Collisions PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(Collisions PRIVATE Engine)

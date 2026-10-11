@@ -1,7 +1,12 @@
 #ifndef ENGINE_COMPONENTS_SHAPECOMPONENT_HPP_
 #define ENGINE_COMPONENTS_SHAPECOMPONENT_HPP_
 
+#include "Position.hpp"
+#include "Rotation.hpp"
 #include "raylib-cpp.hpp"
+#include <cmath>
+#include <numbers>
+#include <vector>
 
 namespace Engine {
 
@@ -24,9 +29,11 @@ struct ShapeComponent {
 
     // Common
     bool filled = true;
-    Color color = WHITE;
+    mutable Color color = WHITE;
 
     ShapeComponent() = default;
+
+    std::vector<raylib::Vector2> GetShapeVectors(const Rotation& rot, const Position& pos) const;
 };
 
 } // namespace Engine

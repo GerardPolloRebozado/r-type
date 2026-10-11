@@ -46,8 +46,10 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/SpritePlugin.hpp\"\n"
             << "#include \"Plugins/ShapePlugin.hpp\"\n"
             << "#include \"Plugins/RotationPlugin.hpp\"\n"
+            << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
-            << "#include \"Inputs/Controller.hpp\"\n\n"
+            << "#include \"Inputs/Controller.hpp\"\n"
+            << "#include <optional>\n\n"
             << "int main() {\n"
             << "    Engine::ApplicationConfig config;\n"
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
@@ -64,7 +66,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    Engine::ShapePlugin shapePlugin;\n"
             << "    shapePlugin.Init(app.GetRegistry());\n"
             << "    Engine::RotationPlugin rotationPlugin;\n"
-            << "    rotationPlugin.Init(app.GetRegistry());\n\n"
+            << "    rotationPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::ColliderPlugin colliderPlugin;\n"
+            << "    colliderPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 
@@ -102,9 +106,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
     cmakeOut << "file(GLOB_RECURSE EDITOR_PLUGINS Editor/src/Plugins/*.cpp)\n"
              << "add_executable(" << exeNameStr << " \"" << projFolder
-             << "/main.cpp\" Editor/src/Serialization/SceneSerializer.cpp"
-             << " Editor/src/Plugins/PositionPluginEditor.cpp "
-                "Editor/src/Plugins/TextPluginEditor.cpp ${EDITOR_PLUGINS})\n"
+             << "/main.cpp\" Editor/src/Serialization/SceneSerializer.cpp ${EDITOR_PLUGINS})\n"
              << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
              << "target_compile_definitions(" << exeNameStr << " PRIVATE GAME_EXPORT)\n"
              << "target_link_libraries(" << exeNameStr

@@ -28,6 +28,7 @@ set(SRC_FILES
         src/Plugins/SpritePluginEditor.cpp
         src/Plugins/ShapePluginEditor.cpp
         src/Plugins/RotationPluginEditor.cpp
+        src/Plugins/ColliderPluginEditor.cpp
         src/Serialization/SceneSerializer.cpp
         src/Utils/Multiplatform.cpp
 )
@@ -54,6 +55,7 @@ set(INC_FILES
         include/Plugins/RotationPluginEditor.hpp
         include/Serialization/SceneSerializer.hpp
         include/MultiplatformUtils.hpp
+        include/Plugins/ColliderPluginEditor.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
@@ -64,10 +66,10 @@ target_include_directories(RTypeEditor PRIVATE include ${CMAKE_CURRENT_BINARY_DI
 # Portable File Dialogs
 set(PFD_URL "https://raw.githubusercontent.com/samhocevar/portable-file-dialogs/master/portable-file-dialogs.h")
 set(PFD_DEST "${CMAKE_CURRENT_BINARY_DIR}/include/portable-file-dialogs.h")
-if(NOT EXISTS "${PFD_DEST}")
+if (NOT EXISTS "${PFD_DEST}")
     message(STATUS "Downloading portable-file-dialogs.h...")
     file(DOWNLOAD "${PFD_URL}" "${PFD_DEST}")
-endif()
+endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 target_link_libraries(RTypeEditor PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)

@@ -6,6 +6,7 @@
 #include "MultiplatformUtils.hpp"
 #endif
 #include "Logging/Logger.hpp"
+#include "Plugins/ColliderPluginEditor.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
 #include "Plugins/ShapePluginEditor.hpp"
@@ -96,12 +97,12 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
 
     json entitiesJson = json::array();
 
-    // We instantiate the editors here (later they will be centralized)
     PositionPluginEditor positionEditor;
     TextPluginEditor textEditor;
     SpritePluginEditor spriteEditor;
     ShapePluginEditor shapeEditor;
     RotationPluginEditor rotationEditor;
+    ColliderPluginEditor colliderEditor;
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Engine::Entity entity = i;
@@ -116,6 +117,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
         spriteEditor.Serialize(entity, registry, entityJson);
         shapeEditor.Serialize(entity, registry, entityJson);
         rotationEditor.Serialize(entity, registry, entityJson);
+        colliderEditor.Serialize(entity, registry, entityJson);
 
         entitiesJson.push_back(entityJson);
     }
@@ -197,6 +199,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     SpritePluginEditor spriteEditor;
     ShapePluginEditor shapeEditor;
     RotationPluginEditor rotationEditor;
+    ColliderPluginEditor colliderEditor;
     if (sceneJson.contains("Entities")) {
         for (const auto& entityJson : sceneJson["Entities"]) {
             Engine::Entity entity = registry.CreateEntity();
@@ -211,6 +214,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
             spriteEditor.Deserialize(entity, registry, entityJson);
             shapeEditor.Deserialize(entity, registry, entityJson);
             rotationEditor.Deserialize(entity, registry, entityJson);
+            colliderEditor.Deserialize(entity, registry, entityJson);
         }
     }
 

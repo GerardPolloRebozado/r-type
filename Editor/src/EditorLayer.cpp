@@ -261,8 +261,8 @@ void EditorLayer::BeginDockSpace() {
                                       m_Configuration->m_BuildExecutableName;
                 if (std::filesystem::exists(exePath)) {
                     std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder +
-                                      "\" && ./.build/" + m_Configuration->m_BuildExecutableName +
-                                      " &";
+                                      "\" && \"./.build/" + m_Configuration->m_BuildExecutableName +
+                                      "\" &";
                     std::system(cmd.c_str());
                 }
             }

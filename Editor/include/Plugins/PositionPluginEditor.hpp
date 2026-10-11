@@ -1,11 +1,7 @@
 #ifndef EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
 #define EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
 
-#include "Components/Position.hpp"
 #include "PluginEditor.hpp"
-#include <extras/IconsFontAwesome6.h>
-#include <imgui.h>
-#include <string>
 
 namespace Editor {
 
