@@ -49,8 +49,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
-            << "#include <optional>\n\n"
+            << "#include <raylib.h>\n\n"
             << "int main() {\n"
+            << "    ChangeDirectory(GetApplicationDirectory());\n"
             << "    Engine::ApplicationConfig config;\n"
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
             << "    config.windowWidth = " << config.windowWidth << ";\n"
@@ -120,7 +121,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     std::string buildDir = projFolder + "/.build";
     std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath +
                       "\" -DEDITOR_BUILD=ON && make -C \"" + buildDir + "\" \"" + exeNameStr +
-                      "\" -j$(nproc) 2>&1; rm -f \"" + mainCppPath + "\"";
+                      "\" -j$(nproc) 2>&1; rm -f \"" + rootPath + "/.editor_build.cmake\"";
 
     if (s_BuildThread.joinable()) {
         s_BuildThread.join();

@@ -39,6 +39,13 @@ EditorLayer::~EditorLayer() {
 
 void EditorLayer::Init() {
     m_Registry->AddResource<HierarchyPanelSelectedEntity>();
+    if (!m_Registry->HasResource<ProjectContext>()) {
+        m_Registry->AddResource<ProjectContext>(m_Configuration ? m_Configuration->m_ProjectFolder
+                                                                : "");
+    } else {
+        m_Registry->GetResource<ProjectContext>().projectFolder =
+            m_Configuration ? m_Configuration->m_ProjectFolder : "";
+    }
     // Set a callback to load custom fonts instead of the default rlImGui font
     rlImGuiSetLoadFontsCallback([]() {
         ImGuiIO& io = ImGui::GetIO();
@@ -257,12 +264,15 @@ void EditorLayer::BeginDockSpace() {
 
         if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
             if (m_Configuration) {
-                std::string exePath = m_Configuration->m_ProjectFolder + "/.build/" +
-                                      m_Configuration->m_BuildExecutableName;
+                std::string exePath =
+                    m_Configuration->m_ProjectFolder + "/" + m_Configuration->m_BuildExecutableName;
+                if (!std::filesystem::exists(exePath)) {
+                    exePath = m_Configuration->m_ProjectFolder + "/.build/" +
+                              m_Configuration->m_BuildExecutableName;
+                }
                 if (std::filesystem::exists(exePath)) {
-                    std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder +
-                                      "\" && \"./.build/" + m_Configuration->m_BuildExecutableName +
-                                      "\" &";
+                    std::string cmd =
+                        "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" + exePath + "\" &";
                     std::system(cmd.c_str());
                 }
             }
@@ -286,6 +296,13 @@ void EditorLayer::SetRegistry(Engine::Registry& registry) {
 
 void EditorLayer::SetConfiguration(EditorConfig& config) {
     m_Configuration = std::make_unique<EditorConfig>(config);
+    if (m_Registry) {
+        if (!m_Registry->HasResource<ProjectContext>()) {
+            m_Registry->AddResource<ProjectContext>(config.m_ProjectFolder);
+        } else {
+            m_Registry->GetResource<ProjectContext>().projectFolder = config.m_ProjectFolder;
+        }
+    }
 }
 
 void EditorLayer::OnRenderGame(Engine::Registry& registry) {

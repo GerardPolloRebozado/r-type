@@ -25,7 +25,8 @@ void PreviewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& confi
 
     if (ImGui::Begin(m_Name.c_str())) {
         if (!config.m_SelectedAssetPath.empty()) {
-            std::string selectedPath = config.m_SelectedAssetPath;
+            std::string selectedPath =
+                ResolveAssetPath(registry, config.m_SelectedAssetPath).string();
 
             if (m_CurrentPreviewPath != selectedPath) {
                 m_CurrentPreviewPath = selectedPath;
@@ -36,6 +37,9 @@ void PreviewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& confi
                     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
                     try {
+                        if (m_PreviewTexture.IsValid()) {
+                            m_PreviewTexture.Unload();
+                        }
                         if (ext == ".gif") {
                             int animFrames = 0;
                             raylib::Image img;
@@ -48,7 +52,9 @@ void PreviewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& confi
                         m_PreviewTexture.Unload();
                     }
                 } else {
-                    m_PreviewTexture.Unload();
+                    if (m_PreviewTexture.IsValid()) {
+                        m_PreviewTexture.Unload();
+                    }
                 }
             }
 
