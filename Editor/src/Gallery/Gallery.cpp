@@ -44,11 +44,16 @@ void LoadGalleryFonts() {
                                                           fa_solid_900_compressed_size, 48.0f,
                                                           &largeIconConfig, iconRanges);
 }
+
 namespace Editor {
 
 std::vector<ProjectData> Gallery::FindProjects() {
+    auto configDirectory = ConfigDirectory();
+    if (!std::filesystem::exists(configDirectory)) {
+        std::filesystem::create_directory(configDirectory);
+    }
     const auto settingsPath =
-        ConfigDirectory() / "projects.json"; // the / operator is overloaded to concatenate
+        configDirectory / "projects.json"; // the / operator is overloaded to concatenate
 
     if (!std::filesystem::exists(settingsPath)) {
         return {};
