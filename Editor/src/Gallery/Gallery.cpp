@@ -91,6 +91,38 @@ std::vector<ProjectData> Gallery::FindProjects() {
     return projects;
 }
 
+void Gallery::UpdateProjectList(const std::string& projectPath) {
+    auto projects = FindProjects();
+    auto it =
+        std::find_if(projects.begin(), projects.end(), [&projectPath](const ProjectData& project) {
+            return project.path == projectPath;
+        });
+    if (it == projects.end()) {
+        return;
+    }
+
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                   std::chrono::system_clock::now().time_since_epoch())
+                   .count();
+    it->lastOpened = std::to_string(now);
+
+    nlohmann::json data = nlohmann::json::array();
+    for (const auto& project : projects) {
+        data.push_back({{"name", project.name},
+                        {"description", project.description},
+                        {"lastOpened", project.lastOpened},
+                        {"path", project.path},
+                        {"engineVersion", project.engineVersion}});
+    }
+
+    const auto settingsPath = ConfigDirectory() / "projects.json";
+    std::ofstream file(settingsPath);
+    if (!file) {
+        return;
+    }
+    file << data.dump(2) << '\n';
+}
+
 std::string Editor::Gallery::DrawGallery() {
     static std::vector<ProjectData> projects = Gallery::FindProjects();
     static char searchBuffer[128] = "";

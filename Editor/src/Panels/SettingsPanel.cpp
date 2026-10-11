@@ -1,6 +1,6 @@
 #include "Panels/SettingsPanel.hpp"
 #include "EditorConfig.hpp"
-#include "Serialization/SceneSerializer.hpp"
+#include "SceneSerializer.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -30,7 +30,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     // Serialize current state
     std::string projFolder = std::filesystem::absolute(config.m_ProjectFolder).string();
     std::string scenePathStr = projFolder + "/test.scene";
-    SceneSerializer serializer;
+    Serialization::SceneSerializer serializer;
     serializer.Serialize(scenePathStr, registry, config);
 
     std::string exeNameStr = config.m_BuildExecutableName;
@@ -40,7 +40,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
             << "#include <optional>\n"
-            << "#include \"Serialization/SceneSerializer.hpp\"\n"
+            << "#include \"SceneSerializer.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
             << "#include \"Plugins/SpritePlugin.hpp\"\n"
@@ -82,7 +82,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     }
     mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";
 
-    mainOut << "    Editor::SceneSerializer serializer;\n";
+    mainOut << "    Serialization::SceneSerializer serializer;\n";
 
     if (std::filesystem::exists(projFolder) && std::filesystem::is_directory(projFolder)) {
         for (const auto& entry : std::filesystem::directory_iterator(projFolder)) {
@@ -105,13 +105,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     }
 
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
-    cmakeOut << "file(GLOB_RECURSE EDITOR_PLUGINS Editor/src/Plugins/*.cpp)\n"
-             << "add_executable(" << exeNameStr << " \"" << projFolder
-             << "/main.cpp\" Editor/src/Serialization/SceneSerializer.cpp ${EDITOR_PLUGINS})\n"
-             << "target_include_directories(" << exeNameStr << " PRIVATE Editor/include)\n"
-             << "target_compile_definitions(" << exeNameStr << " PRIVATE GAME_EXPORT)\n"
-             << "target_link_libraries(" << exeNameStr
-             << " PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)\n"
+    cmakeOut << "add_executable(" << exeNameStr << " \"" << projFolder << "/main.cpp\")\n"
+             << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization)\n"
              << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
              << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
              << projFolder << "/" << exeNameStr << "\"\n"

@@ -99,35 +99,6 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
     return true;
 }
 
-void ColliderPluginEditor::Serialize(const Engine::Entity entity, Engine::Registry& registry,
-                                     nlohmann::json& outEntityJson) {
-    if (registry.HasComponent<Engine::ColliderComponent>(entity)) {
-        auto& collider = registry.GetComponent<Engine::ColliderComponent>(entity);
-        nlohmann::json colliderJson = {
-            {"isTrigger", collider.isTrigger},
-            {"enabled", collider.enabled},
-        };
-        if (collider.shape.has_value()) {
-            colliderJson["shape"] = ShapePluginEditor::SerializeShape(*collider.shape);
-        }
-        outEntityJson["ColliderComponent"] = colliderJson;
-    }
-}
-
-void ColliderPluginEditor::Deserialize(const Engine::Entity entity, Engine::Registry& registry,
-                                       const nlohmann::json& inEntityJson) {
-    if (inEntityJson.contains("ColliderComponent")) {
-        const auto& json = inEntityJson["ColliderComponent"];
-        Engine::ColliderComponent collider;
-        collider.isTrigger = json.value("isTrigger", false);
-        collider.enabled = json.value("enabled", true);
-        if (json.contains("shape")) {
-            collider.shape = ShapePluginEditor::DeserializeShape(json["shape"]);
-        }
-        Engine::ColliderPlugin::AttachToEntity(registry, entity, collider);
-    }
-}
-
 bool ColliderPluginEditor::HasComponent(const Engine::Entity entity, Engine::Registry& registry) {
     return registry.HasComponent<Engine::ColliderComponent>(entity);
 }

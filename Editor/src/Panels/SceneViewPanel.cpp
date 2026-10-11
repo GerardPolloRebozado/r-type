@@ -10,85 +10,8 @@
 
 namespace Editor {
 
-SceneViewPanel::SceneViewPanel() {
-    // Texture initialized lazily in RenderGame after OpenGL context is created
-}
-
-SceneViewPanel::~SceneViewPanel() {
-    m_GameTexture.Unload();
-}
-
 void SceneViewPanel::RenderGame(Engine::Registry& registry, EditorConfig& config) {
-
-    if (m_GameTexture.id == 0) {
-        m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
-    }
-    bool hasWidthChanged = m_GameTexture.GetTexture().GetSize().x != config.windowWidth;
-    bool hasHeightChanged = m_GameTexture.GetTexture().GetSize().y != config.windowHeight;
-    if (hasWidthChanged || hasHeightChanged) {
-        m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
-    }
-    m_GameTexture.BeginMode();
-    ClearBackground(BLACK);
-    for (auto const& pair : registry.GetSystems()) {
-        pair.second->Render(registry);
-    }
-
-    try {
-        auto colliders = registry.GetComponentArray<Engine::ColliderComponent>();
-        static const Engine::Rotation defaultRot{0.0f};
-
-        Engine::Entity selectedEntity = -1;
-        if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
-            selectedEntity = registry.GetResource<HierarchyPanelSelectedEntity>().entity;
-        }
-
-        for (const auto& [entity, col] : *colliders) {
-            if (!col.enabled || !registry.HasComponent<Engine::Position>(entity)) {
-                continue;
-            }
-            const auto& pos = registry.GetComponent<Engine::Position>(entity);
-            const auto& rot = registry.HasComponent<Engine::Rotation>(entity)
-                                  ? registry.GetComponent<Engine::Rotation>(entity)
-                                  : defaultRot;
-
-            std::optional<Engine::ShapeComponent> shape = col.shape;
-            if (!shape.has_value() && registry.HasComponent<Engine::ShapeComponent>(entity)) {
-                shape = registry.GetComponent<Engine::ShapeComponent>(entity);
-            }
-            if (!shape.has_value()) {
-                continue;
-            }
-
-            const auto verts = shape->GetShapeVectors(rot, pos);
-            if (verts.empty()) {
-                continue;
-            }
-
-            const bool isSelected = (entity == selectedEntity);
-            Color outlineColor;
-            if (col.isTrigger) {
-                outlineColor = isSelected ? Color{255, 230, 0, 255} : Color{220, 180, 0, 180};
-            } else {
-                outlineColor = isSelected ? Color{50, 255, 120, 255} : Color{0, 200, 80, 180};
-            }
-
-            const float thickness = isSelected ? 3.5f : 2.0f;
-
-            if (shape->type == Engine::ShapeType::LINE && verts.size() >= 2) {
-                DrawLineEx(verts[0], verts[1], thickness, outlineColor);
-            } else if (verts.size() >= 3) {
-                for (size_t k = 0; k < verts.size(); ++k) {
-                    size_t next = (k + 1) % verts.size();
-                    DrawLineEx(verts[k], verts[next], thickness, outlineColor);
-                }
-            }
-        }
-    } catch (const Engine::ErrorEcs&) {
-        // Colliders not registered
-    }
-
-    m_GameTexture.EndMode();
+    m_Renderer.Render(registry, config);
 }
 
 static bool IsPointInRect(const ImVec2& pt, const ImVec2& min, const ImVec2& max) {
@@ -110,9 +33,16 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                                      viewportMaxRegion.y - viewportMinRegion.y);
 
         // Draw the Game Texture
+        const auto& targetTexture = m_Renderer.GetTargetTexture();
+        if (targetTexture.id == 0) {
+            ImGui::End();
+            ImGui::PopStyleVar();
+            return;
+        }
+
         // We calculate aspect ratio to center it
-        float aspect = static_cast<float>(m_GameTexture.texture.width) /
-                       static_cast<float>(m_GameTexture.texture.height);
+        float aspect = static_cast<float>(targetTexture.texture.width) /
+                       static_cast<float>(targetTexture.texture.height);
         ImVec2 drawSize = viewportSize;
         if (drawSize.x / aspect <= drawSize.y) {
             drawSize.y = drawSize.x / aspect;
@@ -125,14 +55,14 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         cursor.y += (viewportSize.y - drawSize.y) * 0.5f;
         ImGui::SetCursorPos(cursor);
 
-        rlImGuiImageRect(&m_GameTexture.texture, static_cast<int>(drawSize.x),
+        rlImGuiImageRect(&targetTexture.texture, static_cast<int>(drawSize.x),
                          static_cast<int>(drawSize.y),
-                         Rectangle{0, 0, static_cast<float>(m_GameTexture.texture.width),
-                                   -static_cast<float>(m_GameTexture.texture.height)});
+                         Rectangle{0, 0, static_cast<float>(targetTexture.texture.width),
+                                   -static_cast<float>(targetTexture.texture.height)});
 
         ImVec2 textureScreenPos = ImGui::GetItemRectMin();
-        float scaleX = drawSize.x / static_cast<float>(m_GameTexture.texture.width);
-        float scaleY = drawSize.y / static_cast<float>(m_GameTexture.texture.height);
+        float scaleX = drawSize.x / static_cast<float>(targetTexture.texture.width);
+        float scaleY = drawSize.y / static_cast<float>(targetTexture.texture.height);
 
         if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
             auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();

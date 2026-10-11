@@ -2,15 +2,15 @@
 #define EDITOR_PANELS_SCENEVIEWPANEL_HPP_
 
 #include "Panels/IEditorPanel.hpp"
-#include <raylib-cpp.hpp>
+#include "Rendering/SceneRenderer.hpp"
 #include <string>
 
 namespace Editor {
 
 class SceneViewPanel : public IEditorPanel {
   public:
-    SceneViewPanel();
-    ~SceneViewPanel() override;
+    SceneViewPanel() = default;
+    ~SceneViewPanel() override = default;
 
     void RenderGame(Engine::Registry& registry, EditorConfig& config);
     void OnImGuiRender(Engine::Registry& registry, EditorConfig& config) override;
@@ -25,7 +25,7 @@ class SceneViewPanel : public IEditorPanel {
     float m_InitialDragAngle = 0.0f;
     float m_InitialEntityAngle = 0.0f;
 
-    raylib::RenderTexture2D m_GameTexture;
+    SceneRenderer m_Renderer;
 };
 
 } // namespace Editor

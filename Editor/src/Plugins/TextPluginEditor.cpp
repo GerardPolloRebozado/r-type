@@ -54,24 +54,6 @@ bool TextPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& re
     return true;
 }
 
-void TextPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& registry,
-                                 nlohmann::json& outEntityJson) {
-    if (registry.HasComponent<Engine::Text>(entity)) {
-        auto& text = registry.GetComponent<Engine::Text>(entity);
-        outEntityJson["TextComponent"] = {{"text", text.text}, {"fontSize", text.fontsize}};
-    }
-}
-
-void TextPluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& registry,
-                                   const nlohmann::json& inEntityJson) {
-    if (inEntityJson.contains("TextComponent")) {
-        const auto& textJson = inEntityJson["TextComponent"];
-        const std::string text = textJson.value("text", "");
-        const float fontSize = textJson.value("fontSize", 12.0f);
-        Engine::TextPlugin::AttachToEntity(registry, entity, text, fontSize);
-    }
-}
-
 bool TextPluginEditor::HasComponent(Engine::Entity entity, Engine::Registry& registry) {
     return registry.HasComponent<Engine::Text>(entity);
 }

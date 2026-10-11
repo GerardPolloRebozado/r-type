@@ -29,7 +29,7 @@ set(SRC_FILES
         src/Plugins/ShapePluginEditor.cpp
         src/Plugins/RotationPluginEditor.cpp
         src/Plugins/ColliderPluginEditor.cpp
-        src/Serialization/SceneSerializer.cpp
+        src/Rendering/SceneRenderer.cpp
         src/Utils/Multiplatform.cpp
 )
 
@@ -53,9 +53,9 @@ set(INC_FILES
         include/Plugins/SpritePluginEditor.hpp
         include/Plugins/ShapePluginEditor.hpp
         include/Plugins/RotationPluginEditor.hpp
-        include/Serialization/SceneSerializer.hpp
         include/MultiplatformUtils.hpp
         include/Plugins/ColliderPluginEditor.hpp
+        include/Rendering/SceneRenderer.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
@@ -72,4 +72,4 @@ if (NOT EXISTS "${PFD_DEST}")
 endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-target_link_libraries(RTypeEditor PRIVATE Engine rlImGui imgui nlohmann_json::nlohmann_json)
+target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui nlohmann_json::nlohmann_json)
