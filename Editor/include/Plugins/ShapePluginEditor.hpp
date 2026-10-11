@@ -1,6 +1,7 @@
 #ifndef EDITOR_PLUGINS_SHAPEPLUGINEDITOR_HPP_
 #define EDITOR_PLUGINS_SHAPEPLUGINEDITOR_HPP_
 
+#include "Components/ShapeComponent.hpp"
 #include "PluginEditor.hpp"
 
 namespace Editor {
@@ -17,6 +18,10 @@ class ShapePluginEditor : public IPluginEditor {
     bool HasComponent(Engine::Entity entity, Engine::Registry& registry) override;
     void AddComponent(Engine::Entity entity, Engine::Registry& registry) override;
     void RemoveComponent(Engine::Entity entity, Engine::Registry& registry) override;
+
+    static bool DrawShapeControls(Engine::ShapeComponent& shape, bool showVisualProps = true);
+    static nlohmann::json SerializeShape(const Engine::ShapeComponent& shape);
+    static Engine::ShapeComponent DeserializeShape(const nlohmann::json& json);
 };
 
 } // namespace Editor

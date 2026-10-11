@@ -36,46 +36,7 @@ bool ShapePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& r
     }
 
     if (isOpen) {
-        int currentType = static_cast<int>(shape.type);
-        const char* types[] = {"Rectangle", "Circle", "Polygon", "Line"};
-        if (ImGui::Combo("Type", &currentType, types, 4)) {
-            shape.type = static_cast<Engine::ShapeType>(currentType);
-        }
-
-        bool filled = shape.filled;
-        if (ImGui::Checkbox("Filled", &filled)) {
-            shape.filled = filled;
-        }
-
-        float col[4] = {shape.color.r / 255.0f, shape.color.g / 255.0f, shape.color.b / 255.0f,
-                        shape.color.a / 255.0f};
-        if (ImGui::ColorEdit4("Color", col)) {
-            shape.color.r = static_cast<unsigned char>(col[0] * 255.0f);
-            shape.color.g = static_cast<unsigned char>(col[1] * 255.0f);
-            shape.color.b = static_cast<unsigned char>(col[2] * 255.0f);
-            shape.color.a = static_cast<unsigned char>(col[3] * 255.0f);
-        }
-
-        switch (shape.type) {
-            case Engine::ShapeType::RECTANGLE:
-                ImGui::DragFloat("Width", &shape.width, 1.0f, 0.0f, 10000.0f);
-                ImGui::DragFloat("Height", &shape.height, 1.0f, 0.0f, 10000.0f);
-                break;
-            case Engine::ShapeType::CIRCLE:
-                ImGui::DragFloat("Radius", &shape.radius, 1.0f, 0.0f, 10000.0f);
-                break;
-            case Engine::ShapeType::POLYGON:
-                ImGui::DragFloat("Radius", &shape.radius, 1.0f, 0.0f, 10000.0f);
-                ImGui::DragInt("Sides", &shape.sides, 1.0f, 3, 32);
-                if (!shape.filled) {
-                    ImGui::DragFloat("Thickness", &shape.thickness, 0.1f, 0.1f, 100.0f);
-                }
-                break;
-            case Engine::ShapeType::LINE:
-                ImGui::DragFloat2("End Offset", &shape.endOffset.x, 1.0f);
-                ImGui::DragFloat("Thickness", &shape.thickness, 0.1f, 0.1f, 100.0f);
-                break;
-        }
+        DrawShapeControls(shape, true);
     }
 
     if (remove) {
@@ -86,47 +47,122 @@ bool ShapePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& r
     return true;
 }
 
+bool ShapePluginEditor::DrawShapeControls(Engine::ShapeComponent& shape, bool showVisualProps) {
+    bool modified = false;
+
+    int currentType = static_cast<int>(shape.type);
+    const char* types[] = {"Rectangle", "Circle", "Polygon", "Line"};
+    if (ImGui::Combo("Type", &currentType, types, 4)) {
+        shape.type = static_cast<Engine::ShapeType>(currentType);
+        modified = true;
+    }
+
+    if (showVisualProps) {
+        bool filled = shape.filled;
+        if (ImGui::Checkbox("Filled", &filled)) {
+            shape.filled = filled;
+            modified = true;
+        }
+
+        float col[4] = {shape.color.r / 255.0f, shape.color.g / 255.0f, shape.color.b / 255.0f,
+                        shape.color.a / 255.0f};
+        if (ImGui::ColorEdit4("Color", col)) {
+            shape.color.r = static_cast<unsigned char>(col[0] * 255.0f);
+            shape.color.g = static_cast<unsigned char>(col[1] * 255.0f);
+            shape.color.b = static_cast<unsigned char>(col[2] * 255.0f);
+            shape.color.a = static_cast<unsigned char>(col[3] * 255.0f);
+            modified = true;
+        }
+    }
+
+    switch (shape.type) {
+        case Engine::ShapeType::RECTANGLE:
+            if (ImGui::DragFloat("Width", &shape.width, 1.0f, 0.0f, 10000.0f)) {
+                modified = true;
+            }
+            if (ImGui::DragFloat("Height", &shape.height, 1.0f, 0.0f, 10000.0f)) {
+                modified = true;
+            }
+            break;
+        case Engine::ShapeType::CIRCLE:
+            if (ImGui::DragFloat("Radius", &shape.radius, 1.0f, 0.0f, 10000.0f)) {
+                modified = true;
+            }
+            break;
+        case Engine::ShapeType::POLYGON:
+            if (ImGui::DragFloat("Radius", &shape.radius, 1.0f, 0.0f, 10000.0f)) {
+                modified = true;
+            }
+            if (ImGui::DragInt("Sides", &shape.sides, 1.0f, 3, 32)) {
+                modified = true;
+            }
+            if (!shape.filled || !showVisualProps) {
+                if (ImGui::DragFloat("Thickness", &shape.thickness, 0.1f, 0.1f, 100.0f)) {
+                    modified = true;
+                }
+            }
+            break;
+        case Engine::ShapeType::LINE:
+            if (ImGui::DragFloat2("End Offset", &shape.endOffset.x, 1.0f)) {
+                modified = true;
+            }
+            if (ImGui::DragFloat("Thickness", &shape.thickness, 0.1f, 0.1f, 100.0f)) {
+                modified = true;
+            }
+            break;
+    }
+
+    return modified;
+}
+
+nlohmann::json ShapePluginEditor::SerializeShape(const Engine::ShapeComponent& shape) {
+    return {
+        {"type", static_cast<int>(shape.type)},
+        {"width", shape.width},
+        {"height", shape.height},
+        {"radius", shape.radius},
+        {"sides", shape.sides},
+        {"endOffsetX", shape.endOffset.x},
+        {"endOffsetY", shape.endOffset.y},
+        {"thickness", shape.thickness},
+        {"filled", shape.filled},
+        {"color_r", shape.color.r},
+        {"color_g", shape.color.g},
+        {"color_b", shape.color.b},
+        {"color_a", shape.color.a},
+    };
+}
+
+Engine::ShapeComponent ShapePluginEditor::DeserializeShape(const nlohmann::json& json) {
+    Engine::ShapeComponent shape;
+    shape.type = static_cast<Engine::ShapeType>(json.value("type", 0));
+    shape.width = json.value("width", 50.0f);
+    shape.height = json.value("height", 50.0f);
+    shape.radius = json.value("radius", 25.0f);
+    shape.sides = json.value("sides", 3);
+    shape.endOffset.x = json.value("endOffsetX", 50.0f);
+    shape.endOffset.y = json.value("endOffsetY", 50.0f);
+    shape.thickness = json.value("thickness", 1.0f);
+    shape.filled = json.value("filled", true);
+    shape.color.r = static_cast<unsigned char>(json.value("color_r", 255));
+    shape.color.g = static_cast<unsigned char>(json.value("color_g", 255));
+    shape.color.b = static_cast<unsigned char>(json.value("color_b", 255));
+    shape.color.a = static_cast<unsigned char>(json.value("color_a", 255));
+    return shape;
+}
+
 void ShapePluginEditor::Serialize(Engine::Entity entity, Engine::Registry& registry,
                                   nlohmann::json& outEntityJson) {
     if (registry.HasComponent<Engine::ShapeComponent>(entity)) {
-        auto& shape = registry.GetComponent<Engine::ShapeComponent>(entity);
-        outEntityJson["ShapeComponent"] = {
-            {"type", static_cast<int>(shape.type)},
-            {"width", shape.width},
-            {"height", shape.height},
-            {"radius", shape.radius},
-            {"sides", shape.sides},
-            {"endOffsetX", shape.endOffset.x},
-            {"endOffsetY", shape.endOffset.y},
-            {"thickness", shape.thickness},
-            {"filled", shape.filled},
-            {"color_r", shape.color.r},
-            {"color_g", shape.color.g},
-            {"color_b", shape.color.b},
-            {"color_a", shape.color.a},
-        };
+        const auto& shape = registry.GetComponent<Engine::ShapeComponent>(entity);
+        outEntityJson["ShapeComponent"] = SerializeShape(shape);
     }
 }
 
 void ShapePluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& registry,
                                     const nlohmann::json& inEntityJson) {
     if (inEntityJson.contains("ShapeComponent")) {
-        const auto& json = inEntityJson["ShapeComponent"];
-        Engine::ShapeComponent shape;
-        shape.type = static_cast<Engine::ShapeType>(json.value("type", 0));
-        shape.width = json.value("width", 50.0f);
-        shape.height = json.value("height", 50.0f);
-        shape.radius = json.value("radius", 25.0f);
-        shape.sides = json.value("sides", 3);
-        shape.endOffset.x = json.value("endOffsetX", 50.0f);
-        shape.endOffset.y = json.value("endOffsetY", 50.0f);
-        shape.thickness = json.value("thickness", 1.0f);
-        shape.filled = json.value("filled", true);
-        shape.color.r = json.value("color_r", 255);
-        shape.color.g = json.value("color_g", 255);
-        shape.color.b = json.value("color_b", 255);
-        shape.color.a = json.value("color_a", 255);
-
+        Engine::ShapeComponent shape = DeserializeShape(inEntityJson["ShapeComponent"]);
         Engine::ShapePlugin::AttachToEntity(registry, entity, shape);
     }
 }
