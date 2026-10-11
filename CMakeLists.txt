@@ -49,12 +49,26 @@ CPMAddPackage(
         GIT_TAG main
 )
 
-file(GLOB IMGUI_SOURCES ${imgui_SOURCE_DIR}/*.cpp)
-list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp)
+CPMAddPackage(
+        NAME enet
+        GITHUB_REPOSITORY zpl-c/enet
+        GIT_TAG v2.7.0
+)
+
+set(IMGUI_SOURCES
+        ${imgui_SOURCE_DIR}/imgui.cpp
+        ${imgui_SOURCE_DIR}/imgui_demo.cpp
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
+)
 add_library(imgui STATIC ${IMGUI_SOURCES})
 target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 
-file(GLOB RLIMGUI_SOURCES ${rlImGui_SOURCE_DIR}/*.cpp)
+set(RLIMGUI_SOURCES
+        ${rlImGui_SOURCE_DIR}/rlImGui.cpp
+)
 add_library(rlImGui STATIC ${RLIMGUI_SOURCES})
 target_include_directories(rlImGui PUBLIC ${rlImGui_SOURCE_DIR})
 target_link_libraries(rlImGui PUBLIC imgui raylib)
@@ -63,6 +77,12 @@ CPMAddPackage(
         NAME nlohmann_json
         GITHUB_REPOSITORY nlohmann/json
         VERSION 3.11.3
+)
+
+CPMAddPackage(
+        NAME bitsery
+        GITHUB_REPOSITORY fraillt/bitsery
+        GIT_TAG v5.2.5
 )
 
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
@@ -74,6 +94,6 @@ if (NOT EDITOR_BUILD)
     add_subdirectory(Editor)
     add_subdirectory(Tools)
     add_subdirectory(Games)
-endif()
+endif ()
 
 include(.editor_build.cmake OPTIONAL)
