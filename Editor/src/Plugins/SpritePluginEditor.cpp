@@ -1,9 +1,14 @@
 #include "Plugins/SpritePluginEditor.hpp"
 #include "Assets/AssetManager.hpp"
+#include "Components/Position.hpp"
+#include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
+#include "EditorConfig.hpp"
+#include <algorithm>
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 #include <iostream>
+#include <rlImGui.h>
 #include <string>
 
 namespace Editor {
@@ -14,6 +19,49 @@ const char* SpritePluginEditor::GetName() const {
 
 const char* SpritePluginEditor::GetIcon() const {
     return ICON_FA_IMAGE;
+}
+
+static void LoadSpriteForComponent(Engine::Registry& registry, Engine::SpriteComponent& spriteComp,
+                                   const std::string& inputPath) {
+    if (inputPath.empty()) {
+        spriteComp.sprite = nullptr;
+        spriteComp.assetPath = "";
+        return;
+    }
+    std::string relPath = ToProjectRelativePath(registry, inputPath);
+    auto resolvedPath = ResolveAssetPath(registry, relPath);
+
+    std::shared_ptr<Engine::Sprite> spr = nullptr;
+    try {
+        if (registry.HasResource<Engine::AssetManager>()) {
+            auto& am = registry.GetResource<Engine::AssetManager>();
+            try {
+                auto existing = am.GetSprite(relPath);
+                if (existing && existing->GetTexture().id == 0) {
+                    am.UnloadSprite(relPath);
+                }
+            } catch (...) {
+            }
+            am.LoadSprite(relPath, resolvedPath.string());
+            spr = am.GetSprite(relPath);
+        } else {
+            spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[SpritePluginEditor] Failed to load sprite: " << resolvedPath.string()
+                  << " - " << e.what() << "\n";
+    } catch (...) {
+        std::cerr << "[SpritePluginEditor] Failed to load sprite: " << resolvedPath.string()
+                  << " (Unknown Error)\n";
+    }
+
+    if (spr) {
+        spriteComp.sprite = spr;
+        spriteComp.assetPath = relPath;
+        if (spriteComp.scaleX > 0.0f && spriteComp.scaleY > 0.0f) {
+            spr->SetScale({spriteComp.scaleX, spriteComp.scaleY});
+        }
+    }
 }
 
 bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) {
@@ -46,20 +94,8 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         if (ImGui::InputText("##SpritePath", buffer, sizeof(buffer),
                              ImGuiInputTextFlags_EnterReturnsTrue)) {
             std::string newPath(buffer);
-            if (!newPath.empty() && newPath != currentPath) {
-                try {
-                    if (registry.HasResource<Engine::AssetManager>()) {
-                        auto& am = registry.GetResource<Engine::AssetManager>();
-                        am.LoadSprite(newPath, newPath);
-                        spriteComp.sprite = am.GetSprite(newPath);
-                        spriteComp.assetPath = newPath;
-                    } else {
-                        spriteComp.sprite = std::make_shared<Engine::Sprite>(newPath);
-                        spriteComp.assetPath = newPath;
-                    }
-                } catch (...) {
-                    // Could not load sprite
-                }
+            if (newPath != currentPath) {
+                LoadSpriteForComponent(registry, spriteComp, newPath);
             }
         }
 
@@ -68,20 +104,7 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
             if (const ImGuiPayload* payload =
                     ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                 const char* path = (const char*)payload->Data;
-                std::string newPath(path);
-                try {
-                    if (registry.HasResource<Engine::AssetManager>()) {
-                        auto& am = registry.GetResource<Engine::AssetManager>();
-                        am.LoadSprite(newPath, newPath);
-                        spriteComp.sprite = am.GetSprite(newPath);
-                        spriteComp.assetPath = newPath;
-                    } else {
-                        spriteComp.sprite = std::make_shared<Engine::Sprite>(newPath);
-                        spriteComp.assetPath = newPath;
-                    }
-                } catch (...) {
-                    // Could not load sprite
-                }
+                LoadSpriteForComponent(registry, spriteComp, path);
             }
             ImGui::EndDragDropTarget();
         }
@@ -91,6 +114,35 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         if (ImGui::DragFloat2("Offset", offset, 0.1f)) {
             spriteComp.offsetX = offset[0];
             spriteComp.offsetY = offset[1];
+        }
+
+        // Scale
+        float scale[2] = {spriteComp.scaleX, spriteComp.scaleY};
+        if (ImGui::DragFloat2("Scale", scale, 0.05f, 0.001f, 100.0f)) {
+            spriteComp.scaleX = std::max(0.001f, scale[0]);
+            spriteComp.scaleY = std::max(0.001f, scale[1]);
+            if (spriteComp.sprite) {
+                spriteComp.sprite->SetScale({spriteComp.scaleX, spriteComp.scaleY});
+            }
+        }
+
+        // Preview thumbnail in Inspector
+        if (spriteComp.sprite && spriteComp.sprite->GetTexture().id > 0) {
+            const auto& tex = spriteComp.sprite->GetTexture();
+            float previewWidth = 120.0f;
+            float previewHeight = 120.0f;
+            if (tex.width > 0 && tex.height > 0) {
+                float aspect = static_cast<float>(tex.width) / static_cast<float>(tex.height);
+                if (aspect >= 1.0f) {
+                    previewHeight = previewWidth / aspect;
+                } else {
+                    previewWidth = previewHeight * aspect;
+                }
+            }
+            ImGui::Spacing();
+            ImGui::Text("Sprite Preview:");
+            rlImGuiImageSize(&tex, static_cast<int>(previewWidth), static_cast<int>(previewHeight));
+            ImGui::TextDisabled("%d x %d px", tex.width, tex.height);
         }
     }
 
@@ -106,14 +158,12 @@ void SpritePluginEditor::Serialize(Engine::Entity entity, Engine::Registry& regi
                                    nlohmann::json& outEntityJson) {
     if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
         auto& spriteComp = registry.GetComponent<Engine::SpriteComponent>(entity);
-        std::string path = spriteComp.assetPath;
-        std::string filename = path;
-        auto lastSlash = path.find_last_of("/\\");
-        if (lastSlash != std::string::npos) {
-            filename = path.substr(lastSlash + 1);
-        }
-        outEntityJson["SpriteComponent"] = {
-            {"path", filename}, {"offsetX", spriteComp.offsetX}, {"offsetY", spriteComp.offsetY}};
+        std::string relPath = ToProjectRelativePath(registry, spriteComp.assetPath);
+        outEntityJson["SpriteComponent"] = {{"path", relPath},
+                                            {"offsetX", spriteComp.offsetX},
+                                            {"offsetY", spriteComp.offsetY},
+                                            {"scaleX", spriteComp.scaleX},
+                                            {"scaleY", spriteComp.scaleY}};
     }
 }
 
@@ -124,27 +174,41 @@ void SpritePluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& re
         std::string path = spriteJson.value("path", "");
         float offsetX = spriteJson.value("offsetX", 0.0f);
         float offsetY = spriteJson.value("offsetY", 0.0f);
+        float scaleX = spriteJson.value("scaleX", 1.0f);
+        float scaleY = spriteJson.value("scaleY", 1.0f);
 
+        std::string relPath = ToProjectRelativePath(registry, path);
         std::shared_ptr<Engine::Sprite> spr = nullptr;
-        if (!path.empty()) {
+        if (!relPath.empty()) {
+            auto resolved = ResolveAssetPath(registry, relPath);
             try {
                 if (registry.HasResource<Engine::AssetManager>()) {
                     auto& am = registry.GetResource<Engine::AssetManager>();
-                    am.LoadSprite(path, path);
-                    spr = am.GetSprite(path);
+                    try {
+                        auto existing = am.GetSprite(relPath);
+                        if (existing && existing->GetTexture().id == 0) {
+                            am.UnloadSprite(relPath);
+                        }
+                    } catch (...) {
+                    }
+                    am.LoadSprite(relPath, resolved.string());
+                    spr = am.GetSprite(relPath);
                 } else {
-                    spr = std::make_shared<Engine::Sprite>(path);
+                    spr = std::make_shared<Engine::Sprite>(resolved.string());
+                }
+                if (spr && scaleX > 0.0f && scaleY > 0.0f) {
+                    spr->SetScale({scaleX, scaleY});
                 }
             } catch (const std::exception& e) {
-                std::cerr << "[SpritePluginEditor] Failed to deserialize sprite from path: " << path
-                          << " - Error: " << e.what() << "\n";
+                std::cerr << "[SpritePluginEditor] Failed to deserialize sprite from path: "
+                          << resolved.string() << " - Error: " << e.what() << "\n";
             } catch (...) {
-                std::cerr << "[SpritePluginEditor] Failed to deserialize sprite from path: " << path
-                          << " (Unknown Error)\n";
+                std::cerr << "[SpritePluginEditor] Failed to deserialize sprite from path: "
+                          << resolved.string() << " (Unknown Error)\n";
             }
         }
         registry.AddComponent<Engine::SpriteComponent>(
-            entity, Engine::SpriteComponent(spr, path, offsetX, offsetY));
+            entity, Engine::SpriteComponent(spr, relPath, offsetX, offsetY, scaleX, scaleY));
     }
 }
 
@@ -155,7 +219,13 @@ bool SpritePluginEditor::HasComponent(Engine::Entity entity, Engine::Registry& r
 void SpritePluginEditor::AddComponent(Engine::Entity entity, Engine::Registry& registry) {
     std::shared_ptr<Engine::Sprite> nullSprite = nullptr;
     registry.AddComponent<Engine::SpriteComponent>(
-        entity, Engine::SpriteComponent(nullSprite, "", 0.0f, 0.0f));
+        entity, Engine::SpriteComponent(nullSprite, "", 0.0f, 0.0f, 1.0f, 1.0f));
+    if (!registry.HasComponent<Engine::Position>(entity)) {
+        registry.AddComponent<Engine::Position>(entity, Engine::Position(0.0f, 0.0f));
+    }
+    if (!registry.HasComponent<Engine::Rotation>(entity)) {
+        registry.AddComponent<Engine::Rotation>(entity, Engine::Rotation(0.0f));
+    }
 }
 
 void SpritePluginEditor::RemoveComponent(Engine::Entity entity, Engine::Registry& registry) {

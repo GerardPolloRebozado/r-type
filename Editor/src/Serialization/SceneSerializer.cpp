@@ -174,6 +174,14 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     }
 
     if (config.has_value()) {
+        if (!registry.HasResource<ProjectContext>()) {
+            registry.AddResource<ProjectContext>(config->get().m_ProjectFolder);
+        } else {
+            registry.GetResource<ProjectContext>().projectFolder = config->get().m_ProjectFolder;
+        }
+    }
+
+    if (config.has_value()) {
         std::string inputFilePath = config->get().m_ProjectFolder + "/input.json";
         std::ifstream inputIn(inputFilePath);
         if (inputIn.is_open()) {

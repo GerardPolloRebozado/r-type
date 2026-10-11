@@ -28,16 +28,26 @@ struct SpriteComponent {
     /** @brief Vertical offset from Position.y to the sprite's top-left corner. */
     float offsetY;
 
+    /** @brief Horizontal scale multiplier of the sprite. */
+    float scaleX = 1.0f;
+
+    /** @brief Vertical scale multiplier of the sprite. */
+    float scaleY = 1.0f;
+
     /**
      * @brief Constructs a SpriteComponent with an optional existing sprite pointer.
      * @param spritePtr A shared pointer to an existing Sprite. Defaults to nullptr.
      * @param path The file path or alias of the asset.
      * @param offsetX Offset from entity position on X.
      * @param offsetY Offset from entity position on Y.
+     * @param scaleX Horizontal scale. Defaults to 1.0f.
+     * @param scaleY Vertical scale. Defaults to 1.0f.
      */
     SpriteComponent(std::shared_ptr<Sprite> spritePtr = nullptr, const std::string& path = "",
-                    float offsetX = 0.0f, float offsetY = 0.0f)
-        : sprite(spritePtr), assetPath(path), offsetX(offsetX), offsetY(offsetY) {}
+                    float offsetX = 0.0f, float offsetY = 0.0f, float scaleX = 1.0f,
+                    float scaleY = 1.0f)
+        : sprite(spritePtr), assetPath(path), offsetX(offsetX), offsetY(offsetY), scaleX(scaleX),
+          scaleY(scaleY) {}
 };
 } // namespace Engine
 
