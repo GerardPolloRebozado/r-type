@@ -49,10 +49,14 @@ bool ShapePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& r
 
 bool ShapePluginEditor::DrawShapeControls(Engine::ShapeComponent& shape, bool showVisualProps) {
     bool modified = false;
+    std::string id = "###";
+    if (showVisualProps) {
+        id += '1';
+    }
 
     int currentType = static_cast<int>(shape.type);
     const char* types[] = {"Rectangle", "Circle", "Polygon", "Line"};
-    if (ImGui::Combo("Type", &currentType, types, 4)) {
+    if (ImGui::Combo(("Type" + id + "type").c_str(), &currentType, types, 4)) {
         shape.type = static_cast<Engine::ShapeType>(currentType);
         modified = true;
     }
@@ -77,36 +81,43 @@ bool ShapePluginEditor::DrawShapeControls(Engine::ShapeComponent& shape, bool sh
 
     switch (shape.type) {
         case Engine::ShapeType::RECTANGLE:
-            if (ImGui::DragFloat("Width", &shape.width, 1.0f, 0.0f, 10000.0f)) {
+            if (ImGui::DragFloat(("Width" + id + "Width").c_str(), &shape.width, 1.0f, 0.0f,
+                                 10000.0f)) {
                 modified = true;
             }
-            if (ImGui::DragFloat("Height", &shape.height, 1.0f, 0.0f, 10000.0f)) {
+            if (ImGui::DragFloat(("Height" + id + "Height").c_str(), &shape.height, 1.0f, 0.0f,
+                                 10000.0f)) {
                 modified = true;
             }
             break;
         case Engine::ShapeType::CIRCLE:
-            if (ImGui::DragFloat("Radius", &shape.radius, 1.0f, 0.0f, 10000.0f)) {
+            if (ImGui::DragFloat(("Radius" + id + "Radius").c_str(), &shape.radius, 1.0f, 0.0f,
+                                 10000.0f)) {
                 modified = true;
             }
             break;
         case Engine::ShapeType::POLYGON:
-            if (ImGui::DragFloat("Radius", &shape.radius, 1.0f, 0.0f, 10000.0f)) {
+            if (ImGui::DragFloat(("Radius" + id + "Radius").c_str(), &shape.radius, 1.0f, 0.0f,
+                                 10000.0f)) {
                 modified = true;
             }
-            if (ImGui::DragInt("Sides", &shape.sides, 1.0f, 3, 32)) {
+            if (ImGui::DragInt(("Sides" + id + "Sides").c_str(), &shape.sides, 1.0f, 3, 32)) {
                 modified = true;
             }
             if (!shape.filled || !showVisualProps) {
-                if (ImGui::DragFloat("Thickness", &shape.thickness, 0.1f, 0.1f, 100.0f)) {
+                if (ImGui::DragFloat(("Thickness" + id + "Thickness").c_str(), &shape.thickness,
+                                     0.1f, 0.1f, 100.0f)) {
                     modified = true;
                 }
             }
             break;
         case Engine::ShapeType::LINE:
-            if (ImGui::DragFloat2("End Offset", &shape.endOffset.x, 1.0f)) {
+            if (ImGui::DragFloat2(("End Offset" + id + "End Offset").c_str(), &shape.endOffset.x,
+                                  1.0f)) {
                 modified = true;
             }
-            if (ImGui::DragFloat("Thickness", &shape.thickness, 0.1f, 0.1f, 100.0f)) {
+            if (ImGui::DragFloat(("Thickness" + id + "Thickness").c_str(), &shape.thickness, 0.1f,
+                                 0.1f, 100.0f)) {
                 modified = true;
             }
             break;
