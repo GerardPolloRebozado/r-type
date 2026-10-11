@@ -18,6 +18,7 @@
 #include <rlImGui.h>
 
 #include "BundledAssets.hpp"
+#include "Panels/StatePanel.hpp"
 
 namespace Editor {
 ImFont* g_IconFont = nullptr;
@@ -39,6 +40,7 @@ EditorLayer::~EditorLayer() {
 
 void EditorLayer::Init() {
     m_Registry->AddResource<HierarchyPanelSelectedEntity>();
+    m_Registry->AddResource<StatePanelSelectedState>();
     // Set a callback to load custom fonts instead of the default rlImGui font
     rlImGuiSetLoadFontsCallback([]() {
         ImGuiIO& io = ImGui::GetIO();
