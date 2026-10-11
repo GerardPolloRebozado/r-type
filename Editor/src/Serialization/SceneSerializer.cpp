@@ -130,7 +130,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
 }
 
 bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry& registry,
-                                  EditorConfig& config) {
+                                  std::optional<std::reference_wrapper<EditorConfig>> config) {
     std::ifstream fin(filepath);
     if (!fin.is_open()) {
         log_error("Failed to open file for reading: " + filepath);
@@ -142,47 +142,50 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
 
     log_info("Loaded scene: " + sceneJson.value("SceneName", "Unknown"));
 
-    if (sceneJson.contains("Configuration")) {
-        auto projectConfiguration = sceneJson["Configuration"];
-        if (projectConfiguration.contains("ProjectFolder")) {
-            config.m_ProjectFolder = projectConfiguration["ProjectFolder"];
-        }
-        if (projectConfiguration.contains("WindowTitle")) {
-            config.windowTitle = projectConfiguration["WindowTitle"];
-        }
-        if (projectConfiguration.contains("WindowWidth")) {
-            config.windowWidth = projectConfiguration["WindowWidth"];
-        }
-        if (projectConfiguration.contains("WindowHeight")) {
-            config.windowHeight = projectConfiguration["WindowHeight"];
-        }
-        if (projectConfiguration.contains("TargetFPS")) {
-            config.targetFPS = projectConfiguration["TargetFPS"];
-        }
-        if (projectConfiguration.contains("BuildExecutableName")) {
-            config.m_BuildExecutableName = projectConfiguration["BuildExecutableName"];
-        }
-        if (projectConfiguration.contains("BuildWindowTitle")) {
-            config.m_BuildWindowTitle = projectConfiguration["BuildWindowTitle"];
-        }
-    }
-
-    std::string inputFilePath = config.m_ProjectFolder + "/input.json";
-    std::ifstream inputIn(inputFilePath);
-    if (inputIn.is_open()) {
-        json inputMapJson;
-        inputIn >> inputMapJson;
-        config.m_InputMap.clear();
-        for (auto it = inputMapJson.begin(); it != inputMapJson.end(); ++it) {
-            std::vector<Engine::Keybind> keybinds;
-            for (const auto& kbJson : it.value()) {
-                Engine::Keybind kb;
-                kb.key = kbJson.value("key", 0);
-                kb.composeKey = kbJson.value("composeKey", 0);
-                kb.type = static_cast<Engine::DeviceType>(kbJson.value("type", 0));
-                keybinds.push_back(kb);
+    if (config.has_value()) {
+        auto& cfg = config->get();
+        if (sceneJson.contains("Configuration")) {
+            auto projectConfiguration = sceneJson["Configuration"];
+            if (projectConfiguration.contains("ProjectFolder")) {
+                cfg.m_ProjectFolder = projectConfiguration["ProjectFolder"];
             }
-            config.m_InputMap[it.key()] = keybinds;
+            if (projectConfiguration.contains("WindowTitle")) {
+                cfg.windowTitle = projectConfiguration["WindowTitle"];
+            }
+            if (projectConfiguration.contains("WindowWidth")) {
+                cfg.windowWidth = projectConfiguration["WindowWidth"];
+            }
+            if (projectConfiguration.contains("WindowHeight")) {
+                cfg.windowHeight = projectConfiguration["WindowHeight"];
+            }
+            if (projectConfiguration.contains("TargetFPS")) {
+                cfg.targetFPS = projectConfiguration["TargetFPS"];
+            }
+            if (projectConfiguration.contains("BuildExecutableName")) {
+                cfg.m_BuildExecutableName = projectConfiguration["BuildExecutableName"];
+            }
+            if (projectConfiguration.contains("BuildWindowTitle")) {
+                cfg.m_BuildWindowTitle = projectConfiguration["BuildWindowTitle"];
+            }
+        }
+
+        std::string inputFilePath = cfg.m_ProjectFolder + "/input.json";
+        std::ifstream inputIn(inputFilePath);
+        if (inputIn.is_open()) {
+            json inputMapJson;
+            inputIn >> inputMapJson;
+            cfg.m_InputMap.clear();
+            for (auto it = inputMapJson.begin(); it != inputMapJson.end(); ++it) {
+                std::vector<Engine::Keybind> keybinds;
+                for (const auto& kbJson : it.value()) {
+                    Engine::Keybind kb;
+                    kb.key = kbJson.value("key", 0);
+                    kb.composeKey = kbJson.value("composeKey", 0);
+                    kb.type = static_cast<Engine::DeviceType>(kbJson.value("type", 0));
+                    keybinds.push_back(kb);
+                }
+                cfg.m_InputMap[it.key()] = keybinds;
+            }
         }
     }
 
