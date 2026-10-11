@@ -1,9 +1,11 @@
 #include "Serialization/SceneSerializer.hpp"
 #include "Components/Name.hpp"
 #include "EditorConfig.hpp"
+#ifndef GAME_EXPORT
 #include "Gallery.hpp"
-#include "Logging/Logger.hpp"
 #include "MultiplatformUtils.hpp"
+#endif
+#include "Logging/Logger.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
@@ -25,6 +27,7 @@ std::int64_t UnixTimestampSeconds() {
 }
 
 void SceneSerializer::UpdateProjectList(EditorConfig& config) {
+#ifndef GAME_EXPORT
     auto projects = Gallery::FindProjects();
 
     auto it = std::find_if(projects.begin(), projects.end(), [&config](const ProjectData& project) {
@@ -53,10 +56,12 @@ void SceneSerializer::UpdateProjectList(EditorConfig& config) {
     }
 
     file << data.dump(2) << '\n';
+#endif
 }
 
 void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& registry,
                                 EditorConfig& config) {
+#ifndef GAME_EXPORT
     json sceneJson;
     sceneJson["SceneName"] = "Untitled";
 
@@ -127,6 +132,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     } else {
         log_error("Failed to open file for writing: " + filepath);
     }
+#endif
 }
 
 bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry& registry,
@@ -142,39 +148,38 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
 
     log_info("Loaded scene: " + sceneJson.value("SceneName", "Unknown"));
 
-    if (config.has_value()) {
-        auto& cfg = config->get();
-        if (sceneJson.contains("Configuration")) {
-            auto projectConfiguration = sceneJson["Configuration"];
-            if (projectConfiguration.contains("ProjectFolder")) {
-                cfg.m_ProjectFolder = projectConfiguration["ProjectFolder"];
-            }
-            if (projectConfiguration.contains("WindowTitle")) {
-                cfg.windowTitle = projectConfiguration["WindowTitle"];
-            }
-            if (projectConfiguration.contains("WindowWidth")) {
-                cfg.windowWidth = projectConfiguration["WindowWidth"];
-            }
-            if (projectConfiguration.contains("WindowHeight")) {
-                cfg.windowHeight = projectConfiguration["WindowHeight"];
-            }
-            if (projectConfiguration.contains("TargetFPS")) {
-                cfg.targetFPS = projectConfiguration["TargetFPS"];
-            }
-            if (projectConfiguration.contains("BuildExecutableName")) {
-                cfg.m_BuildExecutableName = projectConfiguration["BuildExecutableName"];
-            }
-            if (projectConfiguration.contains("BuildWindowTitle")) {
-                cfg.m_BuildWindowTitle = projectConfiguration["BuildWindowTitle"];
-            }
+    if (config.has_value() && sceneJson.contains("Configuration")) {
+        auto projectConfiguration = sceneJson["Configuration"];
+        if (projectConfiguration.contains("ProjectFolder")) {
+            config->get().m_ProjectFolder = projectConfiguration["ProjectFolder"];
         }
+        if (projectConfiguration.contains("WindowTitle")) {
+            config->get().windowTitle = projectConfiguration["WindowTitle"];
+        }
+        if (projectConfiguration.contains("WindowWidth")) {
+            config->get().windowWidth = projectConfiguration["WindowWidth"];
+        }
+        if (projectConfiguration.contains("WindowHeight")) {
+            config->get().windowHeight = projectConfiguration["WindowHeight"];
+        }
+        if (projectConfiguration.contains("TargetFPS")) {
+            config->get().targetFPS = projectConfiguration["TargetFPS"];
+        }
+        if (projectConfiguration.contains("BuildExecutableName")) {
+            config->get().m_BuildExecutableName = projectConfiguration["BuildExecutableName"];
+        }
+        if (projectConfiguration.contains("BuildWindowTitle")) {
+            config->get().m_BuildWindowTitle = projectConfiguration["BuildWindowTitle"];
+        }
+    }
 
-        std::string inputFilePath = cfg.m_ProjectFolder + "/input.json";
+    if (config.has_value()) {
+        std::string inputFilePath = config->get().m_ProjectFolder + "/input.json";
         std::ifstream inputIn(inputFilePath);
         if (inputIn.is_open()) {
             json inputMapJson;
             inputIn >> inputMapJson;
-            cfg.m_InputMap.clear();
+            config->get().m_InputMap.clear();
             for (auto it = inputMapJson.begin(); it != inputMapJson.end(); ++it) {
                 std::vector<Engine::Keybind> keybinds;
                 for (const auto& kbJson : it.value()) {
@@ -184,7 +189,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
                     kb.type = static_cast<Engine::DeviceType>(kbJson.value("type", 0));
                     keybinds.push_back(kb);
                 }
-                cfg.m_InputMap[it.key()] = keybinds;
+                config->get().m_InputMap[it.key()] = keybinds;
             }
         }
     }

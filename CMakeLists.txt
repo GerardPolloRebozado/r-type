@@ -14,7 +14,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(CPM_DOWNLOAD_VERSION 0.40.0)
 if (NOT CPM_SOURCE_CACHE)
-    set(CPM_SOURCE_CACHE "${CMAKE_CURRENT_BINARY_DIR}/CPM_Cache" CACHE PATH "CPM source cache")
+    set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
 endif ()
 file(DOWNLOAD
         https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/get_cpm.cmake
@@ -49,12 +49,31 @@ CPMAddPackage(
         GIT_TAG main
 )
 
-add_subdirectory(Engine)
-add_subdirectory(Editor)
-add_subdirectory(Plugins)
-add_subdirectory(Tools)
+file(GLOB IMGUI_SOURCES ${imgui_SOURCE_DIR}/*.cpp)
+list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp)
+add_library(imgui STATIC ${IMGUI_SOURCES})
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 
-# games
-add_subdirectory(Games)
+file(GLOB RLIMGUI_SOURCES ${rlImGui_SOURCE_DIR}/*.cpp)
+add_library(rlImGui STATIC ${RLIMGUI_SOURCES})
+target_include_directories(rlImGui PUBLIC ${rlImGui_SOURCE_DIR})
+target_link_libraries(rlImGui PUBLIC imgui raylib)
+
+CPMAddPackage(
+        NAME nlohmann_json
+        GITHUB_REPOSITORY nlohmann/json
+        VERSION 3.11.3
+)
+
+option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
+
+add_subdirectory(Engine)
+add_subdirectory(Plugins)
+
+if (NOT EDITOR_BUILD)
+    add_subdirectory(Editor)
+    add_subdirectory(Tools)
+    add_subdirectory(Games)
+endif()
 
 include(.editor_build.cmake OPTIONAL)
