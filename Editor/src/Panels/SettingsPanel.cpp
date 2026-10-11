@@ -45,6 +45,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/SpritePlugin.hpp\"\n"
             << "#include \"Plugins/ShapePlugin.hpp\"\n"
             << "#include \"Plugins/RotationPlugin.hpp\"\n"
+            << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n\n"
             << "int main() {\n"
@@ -63,7 +64,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    Engine::ShapePlugin shapePlugin;\n"
             << "    shapePlugin.Init(app.GetRegistry());\n"
             << "    Engine::RotationPlugin rotationPlugin;\n"
-            << "    rotationPlugin.Init(app.GetRegistry());\n\n"
+            << "    rotationPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::ColliderPlugin colliderPlugin;\n"
+            << "    colliderPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 

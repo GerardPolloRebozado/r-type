@@ -23,13 +23,15 @@ void CollisionSystem::Update(Registry& registry, float) {
 
         const auto& colA = registry.GetComponent<ColliderComponent>(a);
         const auto& posA = registry.GetComponent<Position>(a);
-        const auto& rotA = registry.GetComponent<Rotation>(a);
+        static const Rotation defaultRot{0.0f};
+        const auto& rotA =
+            registry.HasComponent<Rotation>(a) ? registry.GetComponent<Rotation>(a) : defaultRot;
         std::optional<ShapeComponent> shapeA = colA.shape;
         if (!shapeA.has_value() && registry.HasComponent<ShapeComponent>(a)) {
             shapeA = registry.GetComponent<ShapeComponent>(a);
-        } else if (!shapeA.has_value()) {
-            throw std::runtime_error("Collider must have a shape or a shape in the entity: " +
-                                     registry.GetComponent<Name>(a).value);
+        }
+        if (!shapeA.has_value()) {
+            continue;
         }
         const auto& vecA = shapeA->GetShapeVectors(rotA, posA);
 
@@ -40,14 +42,15 @@ void CollisionSystem::Update(Registry& registry, float) {
             }
             const auto& colB = registry.GetComponent<ColliderComponent>(b);
             const auto& posB = registry.GetComponent<Position>(b);
-            const auto& rotB = registry.GetComponent<Rotation>(b);
+            const auto& rotB = registry.HasComponent<Rotation>(b)
+                                   ? registry.GetComponent<Rotation>(b)
+                                   : defaultRot;
             std::optional<ShapeComponent> shapeB = colB.shape;
             if (!shapeB.has_value() && registry.HasComponent<ShapeComponent>(b)) {
                 shapeB = registry.GetComponent<ShapeComponent>(b);
-            } else if (!shapeB.has_value()) {
-                throw std::runtime_error("Collider must have a shape or a shape in the entity: " +
-                                         registry.GetComponent<Name>(a).value);
-                ;
+            }
+            if (!shapeB.has_value()) {
+                continue;
             }
             const auto& vecB = shapeB->GetShapeVectors(rotB, posB);
 
@@ -108,7 +111,8 @@ void CollisionSystem::GetCollidableEntities(Registry& registry,
         auto colliders = registry.GetComponentArray<ColliderComponent>();
         collidableEntities.reserve(colliders->size());
         for (const auto& [entity, collider] : *colliders) {
-            if (collider.enabled && registry.HasComponent<Position>(entity)) {
+            if (collider.enabled && registry.HasComponent<Position>(entity) &&
+                (collider.shape.has_value() || registry.HasComponent<ShapeComponent>(entity))) {
                 collidableEntities.push_back(entity);
             }
         }
@@ -122,7 +126,8 @@ bool CollisionSystem::IsCollidable(Registry& registry, Entity entity) {
         !registry.HasComponent<ColliderComponent>(entity)) {
         return false;
     }
-    return registry.GetComponent<ColliderComponent>(entity).enabled;
+    const auto& col = registry.GetComponent<ColliderComponent>(entity);
+    return col.enabled && (col.shape.has_value() || registry.HasComponent<ShapeComponent>(entity));
 }
 
 void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool isTrigger) {
