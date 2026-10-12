@@ -35,6 +35,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<PreviewPanel>());
     AddPanel(std::make_unique<SettingsPanel>());
     AddPanel(std::make_unique<InputMappingPanel>());
+    AddPanel(std::make_unique<StatePanel>());
 }
 
 EditorLayer::~EditorLayer() {
@@ -186,6 +187,7 @@ void EditorLayer::BeginDockSpace() {
             ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.40f, nullptr, &dock_main_id);
 
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
+        ImGui::DockBuilderDockWindow("State", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
