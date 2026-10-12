@@ -68,6 +68,7 @@ CPMAddPackage(
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
 
 add_subdirectory(Engine)
+add_subdirectory(Serialization)
 add_subdirectory(Plugins)
 
 if (NOT EDITOR_BUILD)
@@ -76,4 +77,6 @@ if (NOT EDITOR_BUILD)
     add_subdirectory(Games)
 endif()
 
-include(.editor_build.cmake OPTIONAL)
+if (EDITOR_BUILD)
+    include(.editor_build.cmake OPTIONAL)
+endif()
