@@ -20,6 +20,7 @@ set(SRC_FILES
         src/Input/IController.cpp
         src/Input/InputManager.cpp
         src/Plugins/AudioPlugin.cpp
+        src/Plugins/CameraPlugin.cpp
         src/Plugins/ColliderPlugin.cpp
         src/Plugins/HierarchyPlugin.cpp
         src/Plugins/InputPlugin.cpp
@@ -76,6 +77,7 @@ set(INC_FILES
         include/Logging/LogConfig.hpp
         include/Logging/Logger.hpp
         include/Plugins/AudioPlugin.hpp
+        include/Plugins/CameraPlugin.hpp
         include/Plugins/ColliderPlugin.hpp
         include/Plugins/HierarchyPlugin.hpp
         include/Plugins/InputPlugin.hpp
