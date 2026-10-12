@@ -1,5 +1,6 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
+#include "Gallery.hpp"
 #include "Panels/AssetsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
@@ -8,7 +9,7 @@
 #include "Panels/PreviewPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
 #include "Panels/SettingsPanel.hpp"
-#include "Serialization/SceneSerializer.hpp"
+#include "SceneSerializer.hpp"
 #include <cstdlib>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
@@ -81,7 +82,7 @@ void EditorLayer::Init() {
 
     rlImGuiEndInitImGui();
 
-    SceneSerializer serializer;
+    Serialization::SceneSerializer serializer;
     serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, *m_Configuration);
 
     // Enable docking feature
@@ -197,12 +198,12 @@ void EditorLayer::BeginDockSpace() {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
                 if (m_Registry && m_Configuration) {
-                    SceneSerializer serializer;
+                    Serialization::SceneSerializer serializer;
                     fs::path scenePath =
                         ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
                     fs::create_directories(scenePath.parent_path());
                     serializer.Serialize(scenePath.string(), *m_Registry, *m_Configuration);
-                    serializer.UpdateProjectList(*m_Configuration);
+                    Gallery::UpdateProjectList(m_Configuration->m_ProjectFolder);
                 }
             }
             // if (ImGui::MenuItem("Load Scene", "Ctrl+O"))

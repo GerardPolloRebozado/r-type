@@ -2,13 +2,12 @@
 #define EDITOR_PLUGINEDITOR_HPP_
 
 #include "ECS/Registry.hpp"
-#include <nlohmann/json.hpp>
 
 namespace Editor {
 
 /**
  * @class IPluginEditor
- * @brief Interface for defining how an engine component is visualized and serialized in the Editor.
+ * @brief Interface for defining how an engine component is visualized in the Editor Inspector.
  */
 class IPluginEditor {
   public:
@@ -29,18 +28,6 @@ class IPluginEditor {
      * @return True if the component was drawn, false if the entity lacks the component.
      */
     virtual bool OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) = 0;
-
-    /**
-     * @brief Serializes the component data into the parent entity's JSON node.
-     */
-    virtual void Serialize(Engine::Entity entity, Engine::Registry& registry,
-                           nlohmann::json& outEntityJson) = 0;
-
-    /**
-     * @brief Deserializes the component data and attaches it to the entity.
-     */
-    virtual void Deserialize(Engine::Entity entity, Engine::Registry& registry,
-                             const nlohmann::json& inEntityJson) = 0;
 
     /**
      * @brief Checks if the entity has this component.

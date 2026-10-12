@@ -40,24 +40,6 @@ class TextPluginEditor : public IPluginEditor {
     bool OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) override;
 
     /**
-     * @brief Serializes the Text component into a JSON object.
-     * @param entity The entity whose component is being serialized.
-     * @param registry The ECS registry containing the entity.
-     * @param outEntityJson The JSON object to append the serialized data to.
-     */
-    void Serialize(Engine::Entity entity, Engine::Registry& registry,
-                   nlohmann::json& outEntityJson) override;
-
-    /**
-     * @brief Deserializes the Text component from a JSON object.
-     * @param entity The entity to attach the deserialized component to.
-     * @param registry The ECS registry to add the component to.
-     * @param inEntityJson The JSON object containing the component data.
-     */
-    void Deserialize(Engine::Entity entity, Engine::Registry& registry,
-                     const nlohmann::json& inEntityJson) override;
-
-    /**
      * @brief Checks if the given entity possesses a Text component.
      * @param entity The entity to check.
      * @param registry The ECS registry.

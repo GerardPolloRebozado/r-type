@@ -18,6 +18,7 @@ class Gallery {
   public:
     std::string DrawGallery();
     static std::vector<ProjectData> FindProjects();
+    static void UpdateProjectList(const std::string& projectPath);
 };
 }; // namespace Editor
 

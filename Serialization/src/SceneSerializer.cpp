@@ -1,67 +1,19 @@
-#include "Serialization/SceneSerializer.hpp"
+#include "SceneSerializer.hpp"
+#include "ComponentSerializer.hpp"
 #include "Components/Name.hpp"
-#include "EditorConfig.hpp"
-#ifndef GAME_EXPORT
-#include "Gallery.hpp"
-#include "MultiplatformUtils.hpp"
-#endif
 #include "Logging/Logger.hpp"
-#include "Plugins/ColliderPluginEditor.hpp"
-#include "Plugins/PositionPluginEditor.hpp"
-#include "Plugins/RotationPluginEditor.hpp"
-#include "Plugins/ShapePluginEditor.hpp"
-#include "Plugins/SpritePluginEditor.hpp"
-#include "Plugins/TextPluginEditor.hpp"
-#include <algorithm>
+#include "PathUtils.hpp"
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 
-namespace Editor {
-
-std::int64_t UnixTimestampSeconds() {
-    return std::chrono::duration_cast<std::chrono::seconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
-
-void SceneSerializer::UpdateProjectList(EditorConfig& config) {
-#ifndef GAME_EXPORT
-    auto projects = Gallery::FindProjects();
-
-    auto it = std::find_if(projects.begin(), projects.end(), [&config](const ProjectData& project) {
-        return project.path == config.m_ProjectFolder;
-    });
-
-    if (it == projects.end()) {
-        return;
-    }
-
-    it->lastOpened = std::to_string(UnixTimestampSeconds());
-
-    nlohmann::json data = nlohmann::json::array();
-    for (const auto& project : projects) {
-        data.push_back({{"name", project.name},
-                        {"description", project.description},
-                        {"lastOpened", project.lastOpened},
-                        {"path", project.path},
-                        {"engineVersion", project.engineVersion}});
-    }
-
-    const auto settingsPath = ConfigDirectory() / "projects.json";
-    std::ofstream file(settingsPath);
-    if (!file) {
-        throw std::runtime_error("Could not open " + settingsPath.string());
-    }
-
-    file << data.dump(2) << '\n';
-#endif
-}
+namespace Serialization {
 
 void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& registry,
-                                EditorConfig& config) {
-#ifndef GAME_EXPORT
+                                const SceneConfig& config) {
     json sceneJson;
     sceneJson["SceneName"] = "Untitled";
 
@@ -88,21 +40,16 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
         inputMapJson[action] = keybindsJson;
     }
 
-    std::string inputFilePath = config.m_ProjectFolder + "/input.json";
-    std::ofstream inputOut(inputFilePath);
-    if (inputOut.is_open()) {
-        inputOut << inputMapJson.dump(4);
-        inputOut.close();
+    if (!config.m_ProjectFolder.empty() && std::filesystem::exists(config.m_ProjectFolder)) {
+        std::string inputFilePath = config.m_ProjectFolder + "/input.json";
+        std::ofstream inputOut(inputFilePath);
+        if (inputOut.is_open()) {
+            inputOut << inputMapJson.dump(4);
+            inputOut.close();
+        }
     }
 
     json entitiesJson = json::array();
-
-    PositionPluginEditor positionEditor;
-    TextPluginEditor textEditor;
-    SpritePluginEditor spriteEditor;
-    ShapePluginEditor shapeEditor;
-    RotationPluginEditor rotationEditor;
-    ColliderPluginEditor colliderEditor;
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Engine::Entity entity = i;
@@ -112,12 +59,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
             entityJson["Name"] = registry.GetComponent<Engine::Name>(entity).value;
         }
 
-        positionEditor.Serialize(entity, registry, entityJson);
-        textEditor.Serialize(entity, registry, entityJson);
-        spriteEditor.Serialize(entity, registry, entityJson);
-        shapeEditor.Serialize(entity, registry, entityJson);
-        rotationEditor.Serialize(entity, registry, entityJson);
-        colliderEditor.Serialize(entity, registry, entityJson);
+        ComponentSerializer::SerializeAll(entity, registry, entityJson);
 
         entitiesJson.push_back(entityJson);
     }
@@ -132,11 +74,10 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     } else {
         log_error("Failed to open file for writing: " + filepath);
     }
-#endif
 }
 
 bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry& registry,
-                                  std::optional<std::reference_wrapper<EditorConfig>> config) {
+                                  std::optional<std::reference_wrapper<SceneConfig>> config) {
     std::ifstream fin(filepath);
     if (!fin.is_open()) {
         log_error("Failed to open file for reading: " + filepath);
@@ -179,9 +120,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         } else {
             registry.GetResource<ProjectContext>().projectFolder = config->get().m_ProjectFolder;
         }
-    }
 
-    if (config.has_value()) {
         std::string inputFilePath = config->get().m_ProjectFolder + "/input.json";
         std::ifstream inputIn(inputFilePath);
         if (inputIn.is_open()) {
@@ -202,12 +141,6 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         }
     }
 
-    PositionPluginEditor positionEditor;
-    TextPluginEditor textEditor;
-    SpritePluginEditor spriteEditor;
-    ShapePluginEditor shapeEditor;
-    RotationPluginEditor rotationEditor;
-    ColliderPluginEditor colliderEditor;
     if (sceneJson.contains("Entities")) {
         for (const auto& entityJson : sceneJson["Entities"]) {
             Engine::Entity entity = registry.CreateEntity();
@@ -216,17 +149,12 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
                 registry.AddComponent<Engine::Name>(
                     entity, Engine::Name(entityJson["Name"].get<std::string>()));
             }
-            // Deserialize components back onto the newly spawned entity
-            positionEditor.Deserialize(entity, registry, entityJson);
-            textEditor.Deserialize(entity, registry, entityJson);
-            spriteEditor.Deserialize(entity, registry, entityJson);
-            shapeEditor.Deserialize(entity, registry, entityJson);
-            rotationEditor.Deserialize(entity, registry, entityJson);
-            colliderEditor.Deserialize(entity, registry, entityJson);
+
+            ComponentSerializer::DeserializeAll(entity, registry, entityJson);
         }
     }
 
     return true;
 }
 
-} // namespace Editor
+} // namespace Serialization
