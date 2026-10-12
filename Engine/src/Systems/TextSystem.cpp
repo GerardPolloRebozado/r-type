@@ -7,6 +7,7 @@
 #include "../../include/Systems/TextSystem.hpp"
 
 #include "Components/Position.hpp"
+#include "Components/Rotation.hpp"
 #include "Components/Text.hpp"
 #include "ECS/Registry.hpp"
 
@@ -15,12 +16,14 @@ void TextSystem::Render(Registry& registry) {
     for (const auto& [entity, txt] : *registry.GetComponentArray<Text>()) {
         if (registry.HasComponent<Position>(entity)) {
             const auto& pos = registry.GetComponent<Position>(entity);
-            if (txt.font.texture.id == 0) {
-                DrawText(txt.text.c_str(), pos.x, pos.y, txt.fontsize, txt.color);
-            } else {
-                DrawTextEx(txt.font, txt.text.c_str(), {pos.x, pos.y}, txt.fontsize, txt.spacing,
-                           txt.color);
+            float rotation = 0.0f;
+            if (registry.HasComponent<Rotation>(entity)) {
+                rotation = registry.GetComponent<Rotation>(entity).angle;
             }
+
+            Font font = (txt.font.texture.id == 0) ? GetFontDefault() : txt.font;
+            DrawTextPro(font, txt.text.c_str(), {pos.x, pos.y}, {0.0f, 0.0f}, rotation,
+                        txt.fontsize, txt.spacing, txt.color);
         }
     }
 }
