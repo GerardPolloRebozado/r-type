@@ -5,6 +5,7 @@
 ** StatePanel.cpp
 */
 #include "Panels/StatePanel.hpp"
+#include "Panels/HierarchyPanel.hpp"
 #include <imgui.h>
 
 namespace Editor {
@@ -31,6 +32,10 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
 
                 selected.groupIndex = static_cast<int>(stateManager.groups.size() - 1);
                 selected.stateIndex = -1;
+
+                if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
+                    registry.GetResource<HierarchyPanelSelectedEntity>().entity = -1;
+                }
             }
             ImGui::EndPopup();
         }
@@ -55,6 +60,10 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
                 if (ImGui::IsItemClicked()) {
                     selected.groupIndex = static_cast<int>(groupSize);
                     selected.stateIndex = -1;
+
+                    if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
+                        registry.GetResource<HierarchyPanelSelectedEntity>().entity = -1;
+                    }
                 }
 
                 if (ImGui::BeginPopupContextItem()) {
@@ -67,6 +76,10 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
                         selected.stateIndex = static_cast<int>(group.states.size() - 1);
                         if (group.initialState.empty()) {
                             group.initialState = newBody.name;
+                        }
+
+                        if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
+                            registry.GetResource<HierarchyPanelSelectedEntity>().entity = -1;
                         }
                     }
                     if (ImGui::MenuItem("Delete State Group")) {
@@ -115,6 +128,11 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
                             if (ImGui::IsItemClicked()) {
                                 selected.groupIndex = static_cast<int>(groupSize);
                                 selected.stateIndex = static_cast<int>(s);
+
+                                if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
+                                    registry.GetResource<HierarchyPanelSelectedEntity>().entity =
+                                        -1;
+                                }
                             }
 
                             if (ImGui::BeginPopupContextItem()) {

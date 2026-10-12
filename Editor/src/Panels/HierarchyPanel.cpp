@@ -4,6 +4,7 @@
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
+#include "Panels/StatePanel.hpp"
 #include <imgui.h>
 #include <string>
 
@@ -19,6 +20,11 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 const Engine::Entity newEntity = registry.CreateEntity();
                 selected.entity = newEntity;
                 selected.index = static_cast<int>(newEntity); // Temporary simple selection map
+                if (registry.HasResource<StatePanelSelectedState>()) {
+                    auto& stateSel = registry.GetResource<StatePanelSelectedState>();
+                    stateSel.groupIndex = -1;
+                    stateSel.stateIndex = -1;
+                }
             }
             ImGui::EndPopup();
         }
@@ -33,6 +39,11 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 if (ImGui::Selectable(label.c_str(), selected.index == static_cast<int>(i))) {
                     selected.index = static_cast<int>(i);
                     selected.entity = entity;
+                    if (registry.HasResource<StatePanelSelectedState>()) {
+                        auto& stateSel = registry.GetResource<StatePanelSelectedState>();
+                        stateSel.groupIndex = -1;
+                        stateSel.stateIndex = -1;
+                    }
                 }
 
                 if (ImGui::BeginDragDropTarget()) {
