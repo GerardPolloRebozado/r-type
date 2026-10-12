@@ -7,21 +7,30 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_STATEPANEL_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_STATEPANEL_HPP
 #include "IEditorPanel.hpp"
+#include <string>
+#include <vector>
 
 namespace Editor {
 struct StatePanelSelectedState {
-    std::string name;
-    int index = -1;
+    int groupIndex = -1;
+    int stateIndex = -1;
 };
+
 struct StateBody {
     std::string name;
     std::vector<std::string> systems;
 };
+
 struct StateGroup {
     std::string name = "GameState";
     std::string initialState;
     std::vector<StateBody> states;
 };
+
+struct StateManager {
+    std::vector<StateGroup> groups;
+};
+
 class StatePanel : public IEditorPanel {
   public:
     StatePanel() = default;
@@ -33,6 +42,7 @@ class StatePanel : public IEditorPanel {
   private:
     std::string m_Name = "State";
 };
+
 } // namespace Editor
 
 #endif // G_ING_500_BAR_5_1_RTYPE_1_STATEPANEL_HPP
