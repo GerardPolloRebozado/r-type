@@ -20,4 +20,16 @@
 #define ENGINE_LOG_LEVEL ENGINE_LOG_INFO
 #endif
 
+namespace Engine {
+
+/**
+ * @enum LogLevel
+ * @brief Severity of one log line.
+ *
+ * Shared by the terminal writer and the in-memory ring buffer so both stay in sync.
+ */
+enum class LogLevel { Error, Debug, Info };
+
+} // namespace Engine
+
 #endif // ENGINE_LOGGING_LOG_CONFIG_HPP_
