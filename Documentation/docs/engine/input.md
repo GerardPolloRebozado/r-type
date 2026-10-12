@@ -11,7 +11,7 @@ The input pipeline consists of four main layers:
 ```
 [ Hardware Devices (Keyboard / Mouse / Gamepad) ]
                     ↓
-[ IController / KeyboardController ]  ──> Translates hardware signals to string-based actions
+****************[ IController / Controller ]  ──> Translates hardware signals to string-based actions
                     ↓
 [ InputManager (Global Resource) ]   ──> Polled once per frame during Application::PreUpdate
                     ↓
@@ -20,7 +20,7 @@ The input pipeline consists of four main layers:
 
 1. **`Engine::DeviceType` & `Engine::Keybind`:** Identifies the device category (`KEYBOARD`, `MOUSE`, `GAMEPAD`, `TOUCH`) and binds a specific key code (plus optional combo modifier).
 2. **`Engine::IController`:** Abstract interface representing a player's controller. Maintains a map of `std::string` actions to vectors of `Keybind`s (`m_keymap`) and updates `getActiveActions()` each tick.
-3. **`Engine::KeyboardController`:** Multi-device controller implementation that polls Raylib keyboard, mouse, and gamepad APIs.
+3. **`Engine::Controller`:** Multi-device controller implementation that polls Raylib keyboard, mouse, and gamepad APIs.
 4. **`Engine::InputManager` (Resource):** A global ECS resource holding controller instances mapped to player IDs (`playerId`).
 5. **`Engine::Input` (Component):** A lightweight ECS component tagging an entity with a `playerIdx` and an `isActive` toggle.
 6. **`Engine::InputPlugin` (Plugin):** Helper plugin that registers the `Input` component and initializes the `InputManager` resource.
@@ -34,14 +34,14 @@ Game developers can bind arbitrary custom actions to any combination of keyboard
 ```cpp
 #include "Core/Application.hpp"
 #include "Plugins/InputPlugin.hpp"
-#include "Inputs/KeyboardController.hpp"
+#include "Inputs/Controller.hpp"
 
 // Inside your initialization code:
 Engine::InputPlugin inputPlugin;
 inputPlugin.Init(app.GetRegistry());
 
 auto& inputManager = app.GetRegistry().GetResource<Engine::InputManager>();
-inputManager.AddPlayer(1, std::make_unique<Engine::KeyboardController>());
+inputManager.AddPlayer(1, std::make_unique<Engine::Controller>());
 auto* p1 = inputManager.GetController(1);
 
 // Dynamic runtime bindings for Player 1:
@@ -132,5 +132,5 @@ public:
 
 ## 4. Multi-Player & Extensibility
 
-- **Local Multiplayer:** Add additional players via `inputManager.AddPlayer(2, std::make_unique<Engine::KeyboardController>(1 /* gamepad index 1 */));`.
+- **Local Multiplayer:** Add additional players via `inputManager.AddPlayer(2, std::make_unique<Engine::Controller>(1 /* gamepad index 1 */));`.
 - **Custom Devices & Network:** Create custom controllers by subclassing `Engine::IController` and overriding `Update()`, `addKeybind()`, `isActionActive()`, and `getActiveActions()`. A `NetworkController` can populate `_activeActions` directly from incoming network packets.
