@@ -15,6 +15,7 @@ set(SRC_FILES
         src/Assets/Sprite.cpp
         src/components/ShapeComponent.cpp
         src/Core/Application.cpp
+        src/Core/Renderer.cpp
         src/Input/Controller.cpp
         src/Input/IController.cpp
         src/Input/InputManager.cpp
@@ -62,6 +63,7 @@ set(INC_FILES
         include/Components/SpriteComponent.hpp
         include/Components/Text.hpp
         include/Core/Application.hpp
+        include/Core/Renderer.hpp
         include/ECS/Entity.hpp
         include/ECS/Registry.hpp
         include/ECS/System.hpp

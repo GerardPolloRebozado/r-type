@@ -1,5 +1,6 @@
 #include "Core/Application.hpp"
 #include "Components/Name.hpp"
+#include "Core/Renderer.hpp"
 #include "Logging/Logger.hpp"
 #include <chrono>
 #include <raylib.h>
@@ -82,12 +83,9 @@ void Application::PostUpdate(float dt) {
         BeginDrawing();
         ClearBackground(BLACK);
 
-        // Run ECS Render Systems
-        auto const& systems = m_Registry.GetSystems();
-
-        for (std::type_index const& systemId : m_Registry.GetSystemRenderOrder()) {
-            systems.at(systemId)->Render(m_Registry);
-        }
+        // Run ECS Render Systems (world through the camera, then screen space)
+        RenderScene(m_Registry, static_cast<float>(GetScreenWidth()),
+                    static_cast<float>(GetScreenHeight()));
 
         // Invoke UI Hook (Editor uses this for ImGui)
         if (m_Config.onUI) {
