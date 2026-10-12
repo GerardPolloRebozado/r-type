@@ -80,15 +80,19 @@ template <typename T> class ComponentArray : public IComponentArray {
     auto begin() {
         return m_ComponentMap.begin();
     }
+
     auto end() {
         return m_ComponentMap.end();
     }
+
     auto begin() const {
         return m_ComponentMap.begin();
     }
+
     auto end() const {
         return m_ComponentMap.end();
     }
+
     void clear() {
         m_ComponentMap.clear();
     }
@@ -332,7 +336,7 @@ class Registry {
         }
     }
 
-    Entity m_NextEntityId = 0;
+    Entity m_NextEntityId = 1;
     std::unordered_map<std::type_index, std::shared_ptr<IComponentArray>> m_ComponentArrays;
     std::unordered_map<std::type_index, std::shared_ptr<System>> m_Systems;
     std::vector<std::type_index> m_SystemUpdateOrder;

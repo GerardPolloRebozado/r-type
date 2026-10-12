@@ -13,7 +13,7 @@
 #include <raylib.h>
 
 struct KeyPress {
-    char key;
+    char key = 0;
 
     template <typename S> void serialize(S& s) {
         s.value1b(key);
@@ -27,21 +27,33 @@ class SendKeySystem : public Engine::System {
     ~SendKeySystem() noexcept override = default;
 
     void Update(Engine::Registry& registry, float dt) override {
-        const auto keyCode = GetKeyPressed();
-        if (keyCode == 0) {
+        KeyPress keyPressed;
+        if (IsKeyDown(KEY_D)) {
+            keyPressed.key = 'd';
+        }
+        if (IsKeyDown(KEY_A)) {
+            keyPressed.key = 'a';
+        }
+        if (IsKeyDown(KEY_W)) {
+            keyPressed.key = 'w';
+        }
+        if (IsKeyDown(KEY_S)) {
+            keyPressed.key = 's';
+        }
+        if (keyPressed.key == 0) {
             return;
         }
-        const char* keyName = raylib::Keyboard::GetKeyName(keyCode);
-        if (keyName == nullptr) {
-            return;
-        }
-        const KeyPress keyPressed = {.key = keyName[0]};
+        std::cout << "Sending key press" << std::endl;
         registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Send(KeyPressPacket,
                                                                               keyPressed, 0, true);
     }
 
     void Render(Engine::Registry& registry) override {};
 };
+
+static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {}
+
+static void OnDisconnect(Engine::Registry& registry, ENetPeer* peer) {}
 
 int main() {
     std::cout << "======================================\n";
@@ -69,7 +81,8 @@ int main() {
         Engine::Multiplayer::NetworkHostResource::CreateClient(2));
     auto* peer = resource.Connect("127.0.0.1", 1234);
 
-    auto& router = registry.AddResource<Engine::Multiplayer::Packets::PacketRouterResource>();
+    auto& router = registry.AddResource<Engine::Multiplayer::Packets::PacketRouterResource>(
+        OnConnect, OnDisconnect);
     // router.RegisterHandler<KeyPress>(Engine::Multiplayer::Packets::GetPacketTypeID<KeyPress>(),
     //                                  KeyPressed);
     registry.RegisterSystem<Engine::MultiplayerSystem>();

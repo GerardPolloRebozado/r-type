@@ -51,6 +51,7 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, Packets::PacketRouterResource
         switch (event.type) {
             case ENET_EVENT_TYPE_CONNECT:
                 std::cout << "New connections" << std::endl;
+                router.m_OnConnect(registry, event.peer);
                 break;
             case ENET_EVENT_TYPE_RECEIVE: {
                 if (event.packet && event.packet->dataLength >= sizeof(PacketTypeID)) {
@@ -62,11 +63,25 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, Packets::PacketRouterResource
             }
             case ENET_EVENT_TYPE_DISCONNECT:
                 std::cout << "New disconnection" << std::endl;
+                router.m_OnDisconnect(registry, event.peer);
                 break;
             default:
                 break;
         }
         timeoutMs = 0; // Poll remaining queued events without blocking
+    }
+}
+
+std::optional<Entity> NetworkHostResource::GetEntityID(ENetPeer* peer) {
+    if (peer && peer->data) {
+        return reinterpret_cast<size_t>(peer->data);
+    }
+    return std::nullopt;
+}
+
+void NetworkHostResource::SetPeerEntity(ENetPeer* peer, const Entity entity) {
+    if (peer) {
+        enet_peer_set_data(peer, reinterpret_cast<void*>(entity));
     }
 }
 }; // namespace Engine::Multiplayer

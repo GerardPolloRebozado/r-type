@@ -20,7 +20,8 @@ using PacketTypeID = uint16_t;
 
 namespace Engine::Multiplayer::Packets {
 constexpr PacketTypeID Ping = 0;
-constexpr PacketTypeID Disconnect = 1;
+constexpr PacketTypeID Connect = 2;
+constexpr PacketTypeID Disconnect = 3;
 constexpr PacketTypeID UserDefinedStart = 200; // Boundary
 
 inline PacketTypeID GetNextPacketID() {
@@ -44,6 +45,8 @@ using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
 class PacketRouterResource {
   public:
     using RawHandler = std::function<void(Registry&, ENetPeer*, Deserializer&)>;
+    std::function<void(Registry&, ENetPeer*)> m_OnConnect;
+    std::function<void(Registry&, ENetPeer*)> m_OnDisconnect;
 
     /**
      * @brief This function given a struct type and it's id it will execute the callback when the
@@ -105,6 +108,10 @@ class PacketRouterResource {
             it->second(registry, peer, des);
         }
     }
+
+    PacketRouterResource(const std::function<void(Registry&, ENetPeer*)>& onConnect,
+                         const std::function<void(Registry&, ENetPeer*)>& onDisconnect)
+        : m_OnConnect(onConnect), m_OnDisconnect(onDisconnect) {}
 
   private:
     std::unordered_map<PacketTypeID, RawHandler> m_handlers;

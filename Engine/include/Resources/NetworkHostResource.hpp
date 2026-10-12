@@ -15,6 +15,9 @@
 #include <string_view>
 
 namespace Engine::Multiplayer {
+struct PlayerPeer {
+    ENetPeer* peer = nullptr;
+};
 
 class NetworkHostResource {
   public:
@@ -55,6 +58,20 @@ class NetworkHostResource {
      * @param registry of the game
      */
     void Poll(uint32_t timeoutMs, Packets::PacketRouterResource router, Registry& registry);
+
+    /**
+     *
+     * @param peer Peer that you want to know its entityID
+     * @return Given a ENet peer it will return its entityID
+     */
+    static std::optional<Entity> GetEntityID(ENetPeer* peer);
+
+    /**
+     *
+     * @param peer Where to save the entity ID
+     * @param entity The entity to save in the peer
+     */
+    static void SetPeerEntity(ENetPeer* peer, Entity entity);
 
     /**
      *  @brief This function will send any data to the specified peer, if the packet ID does not
