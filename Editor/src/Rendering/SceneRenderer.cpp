@@ -3,6 +3,7 @@
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Core/Renderer.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include <optional>
 
@@ -28,15 +29,14 @@ void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& confi
     ClearBackground(BLACK);
 
     RenderSystems(registry);
-    RenderColliderOverlays(registry);
 
     m_GameTexture.EndMode();
 }
 
 void SceneRenderer::RenderSystems(Engine::Registry& registry) {
-    for (auto const& pair : registry.GetSystems()) {
-        pair.second->Render(registry);
-    }
+    Engine::RenderScene(registry, static_cast<float>(m_GameTexture.texture.width),
+                        static_cast<float>(m_GameTexture.texture.height),
+                        [this, &registry]() { RenderColliderOverlays(registry); });
 }
 
 void SceneRenderer::RenderColliderOverlays(Engine::Registry& registry) {
