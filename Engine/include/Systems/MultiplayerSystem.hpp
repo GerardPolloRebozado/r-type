@@ -14,6 +14,11 @@ class MultiplayerSystem : public System {
   public:
     ~MultiplayerSystem() noexcept override = default;
 
+    /**
+     * @brief It will poll for new packets and send the pending ones
+     * @param registry registry of the game
+     * @param dt time elapsed since last update
+     */
     void Update(Registry& registry, float dt) override;
 };
 } // namespace Engine

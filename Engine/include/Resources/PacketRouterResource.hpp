@@ -33,6 +33,9 @@ template <typename T> PacketTypeID GetPacketTypeID() {
     return id;
 }
 
+/**
+ * Types used for the serializer/deserializer
+ */
 using InputAdapter = bitsery::InputBufferAdapter<const uint8_t*>;
 using Deserializer = bitsery::Deserializer<InputAdapter>;
 using Buffer = std::vector<uint8_t>;
@@ -42,6 +45,13 @@ class PacketRouterResource {
   public:
     using RawHandler = std::function<void(Registry&, ENetPeer*, Deserializer&)>;
 
+    /**
+     * @brief This function given a struct type and it's id it will execute the callback when the
+     * type of packet arrives
+     * @tparam TData Type of data to process
+     * @param id id of the packet being send
+     * @param callback The function to call when receiving the packet
+     */
     template <typename TData>
     void RegisterHandler(const PacketTypeID id,
                          std::function<void(Registry&, ENetPeer*, const TData&)> callback) {
@@ -55,6 +65,13 @@ class PacketRouterResource {
         };
     }
 
+    /**
+     * @brief This function given a struct type and it's id it will execute the callback when the
+     * type of packet arrives
+     * @tparam TData Type of data to process
+     * @param id id of the packet being send
+     * @param callback The function to call when receiving the packet
+     */
     template <typename TData>
     void RegisterHandler(const PacketTypeID id,
                          void (*callback)(Registry&, ENetPeer*, const TData&)) {
@@ -62,6 +79,13 @@ class PacketRouterResource {
                                std::function<void(Registry&, ENetPeer*, const TData&)>(callback));
     }
 
+    /**
+     * @brief given a packet it will get its id and find it's handler
+     * @param registry Registry of the game
+     * @param peer the client that send the request
+     * @param data data that the client send
+     * @param size size of the data received
+     */
     void Dispatch(Registry& registry, ENetPeer* peer, const uint8_t* data, const size_t size) {
         if (size < sizeof(PacketTypeID)) {
             return;
