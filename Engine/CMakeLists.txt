@@ -28,6 +28,7 @@ set(SRC_FILES
         src/Plugins/ShapePlugin.cpp
         src/Plugins/SpritePlugin.cpp
         src/Plugins/TextPlugin.cpp
+        src/Systems/CameraSystem.cpp
         src/Systems/CollisionSystem.cpp
         src/Systems/HierarchySystem.cpp
         src/Systems/PositionSystem.cpp
@@ -89,6 +90,7 @@ set(INC_FILES
         include/Resources/StateResource.hpp
         include/Reflection/ComponentReflect.hpp
         include/Systems/AudioSystem.hpp
+        include/Systems/CameraSystem.hpp
         include/Systems/CollisionSystem.hpp
         include/Systems/HierarchySystem.hpp
         include/Systems/PositionSystem.hpp
