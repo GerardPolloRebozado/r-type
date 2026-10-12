@@ -32,6 +32,9 @@ class SendKeySystem : public Engine::System {
             return;
         }
         const char* keyName = raylib::Keyboard::GetKeyName(keyCode);
+        if (keyName == nullptr) {
+            return;
+        }
         const KeyPress keyPressed = {.key = keyName[0]};
         registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Send(KeyPressPacket,
                                                                               keyPressed, 0, true);
