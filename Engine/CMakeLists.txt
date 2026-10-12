@@ -45,6 +45,7 @@ set(INC_FILES
         include/Assets/Sound.hpp
         include/Assets/Sprites.hpp
         include/Components/AudioSource.hpp
+        include/Components/CameraComponent.hpp
         include/Components/ColliderComponent.hpp
         include/Components/CollisionEvents.hpp
         include/Components/ComponentExample.hpp
@@ -54,6 +55,7 @@ set(INC_FILES
         include/Components/PluginExampleEvents.hpp
         include/Components/Position.hpp
         include/Components/Rotation.hpp
+        include/Components/ScreenSpace.hpp
         include/Components/ShapeComponent.hpp
         include/Components/SpriteComponent.hpp
         include/Components/Text.hpp
