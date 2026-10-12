@@ -23,7 +23,7 @@ struct KeyPress {
 struct TextTag {};
 
 static void KeyPressed(Engine::Registry& registry, ENetPeer*, const KeyPress& keyPress) {
-    auto textArray = registry.GetComponentArray<TextTag>();
+    const auto textArray = registry.GetComponentArray<TextTag>();
     auto& textCompontent = registry.GetComponent<Engine::Text>(textArray->begin()->first);
     textCompontent.text = keyPress.key;
 }

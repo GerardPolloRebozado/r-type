@@ -27,7 +27,7 @@ class SendKeySystem : public Engine::System {
     ~SendKeySystem() noexcept override = default;
 
     void Update(Engine::Registry& registry, float dt) override {
-        auto keyCode = GetKeyPressed();
+        const auto keyCode = GetKeyPressed();
         if (keyCode == 0) {
             return;
         }
@@ -45,11 +45,11 @@ class SendKeySystem : public Engine::System {
 
 int main() {
     std::cout << "======================================\n";
-    std::cout << "          Server Sandbox               \n";
+    std::cout << "          Client Sandbox               \n";
     std::cout << "======================================\n";
     Engine::Multiplayer::ENetContext context;
     Engine::ApplicationConfig config;
-    config.windowTitle = "Server Demo";
+    config.windowTitle = "Client Demo";
     config.targetFPS = 60;
     ChangeDirectory(GetApplicationDirectory());
 
