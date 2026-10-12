@@ -1,5 +1,6 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
+#include "Gallery.hpp"
 #include "Panels/AssetsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
@@ -8,7 +9,7 @@
 #include "Panels/PreviewPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
 #include "Panels/SettingsPanel.hpp"
-#include "Serialization/SceneSerializer.hpp"
+#include "SceneSerializer.hpp"
 #include <cstdlib>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
@@ -42,6 +43,13 @@ EditorLayer::~EditorLayer() {
 void EditorLayer::Init() {
     m_Registry->AddResource<HierarchyPanelSelectedEntity>();
     m_Registry->AddResource<StatePanelSelectedState>();
+    if (!m_Registry->HasResource<ProjectContext>()) {
+        m_Registry->AddResource<ProjectContext>(m_Configuration ? m_Configuration->m_ProjectFolder
+                                                                : "");
+    } else {
+        m_Registry->GetResource<ProjectContext>().projectFolder =
+            m_Configuration ? m_Configuration->m_ProjectFolder : "";
+    }
     // Set a callback to load custom fonts instead of the default rlImGui font
     rlImGuiSetLoadFontsCallback([]() {
         ImGuiIO& io = ImGui::GetIO();
@@ -77,7 +85,7 @@ void EditorLayer::Init() {
 
     rlImGuiEndInitImGui();
 
-    SceneSerializer serializer;
+    Serialization::SceneSerializer serializer;
     serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, *m_Configuration);
 
     // Enable docking feature
@@ -194,12 +202,12 @@ void EditorLayer::BeginDockSpace() {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
                 if (m_Registry && m_Configuration) {
-                    SceneSerializer serializer;
+                    Serialization::SceneSerializer serializer;
                     fs::path scenePath =
                         ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
                     fs::create_directories(scenePath.parent_path());
                     serializer.Serialize(scenePath.string(), *m_Registry, *m_Configuration);
-                    serializer.UpdateProjectList(*m_Configuration);
+                    Gallery::UpdateProjectList(m_Configuration->m_ProjectFolder);
                 }
             }
             // if (ImGui::MenuItem("Load Scene", "Ctrl+O"))
@@ -263,9 +271,13 @@ void EditorLayer::BeginDockSpace() {
             if (m_Configuration) {
                 std::string exePath =
                     m_Configuration->m_ProjectFolder + "/" + m_Configuration->m_BuildExecutableName;
+                if (!std::filesystem::exists(exePath)) {
+                    exePath = m_Configuration->m_ProjectFolder + "/.build/" +
+                              m_Configuration->m_BuildExecutableName;
+                }
                 if (std::filesystem::exists(exePath)) {
-                    std::string cmd = "cd " + m_Configuration->m_ProjectFolder + " && ./" +
-                                      m_Configuration->m_BuildExecutableName + " &";
+                    std::string cmd =
+                        "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" + exePath + "\" &";
                     std::system(cmd.c_str());
                 }
             }
@@ -289,6 +301,13 @@ void EditorLayer::SetRegistry(Engine::Registry& registry) {
 
 void EditorLayer::SetConfiguration(EditorConfig& config) {
     m_Configuration = std::make_unique<EditorConfig>(config);
+    if (m_Registry) {
+        if (!m_Registry->HasResource<ProjectContext>()) {
+            m_Registry->AddResource<ProjectContext>(config.m_ProjectFolder);
+        } else {
+            m_Registry->GetResource<ProjectContext>().projectFolder = config.m_ProjectFolder;
+        }
+    }
 }
 
 void EditorLayer::OnRenderGame(Engine::Registry& registry) {

@@ -69,23 +69,6 @@ bool RotationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
     return true;
 }
 
-void RotationPluginEditor::Serialize(Engine::Entity entity, Engine::Registry& registry,
-                                     nlohmann::json& outEntityJson) {
-    if (registry.HasComponent<Engine::Rotation>(entity)) {
-        auto& rot = registry.GetComponent<Engine::Rotation>(entity);
-        outEntityJson["RotationComponent"] = {{"angle", rot.angle}};
-    }
-}
-
-void RotationPluginEditor::Deserialize(Engine::Entity entity, Engine::Registry& registry,
-                                       const nlohmann::json& inEntityJson) {
-    if (inEntityJson.contains("RotationComponent")) {
-        const auto& json = inEntityJson["RotationComponent"];
-        float angle = json.value("angle", 0.0f);
-        Engine::RotationPlugin::AttachToEntity(registry, entity, angle);
-    }
-}
-
 bool RotationPluginEditor::HasComponent(Engine::Entity entity, Engine::Registry& registry) {
     return registry.HasComponent<Engine::Rotation>(entity);
 }

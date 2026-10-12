@@ -150,11 +150,14 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                     if (ImGui::Button(ICON_FA_FILE, ImVec2(thumbnailSize, thumbnailSize))) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
+                    if (ImGui::IsItemClicked()) {
+                        cfg.m_SelectedAssetPath = path.string();
+                    }
                     ImGui::PopFont();
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+                        cfg.m_SelectedAssetPath = path.string();
                         std::string relativePath =
-                            std::filesystem::relative(path, std::filesystem::current_path())
-                                .string();
+                            std::filesystem::relative(path, m_StartingDirectory).string();
                         ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", relativePath.c_str(),
                                                   relativePath.size() + 1);
                         ImGui::Text("%s", filenameString.c_str());
@@ -163,6 +166,9 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                 }
 
                 ImGui::TextWrapped("%s", filenameString.c_str());
+                if (ImGui::IsItemClicked()) {
+                    cfg.m_SelectedAssetPath = path.string();
+                }
 
                 ImGui::PopID();
             }

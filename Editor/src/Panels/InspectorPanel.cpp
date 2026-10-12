@@ -4,6 +4,7 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/StatePanel.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
+#include "Plugins/ColliderPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
 #include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
@@ -21,6 +22,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<ShapePluginEditor>());
     m_PluginEditors.push_back(std::make_unique<RotationPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<SpritePluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
@@ -211,5 +213,4 @@ const std::string& InspectorPanel::GetName() const {
 void InspectorPanel::SetSelectedEntity(Engine::Entity entity) {
     m_SelectedEntity = entity;
 }
-
 } // namespace Editor

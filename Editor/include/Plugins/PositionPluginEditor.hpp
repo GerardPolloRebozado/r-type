@@ -1,11 +1,7 @@
 #ifndef EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
 #define EDITOR_PLUGINS_POSITIONPLUGINEDITOR_HPP_
 
-#include "Components/Position.hpp"
 #include "PluginEditor.hpp"
-#include <extras/IconsFontAwesome6.h>
-#include <imgui.h>
-#include <string>
 
 namespace Editor {
 
@@ -38,24 +34,6 @@ class PositionPluginEditor : public IPluginEditor {
      * @return True if the component was rendered, false if the entity lacks the component.
      */
     bool OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) override;
-
-    /**
-     * @brief Serializes the Position component into a JSON object.
-     * @param entity The entity whose component is being serialized.
-     * @param registry The ECS registry containing the entity.
-     * @param outEntityJson The JSON object to append the serialized data to.
-     */
-    void Serialize(Engine::Entity entity, Engine::Registry& registry,
-                   nlohmann::json& outEntityJson) override;
-
-    /**
-     * @brief Deserializes the Position component from a JSON object.
-     * @param entity The entity to attach the deserialized component to.
-     * @param registry The ECS registry to add the component to.
-     * @param inEntityJson The JSON object containing the component data.
-     */
-    void Deserialize(Engine::Entity entity, Engine::Registry& registry,
-                     const nlohmann::json& inEntityJson) override;
 
     /**
      * @brief Checks if the given entity possesses a Position component.

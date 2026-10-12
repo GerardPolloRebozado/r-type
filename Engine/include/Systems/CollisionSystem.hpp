@@ -1,6 +1,7 @@
 #ifndef ENGINE_SYSTEMS_COLLISIONSYSTEM_HPP_
 #define ENGINE_SYSTEMS_COLLISIONSYSTEM_HPP_
 
+#include "Components/ColliderComponent.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
 #include "ECS/System.hpp"
@@ -11,77 +12,55 @@
 namespace Engine {
 /**
  * @class CollisionSystem
- * @brief Detects AABB overlaps each frame and fires enter/exit events.
- *
- * Processes entities listed in @ref System::m_Entities that have both
- * @ref Position and @ref Collider. Optional @ref CollisionEvents on an entity
- * receive callbacks when contacts start or stop.
- *
- * Each frame, entities with @ref Position::moved set are compared against every
- * other registered collider (two-pass loop). Enter/exit events fire via
- * @ref CollisionEvents.
+ * @brief Detects overlaps between colliders using Raylib and fires enter/stay/exit events.
  */
 class CollisionSystem : public System {
   public:
+    using EntityPair = std::pair<Entity, Entity>;
+
+    ~CollisionSystem() noexcept override = default;
+
     /**
      * @brief Runs overlap detection and updates contact state for this frame.
      * @param registry ECS registry with positions and colliders.
-     * @param dt Delta time (unused for pure overlap tests; kept for @ref System API).
+     * @param dt Delta time.
      */
     void Update(Registry& registry, float dt) override;
 
+    /**
+     * @brief Returns a const reference to all active contact pairs this frame.
+     */
+    [[nodiscard]] const std::set<EntityPair>& GetActiveContacts() const noexcept {
+        return m_ActiveContacts;
+    }
+
   private:
-    using EntityPair = std::pair<Entity, Entity>;
+    std::set<EntityPair> m_ActiveContacts;
 
-    /**
-     * @brief Returns a canonical pair (minId, maxId) so (A,B) and (B,A) match.
-     * @param a First entity id.
-     * @param b Second entity id.
-     * @return Ordered pair for sets and contact tracking.
-     */
-    static EntityPair MakeOrderedPair(Entity a, Entity b);
+    static EntityPair MakeOrderedPair(Entity a, Entity b) noexcept;
 
-    /**
-     * @brief True if the two AABBs overlap (call only for @ref GetCollidableEntities results).
-     * @param registry Component source.
-     * @param a First entity (Position + Collider).
-     * @param b Second entity (Position + Collider).
-     * @return Whether the two boxes overlap in world space.
-     */
-    static bool AreOverlapping(Registry& registry, Entity a, Entity b);
-
-    /**
-     * @brief True if the entity has an enabled collider and a position.
-     */
     static bool IsCollidable(Registry& registry, Entity entity);
 
-    /**
-     * @brief Fills @p collidableEntities and @p movedEntities from @ref m_Entities.
-     * @param registry ECS registry.
-     * @param collidableEntities Output: entities with position and enabled collider.
-     * @param movedEntities Output: collidable entities with @ref Position::moved set.
-     */
-    void GetCollidableEntities(Registry& registry, std::vector<Entity>& collidableEntities,
-                               std::vector<Entity>& movedEntities) const;
+    void GetCollidableEntities(Registry& registry, std::vector<Entity>& collidableEntities) const;
+
+    static void EnterContact(Registry& registry, Entity a, Entity b, bool isTrigger);
+
+    static void StayContact(Registry& registry, Entity a, Entity b, bool isTrigger);
+
+    static void ExitContact(Registry& registry, Entity a, Entity b, bool isTrigger);
 
     /**
-     * @brief Runs onCollisionEnter callbacks on both entities when present.
-     * @param registry ECS registry.
-     * @param a First entity in the contact pair.
-     * @param b Second entity in the contact pair.
+     * @brief This function given a shape, rotation and position returns a pair of max and min, this
+     * pair is the result of the projection of such polygon https://dyn4j.org/2010/01/sat/#sat-proj
+     * @param axis axis to project
+     * @param vertices vertices of the shape to project
+     * @return
      */
-    static void EnterContact(Registry& registry, Entity a, Entity b);
+    static std::pair<float, float> ProjectOnAxis(const std::vector<raylib::Vector2>& vertices,
+                                                 Vector2 axis);
 
-    /**
-     * @brief Runs onCollisionExit callbacks on both entities when present.
-     * @param registry ECS registry.
-     * @param a First entity in the contact pair.
-     * @param b Second entity in the contact pair.
-     */
-    static void ExitContact(Registry& registry, Entity a, Entity b);
-
-    /** @brief Entity pairs currently overlapping (used to detect enter vs stay vs exit). */
-    std::set<EntityPair> m_ActiveContacts;
+    static bool CheckPolygonCollision(const std::vector<raylib::Vector2>& polyA,
+                                      const std::vector<raylib::Vector2>& polyB);
 };
 } // namespace Engine
 

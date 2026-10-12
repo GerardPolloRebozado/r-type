@@ -1,4 +1,5 @@
 #include "Core/Application.hpp"
+#include "ENetContext.hpp"
 #include <iostream>
 #include <ranges>
 
@@ -46,7 +47,6 @@ int main() {
     std::cout << "======================================\n";
     std::cout << "               State Sandbox          \n";
     std::cout << "======================================\n";
-
     Engine::ApplicationConfig config;
     config.windowTitle = "State Sandbox";
     config.targetFPS = 60;

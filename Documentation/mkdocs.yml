@@ -41,30 +41,31 @@ plugins:
 
 nav:
   - About:
-    - Introduction: index.md
-    - Features: about/features.md
+      - Introduction: index.md
+      - Features: about/features.md
   - Getting Started:
-    - Step-by-Step Tutorial: getting_started/tutorial.md
-    - Your First Game: getting_started/first_game.md
+      - Step-by-Step Tutorial: getting_started/tutorial.md
+      - Your First Game: getting_started/first_game.md
   - Concepts:
-    - Registry: concepts/registry.md
-    - Components: concepts/component.md
-    - Systems: concepts/system.md
-    - Plugins: concepts/plugin.md
+      - Registry: concepts/registry.md
+      - Components: concepts/component.md
+      - Systems: concepts/system.md
+      - Plugins: concepts/plugin.md
   - Engine Manual:
-    - ECS Architecture: engine/ecs.md
-    - Systems & Components: engine/systems.md
-    - Asset Management: engine/assets.md
-    - Plugins: engine/plugins.md
-    - Text Rendering: engine/text.md
-    - Input Management: engine/input.md
-    - State Management: engine/states.md
-    - Networking: engine/networking.md
+      - ECS Architecture: engine/ecs.md
+      - Systems & Components: engine/systems.md
+      - Asset Management: engine/assets.md
+      - Plugins: engine/plugins.md
+      - Text Rendering: engine/text.md
+      - Input Management: engine/input.md
+      - State Management: engine/states.md
+      - Networking: engine/networking.md
+      - Collisions: engine/collisions.md
   - Editor Manual:
-    - Interface Overview: editor/interface.md
-    - Using Plugins: editor/plugins.md
-    - Scene Serialization: editor/serialization.md
+      - Interface Overview: editor/interface.md
+      - Using Plugins: editor/plugins.md
+      - Scene Serialization: editor/serialization.md
   - API Reference:
-    - Classes: Engine/annotated.md
-    - Files: Engine/files.md
-    - Namespaces: Engine/namespaces.md
+      - Classes: Engine/annotated.md
+      - Files: Engine/files.md
+      - Namespaces: Engine/namespaces.md
