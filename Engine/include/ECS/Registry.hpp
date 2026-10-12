@@ -3,6 +3,7 @@
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
+#include "Components/ScreenSpace.hpp"
 #include "Entity.hpp"
 #include "Errors/EcsErrors.hpp"
 #include "System.hpp"
@@ -116,6 +117,7 @@ class Registry {
     Registry() {
         RegisterComponent<Position>();
         RegisterComponent<Rotation>();
+        RegisterComponent<ScreenSpace>();
     }
 
     /**

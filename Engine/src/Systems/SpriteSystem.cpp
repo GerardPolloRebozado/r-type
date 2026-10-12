@@ -1,16 +1,26 @@
 #include "Systems/SpriteSystem.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
+#include "Components/ScreenSpace.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "ECS/Registry.hpp"
 
 namespace Engine {
 
 void SpriteSystem::Render(Registry& registry) {
+    DrawSprites(registry, false);
+}
+
+void SpriteSystem::RenderScreen(Registry& registry) {
+    DrawSprites(registry, true);
+}
+
+void SpriteSystem::DrawSprites(Registry& registry, bool screenSpace) {
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Entity entity{i};
         if (registry.HasComponent<Position>(entity) &&
-            registry.HasComponent<SpriteComponent>(entity)) {
+            registry.HasComponent<SpriteComponent>(entity) &&
+            registry.HasComponent<ScreenSpace>(entity) == screenSpace) {
             auto& position = registry.GetComponent<Position>(entity);
             auto& spriteComp = registry.GetComponent<SpriteComponent>(entity);
 
