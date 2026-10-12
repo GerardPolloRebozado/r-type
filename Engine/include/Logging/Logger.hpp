@@ -3,26 +3,26 @@
  * @brief Compile-time filtered logging macros for the Engine.
  *
  * Provides @ref log_error, @ref log_debug and @ref log_info macros that print
- * tagged messages to the terminal. Macros below the configured @c ENGINE_LOG_LEVEL
- * are stripped at compile time and produce no code.
+ * tagged messages to the terminal and store them in @ref LogBuffer. Macros below
+ * the configured @c ENGINE_LOG_LEVEL are stripped at compile time and produce no code.
  */
 
 #ifndef ENGINE_LOGGING_LOGGER_HPP_
 #define ENGINE_LOGGING_LOGGER_HPP_
 
+#include "Logging/LogBuffer.hpp"
 #include "Logging/LogConfig.hpp"
 #include <iostream>
 #include <string>
 
 namespace Engine {
 
-enum class LogLevel { Error, Debug, Info };
-
 /**
- * @brief Single write path for all log levels (terminal today).
+ * @brief Single write path for all log levels.
  *
- * A later ring buffer will be pushed from here so Editor ConsolePanel can
- * display engine logs without changing call sites.
+ * Prints the tagged line to the terminal, then pushes the raw message into
+ * @ref LogBuffer so the Editor ConsolePanel can show the same lines. Call sites
+ * stay on the @c log_* macros. Main thread only.
  */
 inline void emit(LogLevel level, const std::string& msg)
 {
@@ -37,6 +37,7 @@ inline void emit(LogLevel level, const std::string& msg)
         std::cout << "[INFO] " << msg << std::endl;
         break;
     }
+    GetLogBuffer().Push(level, msg);
 }
 
 inline void log_error(const std::string& msg) { emit(LogLevel::Error, msg); }
