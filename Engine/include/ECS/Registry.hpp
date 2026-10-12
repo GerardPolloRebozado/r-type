@@ -150,6 +150,15 @@ class Registry {
     }
 
     /**
+     * @brief Checks if a component type has been registered.
+     * @tparam T The component type.
+     * @return True if RegisterComponent<T>() has been called.
+     */
+    template <typename T> bool IsComponentRegistered() const {
+        return m_ComponentArrays.contains(typeid(T));
+    }
+
+    /**
      * @brief Adds a component to an entity.
      * @tparam T The component type.
      * @param entity The entity ID.
