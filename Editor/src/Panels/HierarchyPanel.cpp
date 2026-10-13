@@ -21,6 +21,11 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 const Engine::Entity newEntity = registry.CreateEntity();
                 selected.entity = newEntity;
                 selected.index = static_cast<int>(newEntity); // Temporary simple selection map
+                if (registry.HasResource<StatePanelSelectedState>()) {
+                    auto& stateSel = registry.GetResource<StatePanelSelectedState>();
+                    stateSel.groupIndex = -1;
+                    stateSel.stateIndex = -1;
+                }
             }
             ImGui::EndPopup();
         }
@@ -35,37 +40,51 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 if (ImGui::Selectable(label.c_str(), selected.index == static_cast<int>(i))) {
                     selected.index = static_cast<int>(i);
                     selected.entity = entity;
+                    if (registry.HasResource<StatePanelSelectedState>()) {
+                        auto& stateSel = registry.GetResource<StatePanelSelectedState>();
+                        stateSel.groupIndex = -1;
+                        stateSel.stateIndex = -1;
+                    }
                 }
 
                 if (ImGui::BeginDragDropTarget()) {
                     if (const ImGuiPayload* payload =
                             ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                         const char* path = (const char*)payload->Data;
-                        std::string newPath(path);
+                        std::string rawPath(path);
+                        std::string relPath = ToProjectRelativePath(registry, rawPath);
+                        auto resolvedPath = ResolveAssetPath(registry, relPath);
                         try {
                             std::shared_ptr<Engine::Sprite> spr = nullptr;
                             if (registry.HasResource<Engine::AssetManager>()) {
                                 auto& am = registry.GetResource<Engine::AssetManager>();
-                                am.LoadSprite(newPath, newPath);
-                                spr = am.GetSprite(newPath);
+                                try {
+                                    auto existing = am.GetSprite(relPath);
+                                    if (existing && existing->GetTexture().id == 0) {
+                                        am.UnloadSprite(relPath);
+                                    }
+                                } catch (...) {
+                                }
+                                am.LoadSprite(relPath, resolvedPath.string());
+                                spr = am.GetSprite(relPath);
                             } else {
-                                spr = std::make_shared<Engine::Sprite>(newPath);
+                                spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
                             }
                             if (!registry.HasComponent<Engine::Position>(entity)) {
-                                registry.AddComponent<Engine::Position>(entity,
-                                                                        Engine::Position(0, 0));
+                                registry.AddComponent<Engine::Position>(
+                                    entity, Engine::Position::Create(0, 0));
                             }
                             if (!registry.HasComponent<Engine::Rotation>(entity)) {
-                                registry.AddComponent<Engine::Rotation>(entity,
-                                                                        Engine::Rotation(0.0f));
+                                registry.AddComponent<Engine::Rotation>(
+                                    entity, Engine::Rotation::Create(0.0f));
                             }
                             if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
                                 auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
                                 sc.sprite = spr;
-                                sc.assetPath = newPath;
+                                sc.assetPath = relPath;
                             } else {
                                 registry.AddComponent<Engine::SpriteComponent>(
-                                    entity, Engine::SpriteComponent(spr, newPath));
+                                    entity, Engine::SpriteComponent(spr, relPath));
                             }
                         } catch (...) {
                         }
@@ -81,19 +100,32 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             if (const ImGuiPayload* payload =
                     ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                 const char* path = (const char*)payload->Data;
-                std::string newPath(path);
+                std::string rawPath(path);
+                std::string relPath = ToProjectRelativePath(registry, rawPath);
+                auto resolvedPath = ResolveAssetPath(registry, relPath);
                 try {
                     std::shared_ptr<Engine::Sprite> spr = nullptr;
                     if (registry.HasResource<Engine::AssetManager>()) {
                         auto& am = registry.GetResource<Engine::AssetManager>();
-                        am.LoadSprite(newPath, newPath);
-                        spr = am.GetSprite(newPath);
+                        try {
+                            auto existing = am.GetSprite(relPath);
+                            if (existing && existing->GetTexture().id == 0) {
+                                am.UnloadSprite(relPath);
+                            }
+                        } catch (...) {
+                        }
+                        am.LoadSprite(relPath, resolvedPath.string());
+                        spr = am.GetSprite(relPath);
                     } else {
-                        spr = std::make_shared<Engine::Sprite>(newPath);
+                        spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
                     }
                     const Engine::Entity newEntity = registry.CreateEntity();
+                    registry.AddComponent<Engine::Position>(newEntity,
+                                                            Engine::Position::Create(0, 0));
+                    registry.AddComponent<Engine::Rotation>(newEntity,
+                                                            Engine::Rotation::Create(0.0f));
                     registry.AddComponent<Engine::SpriteComponent>(
-                        newEntity, Engine::SpriteComponent(spr, newPath));
+                        newEntity, Engine::SpriteComponent(spr, relPath));
                     selected.entity = newEntity;
                     selected.index = static_cast<int>(newEntity);
                 } catch (...) {
