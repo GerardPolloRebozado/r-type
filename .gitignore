@@ -79,6 +79,7 @@ vcpkg_installed/
 Testing/
 .cache/
 CPM_Cache/
+.cpm_cache/
 
 #MacOs
 .Ds_Store
