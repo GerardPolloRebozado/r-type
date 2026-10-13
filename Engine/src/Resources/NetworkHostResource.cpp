@@ -6,13 +6,12 @@
 */
 
 #include "Resources/NetworkHostResource.hpp"
-#include "../../include/Resources/PacketRouterResource.hpp"
+#include "Resources/PacketRouterResource.hpp"
 
 #include "ECS/Registry.hpp"
 #include "enet.h"
 
 #include <iostream>
-#include <memory>
 
 namespace Engine::Multiplayer {
 NetworkHostResource NetworkHostResource::CreateServer(const std::uint16_t port,
@@ -48,18 +47,24 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, PacketRouterResource router,
     ENetEvent event;
     while (enet_host_service(m_host, &event, timeoutMs) > 0) {
         switch (event.type) {
-            case ENET_EVENT_TYPE_CONNECT:
-                std::cout << "New connections" << std::endl;
+            case ENET_EVENT_TYPE_CONNECT: {
+                const auto playerEntity = registry.CreateEntity();
+                SetPeerEntity(event.peer, playerEntity);
+                const auto playerInformation = PlayerInformation{GetNewPlayerId(), event.peer};
+                registry.AddComponent(playerEntity, playerInformation);
+                auto* packet =
+                    CreatePacket(YourPlayerIdPacket, YourPlayerId{playerInformation.id}, true);
+                Send(event.peer, packet, 0);
                 router.m_OnConnect(registry, event.peer);
                 break;
-            case ENET_EVENT_TYPE_RECEIVE: {
+            }
+            case ENET_EVENT_TYPE_RECEIVE:
                 if (event.packet && event.packet->dataLength >= sizeof(PacketTypeID)) {
                     router.Dispatch(registry, event.peer, event.packet->data,
                                     event.packet->dataLength);
                 }
                 enet_packet_destroy(event.packet);
                 break;
-            }
             case ENET_EVENT_TYPE_DISCONNECT:
                 std::cout << "New disconnection" << std::endl;
                 router.m_OnDisconnect(registry, event.peer);

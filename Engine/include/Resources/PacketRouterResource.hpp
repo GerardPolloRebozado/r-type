@@ -38,6 +38,20 @@ template <typename T> PacketTypeID GetPacketTypeID() {
     return id;
 }
 
+struct PlayerInformation {
+    std::size_t id;
+    ENetPeer* peer;
+};
+
+const PacketTypeID PlayerInformationPacket =
+    Engine::Multiplayer::GetPacketTypeID<PlayerInformation>();
+
+struct YourPlayerId {
+    std::size_t id;
+};
+
+const PacketTypeID YourPlayerIdPacket = Engine::Multiplayer::GetPacketTypeID<YourPlayerId>();
+
 /**
  * Types used for the serializer/deserializer (glaze binary payloads).
  */

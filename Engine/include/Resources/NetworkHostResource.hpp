@@ -18,9 +18,12 @@
 #include <vector>
 
 namespace Engine::Multiplayer {
-struct PlayerPeer {
-    ENetPeer* peer = nullptr;
-};
+static std::size_t m_PlayerId = 1;
+
+static std::size_t GetNewPlayerId() {
+    m_PlayerId++;
+    return m_PlayerId;
+}
 
 class NetworkHostResource {
   public:

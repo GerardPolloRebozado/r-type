@@ -13,13 +13,6 @@
 #include <iostream>
 #include <raylib.h>
 
-static std::size_t m_PlayerId = 1;
-
-static std::size_t GetNewPlayerId() {
-    m_PlayerId++;
-    return m_PlayerId;
-}
-
 static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPress& keyPress) {
     const auto entity = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer);
     if (!entity.has_value()) {
@@ -46,8 +39,8 @@ static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPres
         default:
             return;
     }
-    const auto newPosition =
-        NewPlayerPos{registry.GetComponent<PlayerInformation>(entity.value()).id, position};
+    const auto newPosition = NewPlayerPos{
+        registry.GetComponent<Engine::Multiplayer::PlayerInformation>(entity.value()).id, position};
     const auto newPosNotification = Engine::Multiplayer::NetworkHostResource::CreatePacket(
         NewPlayerPosPacket, newPosition, false);
     registry.GetResource<Engine::Multiplayer::NetworkHostResource>().SendAllHost(newPosNotification,
@@ -55,18 +48,15 @@ static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPres
 }
 
 static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
-    const auto playerEntity = registry.CreateEntity();
-    Engine::ShapeComponent shape;
-    shape.type = Engine::ShapeType::RECTANGLE;
+    const auto playerEntity = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer).value();
+    constexpr Engine::ShapeComponent shape;
     registry.AddComponent(playerEntity, shape);
-    Engine::Multiplayer::NetworkHostResource::SetPeerEntity(peer, playerEntity);
-    const auto newPlayer = PlayerInformation{GetNewPlayerId(), peer};
-    registry.AddComponent(playerEntity, newPlayer);
-    auto* packet = Engine::Multiplayer::NetworkHostResource::CreatePacket(
-        YourPlayerIdPacket, YourPlayerId{newPlayer.id}, true);
-    Engine::Multiplayer::NetworkHostResource::Send(peer, packet, 0);
+
+    const auto newPlayer =
+        registry.GetComponent<Engine::Multiplayer::PlayerInformation>(playerEntity);
+
     const auto& newPlayerPos = registry.GetComponent<Engine::Position>(playerEntity);
-    auto playerArray = registry.GetComponentArray<PlayerInformation>();
+    auto playerArray = registry.GetComponentArray<Engine::Multiplayer::PlayerInformation>();
     for (const auto& [existingEntity, existingPlayer] : *playerArray) {
         if (existingPlayer.id == newPlayer.id) {
             continue;
@@ -119,7 +109,7 @@ int main() {
     shapePlugin.Init(app.GetRegistry());
 
     app.GetRegistry()
-        .RegisterComponent<PlayerInformation>()
+        .RegisterComponent<Engine::Multiplayer::PlayerInformation>()
         ->RegisterComponent<KeyPress>()
         ->RegisterComponent<PlayerId>();
 

@@ -71,14 +71,15 @@ static void UpdatePlayerPosition(Engine::Registry& registry, ENetPeer* peer,
     pos = newPos.pos;
 }
 
-static void SpawnMyPlayer(Engine::Registry& registry, ENetPeer* peer, const YourPlayerId& player) {
+static void SpawnMyPlayer(Engine::Registry& registry, ENetPeer* peer,
+                          const Engine::Multiplayer::YourPlayerId& player) {
     const auto playerEntity = registry.CreateEntity();
     constexpr auto shape = Engine::ShapeComponent{};
     shape.color = raylib::WHITE;
 
     registry.AddComponent(playerEntity, shape);
     registry.AddComponent(playerEntity, PlayerId{player.id});
-    registry.AddComponent(playerEntity, YourPlayerId{player.id});
+    registry.AddComponent(playerEntity, Engine::Multiplayer::YourPlayerId{player.id});
     registry.RegisterSystem<SendKeySystem>();
 }
 
@@ -107,10 +108,10 @@ int main() {
     shapePlugin.Init(app.GetRegistry());
 
     app.GetRegistry()
-        .RegisterComponent<PlayerInformation>()
+        .RegisterComponent<Engine::Multiplayer::PlayerInformation>()
         ->RegisterComponent<KeyPress>()
         ->RegisterComponent<PlayerId>()
-        ->RegisterComponent<YourPlayerId>();
+        ->RegisterComponent<Engine::Multiplayer::YourPlayerId>();
 
     auto& registry = app.GetRegistry();
     auto& resource = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
@@ -119,7 +120,8 @@ int main() {
 
     auto& router =
         registry.AddResource<Engine::Multiplayer::PacketRouterResource>(OnConnect, OnDisconnect);
-    router.RegisterHandler<YourPlayerId>(YourPlayerIdPacket, SpawnMyPlayer);
+    router.RegisterHandler<Engine::Multiplayer::YourPlayerId>(
+        Engine::Multiplayer::YourPlayerIdPacket, SpawnMyPlayer);
 
     registry.RegisterSystem<Engine::MultiplayerSystem>();
     const auto textEntity = registry.CreateEntity();

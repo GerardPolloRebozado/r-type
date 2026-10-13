@@ -24,20 +24,6 @@ struct NewPlayerPos {
 
 const PacketTypeID NewPlayerPosPacket = Engine::Multiplayer::GetPacketTypeID<NewPlayerPos>();
 
-struct PlayerInformation {
-    std::size_t id;
-    ENetPeer* peer;
-};
-
-const PacketTypeID PlayerInformationPacket =
-    Engine::Multiplayer::GetPacketTypeID<PlayerInformation>();
-
-struct YourPlayerId {
-    std::size_t id;
-};
-
-const PacketTypeID YourPlayerIdPacket = Engine::Multiplayer::GetPacketTypeID<YourPlayerId>();
-
 struct PlayerId {
     std::size_t id;
 };
