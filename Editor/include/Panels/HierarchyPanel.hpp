@@ -10,6 +10,18 @@ struct HierarchyPanelSelectedEntity {
     int index = -1;
 };
 
+struct Directory {
+    std::string InternalPath;
+    std::string Name;
+    std::vector<Engine::Entity> entities;
+};
+struct EntityDirectoriesManager {
+    std::vector<Directory> directories;
+
+    EntityDirectoriesManager() {
+        directories.push_back({"/", "root", {}});
+    }
+};
 class HierarchyPanel : public IEditorPanel {
   public:
     HierarchyPanel() = default;
