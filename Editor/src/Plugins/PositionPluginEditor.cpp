@@ -24,12 +24,12 @@ bool PositionPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
     bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 
     if (isOpen) {
-        float pos[3] = {position.x, position.y, position.z};
-        if (ImGui::DragFloat3("Position", pos, 0.1f)) {
+        float pos[2] = {position.x, position.y};
+        if (ImGui::DragFloat2("Position", pos, 0.1f)) {
             position.x = pos[0];
             position.y = pos[1];
-            position.z = pos[2];
         }
+        ImGui::DragInt("Z Index", &position.z);
     }
 
     return true;
