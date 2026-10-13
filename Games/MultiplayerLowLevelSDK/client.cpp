@@ -48,38 +48,34 @@ static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {}
 
 static void OnDisconnect(Engine::Registry& registry, ENetPeer* peer) {}
 
-static void UpdatePlayerPosition(Engine::Registry& registry, ENetPeer* peer,
+static void UpdatePlayerPosition(Engine::Registry& registry, const ENetPeer*,
                                  const NewPlayerPos& newPos) {
-    Engine::Entity playerEntity = 0;
-    const auto players = registry.GetComponentArray<PlayerId>();
-    for (const auto& [entity, playerId] : *players) {
-        if (playerId.id == newPos.id) {
-            playerEntity = entity;
-            break;
-        }
-    }
-    if (playerEntity == 0) {
-        playerEntity = registry.CreateEntity();
+    auto& host = registry.GetResource<Engine::Multiplayer::NetworkHostResource>();
+    auto playerEntity = host.GetEntityByNetworkId(newPos.id);
+    if (!playerEntity.has_value()) {
+        const auto entity = registry.CreateEntity();
+        host.TrackNetworkEntity(registry, entity, newPos.id);
         constexpr auto shape = Engine::ShapeComponent{};
         shape.color = raylib::RED;
 
-        registry.AddComponent(playerEntity, shape);
-        registry.AddComponent(playerEntity, PlayerId{newPos.id});
+        registry.AddComponent(entity, shape);
+        playerEntity = entity;
     }
 
-    auto& pos = registry.GetComponent<Engine::Position>(playerEntity);
+    auto& pos = registry.GetComponent<Engine::Position>(*playerEntity);
     pos = newPos.pos;
 }
 
-static void SpawnMyPlayer(Engine::Registry& registry, ENetPeer* peer,
+static void SpawnMyPlayer(Engine::Registry& registry, ENetPeer*,
                           const Engine::Multiplayer::YourPlayerId& player) {
+    auto& host = registry.GetResource<Engine::Multiplayer::NetworkHostResource>();
     const auto playerEntity = registry.CreateEntity();
     constexpr auto shape = Engine::ShapeComponent{};
     shape.color = raylib::WHITE;
 
     registry.AddComponent(playerEntity, shape);
-    registry.AddComponent(playerEntity, PlayerId{player.id});
     registry.AddComponent(playerEntity, Engine::Multiplayer::YourPlayerId{player.id});
+    host.TrackNetworkEntity(registry, playerEntity, player.id);
     registry.RegisterSystem<SendKeySystem>();
 }
 
@@ -107,16 +103,15 @@ int main() {
     Engine::ShapePlugin shapePlugin;
     shapePlugin.Init(app.GetRegistry());
 
-    app.GetRegistry()
-        .RegisterComponent<Engine::Multiplayer::PlayerInformation>()
-        ->RegisterComponent<KeyPress>()
-        ->RegisterComponent<PlayerId>()
-        ->RegisterComponent<Engine::Multiplayer::YourPlayerId>();
-
     auto& registry = app.GetRegistry();
-    auto& resource = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
+    auto& host = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
         Engine::Multiplayer::NetworkHostResource::CreateClient(2));
-    auto* peer = resource.Connect("127.0.0.1", 1234);
+    Engine::Multiplayer::NetworkHostResource::RegisterMultiplayerComponents(registry);
+    registry.RegisterComponent<KeyPress>();
+    (void)host;
+    auto* peer =
+        registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Connect("127.0.0.1", 1234);
+    (void)peer;
 
     auto& router =
         registry.AddResource<Engine::Multiplayer::PacketRouterResource>(OnConnect, OnDisconnect);

@@ -39,8 +39,7 @@ template <typename T> PacketTypeID GetPacketTypeID() {
 }
 
 struct PlayerInformation {
-    std::size_t id;
-    ENetPeer* peer;
+    std::size_t id = 0;
 };
 
 const PacketTypeID PlayerInformationPacket =

@@ -11,20 +11,16 @@
 #include "PacketRouterResource.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <enet.h>
 #include <glaze/glaze.hpp>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace Engine::Multiplayer {
-static std::size_t m_PlayerId = 1;
-
-static std::size_t GetNewPlayerId() {
-    m_PlayerId++;
-    return m_PlayerId;
-}
-
 class NetworkHostResource {
   public:
     /**
@@ -78,6 +74,65 @@ class NetworkHostResource {
      * @param entity The entity to save in the peer
      */
     static void SetPeerEntity(ENetPeer* peer, Entity entity);
+
+    /**
+     * @brief Registers the SDK-owned multiplayer components on the registry.
+     * Idempotent: safe to call more than once. The SDK also calls this
+     * internally on server connect, so games never strictly need it.
+     * @param registry game registry
+     */
+    static void RegisterMultiplayerComponents(Registry& registry);
+
+    /**
+     * @brief True when this host was created with CreateServer().
+     */
+    bool IsServer() const {
+        return m_isServer;
+    }
+
+    /**
+     * @brief Network id assigned by the server to the given entity, if any.
+     */
+    std::optional<std::size_t> GetNetworkId(Registry& registry, Entity entity) const;
+
+    /**
+     * @brief Entity currently bound to a network id (server-owned players and
+     * entities registered via TrackNetworkEntity), if any.
+     */
+    std::optional<Entity> GetEntityByNetworkId(std::size_t networkId) const;
+
+    /**
+     * @brief Network id the server assigned to this client (set automatically
+     * when the YourPlayerId packet arrives). Empty on servers.
+     */
+    std::optional<std::size_t> GetLocalNetworkId() const {
+        return m_localNetworkId;
+    }
+
+    /**
+     * @brief Local player entity bound via TrackNetworkEntity. Empty until the
+     * game spawns/binds it.
+     */
+    std::optional<Entity> GetLocalEntity() const {
+        return m_localEntity;
+    }
+
+    /**
+     * @brief Peer backing a server-side player entity, if still connected.
+     */
+    std::optional<ENetPeer*> GetPeer(Entity entity) const;
+
+    /**
+     * @brief Binds an entity to a network id and tags it with PlayerInformation.
+     * Use this when spawning replicas of remote players (e.g. client spawning
+     * an entity for NewPlayerPos.id). Afterwards GetEntityByNetworkId() resolves
+     * it with no manual map. If the id matches the local id, it also becomes
+     * the local entity.
+     * @param registry game registry
+     * @param entity entity to bind
+     * @param networkId server-assigned id
+     */
+    void TrackNetworkEntity(Registry& registry, Entity entity, std::size_t networkId);
 
     void SendAllHost(ENetPacket* packet, const uint8_t channel = 0) const {
         enet_host_broadcast(m_host, channel, packet);
@@ -139,8 +194,13 @@ class NetworkHostResource {
     }
 
     // disable host copy
-    NetworkHostResource(NetworkHostResource&& other) noexcept : m_host(other.m_host) {
+    NetworkHostResource(NetworkHostResource&& other) noexcept
+        : m_host(other.m_host), server_peer(other.server_peer), m_isServer(other.m_isServer),
+          m_nextNetworkId(other.m_nextNetworkId), m_localNetworkId(other.m_localNetworkId),
+          m_localEntity(other.m_localEntity), m_idToEntity(std::move(other.m_idToEntity)),
+          m_entityToPeer(std::move(other.m_entityToPeer)) {
         other.m_host = nullptr;
+        other.server_peer = nullptr;
     }
 
     NetworkHostResource& operator=(NetworkHostResource&& other) noexcept {
@@ -149,7 +209,15 @@ class NetworkHostResource {
                 enet_host_destroy(m_host);
             }
             m_host = other.m_host;
+            server_peer = other.server_peer;
+            m_isServer = other.m_isServer;
+            m_nextNetworkId = other.m_nextNetworkId;
+            m_localNetworkId = other.m_localNetworkId;
+            m_localEntity = other.m_localEntity;
+            m_idToEntity = std::move(other.m_idToEntity);
+            m_entityToPeer = std::move(other.m_entityToPeer);
             other.m_host = nullptr;
+            other.server_peer = nullptr;
         }
         return *this;
     }
@@ -157,11 +225,13 @@ class NetworkHostResource {
     ~NetworkHostResource();
 
   private:
-    NetworkHostResource(const ENetAddress* address, const size_t peerCount, const size_t channels) {
+    NetworkHostResource(const ENetAddress* address, const size_t peerCount, const size_t channels,
+                        bool isServer) {
         m_host = enet_host_create(address, peerCount, channels, 0, 0);
         if (!m_host) {
             throw std::runtime_error("Failed to create ENet host");
         }
+        m_isServer = isServer;
     }
 
     /**
@@ -169,6 +239,12 @@ class NetworkHostResource {
      */
     ENetPeer* server_peer = nullptr;
     ENetHost* m_host = nullptr;
+    bool m_isServer = false;
+    std::size_t m_nextNetworkId = 1;
+    std::optional<std::size_t> m_localNetworkId;
+    std::optional<Entity> m_localEntity;
+    std::unordered_map<std::size_t, Entity> m_idToEntity;
+    std::unordered_map<Entity, ENetPeer*> m_entityToPeer;
 };
 } // namespace Engine::Multiplayer
 #endif // G_ING_500_BAR_5_1_RTYPE_1_NETWORKHOST_HPP
