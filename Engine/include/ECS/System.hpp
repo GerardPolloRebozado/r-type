@@ -17,7 +17,10 @@ class System {
   public:
     virtual ~System() = default;
     virtual void Update(Registry& registry, float dt) {}
+    /** @brief World pass: drawn inside the active camera. */
     virtual void Render(Registry& registry) {}
+    /** @brief Screen pass: drawn after the world, in window pixels. */
+    virtual void RenderScreen(Registry& registry) {}
 
     std::set<Entity> m_Entities;
 };

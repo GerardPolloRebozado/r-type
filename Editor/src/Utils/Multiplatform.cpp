@@ -1,4 +1,7 @@
+#include <cstdlib>
 #include <filesystem>
+#include <sstream>
+#include <stdexcept>
 
 namespace Editor {
 std::filesystem::path ConfigDirectory() {

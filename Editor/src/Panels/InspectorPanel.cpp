@@ -2,6 +2,7 @@
 #include "Components/Name.hpp"
 #include "Core/Application.hpp"
 #include "Panels/HierarchyPanel.hpp"
+#include "Plugins/CameraPluginEditor.hpp"
 #include "Panels/StatePanel.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
@@ -23,6 +24,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<RotationPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<SpritePluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {

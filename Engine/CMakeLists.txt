@@ -15,10 +15,13 @@ set(SRC_FILES
         src/Assets/Sprite.cpp
         src/components/ShapeComponent.cpp
         src/Core/Application.cpp
+        src/Core/Renderer.cpp
         src/Input/Controller.cpp
         src/Input/IController.cpp
         src/Input/InputManager.cpp
+        src/Logging/LogBuffer.cpp
         src/Plugins/AudioPlugin.cpp
+        src/Plugins/CameraPlugin.cpp
         src/Plugins/ColliderPlugin.cpp
         src/Plugins/HierarchyPlugin.cpp
         src/Plugins/InputPlugin.cpp
@@ -28,6 +31,7 @@ set(SRC_FILES
         src/Plugins/ShapePlugin.cpp
         src/Plugins/SpritePlugin.cpp
         src/Plugins/TextPlugin.cpp
+        src/Systems/CameraSystem.cpp
         src/Systems/CollisionSystem.cpp
         src/Systems/HierarchySystem.cpp
         src/Systems/PositionSystem.cpp
@@ -46,6 +50,7 @@ set(INC_FILES
         include/Assets/Sound.hpp
         include/Assets/Sprites.hpp
         include/Components/AudioSource.hpp
+        include/Components/CameraComponent.hpp
         include/Components/ColliderComponent.hpp
         include/Components/CollisionEvents.hpp
         include/Components/ComponentExample.hpp
@@ -55,10 +60,12 @@ set(INC_FILES
         include/Components/PluginExampleEvents.hpp
         include/Components/Position.hpp
         include/Components/Rotation.hpp
+        include/Components/ScreenSpace.hpp
         include/Components/ShapeComponent.hpp
         include/Components/SpriteComponent.hpp
         include/Components/Text.hpp
         include/Core/Application.hpp
+        include/Core/Renderer.hpp
         include/ECS/Entity.hpp
         include/ECS/Registry.hpp
         include/ECS/System.hpp
@@ -73,6 +80,7 @@ set(INC_FILES
         include/Logging/LogConfig.hpp
         include/Logging/Logger.hpp
         include/Plugins/AudioPlugin.hpp
+        include/Plugins/CameraPlugin.hpp
         include/Plugins/ColliderPlugin.hpp
         include/Plugins/HierarchyPlugin.hpp
         include/Plugins/InputPlugin.hpp
@@ -86,6 +94,7 @@ set(INC_FILES
         include/Plugins/TextPlugin.hpp
         include/Resources/StateResource.hpp
         include/Systems/AudioSystem.hpp
+        include/Systems/CameraSystem.hpp
         include/Systems/CollisionSystem.hpp
         include/Systems/HierarchySystem.hpp
         include/Systems/PositionSystem.hpp

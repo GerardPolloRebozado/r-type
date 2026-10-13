@@ -3,6 +3,7 @@
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
+#include "Components/ScreenSpace.hpp"
 #include "Entity.hpp"
 #include "Errors/EcsErrors.hpp"
 #include "System.hpp"
@@ -113,6 +114,7 @@ class Registry {
     Registry() {
         RegisterComponent<Position>();
         RegisterComponent<Rotation>();
+        RegisterComponent<ScreenSpace>();
     }
 
     /**
@@ -143,6 +145,15 @@ class Registry {
         if (!m_ComponentArrays.contains(typeName)) {
             m_ComponentArrays[typeName] = std::make_shared<ComponentArray<T>>();
         }
+    }
+
+    /**
+     * @brief Checks if a component type has been registered.
+     * @tparam T The component type.
+     * @return True if RegisterComponent<T>() has been called.
+     */
+    template <typename T> bool IsComponentRegistered() const {
+        return m_ComponentArrays.contains(typeid(T));
     }
 
     /**

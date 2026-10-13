@@ -26,6 +26,15 @@ class TextSystem : public System {
      * @param dt Delta time for the frame in seconds (unused for static text rendering).
      */
     void Render(Registry& registry) override;
+
+    /**
+     * @brief Same as Render, for entities tagged with @ref ScreenSpace (drawn without camera).
+     * @param registry Main ECS registry containing entities and components.
+     */
+    void RenderScreen(Registry& registry) override;
+
+  private:
+    static void DrawTexts(Registry& registry, bool screenSpace);
 };
 } // namespace Engine
 

@@ -3,6 +3,7 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
+#include "Plugins/CameraPlugin.hpp"
 #include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
@@ -54,6 +55,8 @@ void RunEditor(const string& scenePathString) {
     rotationPlugin.Init(app.GetRegistry());
     Engine::ColliderPlugin colliderPlugin;
     colliderPlugin.Init(app.GetRegistry());
+    Engine::CameraPlugin cameraPlugin;
+    cameraPlugin.Init(app.GetRegistry());
 
     editorLayer.SetRegistry(app.GetRegistry());
     editorLayer.SetConfiguration(config);
