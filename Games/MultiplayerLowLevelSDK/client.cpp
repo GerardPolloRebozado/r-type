@@ -12,15 +12,8 @@
 #include <iostream>
 #include <raylib.h>
 
-struct KeyPress {
-    char key = 0;
-
-    template <typename S> void serialize(S& s) {
-        s.value1b(key);
-    }
-};
-
-const PacketTypeID KeyPressPacket = Engine::Multiplayer::Packets::GetPacketTypeID<KeyPress>();
+#include "PacketTypes.hpp"
+#include "Plugins/ShapePlugin.hpp"
 
 class SendKeySystem : public Engine::System {
   public:
@@ -43,9 +36,9 @@ class SendKeySystem : public Engine::System {
         if (keyPressed.key == 0) {
             return;
         }
-        std::cout << "Sending key press" << std::endl;
-        registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Send(KeyPressPacket,
-                                                                              keyPressed, 0, true);
+        ENetPacket* packet = Engine::Multiplayer::NetworkHostResource::CreatePacket(
+            KeyPressPacket, keyPressed, true);
+        registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Send(packet, 0);
     }
 
     void Render(Engine::Registry& registry) override {};
@@ -54,6 +47,40 @@ class SendKeySystem : public Engine::System {
 static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {}
 
 static void OnDisconnect(Engine::Registry& registry, ENetPeer* peer) {}
+
+static void UpdatePlayerPosition(Engine::Registry& registry, ENetPeer* peer,
+                                 const NewPlayerPos& newPos) {
+    Engine::Entity playerEntity = 0;
+    const auto players = registry.GetComponentArray<PlayerId>();
+    for (const auto& [entity, playerId] : *players) {
+        if (playerId.id == newPos.id) {
+            playerEntity = entity;
+            break;
+        }
+    }
+    if (playerEntity == 0) {
+        playerEntity = registry.CreateEntity();
+        constexpr auto shape = Engine::ShapeComponent{};
+        shape.color = raylib::RED;
+
+        registry.AddComponent(playerEntity, shape);
+        registry.AddComponent(playerEntity, PlayerId{newPos.id});
+    }
+
+    auto& pos = registry.GetComponent<Engine::Position>(playerEntity);
+    pos = newPos.pos;
+}
+
+static void SpawnMyPlayer(Engine::Registry& registry, ENetPeer* peer, const YourPlayerId& player) {
+    const auto playerEntity = registry.CreateEntity();
+    constexpr auto shape = Engine::ShapeComponent{};
+    shape.color = raylib::WHITE;
+
+    registry.AddComponent(playerEntity, shape);
+    registry.AddComponent(playerEntity, PlayerId{player.id});
+    registry.AddComponent(playerEntity, YourPlayerId{player.id});
+    registry.RegisterSystem<SendKeySystem>();
+}
 
 int main() {
     std::cout << "======================================\n";
@@ -76,20 +103,29 @@ int main() {
     Engine::InputPlugin inputPlugin;
     inputPlugin.Init(app.GetRegistry());
 
+    Engine::ShapePlugin shapePlugin;
+    shapePlugin.Init(app.GetRegistry());
+
+    app.GetRegistry()
+        .RegisterComponent<PlayerInformation>()
+        ->RegisterComponent<KeyPress>()
+        ->RegisterComponent<PlayerId>()
+        ->RegisterComponent<YourPlayerId>();
+
     auto& registry = app.GetRegistry();
     auto& resource = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
         Engine::Multiplayer::NetworkHostResource::CreateClient(2));
     auto* peer = resource.Connect("127.0.0.1", 1234);
 
-    auto& router = registry.AddResource<Engine::Multiplayer::Packets::PacketRouterResource>(
-        OnConnect, OnDisconnect);
-    // router.RegisterHandler<KeyPress>(Engine::Multiplayer::Packets::GetPacketTypeID<KeyPress>(),
-    //                                  KeyPressed);
+    auto& router =
+        registry.AddResource<Engine::Multiplayer::PacketRouterResource>(OnConnect, OnDisconnect);
+    router.RegisterHandler<YourPlayerId>(YourPlayerIdPacket, SpawnMyPlayer);
+
     registry.RegisterSystem<Engine::MultiplayerSystem>();
     const auto textEntity = registry.CreateEntity();
-    const auto& textComponent = Engine::Text("Any key press will be send to the server", 100);
+    const auto& textComponent = Engine::Text("Use W/A/S/D to move, you are the white square", 60);
     registry.AddComponent(textEntity, textComponent);
-    registry.RegisterSystem<SendKeySystem>();
+    router.RegisterHandler<NewPlayerPos>(NewPlayerPosPacket, UpdatePlayerPosition);
 
     app.Run();
 

@@ -2,6 +2,7 @@
 #define SERIALIZATION_SCENESERIALIZER_HPP_
 
 #include "ECS/Registry.hpp"
+#include "GlazeSerializer.hpp"
 #include "SceneConfig.hpp"
 #include <functional>
 #include <optional>
@@ -9,20 +10,29 @@
 
 namespace Serialization {
 
-/**
- * @brief Handles serialization of the active Scene/Registry to and from disk.
- *
- * Encapsulates saving and loading entity hierarchies, components, and project scene settings
- * without any dependency on the Editor or UI backends (ImGui).
- */
+struct SceneData {
+    std::string sceneName;
+    SceneConfig config;
+    GlazeSerializer::SceneSnapshot entities;
+};
+
 class SceneSerializer {
   public:
     SceneSerializer() = default;
 
     void Serialize(const std::string& filepath, Engine::Registry& registry,
-                   const SceneConfig& config);
+                   const SceneConfig& config,
+                   SerializationFormat format = SerializationFormat::JSON);
+
     bool Deserialize(const std::string& filepath, Engine::Registry& registry,
-                     std::optional<std::reference_wrapper<SceneConfig>> config = std::nullopt);
+                     std::optional<std::reference_wrapper<SceneConfig>> config = std::nullopt,
+                     SerializationFormat format = SerializationFormat::JSON);
+
+    void SetFormat(SerializationFormat format);
+    SerializationFormat GetFormat() const;
+
+  private:
+    GlazeSerializer m_Serializer;
 };
 
 } // namespace Serialization

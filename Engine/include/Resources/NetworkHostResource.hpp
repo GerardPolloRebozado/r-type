@@ -10,9 +10,12 @@
 #include "ECS/Registry.hpp"
 #include "PacketRouterResource.hpp"
 
+#include <cstddef>
 #include <enet.h>
+#include <glaze/glaze.hpp>
 #include <stdexcept>
 #include <string_view>
+#include <vector>
 
 namespace Engine::Multiplayer {
 struct PlayerPeer {
@@ -57,7 +60,7 @@ class NetworkHostResource {
      * @param router router to use when a new packet is received
      * @param registry of the game
      */
-    void Poll(uint32_t timeoutMs, Packets::PacketRouterResource router, Registry& registry);
+    void Poll(uint32_t timeoutMs, PacketRouterResource router, Registry& registry);
 
     /**
      *
@@ -73,6 +76,10 @@ class NetworkHostResource {
      */
     static void SetPeerEntity(ENetPeer* peer, Entity entity);
 
+    void SendAllHost(ENetPacket* packet, const uint8_t channel = 0) const {
+        enet_host_broadcast(m_host, channel, packet);
+    }
+
     /**
      *  @brief This function will send any data to the specified peer, if the packet ID does not
      * match the struct being send the router will not be able to process it. Reliable should only
@@ -82,27 +89,10 @@ class NetworkHostResource {
      * the function GetPacketTypeID<T>()
      * @tparam TData type of data that we want to send
      * @param peer where do we want to send it
-     * @param id ID of the type of packet being send DON'T set it manually use the function
-     * GetPacketTypeID<T>()
-     * @param data data to send
      * @param channel the channel where the data would be send
-     * @param reliable if we want to ensure the packet is delivered correctly or not
+     * @param packet
      */
-    template <typename TPacketId, typename TData>
-    static void Send(ENetPeer* peer, TPacketId id, const TData& data, const uint8_t channel = 0,
-                     const bool reliable = true) {
-        static_assert(std::is_integral_v<TPacketId>, "Packet ID must be an integral type");
-
-        Packets::Buffer buffer;
-        auto writer = bitsery::Serializer<Packets::OutputAdapter>(buffer);
-
-        auto rawId = static_cast<uint16_t>(id);
-        writer.value2b(rawId);
-        writer.object(data);
-        writer.adapter().flush();
-
-        const enet_uint32 flags = reliable ? ENET_PACKET_FLAG_RELIABLE : 0;
-        ENetPacket* packet = enet_packet_create(buffer.data(), buffer.size(), flags);
+    static void Send(ENetPeer* peer, ENetPacket* packet, const uint8_t channel = 0) {
         enet_peer_send(peer, channel, packet);
     }
 
@@ -114,15 +104,35 @@ class NetworkHostResource {
      * @tparam TPacketId type of the ID of the type of packet being send DON'T set it manually use
      * the function GetPacketTypeID<T>()
      * @tparam TData type of data that we want to send
-     * @param id ID of the type of packet being send DON'T set it manually use the function
-     * GetPacketTypeID<T>()
-     * @param data data to send
      * @param channel the channel where the data would be send
-     * @param reliable if we want to ensure the packet is delivered correctly or not
+     * @param packet
      */
-    template <class TPacketId, class TData>
-    void Send(TPacketId id, const TData& data, uint8_t channel, bool reliable) {
-        Send<TPacketId, TData>(server_peer, id, data, channel, reliable);
+    void Send(ENetPacket* packet, const uint8_t channel = 0) const {
+        Send(server_peer, packet, channel);
+    }
+
+    template <typename TPacketId, typename TData>
+    static ENetPacket* CreatePacket(TPacketId id, const TData& data, const bool reliable) {
+        static_assert(std::is_integral_v<TPacketId>, "Packet ID must be an integral type");
+
+        // NB: glaze resizes the output buffer, so the payload must be encoded
+        // separately before prepending the 2-byte packet ID header.
+        Buffer payload;
+        if (glz::write_beve(data, payload)) {
+            // On encode failure send a header-only packet; the router will
+            // fail to decode it and safely skip the handler.
+            payload.clear();
+        }
+
+        Buffer buffer;
+        buffer.reserve(sizeof(uint16_t) + payload.size());
+        const auto rawId = static_cast<uint16_t>(id);
+        buffer.push_back(static_cast<std::byte>(rawId & 0xFF));
+        buffer.push_back(static_cast<std::byte>((rawId >> 8) & 0xFF));
+        buffer.insert(buffer.end(), payload.begin(), payload.end());
+
+        const enet_uint32 flags = reliable ? ENET_PACKET_FLAG_RELIABLE : 0;
+        return enet_packet_create(buffer.data(), buffer.size(), flags);
     }
 
     // disable host copy

@@ -37,6 +37,7 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
         src/Systems/MultiplayerSystem.cpp
+        src/Logging/LogBuffer.cpp
 )
 
 set(INC_FILES
@@ -83,6 +84,7 @@ set(INC_FILES
         include/Plugins/SpritePlugin.hpp
         include/Plugins/TextPlugin.hpp
         include/Resources/StateResource.hpp
+        include/Reflection/ComponentReflect.hpp
         include/Systems/AudioSystem.hpp
         include/Systems/CollisionSystem.hpp
         include/Systems/HierarchySystem.hpp
@@ -95,6 +97,7 @@ set(INC_FILES
         include/Resources/PacketRouterResource.hpp
         include/Systems/MultiplayerSystem.hpp
         include/ENetContext.hpp
+        include/Logging/LogBuffer.hpp
 )
 
 add_library(Engine STATIC ${SRC_FILES} ${INC_FILES})
@@ -116,4 +119,4 @@ target_link_libraries(Engine PUBLIC enet_static)
 if (WIN32)
     target_link_libraries(MyEngine PRIVATE ws2_32 winmm)
 endif ()
-target_link_libraries(Engine PUBLIC bitsery)
+target_link_libraries(Engine PUBLIC glaze::glaze)

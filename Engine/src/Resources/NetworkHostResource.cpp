@@ -15,7 +15,6 @@
 #include <memory>
 
 namespace Engine::Multiplayer {
-
 NetworkHostResource NetworkHostResource::CreateServer(const std::uint16_t port,
                                                       const std::size_t maxClients,
                                                       const std::size_t channels) {
@@ -44,7 +43,7 @@ ENetPeer* NetworkHostResource::Connect(const std::string_view host, const uint16
     return server_peer;
 };
 
-void NetworkHostResource::Poll(uint32_t timeoutMs, Packets::PacketRouterResource router,
+void NetworkHostResource::Poll(uint32_t timeoutMs, PacketRouterResource router,
                                Registry& registry) {
     ENetEvent event;
     while (enet_host_service(m_host, &event, timeoutMs) > 0) {

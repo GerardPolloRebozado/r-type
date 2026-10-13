@@ -38,7 +38,8 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 } else if (hasName) {
                     registry.GetComponent<Engine::Name>(selected.entity).value = name;
                 } else {
-                    registry.AddComponent<Engine::Name>(selected.entity, Engine::Name(name));
+                    registry.AddComponent<Engine::Name>(selected.entity,
+                                                        Engine::Name::Create(name));
                 }
             }
             ImGui::PopID();

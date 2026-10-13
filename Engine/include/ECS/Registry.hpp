@@ -101,7 +101,6 @@ template <typename T> class ComponentArray : public IComponentArray {
         return m_ComponentMap.size();
     }
 
-  private:
     std::unordered_map<Entity, T> m_ComponentMap;
 };
 
@@ -125,8 +124,8 @@ class Registry {
      */
     Entity CreateEntity() {
         Entity entity = {m_NextEntityId++};
-        AddComponent<Position>(entity, Position(0, 0));
-        AddComponent<Rotation>(entity, Rotation(0.0f));
+        AddComponent<Position>(entity, Position::Create(0, 0));
+        AddComponent<Rotation>(entity, Rotation::Create(0.0f));
         return entity;
     }
 
@@ -142,11 +141,12 @@ class Registry {
      * @brief Registers a component type with the registry.
      * @tparam T The component type.
      */
-    template <typename T> void RegisterComponent() {
-        std::type_index typeName = typeid(T);
+    template <typename T> Registry* RegisterComponent() {
+        const std::type_index typeName = typeid(T);
         if (!m_ComponentArrays.contains(typeName)) {
             m_ComponentArrays[typeName] = std::make_shared<ComponentArray<T>>();
         }
+        return this;
     }
 
     /**

@@ -2,6 +2,7 @@
 #include "Core/Application.hpp"
 #include "ENetContext.hpp"
 #include "Inputs/InputManager.hpp"
+#include "PacketTypes.hpp"
 #include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
@@ -9,25 +10,21 @@
 #include "Plugins/TextPlugin.hpp"
 #include "Resources/NetworkHostResource.hpp"
 #include "Systems/MultiplayerSystem.hpp"
-
 #include <iostream>
 #include <raylib.h>
 
-struct KeyPress {
-    char key;
+static std::size_t m_PlayerId = 1;
 
-    template <typename S> void serialize(S& s) {
-        s.value1b(key);
-    }
-};
+static std::size_t GetNewPlayerId() {
+    m_PlayerId++;
+    return m_PlayerId;
+}
 
 static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPress& keyPress) {
-    std::cout << "New key press: " << keyPress.key << std::endl;
     const auto entity = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer);
     if (!entity.has_value()) {
         return;
     }
-    std::cout << "New key press: " << keyPress.key << std::endl;
     auto& position = registry.GetComponent<Engine::Position>(entity.value());
     switch (keyPress.key) {
         case 'w':
@@ -49,18 +46,47 @@ static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPres
         default:
             return;
     }
+    const auto newPosition =
+        NewPlayerPos{registry.GetComponent<PlayerInformation>(entity.value()).id, position};
+    const auto newPosNotification = Engine::Multiplayer::NetworkHostResource::CreatePacket(
+        NewPlayerPosPacket, newPosition, false);
+    registry.GetResource<Engine::Multiplayer::NetworkHostResource>().SendAllHost(newPosNotification,
+                                                                                 0);
 }
 
 static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
-    auto player = registry.CreateEntity();
+    const auto playerEntity = registry.CreateEntity();
     Engine::ShapeComponent shape;
     shape.type = Engine::ShapeType::RECTANGLE;
-    registry.AddComponent(player, shape);
-    Engine::Multiplayer::NetworkHostResource::SetPeerEntity(peer, player);
+    registry.AddComponent(playerEntity, shape);
+    Engine::Multiplayer::NetworkHostResource::SetPeerEntity(peer, playerEntity);
+    const auto newPlayer = PlayerInformation{GetNewPlayerId(), peer};
+    registry.AddComponent(playerEntity, newPlayer);
+    auto* packet = Engine::Multiplayer::NetworkHostResource::CreatePacket(
+        YourPlayerIdPacket, YourPlayerId{newPlayer.id}, true);
+    Engine::Multiplayer::NetworkHostResource::Send(peer, packet, 0);
+    const auto& newPlayerPos = registry.GetComponent<Engine::Position>(playerEntity);
+    auto playerArray = registry.GetComponentArray<PlayerInformation>();
+    for (const auto& [existingEntity, existingPlayer] : *playerArray) {
+        if (existingPlayer.id == newPlayer.id) {
+            continue;
+        }
+        // send all other player positions
+        auto* catchUp = Engine::Multiplayer::NetworkHostResource::CreatePacket(
+            NewPlayerPosPacket,
+            NewPlayerPos{existingPlayer.id,
+                         registry.GetComponent<Engine::Position>(existingEntity)},
+            true);
+        Engine::Multiplayer::NetworkHostResource::Send(peer, catchUp, 0);
+        // tell existing players about the enw player
+        auto* announce = Engine::Multiplayer::NetworkHostResource::CreatePacket(
+            NewPlayerPosPacket, NewPlayerPos{newPlayer.id, newPlayerPos}, true);
+        Engine::Multiplayer::NetworkHostResource::Send(existingPlayer.peer, announce, 0);
+    }
 }
 
 static void OnDisconnect(Engine::Registry& registry, ENetPeer* peer) {
-    auto player = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer);
+    const auto player = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer);
     if (!player.has_value()) {
         std::cout << "Cannot despawn" << std::endl;
         return;
@@ -92,15 +118,19 @@ int main() {
     Engine::ShapePlugin shapePlugin;
     shapePlugin.Init(app.GetRegistry());
 
+    app.GetRegistry()
+        .RegisterComponent<PlayerInformation>()
+        ->RegisterComponent<KeyPress>()
+        ->RegisterComponent<PlayerId>();
+
     auto& registry = app.GetRegistry();
 
     registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
         Engine::Multiplayer::NetworkHostResource::CreateServer(1234, 2));
 
-    auto& router = registry.AddResource<Engine::Multiplayer::Packets::PacketRouterResource>(
-        OnConnect, OnDisconnect);
-    router.RegisterHandler<KeyPress>(Engine::Multiplayer::Packets::GetPacketTypeID<KeyPress>(),
-                                     KeyPressed);
+    auto& router =
+        registry.AddResource<Engine::Multiplayer::PacketRouterResource>(OnConnect, OnDisconnect);
+    router.RegisterHandler<KeyPress>(KeyPressPacket, KeyPressed);
 
     registry.RegisterSystem<Engine::MultiplayerSystem>();
 
