@@ -109,8 +109,8 @@ int main() {
     Engine::Multiplayer::NetworkHostResource::RegisterMultiplayerComponents(registry);
     registry.RegisterComponent<KeyPress>();
     (void)host;
-    auto* peer =
-        registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Connect("127.0.0.1", 1234);
+    auto* peer = registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Connect(
+        "192.168.202.217", 3000);
     (void)peer;
 
     auto& router =

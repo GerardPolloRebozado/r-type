@@ -123,7 +123,7 @@ int main() {
     auto& registry = app.GetRegistry();
 
     auto& host = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
-        Engine::Multiplayer::NetworkHostResource::CreateServer(1234, 2));
+        Engine::Multiplayer::NetworkHostResource::CreateServer(3000, 10));
     Engine::Multiplayer::NetworkHostResource::RegisterMultiplayerComponents(registry);
     (void)host;
 
