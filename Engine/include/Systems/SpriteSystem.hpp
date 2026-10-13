@@ -1,7 +1,7 @@
 #ifndef ENGINE_SYSTEMS_SPRITESYSTEM_HPP_
 #define ENGINE_SYSTEMS_SPRITESYSTEM_HPP_
 
-#include "ECS/System.hpp"
+#include "ECS/LayeredRenderSystem.hpp"
 
 namespace Engine {
 class Registry;
@@ -10,23 +10,18 @@ class Registry;
  * @class SpriteSystem
  * @brief System that draws SpriteComponent based on Position.
  */
-class SpriteSystem : public System {
+class SpriteSystem : public LayeredRenderSystem {
   public:
     /**
-     * @brief Renders all entities that have both a Position and a SpriteComponent,
-     *        at Position plus the sprite's offset.
-     * @param registry The ECS registry containing the entities.
+     * @brief True if @p entity has a SpriteComponent and belongs to this pass
+     *        (entities tagged with @ref ScreenSpace go in the screen pass).
      */
-    void Render(Registry& registry) override;
+    bool CanDraw(Registry& registry, Entity entity, bool screenSpace) override;
 
     /**
-     * @brief Same as Render, for entities tagged with @ref ScreenSpace (drawn without camera).
-     * @param registry The ECS registry containing the entities.
+     * @brief Draws the entity's sprite at Position plus the sprite's offset.
      */
-    void RenderScreen(Registry& registry) override;
-
-  private:
-    static void DrawSprites(Registry& registry, bool screenSpace);
+    void DrawEntity(Registry& registry, Entity entity) override;
 };
 } // namespace Engine
 

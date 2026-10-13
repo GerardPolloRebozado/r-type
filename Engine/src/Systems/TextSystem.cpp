@@ -13,28 +13,21 @@
 #include "ECS/Registry.hpp"
 
 namespace Engine {
-void TextSystem::Render(Registry& registry) {
-    DrawTexts(registry, false);
+bool TextSystem::CanDraw(Registry& registry, Entity entity, bool screenSpace) {
+    return registry.HasComponent<Text>(entity) &&
+           registry.HasComponent<ScreenSpace>(entity) == screenSpace;
 }
 
-void TextSystem::RenderScreen(Registry& registry) {
-    DrawTexts(registry, true);
-}
-
-void TextSystem::DrawTexts(Registry& registry, bool screenSpace) {
-    for (const auto& [entity, txt] : *registry.GetComponentArray<Text>()) {
-        if (registry.HasComponent<Position>(entity) &&
-            registry.HasComponent<ScreenSpace>(entity) == screenSpace) {
-            const auto& pos = registry.GetComponent<Position>(entity);
-            float rotation = 0.0f;
-            if (registry.HasComponent<Rotation>(entity)) {
-                rotation = registry.GetComponent<Rotation>(entity).angle;
-            }
-
-            Font font = (txt.font.texture.id == 0) ? GetFontDefault() : txt.font;
-            DrawTextPro(font, txt.text.c_str(), {pos.x, pos.y}, {0.0f, 0.0f}, rotation,
-                        txt.fontsize, txt.spacing, txt.color);
-        }
+void TextSystem::DrawEntity(Registry& registry, Entity entity) {
+    const auto& txt = registry.GetComponent<Text>(entity);
+    const auto& pos = registry.GetComponent<Position>(entity);
+    float rotation = 0.0f;
+    if (registry.HasComponent<Rotation>(entity)) {
+        rotation = registry.GetComponent<Rotation>(entity).angle;
     }
+
+    Font font = (txt.font.texture.id == 0) ? GetFontDefault() : txt.font;
+    DrawTextPro(font, txt.text.c_str(), {pos.x, pos.y}, {0.0f, 0.0f}, rotation, txt.fontsize,
+                txt.spacing, txt.color);
 }
 } // namespace Engine
