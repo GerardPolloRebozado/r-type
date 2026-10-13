@@ -12,8 +12,10 @@ namespace Engine {
 struct Position {
     float x;
     float y;
+    float z;
     float prevX;
     float prevY;
+    float prevZ;
 
     /** @brief True when (x, y) differs from (prevX, prevY); updated by @ref PositionSystem. */
     bool moved;
@@ -28,9 +30,10 @@ struct Position {
      * @brief Constructor for Position.
      * @param x The initial X position.
      * @param y The initial Y position.
+     * @param z The initial Z position
      */
-    Position(float x = 0.0f, float y = 0.0f)
-        : x(x), y(y), prevX(x), prevY(y), moved(false), relative(false) {}
+    Position(float x = 0.0f, float y = 0.0f, float z = 0.0f)
+        : x(x), y(y), z(z), prevX(x), prevY(y), prevZ(z), moved(false), relative(false) {}
 };
 } // namespace Engine
 
