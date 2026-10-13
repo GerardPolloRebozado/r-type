@@ -39,7 +39,7 @@ bool PositionPluginEditor::HasComponent(Engine::Entity entity, Engine::Registry&
 }
 
 void PositionPluginEditor::AddComponent(Engine::Entity entity, Engine::Registry& registry) {
-    registry.AddComponent<Engine::Position>(entity, Engine::Position(0, 0));
+    registry.AddComponent<Engine::Position>(entity, Engine::Position::Create(0, 0));
 }
 
 void PositionPluginEditor::RemoveComponent(Engine::Entity entity, Engine::Registry& registry) {

@@ -74,15 +74,9 @@ target_include_directories(rlImGui PUBLIC ${rlImGui_SOURCE_DIR})
 target_link_libraries(rlImGui PUBLIC imgui raylib)
 
 CPMAddPackage(
-        NAME nlohmann_json
-        GITHUB_REPOSITORY nlohmann/json
-        VERSION 3.11.3
-)
-
-CPMAddPackage(
-        NAME bitsery
-        GITHUB_REPOSITORY fraillt/bitsery
-        GIT_TAG v5.2.5
+        NAME glaze
+        GITHUB_REPOSITORY stephenberry/glaze
+        GIT_TAG v9.0.0
 )
 
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
@@ -95,6 +89,7 @@ if (NOT EDITOR_BUILD)
     add_subdirectory(Editor)
     add_subdirectory(Tools)
     add_subdirectory(Games)
+    add_subdirectory(Tests)
 endif ()
 
 if (EDITOR_BUILD)

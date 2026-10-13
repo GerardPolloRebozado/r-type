@@ -76,4 +76,4 @@ if (NOT EXISTS "${PFD_DEST}")
 endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui nlohmann_json::nlohmann_json)
+target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui glaze::glaze)

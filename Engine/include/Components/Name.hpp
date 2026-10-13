@@ -17,10 +17,14 @@ struct Name {
     std::string value;
 
     /**
-     * @brief Constructor for Name.
+     * @brief Creates a Name component.
      * @param value The name of the entity.
      */
-    Name(std::string value = "") : value(std::move(value)) {}
+    static Name Create(std::string value = "") {
+        Name name;
+        name.value = std::move(value);
+        return name;
+    }
 };
 
 /**

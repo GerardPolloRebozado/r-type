@@ -31,8 +31,6 @@ struct ShapeComponent {
     bool filled = true;
     mutable Color color = WHITE;
 
-    ShapeComponent() = default;
-
     std::vector<raylib::Vector2> GetShapeVectors(const Rotation& rot, const Position& pos) const;
 };
 

@@ -67,7 +67,7 @@ int main() {
     text_plugin.Init(app.GetRegistry());
     Engine::TextPlugin::AttachToEntity(app.GetRegistry(), menuText,
                                        "This text will disapear when you press G", 50.0,
-                                       Engine::Position{960.0f, 500.0f});
+                                       Engine::Position::Create(960.0f, 500.0f));
     app.GetRegistry().AddComponent(menuText, MainMenuEntity{});
 
     app.Run();

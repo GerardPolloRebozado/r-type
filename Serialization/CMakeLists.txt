@@ -15,5 +15,5 @@ target_include_directories(Serialization PUBLIC
 
 target_link_libraries(Serialization PUBLIC
     Engine
-    nlohmann_json::nlohmann_json
+    glaze::glaze
 )
