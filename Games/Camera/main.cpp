@@ -9,6 +9,7 @@
 #include "Plugins/ShapePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace {
@@ -32,7 +33,7 @@ Engine::Entity SpawnText(Engine::Registry& registry, float x, float y, const std
 }
 } // namespace
 
-// Arrows: move the player. +/-: zoom. Q/E: rotate the camera. Space: shake.
+// Arrows: move the player. +/- or mouse wheel: zoom. Q/E: rotate the camera. Space: shake.
 // Left click: drop a marker where the mouse is in the world (screen -> world conversion).
 class CameraDemoSystem : public Engine::System {
   public:
@@ -58,11 +59,18 @@ class CameraDemoSystem : public Engine::System {
         position.y = std::clamp(position.y, 0.0f, WORLD_HEIGHT);
 
         auto& cam = registry.GetComponent<Engine::CameraComponent>(camera);
-        if (IsKeyDown(KEY_EQUAL) || IsKeyDown(KEY_KP_ADD)) {
-            cam.zoom = std::min(4.0f, cam.zoom + dt);
+        // Zoom with typed '+'/'-' characters (works on any keyboard layout, unlike key codes)
+        // and with the mouse wheel. Holding a key repeats the character.
+        float zoomSteps = GetMouseWheelMove();
+        for (int c = GetCharPressed(); c != 0; c = GetCharPressed()) {
+            if (c == '+') {
+                zoomSteps += 1.0f;
+            } else if (c == '-') {
+                zoomSteps -= 1.0f;
+            }
         }
-        if (IsKeyDown(KEY_MINUS) || IsKeyDown(KEY_KP_SUBTRACT)) {
-            cam.zoom = std::max(0.25f, cam.zoom - dt);
+        if (zoomSteps != 0.0f) {
+            cam.zoom = std::clamp(cam.zoom * std::pow(1.1f, zoomSteps), 0.25f, 4.0f);
         }
         // The camera rotation is the Rotation of its entity
         auto& rotation = registry.GetComponent<Engine::Rotation>(camera);
@@ -152,14 +160,15 @@ int main() {
 
     // HUD: tagged ScreenSpace, so it stays in the corner whatever the camera does
     Engine::ShapeComponent hudPanel;
-    hudPanel.width = 560.0f;
+    hudPanel.width = 640.0f;
     hudPanel.height = 70.0f;
     hudPanel.color = Color{0, 0, 0, 180};
     Engine::Entity panel = SpawnShape(registry, 10.0f, 10.0f, hudPanel);
     registry.AddComponent(panel, Engine::ScreenSpace{});
 
     Engine::Entity help = SpawnText(registry, 20.0f, 20.0f,
-                                    "Arrows: move   +/-: zoom   Q/E: rotate   Space: shake", 20.0f);
+                                    "Arrows: move   +/- or wheel: zoom   Q/E: rotate   Space: shake",
+                                    20.0f);
     registry.AddComponent(help, Engine::ScreenSpace{});
     Engine::Entity help2 = SpawnText(registry, 20.0f, 48.0f, "Click: drop a marker in the world", 20.0f);
     registry.AddComponent(help2, Engine::ScreenSpace{});
