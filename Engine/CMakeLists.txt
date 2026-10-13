@@ -41,6 +41,7 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
         src/Systems/MultiplayerSystem.cpp
+        src/Logging/LogBuffer.cpp
 )
 
 set(INC_FILES
