@@ -8,29 +8,21 @@
 
 namespace Editor {
 
-SceneRenderer::~SceneRenderer() {
-    if (m_GameTexture.id != 0) {
-        m_GameTexture.Unload();
-    }
-}
-
 void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& config) {
-    if (m_GameTexture.id == 0) {
-        m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
-    }
-    bool hasWidthChanged = m_GameTexture.GetTexture().GetSize().x != config.windowWidth;
-    bool hasHeightChanged = m_GameTexture.GetTexture().GetSize().y != config.windowHeight;
-    if (hasWidthChanged || hasHeightChanged) {
-        m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
-    }
+    int virtualWidth =
+        Engine::VirtualResolution::ResolveAxis(config.virtualWidth, config.windowWidth);
+    int virtualHeight =
+        Engine::VirtualResolution::ResolveAxis(config.virtualHeight, config.windowHeight);
+    auto& canvas = registry.GetResource<Engine::VirtualResolution>();
 
-    m_GameTexture.BeginMode();
+    canvas.EnsureSize(virtualWidth, virtualHeight);
+    canvas.Begin();
     ClearBackground(BLACK);
 
     RenderSystems(registry);
     RenderColliderOverlays(registry);
 
-    m_GameTexture.EndMode();
+    canvas.End();
 }
 
 void SceneRenderer::RenderSystems(Engine::Registry& registry) {

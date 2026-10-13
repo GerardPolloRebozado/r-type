@@ -22,6 +22,8 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     projectConfiguration["WindowTitle"] = config.windowTitle;
     projectConfiguration["WindowWidth"] = config.windowWidth;
     projectConfiguration["WindowHeight"] = config.windowHeight;
+    projectConfiguration["VirtualWidth"] = config.virtualWidth;
+    projectConfiguration["VirtualHeight"] = config.virtualHeight;
     projectConfiguration["TargetFPS"] = config.targetFPS;
     projectConfiguration["BuildExecutableName"] = config.m_BuildExecutableName;
     projectConfiguration["BuildWindowTitle"] = config.m_BuildWindowTitle;
@@ -102,6 +104,12 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         }
         if (projectConfiguration.contains("WindowHeight")) {
             config->get().windowHeight = projectConfiguration["WindowHeight"];
+        }
+        if (projectConfiguration.contains("VirtualWidth")) {
+            config->get().virtualWidth = projectConfiguration["VirtualWidth"];
+        }
+        if (projectConfiguration.contains("VirtualHeight")) {
+            config->get().virtualHeight = projectConfiguration["VirtualHeight"];
         }
         if (projectConfiguration.contains("TargetFPS")) {
             config->get().targetFPS = projectConfiguration["TargetFPS"];
