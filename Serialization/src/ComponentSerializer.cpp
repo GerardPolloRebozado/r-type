@@ -1,4 +1,5 @@
 #include "ComponentSerializer.hpp"
+#include "Plugins/CameraPluginSerializer.hpp"
 #include "Plugins/ColliderPluginSerializer.hpp"
 #include "Plugins/PositionPluginSerializer.hpp"
 #include "Plugins/RotationPluginSerializer.hpp"
@@ -24,6 +25,7 @@ void ComponentSerializer::EnsureInitialized() {
     s_Serializers.push_back(std::make_unique<ShapePluginSerializer>());
     s_Serializers.push_back(std::make_unique<SpritePluginSerializer>());
     s_Serializers.push_back(std::make_unique<ColliderPluginSerializer>());
+    s_Serializers.push_back(std::make_unique<CameraPluginSerializer>());
 }
 
 void ComponentSerializer::RegisterSerializer(std::unique_ptr<IPluginSerializer> serializer) {

@@ -1,6 +1,7 @@
 #include "Systems/ShapeSystem.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
+#include "Components/ScreenSpace.hpp"
 #include "Components/ShapeComponent.hpp"
 #include "ECS/Registry.hpp"
 #include <raylib.h>
@@ -9,10 +10,19 @@
 namespace Engine {
 
 void ShapeSystem::Render(Registry& registry) {
+    DrawShapes(registry, false);
+}
+
+void ShapeSystem::RenderScreen(Registry& registry) {
+    DrawShapes(registry, true);
+}
+
+void ShapeSystem::DrawShapes(Registry& registry, bool screenSpace) {
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Entity entity{i};
         if (registry.HasComponent<Position>(entity) &&
-            registry.HasComponent<ShapeComponent>(entity)) {
+            registry.HasComponent<ShapeComponent>(entity) &&
+            registry.HasComponent<ScreenSpace>(entity) == screenSpace) {
             auto& pos = registry.GetComponent<Position>(entity);
             auto& shape = registry.GetComponent<ShapeComponent>(entity);
 

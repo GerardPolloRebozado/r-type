@@ -19,6 +19,7 @@
 #include <rlImGui.h>
 
 #include "BundledAssets.hpp"
+#include "Panels/StatePanel.hpp"
 
 namespace Editor {
 ImFont* g_IconFont = nullptr;
@@ -32,6 +33,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<PreviewPanel>());
     AddPanel(std::make_unique<SettingsPanel>());
     AddPanel(std::make_unique<InputMappingPanel>());
+    AddPanel(std::make_unique<StatePanel>());
 }
 
 EditorLayer::~EditorLayer() {
@@ -40,6 +42,7 @@ EditorLayer::~EditorLayer() {
 
 void EditorLayer::Init() {
     m_Registry->AddResource<HierarchyPanelSelectedEntity>();
+    m_Registry->AddResource<StatePanelSelectedState>();
     if (!m_Registry->HasResource<ProjectContext>()) {
         m_Registry->AddResource<ProjectContext>(m_Configuration ? m_Configuration->m_ProjectFolder
                                                                 : "");
@@ -182,6 +185,7 @@ void EditorLayer::BeginDockSpace() {
             ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.40f, nullptr, &dock_main_id);
 
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
+        ImGui::DockBuilderDockWindow("State", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);

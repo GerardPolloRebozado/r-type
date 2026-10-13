@@ -3,6 +3,7 @@
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Core/Renderer.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include <optional>
 
@@ -20,15 +21,16 @@ void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& confi
     ClearBackground(BLACK);
 
     RenderSystems(registry);
-    RenderColliderOverlays(registry);
 
     canvas.End();
 }
 
 void SceneRenderer::RenderSystems(Engine::Registry& registry) {
-    for (auto const& pair : registry.GetSystems()) {
-        pair.second->Render(registry);
-    }
+    const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
+
+    Engine::RenderScene(registry, static_cast<float>(canvas.GetWidth()),
+                        static_cast<float>(canvas.GetHeight()),
+                        [this, &registry]() { RenderColliderOverlays(registry); });
 }
 
 void SceneRenderer::RenderColliderOverlays(Engine::Registry& registry) {

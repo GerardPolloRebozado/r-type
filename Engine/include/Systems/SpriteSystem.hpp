@@ -18,6 +18,15 @@ class SpriteSystem : public System {
      * @param registry The ECS registry containing the entities.
      */
     void Render(Registry& registry) override;
+
+    /**
+     * @brief Same as Render, for entities tagged with @ref ScreenSpace (drawn without camera).
+     * @param registry The ECS registry containing the entities.
+     */
+    void RenderScreen(Registry& registry) override;
+
+  private:
+    static void DrawSprites(Registry& registry, bool screenSpace);
 };
 } // namespace Engine
 

@@ -1,5 +1,6 @@
 #include "Core/Application.hpp"
 #include "Components/Name.hpp"
+#include "Core/Renderer.hpp"
 #include "Logging/Logger.hpp"
 #include <chrono>
 #include <raylib.h>
@@ -100,13 +101,12 @@ void Application::PostUpdate(float dt) {
         EndDrawing();
     } else {
         auto& virtualResolution = m_Registry.GetResource<VirtualResolution>();
-        auto const& systems = m_Registry.GetSystems();
 
         virtualResolution.Begin();
         ClearBackground(BLACK);
-        for (std::type_index const& systemId : m_Registry.GetSystemRenderOrder()) {
-            systems.at(systemId)->Render(m_Registry);
-        }
+        // Camera and HUD draw into the canvas. The window only receives the letterbox.
+        RenderScene(m_Registry, static_cast<float>(virtualResolution.GetWidth()),
+                    static_cast<float>(virtualResolution.GetHeight()));
         virtualResolution.End();
 
         BeginDrawing();

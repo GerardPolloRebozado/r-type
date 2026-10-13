@@ -22,6 +22,7 @@ set(SRC_FILES
         src/Panels/SceneViewPanel.cpp
         src/Panels/SettingsPanel.cpp
         src/Panels/InputMappingPanel.cpp
+        src/Panels/StatePanel.cpp
         src/Gallery/Gallery.cpp
         src/Plugins/PositionPluginEditor.cpp
         src/Plugins/TextPluginEditor.cpp
@@ -29,6 +30,7 @@ set(SRC_FILES
         src/Plugins/ShapePluginEditor.cpp
         src/Plugins/RotationPluginEditor.cpp
         src/Plugins/ColliderPluginEditor.cpp
+        src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
         src/Utils/Multiplatform.cpp
 )
@@ -46,6 +48,7 @@ set(INC_FILES
         include/Panels/SceneViewPanel.hpp
         include/Panels/SettingsPanel.hpp
         include/Panels/InputMappingPanel.hpp
+        include/Panels/StatePanel.hpp
         include/Gallery.hpp
         include/PluginEditor.hpp
         include/Plugins/PositionPluginEditor.hpp
@@ -55,6 +58,7 @@ set(INC_FILES
         include/Plugins/RotationPluginEditor.hpp
         include/MultiplatformUtils.hpp
         include/Plugins/ColliderPluginEditor.hpp
+        include/Plugins/CameraPluginEditor.hpp
         include/Rendering/SceneRenderer.hpp
 )
 

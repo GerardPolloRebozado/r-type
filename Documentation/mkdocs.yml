@@ -61,6 +61,7 @@ nav:
       - State Management: engine/states.md
       - Networking: engine/networking.md
       - Collisions: engine/collisions.md
+      - Camera: engine/camera.md
   - Editor Manual:
       - Interface Overview: editor/interface.md
       - Using Plugins: editor/plugins.md
