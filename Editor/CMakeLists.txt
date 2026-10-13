@@ -29,6 +29,7 @@ set(SRC_FILES
         src/Plugins/ShapePluginEditor.cpp
         src/Plugins/RotationPluginEditor.cpp
         src/Plugins/ColliderPluginEditor.cpp
+        src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
         src/Utils/Multiplatform.cpp
 )
@@ -55,6 +56,7 @@ set(INC_FILES
         include/Plugins/RotationPluginEditor.hpp
         include/MultiplatformUtils.hpp
         include/Plugins/ColliderPluginEditor.hpp
+        include/Plugins/CameraPluginEditor.hpp
         include/Rendering/SceneRenderer.hpp
 )
 
