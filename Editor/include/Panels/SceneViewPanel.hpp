@@ -3,6 +3,7 @@
 
 #include "Panels/IEditorPanel.hpp"
 #include "Rendering/SceneRenderer.hpp"
+#include <raylib.h>
 #include <string>
 
 namespace Editor {
@@ -24,6 +25,8 @@ class SceneViewPanel : public IEditorPanel {
     float m_DragOffset[2] = {0.0f, 0.0f};
     float m_InitialDragAngle = 0.0f;
     float m_InitialEntityAngle = 0.0f;
+    // Camera frozen when a drag starts, so dragging the camera entity itself does not feed back
+    Camera2D m_DragCamera{{0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, 1.0f};
 
     SceneRenderer m_Renderer;
 };

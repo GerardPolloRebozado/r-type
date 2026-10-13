@@ -5,6 +5,7 @@
 #include "Components/ShapeComponent.hpp"
 #include "EditorConfig.hpp"
 #include "Panels/HierarchyPanel.hpp"
+#include "Systems/CameraSystem.hpp"
 #include <imgui.h>
 #include <rlImGui.h>
 
@@ -64,14 +65,25 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         float scaleX = drawSize.x / static_cast<float>(targetTexture.texture.width);
         float scaleY = drawSize.y / static_cast<float>(targetTexture.texture.height);
 
+        const Camera2D camera = Engine::CameraSystem::GetActiveCamera(
+            registry, static_cast<float>(targetTexture.texture.width),
+            static_cast<float>(targetTexture.texture.height));
+        auto worldToView = [&](const Camera2D& cam, float x, float y) {
+            const Vector2 px = GetWorldToScreen2D({x, y}, cam);
+            return ImVec2(textureScreenPos.x + px.x * scaleX, textureScreenPos.y + px.y * scaleY);
+        };
+        auto viewToWorld = [&](const Camera2D& cam, float x, float y) {
+            return GetScreenToWorld2D(
+                {(x - textureScreenPos.x) / scaleX, (y - textureScreenPos.y) / scaleY}, cam);
+        };
+
         if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
             auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
             if (selected.entity != -1 && registry.HasComponent<Engine::Position>(selected.entity)) {
                 auto& pos = registry.GetComponent<Engine::Position>(selected.entity);
 
                 // Map game coordinates to screen coordinates inside the Scene view
-                ImVec2 entityScreenPos = ImVec2(textureScreenPos.x + pos.x * scaleX,
-                                                textureScreenPos.y + pos.y * scaleY);
+                ImVec2 entityScreenPos = worldToView(camera, pos.x, pos.y);
 
                 ImDrawList* drawList = ImGui::GetWindowDrawList();
 
@@ -114,6 +126,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
 
                 if (ImGui::IsWindowHovered()) {
                     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                        m_DragCamera = camera;
                         if (hoveringRot) {
                             m_GizmoState = GizmoState::DraggingRotation;
                             // Calculate initial angle to mouse
@@ -143,12 +156,14 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 }
 
                 if (m_GizmoState == GizmoState::DraggingBoth) {
-                    pos.x = (mousePos.x + m_DragOffset[0] - textureScreenPos.x) / scaleX;
-                    pos.y = (mousePos.y + m_DragOffset[1] - textureScreenPos.y) / scaleY;
+                    const Vector2 world = viewToWorld(m_DragCamera, mousePos.x + m_DragOffset[0],
+                                                      mousePos.y + m_DragOffset[1]);
+                    pos.x = world.x;
+                    pos.y = world.y;
                 } else if (m_GizmoState == GizmoState::DraggingX) {
-                    pos.x = (mousePos.x + m_DragOffset[0] - textureScreenPos.x) / scaleX;
+                    pos.x = viewToWorld(m_DragCamera, mousePos.x + m_DragOffset[0], mousePos.y).x;
                 } else if (m_GizmoState == GizmoState::DraggingY) {
-                    pos.y = (mousePos.y + m_DragOffset[1] - textureScreenPos.y) / scaleY;
+                    pos.y = viewToWorld(m_DragCamera, mousePos.x, mousePos.y + m_DragOffset[1]).y;
                 } else if (m_GizmoState == GizmoState::DraggingRotation) {
                     float dx = mousePos.x - entityScreenPos.x;
                     float dy = mousePos.y - entityScreenPos.y;
@@ -165,8 +180,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                     }
                 }
 
-                entityScreenPos = ImVec2(textureScreenPos.x + pos.x * scaleX,
-                                         textureScreenPos.y + pos.y * scaleY);
+                entityScreenPos = worldToView(camera, pos.x, pos.y);
                 xEnd = ImVec2(entityScreenPos.x + arrowLen, entityScreenPos.y);
                 yEnd = ImVec2(entityScreenPos.x, entityScreenPos.y + arrowLen);
 
@@ -205,9 +219,9 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                     drawList->AddCircle(entityScreenPos, rotRingRadius, colRot, 32,
                                         rotRingThickness);
 
-                    // Draw a notch to indicate current angle
+                    // Draw a notch to indicate current angle, as seen through the camera
                     auto& rot = registry.GetComponent<Engine::Rotation>(selected.entity);
-                    float angleRad = rot.angle * (3.1415926535f / 180.0f);
+                    float angleRad = (rot.angle + camera.rotation) * (3.1415926535f / 180.0f);
                     ImVec2 notchStart = ImVec2(
                         entityScreenPos.x + std::cos(angleRad) * (rotRingRadius - rotRingThickness),
                         entityScreenPos.y +
