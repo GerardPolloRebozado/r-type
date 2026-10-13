@@ -125,27 +125,24 @@ class NetworkHostResource {
     /**
      * @brief Binds an entity to a network id and tags it with PlayerInformation.
      * Use this when spawning replicas of remote players (e.g. client spawning
-     * an entity for NewPlayerPos.id). Afterwards GetEntityByNetworkId() resolves
-     * it with no manual map. If the id matches the local id, it also becomes
-     * the local entity.
+     * an entity for NewPlayerPos.id)
      * @param registry game registry
      * @param entity entity to bind
      * @param networkId server-assigned id
      */
     void TrackNetworkEntity(Registry& registry, Entity entity, std::size_t networkId);
 
+    /**
+     * @brief Sends a packet to all users
+     * @param packet packet created, you can create one with NetworkHostResource::CreatePacket()
+     * @param channel the channel to use to send the information
+     */
     void SendAllHost(ENetPacket* packet, const uint8_t channel = 0) const {
         enet_host_broadcast(m_host, channel, packet);
     }
 
     /**
-     *  @brief This function will send any data to the specified peer, if the packet ID does not
-     * match the struct being send the router will not be able to process it. Reliable should only
-     * be used outside of the game, for example if we are just sending the player inputs we dont
-     * need to set it to reliable
-     * @tparam TPacketId type of the ID of the type of packet being send DON'T set it manually use
-     * the function GetPacketTypeID<T>()
-     * @tparam TData type of data that we want to send
+     *  @brief This function will send data to the specified peer.
      * @param peer where do we want to send it
      * @param channel the channel where the data would be send
      * @param packet
@@ -155,13 +152,7 @@ class NetworkHostResource {
     }
 
     /**
-     *  @brief This function will send any data to the specified peer, if the packet ID does not
-     * match the struct being send the router will not be able to process it. Reliable should only
-     * be used outside of the game, for example if we are just sending the player inputs we dont
-     * need to set it to reliable
-     * @tparam TPacketId type of the ID of the type of packet being send DON'T set it manually use
-     * the function GetPacketTypeID<T>()
-     * @tparam TData type of data that we want to send
+     *  @brief This function will send any data to the specified peer
      * @param channel the channel where the data would be send
      * @param packet
      */
@@ -169,16 +160,23 @@ class NetworkHostResource {
         Send(server_peer, packet, channel);
     }
 
+    /**
+     * Given a data struct it creates a packet to be send
+     * Reliable should only be used outside of the game, for example if we are just sending the
+     * player inputs we dont need to set it to reliable
+     * @tparam TPacketId type of the packet to send
+     * @tparam TData type of the data to send
+     * @param id id of the type of packet
+     * @param data data to add to the packet
+     * @param reliable if reliable it will ensure the packet arrives
+     * @return
+     */
     template <typename TPacketId, typename TData>
     static ENetPacket* CreatePacket(TPacketId id, const TData& data, const bool reliable) {
         static_assert(std::is_integral_v<TPacketId>, "Packet ID must be an integral type");
 
-        // NB: glaze resizes the output buffer, so the payload must be encoded
-        // separately before prepending the 2-byte packet ID header.
         Buffer payload;
         if (glz::write_beve(data, payload)) {
-            // On encode failure send a header-only packet; the router will
-            // fail to decode it and safely skip the handler.
             payload.clear();
         }
 
