@@ -30,6 +30,7 @@ set(SRC_FILES
         src/Plugins/ShapePluginEditor.cpp
         src/Plugins/RotationPluginEditor.cpp
         src/Plugins/ColliderPluginEditor.cpp
+        src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
         src/Utils/Multiplatform.cpp

@@ -2,11 +2,12 @@
 #include "Components/Name.hpp"
 #include "Core/Application.hpp"
 #include "Panels/HierarchyPanel.hpp"
-#include "Plugins/CameraPluginEditor.hpp"
 #include "Panels/StatePanel.hpp"
-#include "Plugins/PositionPluginEditor.hpp"
+#include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
+#include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
+#include "Plugins/ScriptPluginEditor.hpp"
 #include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
@@ -25,6 +26,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<SpritePluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<ScriptPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {

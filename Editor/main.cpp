@@ -10,6 +10,7 @@
 #include "Plugins/ShapePlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
+#include "Scripting/ScriptPlugin.hpp"
 #include "imgui.h"
 #include "raylib.hpp"
 #include "rlImGui.h"
@@ -55,6 +56,8 @@ void RunEditor(const string& scenePathString) {
     rotationPlugin.Init(app.GetRegistry());
     Engine::ColliderPlugin colliderPlugin;
     colliderPlugin.Init(app.GetRegistry());
+    Engine::ScriptPlugin scriptPlugin;
+    scriptPlugin.Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;
     cameraPlugin.Init(app.GetRegistry());
 

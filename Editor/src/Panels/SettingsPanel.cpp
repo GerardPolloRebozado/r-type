@@ -48,6 +48,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/RotationPlugin.hpp\"\n"
             << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Plugins/CameraPlugin.hpp\"\n"
+            << "#include \"Scripting/ScriptPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
             << "#include <raylib.h>\n\n"
@@ -72,7 +73,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    Engine::ColliderPlugin colliderPlugin;\n"
             << "    colliderPlugin.Init(app.GetRegistry());\n"
             << "    Engine::CameraPlugin cameraPlugin;\n"
-            << "    cameraPlugin.Init(app.GetRegistry());\n\n"
+            << "    cameraPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::ScriptPlugin scriptPlugin;\n"
+            << "    scriptPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 
