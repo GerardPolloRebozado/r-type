@@ -72,7 +72,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                             }
                             if (!registry.HasComponent<Engine::Position>(entity)) {
                                 registry.AddComponent<Engine::Position>(entity,
-                                                                        Engine::Position(0, 0));
+                                                                        Engine::Position(0, 0, 0));
                             }
                             if (!registry.HasComponent<Engine::Rotation>(entity)) {
                                 registry.AddComponent<Engine::Rotation>(entity,
@@ -120,7 +120,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                         spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
                     }
                     const Engine::Entity newEntity = registry.CreateEntity();
-                    registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
+                    registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0, 0));
                     registry.AddComponent<Engine::Rotation>(newEntity, Engine::Rotation(0.0f));
                     registry.AddComponent<Engine::SpriteComponent>(
                         newEntity, Engine::SpriteComponent(spr, relPath));

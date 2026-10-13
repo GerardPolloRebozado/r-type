@@ -7,7 +7,8 @@ void PositionPluginSerializer::Serialize(Engine::Entity entity, Engine::Registry
                                          nlohmann::json& outEntityJson) {
     if (registry.HasComponent<Engine::Position>(entity)) {
         const auto& position = registry.GetComponent<Engine::Position>(entity);
-        outEntityJson["PositionComponent"] = {{"x", position.x}, {"y", position.y}};
+        outEntityJson["PositionComponent"] = {
+            {"x", position.x}, {"y", position.y}, {"z", position.z}};
     }
 }
 
@@ -17,12 +18,14 @@ void PositionPluginSerializer::Deserialize(Engine::Entity entity, Engine::Regist
         const auto& positionJson = inEntityJson["PositionComponent"];
         float x = positionJson.value("x", 0.0f);
         float y = positionJson.value("y", 0.0f);
-        registry.AddComponent<Engine::Position>(entity, Engine::Position(x, y));
+        float z = positionJson.value("z", 0.0f);
+        registry.AddComponent<Engine::Position>(entity, Engine::Position(x, y, z));
     } else if (inEntityJson.contains("TransformComponent")) {
         const auto& positionJson = inEntityJson["TransformComponent"];
         float x = positionJson.value("x", 0.0f);
         float y = positionJson.value("y", 0.0f);
-        registry.AddComponent<Engine::Position>(entity, Engine::Position(x, y));
+        float z = positionJson.value("z", 0.0f);
+        registry.AddComponent<Engine::Position>(entity, Engine::Position(x, y, z));
     }
 }
 
