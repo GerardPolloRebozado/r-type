@@ -52,9 +52,7 @@ static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPres
 }
 
 static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
-    // The SDK already created the player entity, assigned its network id and
-    // told the client about it. We only add game visuals and catch everyone up.
-    auto& host = registry.GetResource<Engine::Multiplayer::NetworkHostResource>();
+    const auto& host = registry.GetResource<Engine::Multiplayer::NetworkHostResource>();
     const auto playerEntity = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer);
     if (!playerEntity.has_value()) {
         return;
@@ -84,18 +82,14 @@ static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
                          registry.GetComponent<Engine::Position>(existingEntity)},
             true);
         Engine::Multiplayer::NetworkHostResource::Send(peer, catchUp, 0);
-        // tell existing players about the enw player
+        // tell existing players about the new player
         auto* announce = Engine::Multiplayer::NetworkHostResource::CreatePacket(
             NewPlayerPosPacket, NewPlayerPos{*newPlayerId, newPlayerPos}, true);
         Engine::Multiplayer::NetworkHostResource::Send(*existingPeer, announce, 0);
     }
 }
 
-static void OnDisconnect(Engine::Registry& registry, ENetPeer* peer) {
-    // The SDK already destroyed the player entity and cleared its id mapping.
-    (void)registry;
-    (void)peer;
-}
+static void OnDisconnect(Engine::Registry&, ENetPeer*) {}
 
 int main() {
     std::cout << "======================================\n";
