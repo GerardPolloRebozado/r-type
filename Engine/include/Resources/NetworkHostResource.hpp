@@ -10,12 +10,17 @@
 #include "ECS/Registry.hpp"
 #include "PacketRouterResource.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <enet.h>
+#include <glaze/glaze.hpp>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
+#include <unordered_map>
+#include <vector>
 
 namespace Engine::Multiplayer {
-
 class NetworkHostResource {
   public:
     /**
@@ -54,63 +59,146 @@ class NetworkHostResource {
      * @param router router to use when a new packet is received
      * @param registry of the game
      */
-    void Poll(uint32_t timeoutMs, Packets::PacketRouterResource router, Registry& registry);
+    void Poll(uint32_t timeoutMs, PacketRouterResource router, Registry& registry);
 
     /**
-     *  @brief This function will send any data to the specified peer, if the packet ID does not
-     * match the struct being send the router will not be able to process it. Reliable should only
-     * be used outside of the game, for example if we are just sending the player inputs we dont
-     * need to set it to reliable
-     * @tparam TPacketId type of the ID of the type of packet being send DON'T set it manually use
-     * the function GetPacketTypeID<T>()
-     * @tparam TData type of data that we want to send
-     * @param peer where do we want to send it
-     * @param id ID of the type of packet being send DON'T set it manually use the function
-     * GetPacketTypeID<T>()
-     * @param data data to send
-     * @param channel the channel where the data would be send
-     * @param reliable if we want to ensure the packet is delivered correctly or not
+     *
+     * @param peer Peer that you want to know its entityID
+     * @return Given a ENet peer it will return its entityID
      */
-    template <typename TPacketId, typename TData>
-    static void Send(ENetPeer* peer, TPacketId id, const TData& data, const uint8_t channel = 0,
-                     const bool reliable = true) {
-        static_assert(std::is_integral_v<TPacketId>, "Packet ID must be an integral type");
+    static std::optional<Entity> GetEntityID(ENetPeer* peer);
 
-        Packets::Buffer buffer;
-        auto writer = bitsery::Serializer<Packets::OutputAdapter>(buffer);
+    /**
+     *
+     * @param peer Where to save the entity ID
+     * @param entity The entity to save in the peer
+     */
+    static void SetPeerEntity(ENetPeer* peer, Entity entity);
 
-        auto rawId = static_cast<uint16_t>(id);
-        writer.value2b(rawId);
-        writer.object(data);
-        writer.adapter().flush();
+    /**
+     * @brief Registers the SDK-owned multiplayer components on the registry.
+     * Idempotent: safe to call more than once. The SDK also calls this
+     * internally on server connect, so games never strictly need it.
+     * @param registry game registry
+     */
+    static void RegisterMultiplayerComponents(Registry& registry);
 
-        const enet_uint32 flags = reliable ? ENET_PACKET_FLAG_RELIABLE : 0;
-        ENetPacket* packet = enet_packet_create(buffer.data(), buffer.size(), flags);
+    /**
+     * @brief True when this host was created with CreateServer().
+     */
+    bool IsServer() const {
+        return m_isServer;
+    }
+
+    /**
+     * @brief Network id assigned by the server to the given entity, if any.
+     */
+    std::optional<std::size_t> GetNetworkId(Registry& registry, Entity entity) const;
+
+    /**
+     * @brief Entity currently bound to a network id (server-owned players and
+     * entities registered via TrackNetworkEntity), if any.
+     */
+    std::optional<Entity> GetEntityByNetworkId(std::size_t networkId) const;
+
+    /**
+     * @brief Network id the server assigned to this client (set automatically
+     * when the YourPlayerId packet arrives). Empty on servers.
+     */
+    std::optional<std::size_t> GetLocalNetworkId() const {
+        return m_localNetworkId;
+    }
+
+    /**
+     * @brief Local player entity bound via TrackNetworkEntity. Empty until the
+     * game spawns/binds it.
+     */
+    std::optional<Entity> GetLocalEntity() const {
+        return m_localEntity;
+    }
+
+    /**
+     * @brief Peer backing a server-side player entity, if still connected.
+     */
+    std::optional<ENetPeer*> GetPeer(Entity entity) const;
+
+    /**
+     * @brief Binds an entity to a network id and tags it with PlayerInformation.
+     * Use this when spawning replicas of remote players (e.g. client spawning
+     * an entity for NewPlayerPos.id)
+     * @param registry game registry
+     * @param entity entity to bind
+     * @param networkId server-assigned id
+     */
+    void TrackNetworkEntity(Registry& registry, Entity entity, std::size_t networkId);
+
+    /**
+     * @brief Sends a packet to all users
+     * @param packet packet created, you can create one with NetworkHostResource::CreatePacket()
+     * @param channel the channel to use to send the information
+     */
+    void SendAllHost(ENetPacket* packet, const uint8_t channel = 0) const {
+        enet_host_broadcast(m_host, channel, packet);
+    }
+
+    /**
+     *  @brief This function will send data to the specified peer.
+     * @param peer where do we want to send it
+     * @param channel the channel where the data would be send
+     * @param packet
+     */
+    static void Send(ENetPeer* peer, ENetPacket* packet, const uint8_t channel = 0) {
         enet_peer_send(peer, channel, packet);
     }
 
     /**
-     *  @brief This function will send any data to the specified peer, if the packet ID does not
-     * match the struct being send the router will not be able to process it. Reliable should only
-     * be used outside of the game, for example if we are just sending the player inputs we dont
-     * need to set it to reliable
-     * @tparam TPacketId type of the ID of the type of packet being send DON'T set it manually use
-     * the function GetPacketTypeID<T>()
-     * @tparam TData type of data that we want to send
-     * @param id ID of the type of packet being send DON'T set it manually use the function
-     * GetPacketTypeID<T>()
-     * @param data data to send
+     *  @brief This function will send any data to the specified peer
      * @param channel the channel where the data would be send
-     * @param reliable if we want to ensure the packet is delivered correctly or not
+     * @param packet
      */
-    template <class TPacketId, class TData>
-    void Send(TPacketId id, const TData& data, uint8_t channel, bool reliable) {
-        Send<TPacketId, TData>(server_peer, id, data, channel, reliable);
+    void Send(ENetPacket* packet, const uint8_t channel = 0) const {
+        Send(server_peer, packet, channel);
+    }
+
+    /**
+     * Given a data struct it creates a packet to be send
+     * Reliable should only be used outside of the game, for example if we are just sending the
+     * player inputs we dont need to set it to reliable
+     * @tparam TPacketId type of the packet to send
+     * @tparam TData type of the data to send
+     * @param id id of the type of packet
+     * @param data data to add to the packet
+     * @param reliable if reliable it will ensure the packet arrives
+     * @return
+     */
+    template <typename TPacketId, typename TData>
+    static ENetPacket* CreatePacket(TPacketId id, const TData& data, const bool reliable) {
+        static_assert(std::is_integral_v<TPacketId>, "Packet ID must be an integral type");
+
+        Buffer payload;
+        if (glz::write_beve(data, payload)) {
+            payload.clear();
+        }
+
+        Buffer buffer;
+        buffer.reserve(sizeof(uint16_t) + payload.size());
+        const auto rawId = static_cast<uint16_t>(id);
+        buffer.push_back(static_cast<std::byte>(rawId & 0xFF));
+        buffer.push_back(static_cast<std::byte>((rawId >> 8) & 0xFF));
+        buffer.insert(buffer.end(), payload.begin(), payload.end());
+
+        const enet_uint32 flags = reliable ? ENET_PACKET_FLAG_RELIABLE : 0;
+        return enet_packet_create(buffer.data(), buffer.size(), flags);
     }
 
     // disable host copy
-    NetworkHostResource(NetworkHostResource&& other) noexcept : m_host(other.m_host) {
+    NetworkHostResource(NetworkHostResource&& other) noexcept
+        : m_host(other.m_host), server_peer(other.server_peer), m_isServer(other.m_isServer),
+          m_nextNetworkId(other.m_nextNetworkId), m_localNetworkId(other.m_localNetworkId),
+          m_localEntity(other.m_localEntity), m_idToEntity(std::move(other.m_idToEntity)),
+          m_entityToPeer(std::move(other.m_entityToPeer)) {
         other.m_host = nullptr;
+        other.server_peer = nullptr;
     }
 
     NetworkHostResource& operator=(NetworkHostResource&& other) noexcept {
@@ -119,7 +207,15 @@ class NetworkHostResource {
                 enet_host_destroy(m_host);
             }
             m_host = other.m_host;
+            server_peer = other.server_peer;
+            m_isServer = other.m_isServer;
+            m_nextNetworkId = other.m_nextNetworkId;
+            m_localNetworkId = other.m_localNetworkId;
+            m_localEntity = other.m_localEntity;
+            m_idToEntity = std::move(other.m_idToEntity);
+            m_entityToPeer = std::move(other.m_entityToPeer);
             other.m_host = nullptr;
+            other.server_peer = nullptr;
         }
         return *this;
     }
@@ -127,11 +223,13 @@ class NetworkHostResource {
     ~NetworkHostResource();
 
   private:
-    NetworkHostResource(const ENetAddress* address, const size_t peerCount, const size_t channels) {
+    NetworkHostResource(const ENetAddress* address, const size_t peerCount, const size_t channels,
+                        bool isServer) {
         m_host = enet_host_create(address, peerCount, channels, 0, 0);
         if (!m_host) {
             throw std::runtime_error("Failed to create ENet host");
         }
+        m_isServer = isServer;
     }
 
     /**
@@ -139,6 +237,12 @@ class NetworkHostResource {
      */
     ENetPeer* server_peer = nullptr;
     ENetHost* m_host = nullptr;
+    bool m_isServer = false;
+    std::size_t m_nextNetworkId = 1;
+    std::optional<std::size_t> m_localNetworkId;
+    std::optional<Entity> m_localEntity;
+    std::unordered_map<std::size_t, Entity> m_idToEntity;
+    std::unordered_map<Entity, ENetPeer*> m_entityToPeer;
 };
 } // namespace Engine::Multiplayer
 #endif // G_ING_500_BAR_5_1_RTYPE_1_NETWORKHOST_HPP

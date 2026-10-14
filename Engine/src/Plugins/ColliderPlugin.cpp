@@ -13,13 +13,13 @@ void ColliderPlugin::AttachToEntity(Registry& registry, const Entity entity,
                                     const std::optional<ShapeComponent>& shape, const bool enabled,
                                     const bool isTrigger) {
     if (!registry.HasComponent<Position>(entity)) {
-        registry.AddComponent(entity, Position{0.0f, 0.0f});
+        registry.AddComponent(entity, Position::Create(0.0f, 0.0f));
     }
     std::optional<ShapeComponent> colliderShape = shape;
     if (!colliderShape.has_value() && !registry.HasComponent<ShapeComponent>(entity)) {
         colliderShape = ShapeComponent{};
     }
-    registry.AddComponent(entity, ColliderComponent{colliderShape, enabled, isTrigger});
+    registry.AddComponent(entity, ColliderComponent::Create(colliderShape, enabled, isTrigger));
     if (!registry.HasComponent<CollisionEvents>(entity)) {
         registry.AddComponent(entity, CollisionEvents{});
     }
@@ -28,7 +28,7 @@ void ColliderPlugin::AttachToEntity(Registry& registry, const Entity entity,
 void ColliderPlugin::AttachToEntity(Registry& registry, const Entity entity,
                                     const ColliderComponent& collider) {
     if (!registry.HasComponent<Position>(entity)) {
-        registry.AddComponent(entity, Position{0.0f, 0.0f});
+        registry.AddComponent(entity, Position::Create(0.0f, 0.0f));
     }
     ColliderComponent col = collider;
     if (!col.shape.has_value() && !registry.HasComponent<ShapeComponent>(entity)) {

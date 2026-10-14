@@ -19,7 +19,9 @@
 #include <rlImGui.h>
 
 #include "BundledAssets.hpp"
+#include "Gallery.hpp"
 #include "Panels/StatePanel.hpp"
+#include "SceneSerializer.hpp"
 
 namespace Editor {
 ImFont* g_IconFont = nullptr;

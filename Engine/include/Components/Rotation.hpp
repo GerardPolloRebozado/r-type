@@ -11,7 +11,11 @@ struct Rotation {
     /** @brief Rotation angle in degrees. */
     float angle = 0.0f;
 
-    Rotation(float angle = 0.0f) : angle(angle) {}
+    static Rotation Create(float angle = 0.0f) {
+        Rotation rot;
+        rot.angle = angle;
+        return rot;
+    }
 };
 
 } // namespace Engine

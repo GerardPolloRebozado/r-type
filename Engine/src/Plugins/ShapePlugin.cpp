@@ -10,7 +10,7 @@ void ShapePlugin::Init(Registry& registry) {
 
 void ShapePlugin::AttachToEntity(Registry& registry, Entity entity, const ShapeComponent& shape) {
     if (!registry.HasComponent<Position>(entity)) {
-        registry.AddComponent<Position>(entity, Position{0, 0});
+        registry.AddComponent<Position>(entity, Position::Create(0, 0));
     }
     registry.AddComponent<ShapeComponent>(entity, shape);
 }
