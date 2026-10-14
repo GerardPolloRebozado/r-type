@@ -7,7 +7,7 @@ void RotationPlugin::Init(Registry& registry) {
 }
 
 void RotationPlugin::AttachToEntity(Registry& registry, Entity entity, float angle) {
-    registry.AddComponent<Rotation>(entity, Rotation{angle});
+    registry.AddComponent<Rotation>(entity, Rotation::Create(angle));
 }
 
 } // namespace Engine

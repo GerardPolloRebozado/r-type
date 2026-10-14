@@ -3,8 +3,11 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
+#include "Plugins/AudioPlugin.hpp"
 #include "Plugins/CameraPlugin.hpp"
 #include "Plugins/ColliderPlugin.hpp"
+#include "Plugins/HierarchyPlugin.hpp"
+#include "Plugins/InputPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
@@ -56,6 +59,12 @@ void RunEditor(const string& scenePathString) {
     rotationPlugin.Init(app.GetRegistry());
     Engine::ColliderPlugin colliderPlugin;
     colliderPlugin.Init(app.GetRegistry());
+    Engine::HierarchyPlugin hierarchyPlugin;
+    hierarchyPlugin.Init(app.GetRegistry());
+    Engine::InputPlugin inputPlugin;
+    inputPlugin.Init(app.GetRegistry());
+    Engine::AudioPlugin audioPlugin;
+    audioPlugin.Init(app.GetRegistry());
     Engine::ScriptPlugin scriptPlugin;
     scriptPlugin.Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;

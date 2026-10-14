@@ -20,23 +20,35 @@ struct ColliderComponent {
     std::optional<ShapeComponent> shape;
 
     /** @brief When false, skipped by CollisionSystem. */
-    bool enabled;
+    bool enabled = true;
 
     /** @brief When true, reports trigger events without solid blocking. */
-    bool isTrigger;
+    bool isTrigger = false;
+
+    /** @brief When true, this collider does not move during resolution (acts like a wall/floor). */
+    bool isStatic = false;
 
     /**
-     * @brief Constructs a collider with explicit dimensions and offsets.
+     * @brief Creates a collider with explicit dimensions and offsets.
      */
-    ColliderComponent(const bool enabled = true, const bool isTrigger = false)
-        : enabled(enabled), isTrigger(isTrigger) {}
+    static ColliderComponent Create(const bool enabled = true, const bool isTrigger = false) {
+        ColliderComponent collider;
+        collider.enabled = enabled;
+        collider.isTrigger = isTrigger;
+        return collider;
+    }
 
     /**
-     * @brief Constructs a collider directly from a Raylib Rectangle (x = offsetX, y = offsetY).
+     * @brief Creates a collider directly from a Raylib Rectangle (x = offsetX, y = offsetY).
      */
-    explicit ColliderComponent(const std::optional<ShapeComponent>& shape,
-                               const bool enabled = true, const bool isTrigger = false)
-        : shape(shape), enabled(enabled), isTrigger(isTrigger) {}
+    static ColliderComponent Create(const std::optional<ShapeComponent>& shape,
+                                    const bool enabled = true, const bool isTrigger = false) {
+        ColliderComponent collider;
+        collider.shape = shape;
+        collider.enabled = enabled;
+        collider.isTrigger = isTrigger;
+        return collider;
+    }
 };
 } // namespace Engine
 

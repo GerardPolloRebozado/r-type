@@ -13,7 +13,7 @@
 namespace Engine {
 void MultiplayerSystem::Update(Registry& registry, float dt) {
     auto& networkHost = registry.GetResource<Multiplayer::NetworkHostResource>();
-    auto& router = registry.GetResource<Multiplayer::Packets::PacketRouterResource>();
+    auto& router = registry.GetResource<Multiplayer::PacketRouterResource>();
     networkHost.Poll(0, router, registry);
 }
 } // namespace Engine

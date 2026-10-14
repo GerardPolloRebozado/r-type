@@ -4,8 +4,8 @@
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
-#include "Panels/StatePanel.hpp"
 #include "EditorConfig.hpp"
+#include "Panels/StatePanel.hpp"
 #include <imgui.h>
 #include <string>
 
@@ -71,12 +71,12 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                                 spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
                             }
                             if (!registry.HasComponent<Engine::Position>(entity)) {
-                                registry.AddComponent<Engine::Position>(entity,
-                                                                        Engine::Position(0, 0));
+                                registry.AddComponent<Engine::Position>(
+                                    entity, Engine::Position::Create(0, 0));
                             }
                             if (!registry.HasComponent<Engine::Rotation>(entity)) {
-                                registry.AddComponent<Engine::Rotation>(entity,
-                                                                        Engine::Rotation(0.0f));
+                                registry.AddComponent<Engine::Rotation>(
+                                    entity, Engine::Rotation::Create(0.0f));
                             }
                             if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
                                 auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
@@ -120,8 +120,10 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                         spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
                     }
                     const Engine::Entity newEntity = registry.CreateEntity();
-                    registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
-                    registry.AddComponent<Engine::Rotation>(newEntity, Engine::Rotation(0.0f));
+                    registry.AddComponent<Engine::Position>(newEntity,
+                                                            Engine::Position::Create(0, 0));
+                    registry.AddComponent<Engine::Rotation>(newEntity,
+                                                            Engine::Rotation::Create(0.0f));
                     registry.AddComponent<Engine::SpriteComponent>(
                         newEntity, Engine::SpriteComponent(spr, relPath));
                     selected.entity = newEntity;

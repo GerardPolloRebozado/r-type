@@ -46,6 +46,11 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
             collider.isTrigger = isTrigger;
         }
         ImGui::SameLine();
+        bool isStatic = collider.isStatic;
+        if (ImGui::Checkbox("Is Static", &isStatic)) {
+            collider.isStatic = isStatic;
+        }
+        ImGui::SameLine();
         bool isEnabled = collider.enabled;
         if (ImGui::Checkbox("Enabled", &isEnabled)) {
             collider.enabled = isEnabled;

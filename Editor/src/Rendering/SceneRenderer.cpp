@@ -1,10 +1,13 @@
 #include "Rendering/SceneRenderer.hpp"
+#include "Assets/AssetManager.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Components/SpriteComponent.hpp"
 #include "Core/Renderer.hpp"
 #include "Panels/HierarchyPanel.hpp"
+#include "PathUtils.hpp"
 #include <optional>
 
 namespace Editor {
@@ -23,6 +26,31 @@ void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& confi
     bool hasHeightChanged = m_GameTexture.GetTexture().GetSize().y != config.windowHeight;
     if (hasWidthChanged || hasHeightChanged) {
         m_GameTexture = raylib::RenderTexture2D(config.windowWidth, config.windowHeight);
+    }
+
+    for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
+        Engine::Entity entity = static_cast<Engine::Entity>(i);
+        if (!registry.HasComponent<Engine::SpriteComponent>(entity)) {
+            continue;
+        }
+        auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
+        if (sc.sprite || sc.assetPath.empty()) {
+            continue;
+        }
+        try {
+            auto resolved = Serialization::ResolveAssetPath(registry, sc.assetPath);
+            if (registry.HasResource<Engine::AssetManager>()) {
+                auto& am = registry.GetResource<Engine::AssetManager>();
+                am.LoadSprite(sc.assetPath, resolved.string());
+                sc.sprite = am.GetSprite(sc.assetPath);
+            } else {
+                sc.sprite = std::make_shared<Engine::Sprite>(resolved.string());
+            }
+            if (sc.sprite && sc.scaleX > 0.0f && sc.scaleY > 0.0f) {
+                sc.sprite->SetScale({sc.scaleX, sc.scaleY});
+            }
+        } catch (...) {
+        }
     }
 
     m_GameTexture.BeginMode();

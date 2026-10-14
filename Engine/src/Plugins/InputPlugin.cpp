@@ -11,6 +11,6 @@ void InputPlugin::Init(Registry& registry) {
 }
 
 void InputPlugin::AttachToEntity(Registry& registry, const Entity entity, int idxPlayer) {
-    registry.AddComponent(entity, Input{idxPlayer});
+    registry.AddComponent(entity, Input::Create(idxPlayer));
 }
 } // namespace Engine
