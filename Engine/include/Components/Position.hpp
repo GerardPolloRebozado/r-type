@@ -7,30 +7,38 @@ namespace Engine {
  * @brief A basic component representing a 2D position.
  *
  * Holds current (x, y), previous-frame (prevX, prevY), @ref moved, and @ref relative.
- * Stored x/y are always world coordinates; @ref relative only gates @ref HierarchySystem delta follow.
+ * Stored x/y are always world coordinates; @ref relative only gates @ref HierarchySystem delta
+ * follow.
  */
 struct Position {
-    float x;
-    float y;
-    float prevX;
-    float prevY;
+    float x = 0.0f;
+    float y = 0.0f;
+    float prevX = 0.0f;
+    float prevY = 0.0f;
 
     /** @brief True when (x, y) differs from (prevX, prevY); updated by @ref PositionSystem. */
-    bool moved;
+    bool moved = false;
 
     /**
      * @brief When true and the entity has @ref Parent, @ref HierarchySystem applies the
      *        parent's frame delta to this position.
      */
-    bool relative;
+    bool relative = false;
 
     /**
-     * @brief Constructor for Position.
+     * @brief Creates a Position. Previous-frame coordinates start equal to the
+     *        current ones so the entity is not reported as moved on spawn.
      * @param x The initial X position.
      * @param y The initial Y position.
      */
-    Position(float x = 0.0f, float y = 0.0f)
-        : x(x), y(y), prevX(x), prevY(y), moved(false), relative(false) {}
+    static Position Create(float x = 0.0f, float y = 0.0f) {
+        Position pos;
+        pos.x = x;
+        pos.y = y;
+        pos.prevX = x;
+        pos.prevY = y;
+        return pos;
+    }
 };
 } // namespace Engine
 

@@ -154,11 +154,11 @@ int main() {
     Engine::TextPlugin::AttachToEntity(app.GetRegistry(), infoEntity,
                                        "Move Player (Circle) with WASD | Green: Solid Triangle | "
                                        "Yellow: Trigger Rectangle | Red: Colliding",
-                                       20.0f, Engine::Position{30.0f, 20.0f});
+                                       20.0f, Engine::Position::Create(30.0f, 20.0f));
 
     // Solid Triangle Entity (Polygon with 3 sides)
     const auto solidEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(solidEntity, Engine::Position{550.0f, 350.0f});
+    app.GetRegistry().AddComponent(solidEntity, Engine::Position::Create(550.0f, 350.0f));
     Engine::ShapeComponent solidShape;
     solidShape.type = Engine::ShapeType::POLYGON;
     solidShape.sides = 3;
@@ -166,7 +166,7 @@ int main() {
     solidShape.filled = true;
     solidShape.color = GREEN;
     app.GetRegistry().AddComponent(solidEntity, solidShape);
-    app.GetRegistry().AddComponent(solidEntity, Engine::ColliderComponent(true, false));
+    app.GetRegistry().AddComponent(solidEntity, Engine::ColliderComponent::Create(true, false));
 
     Engine::CollisionEvents solidEvents;
     solidEvents.onCollisionEnter.emplace_back(
@@ -183,7 +183,7 @@ int main() {
 
     // Trigger Zone Rectangle Entity
     const auto triggerEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(triggerEntity, Engine::Position{850.0f, 280.0f});
+    app.GetRegistry().AddComponent(triggerEntity, Engine::Position::Create(850.0f, 280.0f));
     Engine::ShapeComponent triggerShape;
     triggerShape.type = Engine::ShapeType::RECTANGLE;
     triggerShape.width = 150.0f;
@@ -191,7 +191,7 @@ int main() {
     triggerShape.filled = true;
     triggerShape.color = YELLOW;
     app.GetRegistry().AddComponent(triggerEntity, triggerShape);
-    app.GetRegistry().AddComponent(triggerEntity, Engine::ColliderComponent(true, true));
+    app.GetRegistry().AddComponent(triggerEntity, Engine::ColliderComponent::Create(true, true));
     // isTrigger = true
 
     Engine::CollisionEvents triggerEvents;
@@ -209,14 +209,14 @@ int main() {
 
     // Player Circle Entity that moves
     const auto playerEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(playerEntity, Engine::Position{200.0f, 350.0f});
+    app.GetRegistry().AddComponent(playerEntity, Engine::Position::Create(200.0f, 350.0f));
     Engine::ShapeComponent playerShape;
     playerShape.type = Engine::ShapeType::CIRCLE;
     playerShape.radius = 40.0f;
     playerShape.filled = true;
     playerShape.color = GREEN;
     app.GetRegistry().AddComponent(playerEntity, playerShape);
-    app.GetRegistry().AddComponent(playerEntity, Engine::ColliderComponent(true, false));
+    app.GetRegistry().AddComponent(playerEntity, Engine::ColliderComponent::Create(true, false));
     Engine::InputPlugin::AttachToEntity(app.GetRegistry(), playerEntity, 1);
 
     Engine::CollisionEvents playerEvents;

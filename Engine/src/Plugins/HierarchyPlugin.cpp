@@ -22,7 +22,7 @@ void HierarchyPlugin::AttachChild(Registry& registry, Entity child, Entity paren
         }
     }
 
-    registry.AddComponent(child, Parent{parent});
+    registry.AddComponent(child, Parent::Create(parent));
 
     if (relative) {
         if (!registry.HasComponent<Position>(child)) {

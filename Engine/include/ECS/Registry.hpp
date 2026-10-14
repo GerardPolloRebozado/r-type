@@ -81,15 +81,19 @@ template <typename T> class ComponentArray : public IComponentArray {
     auto begin() {
         return m_ComponentMap.begin();
     }
+
     auto end() {
         return m_ComponentMap.end();
     }
+
     auto begin() const {
         return m_ComponentMap.begin();
     }
+
     auto end() const {
         return m_ComponentMap.end();
     }
+
     void clear() {
         m_ComponentMap.clear();
     }
@@ -98,7 +102,6 @@ template <typename T> class ComponentArray : public IComponentArray {
         return m_ComponentMap.size();
     }
 
-  private:
     std::unordered_map<Entity, T> m_ComponentMap;
 };
 
@@ -123,8 +126,8 @@ class Registry {
      */
     Entity CreateEntity() {
         Entity entity = {m_NextEntityId++};
-        AddComponent<Position>(entity, Position(0, 0));
-        AddComponent<Rotation>(entity, Rotation(0.0f));
+        AddComponent<Position>(entity, Position::Create(0, 0));
+        AddComponent<Rotation>(entity, Rotation::Create(0.0f));
         return entity;
     }
 
@@ -140,11 +143,12 @@ class Registry {
      * @brief Registers a component type with the registry.
      * @tparam T The component type.
      */
-    template <typename T> void RegisterComponent() {
-        std::type_index typeName = typeid(T);
+    template <typename T> Registry* RegisterComponent() {
+        const std::type_index typeName = typeid(T);
         if (!m_ComponentArrays.contains(typeName)) {
             m_ComponentArrays[typeName] = std::make_shared<ComponentArray<T>>();
         }
+        return this;
     }
 
     /**
@@ -343,7 +347,7 @@ class Registry {
         }
     }
 
-    Entity m_NextEntityId = 0;
+    Entity m_NextEntityId = 1;
     std::unordered_map<std::type_index, std::shared_ptr<IComponentArray>> m_ComponentArrays;
     std::unordered_map<std::type_index, std::shared_ptr<System>> m_Systems;
     std::vector<std::type_index> m_SystemUpdateOrder;

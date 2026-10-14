@@ -3,14 +3,15 @@
 #include "EditorLayer.hpp"
 #include "MultiplatformUtils.hpp"
 #include "imgui.h"
-#include "nlohmann/json.hpp"
 #include "portable-file-dialogs.h"
 #include <algorithm>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
 #include <filesystem>
 #include <fstream>
+#include <glaze/glaze.hpp>
 #include <iostream>
+#include <iterator>
 #include <vector>
 
 ImFont* g_IconFont = nullptr;
@@ -64,28 +65,12 @@ std::vector<ProjectData> Gallery::FindProjects() {
         return {};
     }
 
-    nlohmann::json data;
-    try {
-        data = nlohmann::json::parse(file);
-    } catch (const nlohmann::json::parse_error&) {
-        return {};
-    }
-
-    if (!data.is_array()) {
-        return {};
-    }
+    const std::string content((std::istreambuf_iterator<char>(file)),
+                              std::istreambuf_iterator<char>());
 
     std::vector<ProjectData> projects;
-    projects.reserve(data.size());
-
-    for (const auto& item : data) {
-        if (!item.is_object()) {
-            continue;
-        }
-
-        projects.push_back({item.value("name", ""), item.value("description", ""),
-                            item.value("lastOpened", ""), item.value("path", ""),
-                            item.value("engineVersion", "")});
+    if (glz::read_json(projects, content)) {
+        return {};
     }
 
     return projects;
@@ -106,21 +91,15 @@ void Gallery::UpdateProjectList(const std::string& projectPath) {
                    .count();
     it->lastOpened = std::to_string(now);
 
-    nlohmann::json data = nlohmann::json::array();
-    for (const auto& project : projects) {
-        data.push_back({{"name", project.name},
-                        {"description", project.description},
-                        {"lastOpened", project.lastOpened},
-                        {"path", project.path},
-                        {"engineVersion", project.engineVersion}});
-    }
+    std::string output;
+    glz::write_json(projects, output);
 
     const auto settingsPath = ConfigDirectory() / "projects.json";
     std::ofstream file(settingsPath);
     if (!file) {
         return;
     }
-    file << data.dump(2) << '\n';
+    file << output << '\n';
 }
 
 std::string Editor::Gallery::DrawGallery() {
@@ -247,42 +226,38 @@ std::string Editor::Gallery::DrawGallery() {
 
                 if (ImGui::Button("Create", ImVec2(120, 0))) {
                     if (strlen(projName) > 0 && strlen(projPath) > 0) {
-                        nlohmann::json newProject = {
-                            {"name", std::string(projName)},
-                            {"description", std::string(projDesc)},
-                            {"path", std::string(projPath)},
-                            {"lastOpened", std::to_string(std::time(nullptr))},
-                            {"engineVersion", "1.0.0"}};
+                        ProjectData project = {
+                            .name = std::string(projName),
+                            .description = std::string(projDesc),
+                            .lastOpened = std::to_string(std::time(nullptr)),
+                            .path = std::string(projPath),
+                            .engineVersion = "1.0.0",
+                        };
 
                         const auto settingsPath = ConfigDirectory() / "projects.json";
-                        nlohmann::json data = nlohmann::json::array();
+                        std::vector<ProjectData> storedProjects;
 
                         if (std::filesystem::exists(settingsPath)) {
                             std::ifstream file(settingsPath);
                             if (file) {
-                                try {
-                                    data = nlohmann::json::parse(file);
-                                } catch (...) {
+                                const std::string content((std::istreambuf_iterator<char>(file)),
+                                                          std::istreambuf_iterator<char>());
+                                if (glz::read_json(storedProjects, content)) {
+                                    storedProjects.clear();
                                 }
                             }
                         }
 
-                        data.push_back(newProject);
+                        storedProjects.push_back(project);
 
+                        std::string output;
+                        glz::write_json(storedProjects, output);
                         std::ofstream outFile(settingsPath);
                         if (outFile) {
-                            outFile << data.dump(4);
+                            outFile << output;
                         }
 
                         ImGui::CloseCurrentPopup();
-
-                        ProjectData project = {
-                            .name = newProject.value("name", ""),
-                            .description = newProject.value("description", ""),
-                            .lastOpened = newProject.value("lastOpened", ""),
-                            .path = newProject.value("path", ""),
-                            .engineVersion = newProject.value("engineVersion", ""),
-                        };
 
                         projects.push_back(project);
 
