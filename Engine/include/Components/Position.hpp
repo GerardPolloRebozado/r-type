@@ -25,10 +25,11 @@ struct Position {
      * @brief When true and the entity has @ref Parent, @ref HierarchySystem applies the
      *        parent's frame delta to this position.
      */
-    bool relative;
+    bool relative = false;
 
     /**
-     * @brief Constructor for Position.
+     * @brief Creates a Position. Previous-frame coordinates start equal to the
+     *        current ones so the entity is not reported as moved on spawn.
      * @param x The initial X position.
      * @param y The initial Y position.
      * @param z The initial draw layer.

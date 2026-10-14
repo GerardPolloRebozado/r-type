@@ -4,8 +4,8 @@
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
-#include "Panels/StatePanel.hpp"
 #include "EditorConfig.hpp"
+#include "Panels/StatePanel.hpp"
 #include <imgui.h>
 #include <string>
 
@@ -75,8 +75,8 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                                                                         Engine::Position(0, 0, 0));
                             }
                             if (!registry.HasComponent<Engine::Rotation>(entity)) {
-                                registry.AddComponent<Engine::Rotation>(entity,
-                                                                        Engine::Rotation(0.0f));
+                                registry.AddComponent<Engine::Rotation>(
+                                    entity, Engine::Rotation::Create(0.0f));
                             }
                             if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
                                 auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);

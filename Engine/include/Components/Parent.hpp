@@ -14,13 +14,17 @@ namespace Engine {
  */
 struct Parent {
     /** @brief Entity id of the parent in the same @ref Registry. */
-    Entity parent;
+    Entity parent = 0;
 
     /**
-     * @brief Constructs a Parent component.
+     * @brief Creates a Parent component.
      * @param parentEntity The parent entity id.
      */
-    explicit Parent(Entity parentEntity) : parent(parentEntity) {}
+    static Parent Create(Entity parentEntity = 0) {
+        Parent p;
+        p.parent = parentEntity;
+        return p;
+    }
 };
 } // namespace Engine
 

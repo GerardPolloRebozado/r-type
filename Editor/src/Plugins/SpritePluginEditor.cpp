@@ -166,7 +166,7 @@ void SpritePluginEditor::AddComponent(Engine::Entity entity, Engine::Registry& r
         registry.AddComponent<Engine::Position>(entity, Engine::Position(0.0f, 0.0f, 0.0f));
     }
     if (!registry.HasComponent<Engine::Rotation>(entity)) {
-        registry.AddComponent<Engine::Rotation>(entity, Engine::Rotation(0.0f));
+        registry.AddComponent<Engine::Rotation>(entity, Engine::Rotation::Create(0.0f));
     }
 }
 

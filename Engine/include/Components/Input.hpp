@@ -17,17 +17,22 @@ namespace Engine {
  */
 struct Input {
     /** @brief Player identifier corresponding to an attached controller in InputManager. */
-    int playerIdx;
+    int playerIdx = 1;
 
     /** @brief Whether this entity is currently receiving and processing input. */
-    bool isActive;
+    bool isActive = true;
 
     /**
-     * @brief Constructs an Input component.
+     * @brief Creates an Input component.
      * @param playerIndex The player ID (default: 1).
      * @param active Whether the input is active (default: true).
      */
-    Input(int playerIndex = 1, bool active = true) : playerIdx(playerIndex), isActive(active) {}
+    static Input Create(int playerIndex = 1, bool active = true) {
+        Input input;
+        input.playerIdx = playerIndex;
+        input.isActive = active;
+        return input;
+    }
 };
 } // namespace Engine
 #endif // G_ING_500_BAR_5_1_RTYPE_1_INPUT_HPP_

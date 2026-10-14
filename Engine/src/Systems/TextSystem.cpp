@@ -7,8 +7,9 @@
 #include "../../include/Systems/TextSystem.hpp"
 
 #include "Components/Position.hpp"
-#include "Components/ScreenSpace.hpp"
 #include "Components/Rotation.hpp"
+#include "Components/ScreenSpace.hpp"
+#include "Components/Text.hpp"
 #include "Components/Text.hpp"
 #include "ECS/Registry.hpp"
 

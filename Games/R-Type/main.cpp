@@ -11,7 +11,7 @@ int main() {
     Engine::Entity player = registry.CreateEntity();
     std::cout << "Spawned Player Entity ID: " << player << "\n";
 
-    registry.AddComponent(player, Engine::Position{0.0f, 0.0f});
+    registry.AddComponent(player, Engine::Position::Create(0.0f, 0.0f));
 
     auto positionSystem = registry.GetSystem<Engine::PositionSystem>();
     positionSystem->m_Entities.insert(player);
