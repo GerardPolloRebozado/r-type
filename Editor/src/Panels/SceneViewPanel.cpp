@@ -34,7 +34,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                                      viewportMaxRegion.y - viewportMinRegion.y);
 
         // Draw the Game Texture
-        const auto& targetTexture = m_Renderer.GetTargetTexture();
+        const auto& targetTexture = m_Renderer.GetTargetTexture(registry);
         if (targetTexture.id == 0) {
             ImGui::End();
             ImGui::PopStyleVar();

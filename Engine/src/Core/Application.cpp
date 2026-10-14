@@ -4,6 +4,7 @@
 #include "Logging/Logger.hpp"
 #include <chrono>
 #include <raylib.h>
+#include <string>
 
 #include "Inputs/InputManager.hpp"
 
@@ -17,12 +18,25 @@ Application::Application(const ApplicationConfig& config) : m_Config(config), m_
 
     InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
     SetTargetFPS(m_Config.targetFPS);
+    SetWindowMinSize(320, 240);
+
+    int virtualWidth = VirtualResolution::ResolveAxis(m_Config.virtualWidth, m_Config.windowWidth);
+    int virtualHeight =
+        VirtualResolution::ResolveAxis(m_Config.virtualHeight, m_Config.windowHeight);
+
+    m_Registry.AddResource<VirtualResolution>(virtualWidth, virtualHeight);
+    log_info("[Engine] Virtual resolution: " + std::to_string(virtualWidth) + "x" +
+             std::to_string(virtualHeight));
 
     m_Registry.RegisterComponent<Name>();
 }
 
 Application::~Application() {
     log_info("[Engine] Shutting down Application...");
+    // The canvas texture must be freed while the OpenGL context is still alive.
+    if (m_Registry.HasResource<VirtualResolution>()) {
+        m_Registry.GetResource<VirtualResolution>().Unload();
+    }
     CloseWindow();
 }
 
@@ -55,13 +69,21 @@ void Application::Run() {
 }
 
 void Application::PreUpdate(float dt) {
+    if (!m_Config.customRender && m_Registry.HasResource<VirtualResolution>()) {
+        auto& virtualResolution = m_Registry.GetResource<VirtualResolution>();
+
+        virtualResolution.UpdateLetterbox(GetScreenWidth(), GetScreenHeight());
+        virtualResolution.ApplyMouseMapping();
+    }
+
     if (m_Registry.HasResource<InputManager>()) {
         m_Registry.GetResource<InputManager>().Update();
     }
 }
 
 void Application::Update(float dt) {
-    // Update order follows plugin registration (not the systems map); HierarchyPlugin before PositionPlugin.
+    // Update order follows plugin registration (not the systems map); HierarchyPlugin before
+    // PositionPlugin.
     auto const& systems = m_Registry.GetSystems();
 
     for (std::type_index const& systemId : m_Registry.GetSystemUpdateOrder()) {
@@ -80,14 +102,20 @@ void Application::PostUpdate(float dt) {
         }
         EndDrawing();
     } else {
+        auto& virtualResolution = m_Registry.GetResource<VirtualResolution>();
+
+        virtualResolution.Begin();
+        ClearBackground(BLACK);
+        // Camera and HUD draw into the canvas. The window only receives the letterbox.
+        RenderScene(m_Registry, static_cast<float>(virtualResolution.GetWidth()),
+                    static_cast<float>(virtualResolution.GetHeight()));
+        virtualResolution.End();
+
         BeginDrawing();
         ClearBackground(BLACK);
+        virtualResolution.Present();
 
-        // Run ECS Render Systems (world through the camera, then screen space)
-        RenderScene(m_Registry, static_cast<float>(GetScreenWidth()),
-                    static_cast<float>(GetScreenHeight()));
-
-        // Invoke UI Hook (Editor uses this for ImGui)
+        // UI stays in window space, drawn on top of the letterboxed canvas.
         if (m_Config.onUI) {
             m_Config.onUI();
         }

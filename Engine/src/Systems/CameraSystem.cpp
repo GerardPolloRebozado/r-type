@@ -2,6 +2,7 @@
 #include "Components/CameraComponent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
+#include "Core/VirtualResolution.hpp"
 #include "ECS/Registry.hpp"
 #include <algorithm>
 #include <optional>
@@ -24,6 +25,19 @@ std::optional<Entity> FindActiveCamera(Registry& registry) {
     return active;
 }
 
+// The camera viewport is the virtual canvas. Mouse mapping already puts the cursor there.
+void CanvasSize(Registry& registry, float& width, float& height) {
+    width = static_cast<float>(GetScreenWidth());
+    height = static_cast<float>(GetScreenHeight());
+    if (!registry.HasResource<VirtualResolution>()) {
+        return;
+    }
+
+    const auto& canvas = registry.GetResource<VirtualResolution>();
+    width = static_cast<float>(canvas.GetWidth());
+    height = static_cast<float>(canvas.GetHeight());
+}
+
 // Clamps the camera center on one axis (X or Y) so the view stays inside the bounds
 float ClampAxis(float center, float halfView, float boundsMin, float boundsSize) {
     if (boundsSize <= halfView * 2.0f) {
@@ -42,8 +56,8 @@ void CameraSystem::Update(Registry& registry, float dt) {
             registry.HasComponent<Position>(*camera.followTarget)) {
             auto& position = registry.GetComponent<Position>(entity);
             const auto& target = registry.GetComponent<Position>(*camera.followTarget);
-            const float t = camera.followSpeed <= 0.0f ? 1.0f
-                                                       : std::min(1.0f, camera.followSpeed * dt);
+            const float t =
+                camera.followSpeed <= 0.0f ? 1.0f : std::min(1.0f, camera.followSpeed * dt);
             position.x += (target.x - position.x) * t;
             position.y += (target.y - position.y) * t;
         }
@@ -86,14 +100,18 @@ Camera2D CameraSystem::GetActiveCamera(Registry& registry, float viewportWidth,
 }
 
 Vector2 CameraSystem::ScreenToWorld(Registry& registry, Vector2 screen) {
-    return GetScreenToWorld2D(
-        screen, GetActiveCamera(registry, static_cast<float>(GetScreenWidth()),
-                                static_cast<float>(GetScreenHeight())));
+    float viewportWidth = 0.0f;
+    float viewportHeight = 0.0f;
+
+    helpers::CanvasSize(registry, viewportWidth, viewportHeight);
+    return GetScreenToWorld2D(screen, GetActiveCamera(registry, viewportWidth, viewportHeight));
 }
 
 Vector2 CameraSystem::WorldToScreen(Registry& registry, Vector2 world) {
-    return GetWorldToScreen2D(
-        world, GetActiveCamera(registry, static_cast<float>(GetScreenWidth()),
-                               static_cast<float>(GetScreenHeight())));
+    float viewportWidth = 0.0f;
+    float viewportHeight = 0.0f;
+
+    helpers::CanvasSize(registry, viewportWidth, viewportHeight);
+    return GetWorldToScreen2D(world, GetActiveCamera(registry, viewportWidth, viewportHeight));
 }
 } // namespace Engine
