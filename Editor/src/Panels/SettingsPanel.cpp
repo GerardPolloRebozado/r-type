@@ -1,4 +1,5 @@
 #include "Panels/SettingsPanel.hpp"
+#include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
 #include "SceneSerializer.hpp"
 #include <algorithm>
@@ -61,6 +62,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
             << "    config.windowWidth = " << config.windowWidth << ";\n"
             << "    config.windowHeight = " << config.windowHeight << ";\n"
+            << "    config.virtualWidth = " << config.virtualWidth << ";\n"
+            << "    config.virtualHeight = " << config.virtualHeight << ";\n"
             << "    config.targetFPS = " << config.targetFPS << ";\n\n"
             << "    Engine::Application app(config);\n"
             << "    Engine::PositionPlugin positionPlugin;\n"
@@ -207,6 +210,19 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
 
         ImGui::InputInt("Window Width", &config.windowWidth);
         ImGui::InputInt("Window Height", &config.windowHeight);
+
+        int virtualWidth =
+            Engine::VirtualResolution::ResolveAxis(config.virtualWidth, config.windowWidth);
+        int virtualHeight =
+            Engine::VirtualResolution::ResolveAxis(config.virtualHeight, config.windowHeight);
+        if (ImGui::InputInt("Virtual Width", &virtualWidth)) {
+            config.virtualWidth = virtualWidth;
+        }
+        if (ImGui::InputInt("Virtual Height", &virtualHeight)) {
+            config.virtualHeight = virtualHeight;
+        }
+        ImGui::TextDisabled("Game canvas. Scaled to fit the window.");
+
         ImGui::InputInt("Target FPS", &config.targetFPS);
 
         ImGui::Spacing();
