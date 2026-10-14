@@ -25,6 +25,9 @@ struct ColliderComponent {
     /** @brief When true, reports trigger events without solid blocking. */
     bool isTrigger = false;
 
+    /** @brief When true, this collider does not move during resolution (acts like a wall/floor). */
+    bool isStatic = false;
+
     /**
      * @brief Creates a collider with explicit dimensions and offsets.
      */

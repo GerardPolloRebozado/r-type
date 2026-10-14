@@ -1,5 +1,6 @@
 #include "GlazeSerializer.hpp"
 #include "Components/AudioSource.hpp"
+#include "Components/CameraComponent.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/Input.hpp"
 #include "Components/Name.hpp"
@@ -9,6 +10,7 @@
 #include "Components/ShapeComponent.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "Components/Text.hpp"
+#include "Scripting/ScriptComponent.hpp"
 #include <unordered_map>
 
 namespace Serialization {
@@ -73,6 +75,16 @@ GlazeSerializer::SceneSnapshot GlazeSerializer::CaptureScene(Engine::Registry& r
             hasAnyComponent = true;
         }
 
+        if (registry.HasComponent<Engine::CameraComponent>(entity)) {
+            entitySnapshot.camera = registry.GetComponent<Engine::CameraComponent>(entity);
+            hasAnyComponent = true;
+        }
+
+        if (registry.HasComponent<Engine::ScriptComponent>(entity)) {
+            entitySnapshot.script = registry.GetComponent<Engine::ScriptComponent>(entity);
+            hasAnyComponent = true;
+        }
+
         // Skip entity slots that were never created or have been destroyed so that
         // restored entity IDs stay compact and parent links can be remapped exactly.
         if (hasAnyComponent) {
@@ -120,6 +132,12 @@ void GlazeSerializer::RestoreScene(Engine::Registry& registry, const SceneSnapsh
         }
         if (entitySnapshot.audioSource.has_value()) {
             registry.AddComponent<Engine::AudioSource>(entity, entitySnapshot.audioSource.value());
+        }
+        if (entitySnapshot.camera.has_value()) {
+            registry.AddComponent<Engine::CameraComponent>(entity, entitySnapshot.camera.value());
+        }
+        if (entitySnapshot.script.has_value()) {
+            registry.AddComponent<Engine::ScriptComponent>(entity, entitySnapshot.script.value());
         }
     }
 

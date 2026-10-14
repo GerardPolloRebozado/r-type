@@ -21,7 +21,8 @@ Application::Application(const ApplicationConfig& config) : m_Config(config), m_
     SetWindowMinSize(320, 240);
 
     int virtualWidth = VirtualResolution::ResolveAxis(m_Config.virtualWidth, m_Config.windowWidth);
-    int virtualHeight = VirtualResolution::ResolveAxis(m_Config.virtualHeight, m_Config.windowHeight);
+    int virtualHeight =
+        VirtualResolution::ResolveAxis(m_Config.virtualHeight, m_Config.windowHeight);
 
     m_Registry.AddResource<VirtualResolution>(virtualWidth, virtualHeight);
     log_info("[Engine] Virtual resolution: " + std::to_string(virtualWidth) + "x" +
@@ -81,7 +82,8 @@ void Application::PreUpdate(float dt) {
 }
 
 void Application::Update(float dt) {
-    // Update order follows plugin registration (not the systems map); HierarchyPlugin before PositionPlugin.
+    // Update order follows plugin registration (not the systems map); HierarchyPlugin before
+    // PositionPlugin.
     auto const& systems = m_Registry.GetSystems();
 
     for (std::type_index const& systemId : m_Registry.GetSystemUpdateOrder()) {
