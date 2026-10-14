@@ -127,6 +127,29 @@ static void TestCreateProject(const std::filesystem::path& home) {
     CHECK(!duplicate.ok);
 }
 
+static void TestEnsureProjectScene(const std::filesystem::path& home) {
+    const std::filesystem::path folder = home / "ListedWithoutScene";
+    std::filesystem::create_directories(folder);
+
+    Editor::ProjectRequest request;
+    request.name = "Listed";
+    request.path = folder.string();
+
+    Editor::ScaffoldResult created = Editor::EnsureProjectScene(request);
+    CHECK(created.ok);
+    CHECK(std::filesystem::exists(folder / "test.scene"));
+
+    Engine::Registry registry;
+    Serialization::SceneConfig config;
+    Serialization::SceneSerializer serializer;
+    CHECK(serializer.Deserialize(created.scenePath, registry, config));
+    CHECK(config.windowTitle == "Listed");
+
+    Editor::ScaffoldResult again = Editor::EnsureProjectScene(request);
+    CHECK(again.ok);
+    CHECK(again.scenePath == created.scenePath);
+}
+
 static void TestCreateSystem(const std::filesystem::path& sourceRoot) {
     SetEnvSourceRoot(sourceRoot);
     PrepareEngineFixture(sourceRoot);
@@ -202,6 +225,7 @@ int main() {
 
     TestProjectListJson();
     TestCreateProject(home);
+    TestEnsureProjectScene(home);
     TestCreateSystem(systemRoot);
     TestCreatePlugin(pluginRoot);
 

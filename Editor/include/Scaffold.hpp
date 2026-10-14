@@ -48,6 +48,16 @@ struct ScaffoldResult {
 ScaffoldResult CreateProject(const ProjectRequest& request);
 
 /**
+ * @brief Makes sure a project folder has a @c test.scene the editor can open.
+ *
+ * Writes an empty scene when the file is missing. Leaves an existing scene unchanged
+ * and does not add the folder to the Gallery list.
+ * @param request Name and directory of the project. Description is ignored.
+ * @return Result with @c scenePath set to @c test.scene.
+ */
+ScaffoldResult EnsureProjectScene(const ProjectRequest& request);
+
+/**
  * @brief Writes a system under the engine tree and lists it in Engine CMake.
  *
  * @param name C++ identifier. @c System is appended when it is not already the suffix.

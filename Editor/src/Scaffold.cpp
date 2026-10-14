@@ -107,6 +107,28 @@ bool WriteNewFile(const std::filesystem::path& path, const std::string& contents
     return true;
 }
 
+bool WriteEmptyScene(const std::filesystem::path& scenePath, const std::filesystem::path& folder,
+                     const std::string& name, const std::string& executableName,
+                     std::string& error) {
+    Serialization::SceneData scene;
+    scene.sceneName = name;
+    scene.config.windowTitle = name;
+    scene.config.windowWidth = 1280;
+    scene.config.windowHeight = 720;
+    scene.config.targetFPS = 60;
+    scene.config.m_ProjectFolder = folder.string();
+    scene.config.m_BuildExecutableName = executableName;
+    scene.config.m_BuildWindowTitle = name;
+    scene.entities.sceneName = name;
+
+    std::string sceneJson;
+    if (glz::write_json(scene, sceneJson)) {
+        error = "Failed to write " + scenePath.string();
+        return false;
+    }
+    return WriteNewFile(scenePath, sceneJson + "\n", error);
+}
+
 std::filesystem::path EngineRoot() {
     // Tests and the tmp CLI script set this so generated files stay out of the repo.
     if (const char* overridePath = std::getenv("RTYPE_SOURCE_DIR")) {
@@ -373,24 +395,8 @@ ScaffoldResult CreateProjectImpl(const ProjectRequest& request) {
     }
 
     const std::filesystem::path createdScene = folder / "test.scene";
-    Serialization::SceneData scene;
-    scene.sceneName = request.name;
-    scene.config.windowTitle = request.name;
-    scene.config.windowWidth = 1280;
-    scene.config.windowHeight = 720;
-    scene.config.targetFPS = 60;
-    scene.config.m_ProjectFolder = folder.string();
-    scene.config.m_BuildExecutableName = exeName;
-    scene.config.m_BuildWindowTitle = request.name;
-    scene.entities.sceneName = request.name;
-
-    std::string sceneJson;
-    if (glz::write_json(scene, sceneJson)) {
-        return Fail("Failed to write " + createdScene.string());
-    }
-
     std::string writeError;
-    if (!WriteNewFile(createdScene, sceneJson + "\n", writeError)) {
+    if (!WriteEmptyScene(createdScene, folder, request.name, exeName, writeError)) {
         return Fail(writeError);
     }
 
@@ -541,11 +547,63 @@ ScaffoldResult CreatePluginImpl(const std::string& name) {
     return WriteEngineFiles(files);
 }
 
+ScaffoldResult EnsureProjectSceneImpl(const ProjectRequest& request) {
+    if (request.name.empty()) {
+        return Fail("Project name is empty");
+    }
+    const std::string exeName = ExecutableName(request.name);
+    if (exeName.empty()) {
+        return Fail("Project name must contain a non-space character");
+    }
+    if (request.path.empty()) {
+        return Fail("Project path is empty");
+    }
+
+    std::filesystem::path folder = std::filesystem::absolute(request.path);
+    if (std::filesystem::exists(folder) && !std::filesystem::is_directory(folder)) {
+        return Fail("Path is not a directory: " + folder.string());
+    }
+
+    std::filesystem::create_directories(folder / "assets");
+    std::error_code error;
+    const std::filesystem::path canonical = std::filesystem::weakly_canonical(folder, error);
+    if (!error) {
+        folder = canonical;
+    }
+
+    const std::filesystem::path scenePath = folder / "test.scene";
+    if (!std::filesystem::exists(scenePath)) {
+        std::string writeError;
+        if (!WriteEmptyScene(scenePath, folder, request.name, exeName, writeError)) {
+            return Fail(writeError);
+        }
+        log_info("Created scene " + scenePath.string());
+    }
+
+    const std::filesystem::path inputPath = folder / "input.json";
+    if (!std::filesystem::exists(inputPath)) {
+        std::string writeError;
+        if (!WriteNewFile(inputPath, "{}\n", writeError)) {
+            return Fail(writeError);
+        }
+    }
+
+    return ScaffoldResult{true, "", scenePath.string()};
+}
+
 } // namespace
 
 ScaffoldResult CreateProject(const ProjectRequest& request) {
     try {
         return CreateProjectImpl(request);
+    } catch (const std::exception& exception) {
+        return Fail(exception.what());
+    }
+}
+
+ScaffoldResult EnsureProjectScene(const ProjectRequest& request) {
+    try {
+        return EnsureProjectSceneImpl(request);
     } catch (const std::exception& exception) {
         return Fail(exception.what());
     }
