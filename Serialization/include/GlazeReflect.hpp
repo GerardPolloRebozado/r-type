@@ -10,7 +10,9 @@
 template <> struct glz::meta<Serialization::SceneConfig> {
     static constexpr auto value =
         glz::object("windowWidth", &Serialization::SceneConfig::windowWidth, "windowHeight",
-                    &Serialization::SceneConfig::windowHeight, "maximized",
+                    &Serialization::SceneConfig::windowHeight, "virtualWidth",
+                    &Serialization::SceneConfig::virtualWidth, "virtualHeight",
+                    &Serialization::SceneConfig::virtualHeight, "maximized",
                     &Serialization::SceneConfig::maximized, "windowTitle",
                     &Serialization::SceneConfig::windowTitle, "targetFPS",
                     &Serialization::SceneConfig::targetFPS, "projectFolder",

@@ -16,6 +16,7 @@ set(SRC_FILES
         src/components/ShapeComponent.cpp
         src/Core/Application.cpp
         src/Core/Renderer.cpp
+        src/Core/VirtualResolution.cpp
         src/Input/Controller.cpp
         src/Input/IController.cpp
         src/Input/InputManager.cpp
@@ -41,7 +42,6 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
         src/Systems/MultiplayerSystem.cpp
-        src/Logging/LogBuffer.cpp
 )
 
 set(INC_FILES
@@ -66,6 +66,7 @@ set(INC_FILES
         include/Components/Text.hpp
         include/Core/Application.hpp
         include/Core/Renderer.hpp
+        include/Core/VirtualResolution.hpp
         include/ECS/Entity.hpp
         include/ECS/Registry.hpp
         include/ECS/System.hpp
