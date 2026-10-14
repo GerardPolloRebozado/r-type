@@ -1,6 +1,11 @@
 #ifndef EDITOR_PANELS_INSPECTORPANEL_HPP_
 #define EDITOR_PANELS_INSPECTORPANEL_HPP_
 
+/**
+ * @file InspectorPanel.hpp
+ * @brief Declares the entity inspector panel and plugin editors.
+ */
+
 #include "Panels/IEditorPanel.hpp"
 #include "PluginEditor.hpp"
 #include <memory>
@@ -9,6 +14,10 @@
 
 namespace Editor {
 
+/**
+ * @class InspectorPanel
+ * @brief Shows the components of the selected entity through plugin editors.
+ */
 class InspectorPanel : public IEditorPanel {
   public:
     InspectorPanel();

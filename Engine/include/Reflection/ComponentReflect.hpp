@@ -1,6 +1,11 @@
 #ifndef ENGINE_REFLECTION_COMPONENTREFLECT_HPP_
 #define ENGINE_REFLECTION_COMPONENTREFLECT_HPP_
 
+/**
+ * @file ComponentReflect.hpp
+ * @brief Glaze reflection metadata for Engine types used by serialization.
+ */
+
 // Glaze reflection metadata for Engine types that automatic reflection cannot
 // cover: structs with non-serializable members (excluded here), structs with
 // callbacks, and enums with string names.

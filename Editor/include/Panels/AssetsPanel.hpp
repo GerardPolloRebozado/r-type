@@ -1,12 +1,21 @@
 #ifndef EDITOR_PANELS_ASSETSPANEL_HPP_
 #define EDITOR_PANELS_ASSETSPANEL_HPP_
 
+/**
+ * @file AssetsPanel.hpp
+ * @brief Declares the project asset browser panel.
+ */
+
 #include "Core/Application.hpp"
 #include "Panels/IEditorPanel.hpp"
 #include <filesystem>
 
 namespace Editor {
 
+/**
+ * @class AssetsPanel
+ * @brief Content browser used to browse, select and import project assets.
+ */
 class AssetsPanel : public IEditorPanel {
   public:
     AssetsPanel() = default;

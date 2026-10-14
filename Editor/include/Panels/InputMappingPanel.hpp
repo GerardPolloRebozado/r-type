@@ -1,6 +1,11 @@
 #ifndef EDITOR_PANELS_INPUTMAPPINGPANEL_HPP_
 #define EDITOR_PANELS_INPUTMAPPINGPANEL_HPP_
 
+/**
+ * @file InputMappingPanel.hpp
+ * @brief Declares the editor panel used to map actions to inputs.
+ */
+
 #include "Inputs/IController.hpp"
 #include "Panels/IEditorPanel.hpp"
 #include <extras/IconsFontAwesome6.h>
@@ -8,6 +13,10 @@
 
 namespace Editor {
 
+/**
+ * @class InputMappingPanel
+ * @brief Lets users create and edit action keybinds saved into the project config.
+ */
 class InputMappingPanel : public IEditorPanel {
   public:
     InputMappingPanel();

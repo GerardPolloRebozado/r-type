@@ -10,6 +10,10 @@
 
 namespace Editor {
 
+/**
+ * @class ColliderPluginEditor
+ * @brief Inspector editor for the Collider component.
+ */
 class ColliderPluginEditor : public IPluginEditor {
   public:
     const char* GetName() const override;

@@ -2,7 +2,7 @@
 
 In an ECS architecture, **Systems** hold all the game logic.
 
-As described in the [Component](./component.md) page, components are simply passive data. To use and modify that data, we use the **Systems**. A system looks at the [Registry](./registry.md), finds every single [Entity](./entity.md) that has a specific combination of components, and updates them.
+As described in the [Component](./component.md) page, components are simply passive data. To use and modify that data, we use the **Systems**. A system looks at the [Registry](./registry.md), finds every single entity (see [Registry](./registry.md)) that has a specific combination of components, and updates them.
 
 ## How it works
 

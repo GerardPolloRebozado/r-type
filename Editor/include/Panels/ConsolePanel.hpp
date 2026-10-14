@@ -1,6 +1,11 @@
 #ifndef EDITOR_PANELS_CONSOLEPANEL_HPP_
 #define EDITOR_PANELS_CONSOLEPANEL_HPP_
 
+/**
+ * @file ConsolePanel.hpp
+ * @brief Declares the editor log console panel.
+ */
+
 #include "Logging/LogBuffer.hpp"
 #include "Panels/IEditorPanel.hpp"
 #include <string>
@@ -8,6 +13,10 @@
 
 namespace Editor {
 
+/**
+ * @class ConsolePanel
+ * @brief Displays buffered engine log entries inside the editor.
+ */
 class ConsolePanel : public IEditorPanel {
   public:
     ConsolePanel() = default;

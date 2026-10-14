@@ -5,6 +5,10 @@
 
 namespace Editor {
 
+/**
+ * @class RotationPluginEditor
+ * @brief Inspector editor for the Rotation component.
+ */
 class RotationPluginEditor : public IPluginEditor {
   public:
     const char* GetName() const override;

@@ -5,6 +5,10 @@
 
 namespace Editor {
 
+/**
+ * @class SpritePluginEditor
+ * @brief Inspector editor for the SpriteComponent.
+ */
 class SpritePluginEditor : public IPluginEditor {
   public:
     const char* GetName() const override;

@@ -12,6 +12,7 @@ theme:
     - navigation.expand
     - toc.integrate
     - search.suggest
+    - navigation.top
 
 extra_css:
   - stylesheets/extra.css
@@ -40,7 +41,7 @@ plugins:
             EXTRACT_STATIC: YES
 
 nav:
-  - About:
+  - Home:
       - Introduction: index.md
       - Features: about/features.md
   - Getting Started:
@@ -54,19 +55,32 @@ nav:
   - Engine Manual:
       - ECS Architecture: engine/ecs.md
       - Systems & Components: engine/systems.md
-      - Asset Management: engine/assets.md
       - Plugins: engine/plugins.md
+      - Asset Management: engine/assets.md
+      - Audio: engine/audio.md
       - Text Rendering: engine/text.md
       - Input Management: engine/input.md
       - State Management: engine/states.md
-      - Networking: engine/networking.md
       - Collisions: engine/collisions.md
       - Camera: engine/camera.md
-  - Editor Manual:
-      - Interface Overview: editor/interface.md
-      - Using Plugins: editor/plugins.md
-      - Scene Serialization: editor/serialization.md
+      - Networking: engine/networking.md
+      - Lua Scripting: engine/lua_scripting.md
   - API Reference:
-      - Classes: Engine/annotated.md
-      - Files: Engine/files.md
-      - Namespaces: Engine/namespaces.md
+      - C++:
+          - Classes: Engine/annotated.md
+          - Files: Engine/files.md
+          - Namespaces: Engine/namespaces.md
+      - Lua:
+          - Overview: lua_api/index.md
+          - log: lua_api/log.md
+          - Entity: lua_api/entity.md
+          - Transform: lua_api/transform.md
+          - Time: lua_api/time.md
+          - Input: lua_api/input.md
+          - Component: lua_api/component.md
+          - Scene: lua_api/scene.md
+  - Headless Engine Usage:
+      - C++ Usage: headless/c++.md
+  - Contributing to the Engine:
+      - Contributing: contributing.md
+      - Code Style: contributing_style.md
