@@ -25,6 +25,16 @@ class IComponentArray {
     virtual ~IComponentArray() = default;
 
     /**
+     * @brief Returns whether an entity has a component in this array.
+     */
+    virtual bool Has(Entity entity) const = 0;
+
+    /**
+     * @brief Removes the component of an entity from this array.
+     */
+    virtual void Remove(Entity entity) = 0;
+
+    /**
      * @brief Called when an entity is destroyed, allows the array to clean up.
      * @param entity The ID of the destroyed entity.
      */
@@ -57,6 +67,14 @@ template <typename T> class ComponentArray : public IComponentArray {
 
     bool HasData(Entity entity) const {
         return m_ComponentMap.find(entity) != m_ComponentMap.end();
+    }
+
+    bool Has(Entity entity) const override {
+        return HasData(entity);
+    }
+
+    void Remove(Entity entity) override {
+        RemoveData(entity);
     }
 
     /**
@@ -194,6 +212,33 @@ class Registry {
      */
     template <typename T> bool HasComponent(Entity entity) {
         return GetComponentArray<T>()->HasData(entity);
+    }
+
+    /**
+     * @brief Type-erased component existence check used by scripting glue.
+     * @param type The component type index.
+     * @param entity The entity ID.
+     * @return True if the component is registered and attached to the entity.
+     */
+    bool HasComponentByType(const std::type_index& type, Entity entity) const {
+        const auto it = m_ComponentArrays.find(type);
+        if (it == m_ComponentArrays.end()) {
+            return false;
+        }
+        return it->second->Has(entity);
+    }
+
+    /**
+     * @brief Type-erased component removal used by scripting glue.
+     * @param type The component type index.
+     * @param entity The entity ID.
+     */
+    void RemoveComponentByType(const std::type_index& type, Entity entity) {
+        const auto it = m_ComponentArrays.find(type);
+        if (it == m_ComponentArrays.end()) {
+            return;
+        }
+        it->second->Remove(entity);
     }
 
     /**
