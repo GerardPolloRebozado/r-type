@@ -42,7 +42,11 @@ EditorLayer::~EditorLayer() {
 
 void EditorLayer::Init() {
     m_Registry->AddResource<HierarchyPanelSelectedEntity>();
+    m_Registry->AddResource<HierarchyPanelSelectedDirectory>();
     m_Registry->AddResource<StatePanelSelectedState>();
+    if (!m_Registry->HasResource<EntityDirectoriesManager>()) {
+        m_Registry->AddResource<EntityDirectoriesManager>();
+    }
     if (!m_Registry->HasResource<ProjectContext>()) {
         m_Registry->AddResource<ProjectContext>(m_Configuration ? m_Configuration->m_ProjectFolder
                                                                 : "");

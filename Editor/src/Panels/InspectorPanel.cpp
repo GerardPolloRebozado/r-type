@@ -2,10 +2,10 @@
 #include "Components/Name.hpp"
 #include "Core/Application.hpp"
 #include "Panels/HierarchyPanel.hpp"
-#include "Plugins/CameraPluginEditor.hpp"
 #include "Panels/StatePanel.hpp"
-#include "Plugins/PositionPluginEditor.hpp"
+#include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
+#include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
 #include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
@@ -39,6 +39,20 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         if (selectedState->groupIndex >= 0 &&
             selectedState->groupIndex < static_cast<int>(stateManager->groups.size())) {
             hasStateSelection = true;
+        }
+    }
+
+    bool hasDirectorySelection = false;
+    HierarchyPanelSelectedDirectory* selectedDir = nullptr;
+    EntityDirectoriesManager* dirManager = nullptr;
+
+    if (registry.HasResource<HierarchyPanelSelectedDirectory>() &&
+        registry.HasResource<EntityDirectoriesManager>()) {
+        selectedDir = &registry.GetResource<HierarchyPanelSelectedDirectory>();
+        dirManager = &registry.GetResource<EntityDirectoriesManager>();
+        if (selectedDir->directoryIndex >= 0 &&
+            selectedDir->directoryIndex < static_cast<int>(dirManager->directories.size())) {
+            hasDirectorySelection = true;
         }
     }
 
@@ -155,6 +169,28 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                     ImGui::PopID();
                 }
             }
+        } else if (hasDirectorySelection) {
+            auto& dir = dirManager->directories[selectedDir->directoryIndex];
+            ImGui::Text(ICON_FA_FOLDER_OPEN " Directory");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (selectedDir->directoryIndex == 0) {
+                ImGui::TextDisabled("Root Directory (/)");
+            } else {
+                if (ImGui::InputText("Folder Name", &dir.Name)) {
+                    dir.InternalPath = "/" + dir.Name;
+                }
+                ImGui::TextDisabled("Internal Path: %s", dir.InternalPath.c_str());
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Text("Contained Entities (%zu)", dir.entities.size());
+            for (auto ent : dir.entities) {
+                ImGui::BulletText("%s (ID: %d)", Engine::GetEntityName(registry, ent).c_str(),
+                                  static_cast<int>(ent));
+            }
         } else if (selectedEntity.entity != -1) {
             const bool hasName = registry.HasComponent<Engine::Name>(selectedEntity.entity);
             std::string name =
@@ -178,14 +214,14 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 editor->OnImGuiRender(selectedEntity.entity, registry);
             }
         } else {
-            ImGui::TextDisabled("No entity or state selected");
+            ImGui::TextDisabled("No entity, folder, or state selected");
         }
     }
 
     if (ImGui::BeginPopupContextWindow("InspectorContextMenu",
                                        ImGuiPopupFlags_MouseButtonRight |
                                            ImGuiPopupFlags_NoOpenOverItems)) {
-        if (selectedEntity.entity != -1) {
+        if (selectedEntity.entity != -1 && !hasStateSelection && !hasDirectorySelection) {
             bool anyAvailable = false;
             for (auto& editor : m_PluginEditors) {
                 if (!editor->HasComponent(selectedEntity.entity, registry)) {

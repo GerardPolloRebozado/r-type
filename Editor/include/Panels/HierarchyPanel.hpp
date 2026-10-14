@@ -10,6 +10,10 @@ struct HierarchyPanelSelectedEntity {
     int index = -1;
 };
 
+struct HierarchyPanelSelectedDirectory {
+    int directoryIndex = -1;
+};
+
 struct Directory {
     std::string InternalPath;
     std::string Name;

@@ -36,6 +36,9 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
                 if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
                     registry.GetResource<HierarchyPanelSelectedEntity>().entity = -1;
                 }
+                if (registry.HasResource<HierarchyPanelSelectedDirectory>()) {
+                    registry.GetResource<HierarchyPanelSelectedDirectory>().directoryIndex = -1;
+                }
             }
             ImGui::EndPopup();
         }
@@ -64,6 +67,9 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
                     if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
                         registry.GetResource<HierarchyPanelSelectedEntity>().entity = -1;
                     }
+                    if (registry.HasResource<HierarchyPanelSelectedDirectory>()) {
+                        registry.GetResource<HierarchyPanelSelectedDirectory>().directoryIndex = -1;
+                    }
                 }
 
                 if (ImGui::BeginPopupContextItem()) {
@@ -80,6 +86,10 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
 
                         if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
                             registry.GetResource<HierarchyPanelSelectedEntity>().entity = -1;
+                        }
+                        if (registry.HasResource<HierarchyPanelSelectedDirectory>()) {
+                            registry.GetResource<HierarchyPanelSelectedDirectory>().directoryIndex =
+                                -1;
                         }
                     }
                     if (ImGui::MenuItem("Delete State Group")) {
@@ -132,6 +142,10 @@ void StatePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
                                 if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
                                     registry.GetResource<HierarchyPanelSelectedEntity>().entity =
                                         -1;
+                                }
+                                if (registry.HasResource<HierarchyPanelSelectedDirectory>()) {
+                                    registry.GetResource<HierarchyPanelSelectedDirectory>()
+                                        .directoryIndex = -1;
                                 }
                             }
 
