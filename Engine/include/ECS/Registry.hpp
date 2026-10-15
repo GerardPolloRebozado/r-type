@@ -193,6 +193,9 @@ class Registry {
      * @brief Checks if an entity has a specific component.
      */
     template <typename T> bool HasComponent(Entity entity) {
+        if (!IsComponentRegistered<T>()) {
+            return false;
+        }
         return GetComponentArray<T>()->HasData(entity);
     }
 
