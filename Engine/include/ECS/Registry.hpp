@@ -144,7 +144,7 @@ class Registry {
      */
     Entity CreateEntity() {
         Entity entity = {m_NextEntityId++};
-        AddComponent<Position>(entity, Position::Create(0, 0));
+        AddComponent<Position>(entity, Position(0, 0));
         AddComponent<Rotation>(entity, Rotation::Create(0.0f));
         return entity;
     }

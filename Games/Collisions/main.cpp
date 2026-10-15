@@ -154,11 +154,11 @@ int main() {
     Engine::TextPlugin::AttachToEntity(app.GetRegistry(), infoEntity,
                                        "Move Player (Circle) with WASD | Green: Solid Triangle | "
                                        "Yellow: Trigger Rectangle | Red: Colliding",
-                                       20.0f, Engine::Position::Create(30.0f, 20.0f));
+                                       20.0f, Engine::Position(30.0f, 20.0f));
 
     // Solid Triangle Entity (Polygon with 3 sides)
     const auto solidEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(solidEntity, Engine::Position::Create(550.0f, 350.0f));
+    app.GetRegistry().AddComponent(solidEntity, Engine::Position(550.0f, 350.0f));
     Engine::ShapeComponent solidShape;
     solidShape.type = Engine::ShapeType::POLYGON;
     solidShape.sides = 3;
@@ -183,7 +183,7 @@ int main() {
 
     // Trigger Zone Rectangle Entity
     const auto triggerEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(triggerEntity, Engine::Position::Create(850.0f, 280.0f));
+    app.GetRegistry().AddComponent(triggerEntity, Engine::Position(850.0f, 280.0f));
     Engine::ShapeComponent triggerShape;
     triggerShape.type = Engine::ShapeType::RECTANGLE;
     triggerShape.width = 150.0f;
@@ -209,7 +209,7 @@ int main() {
 
     // Player Circle Entity that moves
     const auto playerEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(playerEntity, Engine::Position::Create(200.0f, 350.0f));
+    app.GetRegistry().AddComponent(playerEntity, Engine::Position(200.0f, 350.0f));
     Engine::ShapeComponent playerShape;
     playerShape.type = Engine::ShapeType::CIRCLE;
     playerShape.radius = 40.0f;

@@ -18,7 +18,7 @@ namespace Engine {
  * children with @ref Position::relative set, then recurses regardless of zero delta.
  *
  * @note Must run before @ref PositionSystem in the registry update order so child
- *       positions are updated before prevX/prevY are snapshotted.
+ *       positions are updated before prevX/prevY/prevZ are snapshotted.
  */
 class HierarchySystem : public System {
   public:
