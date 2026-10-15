@@ -119,17 +119,39 @@ int RunCreate(int argc, char** argv) {
     Editor::ScaffoldResult result;
     std::string kind;
     std::string name;
+    std::string enginePath;
+    std::string flag;
 
-    if (argc != 4) {
-        log_error("Usage: RTypeEditor create <system|plugin> <Name>");
+    if (argc < 4) {
+        log_error("Usage: RTypeEditor create <system|plugin> <Name> [--path <dir>]");
         return 1;
     }
     kind = argv[2];
     name = argv[3];
+    if (name.empty() || name.rfind("--", 0) == 0) {
+        log_error("Usage: RTypeEditor create <system|plugin> <Name> [--path <dir>]");
+        return 1;
+    }
+
+    for (int index = 4; index < argc; ++index) {
+        flag = argv[index];
+        if (flag == "--path") {
+            if (index + 1 >= argc) {
+                log_error("Missing value for --path");
+                return 1;
+            }
+            index += 1;
+            enginePath = argv[index];
+        } else {
+            log_error("Unknown option: " + flag);
+            return 1;
+        }
+    }
+
     if (kind == "system") {
-        result = Editor::CreateSystem(name);
+        result = Editor::CreateSystem(name, enginePath);
     } else if (kind == "plugin") {
-        result = Editor::CreatePlugin(name);
+        result = Editor::CreatePlugin(name, enginePath);
     } else {
         log_error("Unknown create target: " + kind);
         return 1;

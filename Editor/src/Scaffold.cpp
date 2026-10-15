@@ -16,10 +16,6 @@
 #include <utility>
 #include <vector>
 
-#ifndef RTYPE_SOURCE_DIR
-#define RTYPE_SOURCE_DIR "."
-#endif
-
 namespace Editor {
 namespace {
 
@@ -129,14 +125,19 @@ bool WriteEmptyScene(const std::filesystem::path& scenePath, const std::filesyst
     return WriteNewFile(scenePath, sceneJson + "\n", error);
 }
 
-std::filesystem::path EngineRoot() {
-    // Tests and the tmp CLI script set this so generated files stay out of the repo.
-    if (const char* overridePath = std::getenv("RTYPE_SOURCE_DIR")) {
-        if (*overridePath != '\0') {
-            return std::filesystem::path(overridePath);
-        }
+std::filesystem::path ResolveEngineRoot(const std::string& enginePath) {
+    std::filesystem::path root;
+    if (enginePath.empty()) {
+        root = std::filesystem::current_path();
+    } else {
+        root = std::filesystem::absolute(enginePath);
     }
-    return std::filesystem::path(RTYPE_SOURCE_DIR);
+    std::error_code error;
+    const std::filesystem::path canonical = std::filesystem::weakly_canonical(root, error);
+    if (!error) {
+        root = canonical;
+    }
+    return root;
 }
 
 bool InsertCMakeEntries(const std::filesystem::path& cmakeFile,
@@ -325,11 +326,11 @@ struct EngineFile {
     std::string cmakePath;
 };
 
-ScaffoldResult WriteEngineFiles(const std::vector<EngineFile>& files) {
-    const std::filesystem::path root = EngineRoot();
-    const std::filesystem::path cmakeFile = root / "Engine" / "CMakeLists.txt";
+ScaffoldResult WriteEngineFiles(const std::filesystem::path& engineRoot,
+                                const std::vector<EngineFile>& files) {
+    const std::filesystem::path cmakeFile = engineRoot / "CMakeLists.txt";
     if (!std::filesystem::exists(cmakeFile)) {
-        return Fail("Engine/CMakeLists.txt was not found under " + root.string());
+        return Fail("CMakeLists.txt was not found under " + engineRoot.string());
     }
 
     for (const EngineFile& file : files) {
@@ -469,7 +470,7 @@ ScaffoldResult CreateProjectImpl(const ProjectRequest& request) {
     return Succeed("Created project " + folder.string(), createdScene.string());
 }
 
-ScaffoldResult CreateSystemImpl(const std::string& name) {
+ScaffoldResult CreateSystemImpl(const std::string& name, const std::string& enginePath) {
     if (!IsIdentifier(name)) {
         return Fail("System name must be a C++ identifier");
     }
@@ -478,7 +479,10 @@ ScaffoldResult CreateSystemImpl(const std::string& name) {
         return Fail("System name conflicts with Engine::System");
     }
 
-    const std::filesystem::path root = EngineRoot() / "Engine";
+    const std::filesystem::path root = ResolveEngineRoot(enginePath);
+    if (std::filesystem::exists(root) && !std::filesystem::is_directory(root)) {
+        return Fail("Engine path is not a directory: " + root.string());
+    }
     std::vector<EngineFile> files = {
         EngineFile{
             root / "include" / "Systems" / (systemName + ".hpp"),
@@ -493,10 +497,10 @@ ScaffoldResult CreateSystemImpl(const std::string& name) {
             "src/Systems/" + systemName + ".cpp",
         },
     };
-    return WriteEngineFiles(files);
+    return WriteEngineFiles(root, files);
 }
 
-ScaffoldResult CreatePluginImpl(const std::string& name) {
+ScaffoldResult CreatePluginImpl(const std::string& name, const std::string& enginePath) {
     if (!IsIdentifier(name)) {
         return Fail("Plugin name must be a C++ identifier");
     }
@@ -511,7 +515,10 @@ ScaffoldResult CreatePluginImpl(const std::string& name) {
         return Fail("System name conflicts with Engine::System");
     }
 
-    const std::filesystem::path root = EngineRoot() / "Engine";
+    const std::filesystem::path root = ResolveEngineRoot(enginePath);
+    if (std::filesystem::exists(root) && !std::filesystem::is_directory(root)) {
+        return Fail("Engine path is not a directory: " + root.string());
+    }
     std::vector<EngineFile> files = {
         EngineFile{
             root / "include" / "Components" / (componentName + ".hpp"),
@@ -544,7 +551,7 @@ ScaffoldResult CreatePluginImpl(const std::string& name) {
             "src/Plugins/" + pluginName + ".cpp",
         },
     };
-    return WriteEngineFiles(files);
+    return WriteEngineFiles(root, files);
 }
 
 ScaffoldResult EnsureProjectSceneImpl(const ProjectRequest& request) {
@@ -609,17 +616,17 @@ ScaffoldResult EnsureProjectScene(const ProjectRequest& request) {
     }
 }
 
-ScaffoldResult CreateSystem(const std::string& name) {
+ScaffoldResult CreateSystem(const std::string& name, const std::string& enginePath) {
     try {
-        return CreateSystemImpl(name);
+        return CreateSystemImpl(name, enginePath);
     } catch (const std::exception& exception) {
         return Fail(exception.what());
     }
 }
 
-ScaffoldResult CreatePlugin(const std::string& name) {
+ScaffoldResult CreatePlugin(const std::string& name, const std::string& enginePath) {
     try {
-        return CreatePluginImpl(name);
+        return CreatePluginImpl(name, enginePath);
     } catch (const std::exception& exception) {
         return Fail(exception.what());
     }

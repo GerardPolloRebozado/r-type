@@ -24,19 +24,17 @@ mkdir -p "${FAKE_ROOT}/Engine/include/Components" "${FAKE_ROOT}/Engine/include/P
 mkdir -p "${FAKE_ROOT}/Engine/src/Plugins"
 cp "${ROOT}/Engine/CMakeLists.txt" "${FAKE_ROOT}/Engine/CMakeLists.txt"
 
-export RTYPE_SOURCE_DIR="${FAKE_ROOT}"
-
 echo "Temp dir: ${TMP}"
 echo "Project will remain at: ${PROJ}"
 echo "(Re-open RTypeEditor with no args to see it in the Gallery.)"
 echo
 
 echo "== create system (fake Engine tree) =="
-"$EDITOR" create system TmpDamage
+"$EDITOR" create system TmpDamage --path "${FAKE_ROOT}/Engine"
 test -f "${FAKE_ROOT}/Engine/include/Systems/TmpDamageSystem.hpp"
 
 echo "== create plugin (fake Engine tree) =="
-"$EDITOR" create plugin TmpHealth
+"$EDITOR" create plugin TmpHealth --path "${FAKE_ROOT}/Engine"
 test -f "${FAKE_ROOT}/Engine/include/Plugins/TmpHealthPlugin.hpp"
 
 echo "== new project (opens editor — close window to finish) =="

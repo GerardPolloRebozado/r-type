@@ -21,17 +21,17 @@ echo "Using temp dir: $TMP"
 echo
 
 echo "== create system (should succeed) =="
-"$EDITOR" create system ManualCliProbe
+"$EDITOR" create system ManualCliProbe --path "${ROOT}/Engine"
 grep -q "ManualCliProbeSystem.cpp" "${ROOT}/Engine/CMakeLists.txt"
 
 echo "== duplicate system (should fail) =="
-if "$EDITOR" create system ManualCliProbe; then
+if "$EDITOR" create system ManualCliProbe --path "${ROOT}/Engine"; then
   echo "Expected failure for duplicate system"
   exit 1
 fi
 
 echo "== create plugin (should succeed) =="
-"$EDITOR" create plugin ManualCliFeature
+"$EDITOR" create plugin ManualCliFeature --path "${ROOT}/Engine"
 test -f "${ROOT}/Engine/include/Plugins/ManualCliFeaturePlugin.hpp"
 
 echo "== new project (creates files; editor opens — close the window to continue) =="

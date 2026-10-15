@@ -33,15 +33,6 @@ static void SetEnvHome(const std::filesystem::path& home) {
 #endif
 }
 
-static void SetEnvSourceRoot(const std::filesystem::path& root) {
-    const std::string value = root.string();
-#if defined(_WIN32)
-    _putenv_s("RTYPE_SOURCE_DIR", value.c_str());
-#else
-    setenv("RTYPE_SOURCE_DIR", value.c_str(), 1);
-#endif
-}
-
 static std::filesystem::path MakeTempDir(const std::string& label) {
     const auto base = std::filesystem::temp_directory_path() / "rtype_scaffold_tests";
     std::filesystem::create_directories(base);
@@ -151,33 +142,36 @@ static void TestEnsureProjectScene(const std::filesystem::path& home) {
 }
 
 static void TestCreateSystem(const std::filesystem::path& sourceRoot) {
-    SetEnvSourceRoot(sourceRoot);
     PrepareEngineFixture(sourceRoot);
 
     const std::filesystem::path engineDir = sourceRoot / "Engine";
-    Editor::ScaffoldResult created = Editor::CreateSystem("RoundTrip");
+    Editor::ScaffoldResult created =
+        Editor::CreateSystem("RoundTrip", engineDir.string());
     CHECK(created.ok);
     CHECK(std::filesystem::exists(engineDir / "include/Systems/RoundTripSystem.hpp"));
     CHECK(std::filesystem::exists(engineDir / "src/Systems/RoundTripSystem.cpp"));
     CHECK(CMakeListsContains(engineDir / "CMakeLists.txt", "src/Systems/RoundTripSystem.cpp"));
     CHECK(CMakeListsContains(engineDir / "CMakeLists.txt", "include/Systems/RoundTripSystem.hpp"));
 
-    Editor::ScaffoldResult duplicate = Editor::CreateSystem("RoundTrip");
+    Editor::ScaffoldResult duplicate =
+        Editor::CreateSystem("RoundTrip", engineDir.string());
     CHECK(!duplicate.ok);
 
-    Editor::ScaffoldResult suffixed = Editor::CreateSystem("RoundTripSystem");
+    Editor::ScaffoldResult suffixed =
+        Editor::CreateSystem("RoundTripSystem", engineDir.string());
     CHECK(!suffixed.ok);
 
-    Editor::ScaffoldResult invalid = Editor::CreateSystem("9Bad");
+    Editor::ScaffoldResult invalid =
+        Editor::CreateSystem("9Bad", engineDir.string());
     CHECK(!invalid.ok);
 }
 
 static void TestCreatePlugin(const std::filesystem::path& sourceRoot) {
-    SetEnvSourceRoot(sourceRoot);
     PrepareEngineFixture(sourceRoot);
 
     const std::filesystem::path engineDir = sourceRoot / "Engine";
-    Editor::ScaffoldResult created = Editor::CreatePlugin("RoundTrip");
+    Editor::ScaffoldResult created =
+        Editor::CreatePlugin("RoundTrip", engineDir.string());
     CHECK(created.ok);
     CHECK(std::filesystem::exists(engineDir / "include/Components/RoundTrip.hpp"));
     CHECK(std::filesystem::exists(engineDir / "include/Systems/RoundTripSystem.hpp"));
@@ -192,7 +186,8 @@ static void TestCreatePlugin(const std::filesystem::path& sourceRoot) {
     CHECK(pluginText.find("RegisterComponent<RoundTrip>") != std::string::npos);
     CHECK(pluginText.find("RegisterSystem<RoundTripSystem>") != std::string::npos);
 
-    Editor::ScaffoldResult duplicate = Editor::CreatePlugin("RoundTrip");
+    Editor::ScaffoldResult duplicate =
+        Editor::CreatePlugin("RoundTrip", engineDir.string());
     CHECK(!duplicate.ok);
 }
 
