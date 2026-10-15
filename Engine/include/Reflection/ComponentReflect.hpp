@@ -32,6 +32,17 @@
 
 namespace Engine {} // namespace Engine
 
+template <> struct glz::meta<Engine::Position> {
+    // NB: Position has a constructor (draw-layer z), so it is not an
+    // aggregate and needs explicit reflection. Missing keys in old scenes
+    // keep their default values (z/prevZ default to 0).
+    static constexpr auto value =
+        glz::object("x", &Engine::Position::x, "y", &Engine::Position::y, "z", &Engine::Position::z,
+                    "prevX", &Engine::Position::prevX, "prevY", &Engine::Position::prevY, "prevZ",
+                    &Engine::Position::prevZ, "moved", &Engine::Position::moved, "relative",
+                    &Engine::Position::relative);
+};
+
 template <> struct glz::meta<Engine::SpriteComponent> {
     // NB: the runtime `sprite` pointer is intentionally excluded; only the
     // asset reference and transform are serialized.

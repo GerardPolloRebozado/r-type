@@ -27,7 +27,7 @@ int main() {
     std::cout << "Spawned entity: " << myEntity << "\n";
 
     // Add position (position 200, 200)
-    app.GetRegistry().AddComponent(myEntity, Engine::Position::Create(200.0f, 200.0f));
+    app.GetRegistry().AddComponent(myEntity, Engine::Position(200.0f, 200.0f));
     auto& assets = app.GetRegistry().GetResource<Engine::AssetManager>();
 
     try {

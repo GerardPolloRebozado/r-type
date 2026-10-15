@@ -4,20 +4,22 @@
 namespace Engine {
 /**
  * @struct Position
- * @brief A basic component representing a 2D position.
+ * @brief A basic component representing a 2D position (x, y) plus a draw layer (z).
  *
- * Holds current (x, y), previous-frame (prevX, prevY), @ref moved, and @ref relative.
- * Stored x/y are always world coordinates; @ref relative only gates @ref HierarchySystem delta
- * follow.
+ * Holds current (x, y, z), previous-frame (prevX, prevY, prevZ), @ref moved, and @ref relative.
+ * Stored x/y are always world coordinates; @ref relative only gates @ref HierarchySystem delta follow.
  */
 struct Position {
-    float x = 0.0f;
-    float y = 0.0f;
-    float prevX = 0.0f;
-    float prevY = 0.0f;
+    float x;
+    float y;
+    /** @brief Draw layer: entities with a higher z are drawn on top of lower ones. */
+    int z;
+    float prevX;
+    float prevY;
+    int prevZ;
 
-    /** @brief True when (x, y) differs from (prevX, prevY); updated by @ref PositionSystem. */
-    bool moved = false;
+    /** @brief True when (x, y, z) differs from (prevX, prevY, prevZ); updated by @ref PositionSystem. */
+    bool moved;
 
     /**
      * @brief When true and the entity has @ref Parent, @ref HierarchySystem applies the
@@ -30,15 +32,10 @@ struct Position {
      *        current ones so the entity is not reported as moved on spawn.
      * @param x The initial X position.
      * @param y The initial Y position.
+     * @param z The initial draw layer.
      */
-    static Position Create(float x = 0.0f, float y = 0.0f) {
-        Position pos;
-        pos.x = x;
-        pos.y = y;
-        pos.prevX = x;
-        pos.prevY = y;
-        return pos;
-    }
+    Position(float x = 0.0f, float y = 0.0f, int z = 0)
+        : x(x), y(y), z(z), prevX(x), prevY(y), prevZ(z), moved(false), relative(false) {}
 };
 } // namespace Engine
 

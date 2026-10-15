@@ -11,9 +11,11 @@ void PositionSystem::Update(Registry& registry, float dt) {
         }
 
         Position& position = registry.GetComponent<Position>(entity);
-        position.moved = position.x != position.prevX || position.y != position.prevY;
+        position.moved = position.x != position.prevX || position.y != position.prevY ||
+                         position.z != position.prevZ;
         position.prevX = position.x;
         position.prevY = position.y;
+        position.prevZ = position.z;
     }
 }
 } // namespace Engine
