@@ -85,6 +85,12 @@ if (glaze_ADDED)
     target_include_directories(glaze_glaze INTERFACE ${glaze_SOURCE_DIR}/include)
 endif()
 
+CPMAddPackage(
+        NAME sol2
+        GITHUB_REPOSITORY ThePhD/sol2
+        VERSION 3.3.1
+)
+
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
 
 add_subdirectory(Engine)

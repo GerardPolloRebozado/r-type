@@ -275,7 +275,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
     }
     ImGui::End();
 }
-} // namespace Editor
+}
 
 namespace Editor {
 const std::string& HierarchyPanel::GetName() const {

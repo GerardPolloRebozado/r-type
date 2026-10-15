@@ -3,6 +3,7 @@
 #include "Components/CollisionEvents.hpp"
 #include "Components/Name.hpp"
 #include "Components/Position.hpp"
+#include "Components/ShapeComponent.hpp"
 #include <raylib-cpp.hpp>
 #include <raymath.hpp>
 #include <vector>
@@ -22,7 +23,7 @@ void CollisionSystem::Update(Registry& registry, float) {
         }
 
         const auto& colA = registry.GetComponent<ColliderComponent>(a);
-        const auto& posA = registry.GetComponent<Position>(a);
+        auto& posA = registry.GetComponent<Position>(a);
         static const Rotation defaultRot{0.0f};
         const auto& rotA =
             registry.HasComponent<Rotation>(a) ? registry.GetComponent<Rotation>(a) : defaultRot;
@@ -41,7 +42,7 @@ void CollisionSystem::Update(Registry& registry, float) {
                 continue;
             }
             const auto& colB = registry.GetComponent<ColliderComponent>(b);
-            const auto& posB = registry.GetComponent<Position>(b);
+            auto& posB = registry.GetComponent<Position>(b);
             const auto& rotB = registry.HasComponent<Rotation>(b)
                                    ? registry.GetComponent<Rotation>(b)
                                    : defaultRot;
@@ -59,6 +60,63 @@ void CollisionSystem::Update(Registry& registry, float) {
                 currentContacts.insert(pair);
 
                 const bool isTrigger = colA.isTrigger || colB.isTrigger;
+
+                // lines are skipped
+                if (!isTrigger && shapeA.has_value() && shapeB.has_value() &&
+                    shapeA->type != ShapeType::LINE && shapeB->type != ShapeType::LINE &&
+                    vecA.size() >= 3 && vecB.size() >= 3) {
+                    const std::vector<raylib::Vector2> polys[2] = {vecA, vecB};
+                    float minOverlap = std::numeric_limits<float>::max();
+                    Vector2 mtvAxis = {1.0f, 0.0f};
+                    bool overlapping = true;
+                    for (auto& poly : polys) {
+                        for (size_t i = 0; i < poly.size(); ++i) {
+                            const Vector2 va = poly[i];
+                            const Vector2 vb = poly[(i + 1) % poly.size()];
+                            auto [x, y] = Vector2Subtract(vb, va);
+                            const Vector2 perpendicular = {-y, x};
+                            const float length = Vector2Length(perpendicular);
+                            if (length == 0.0f) {
+                                continue;
+                            }
+                            const Vector2 axis = {perpendicular.x / length,
+                                                  perpendicular.y / length};
+
+                            auto [minA, maxA] = ProjectOnAxis(vecA, axis);
+                            auto [minB, maxB] = ProjectOnAxis(vecB, axis);
+                            const float overlap = std::min(maxA, maxB) - std::max(minA, minB);
+                            if (overlap < 0.0f) {
+                                overlapping = false;
+                                break;
+                            }
+                            if (overlap < minOverlap) {
+                                minOverlap = overlap;
+                                const float centerProjA = (minA + maxA) * 0.5f;
+                                const float centerProjB = (minB + maxB) * 0.5f;
+                                mtvAxis = (centerProjA < centerProjB) ? axis : Vector2Negate(axis);
+                            }
+                        }
+                        if (!overlapping) {
+                            break;
+                        }
+                    }
+                    if (overlapping && minOverlap < std::numeric_limits<float>::max()) {
+                        // Static colliders don't move
+                        const bool aStatic = colA.isStatic;
+                        const bool bStatic = colB.isStatic;
+                        if (aStatic && bStatic) {
+                            // Two statics pushing, then skip resolution
+                        } else {
+                            const float aFactor = aStatic ? 0.0f : (bStatic ? 1.0f : 0.5f);
+                            const float bFactor = bStatic ? 0.0f : (aStatic ? 1.0f : 0.5f);
+                            posA.x -= mtvAxis.x * minOverlap * aFactor;
+                            posA.y -= mtvAxis.y * minOverlap * aFactor;
+                            posB.x += mtvAxis.x * minOverlap * bFactor;
+                            posB.y += mtvAxis.y * minOverlap * bFactor;
+                        }
+                    }
+                }
+
                 if (!m_ActiveContacts.contains(pair)) {
                     EnterContact(registry, a, b, isTrigger);
                 } else {
