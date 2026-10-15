@@ -83,7 +83,8 @@ GlazeSerializer::SceneSnapshot GlazeSerializer::CaptureScene(Engine::Registry& r
     return snapshot;
 }
 
-void GlazeSerializer::RestoreScene(Engine::Registry& registry, const SceneSnapshot& snapshot) {
+void GlazeSerializer::RestoreScene(Engine::Registry& registry, const SceneSnapshot& snapshot,
+                                   std::unordered_map<Engine::Entity, Engine::Entity>* outRemap) {
     // Pass 1: recreate entities and restore every component except Parent, recording
     // the mapping from serialized entity IDs to the freshly created ones.
     std::unordered_map<Engine::Entity, Engine::Entity> idRemap;
@@ -134,6 +135,10 @@ void GlazeSerializer::RestoreScene(Engine::Registry& registry, const SceneSnapsh
         const auto it = idRemap.find(oldParent);
         const Engine::Entity newParent = (it != idRemap.end()) ? it->second : oldParent;
         registry.AddComponent<Engine::Parent>(entity, Engine::Parent::Create(newParent));
+    }
+
+    if (outRemap) {
+        *outRemap = std::move(idRemap);
     }
 }
 } // namespace Serialization

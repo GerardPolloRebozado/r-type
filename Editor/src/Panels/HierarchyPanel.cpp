@@ -214,8 +214,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         }
 
         if (entityToDelete != static_cast<Engine::Entity>(-1)) {
-            a
-              egistry.DestroyEntity(entityToDelete);
+            registry.DestroyEntity(entityToDelete);
             for (auto& dir : dirManager.directories) {
                 dir.entities.erase(
                     std::remove(dir.entities.begin(), dir.entities.end(), entityToDelete),

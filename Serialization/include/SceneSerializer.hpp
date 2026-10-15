@@ -8,12 +8,14 @@
 #include <optional>
 #include <string>
 
+#include "../../Editor/include/Panels/HierarchyPanel.hpp"
 namespace Serialization {
 
 struct SceneData {
     std::string sceneName;
     SceneConfig config;
     GlazeSerializer::SceneSnapshot entities;
+    Editor::EntityDirectoriesManager directories;
 };
 
 class SceneSerializer {

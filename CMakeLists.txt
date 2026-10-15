@@ -77,7 +77,13 @@ CPMAddPackage(
         NAME glaze
         GITHUB_REPOSITORY stephenberry/glaze
         GIT_TAG v9.0.0
+        DOWNLOAD_ONLY YES
 )
+if (glaze_ADDED)
+    add_library(glaze_glaze INTERFACE)
+    add_library(glaze::glaze ALIAS glaze_glaze)
+    target_include_directories(glaze_glaze INTERFACE ${glaze_SOURCE_DIR}/include)
+endif()
 
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
 

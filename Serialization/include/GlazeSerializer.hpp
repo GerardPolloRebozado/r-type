@@ -54,7 +54,8 @@ class GlazeSerializer {
     };
 
     SceneSnapshot CaptureScene(Engine::Registry& registry);
-    void RestoreScene(Engine::Registry& registry, const SceneSnapshot& snapshot);
+    void RestoreScene(Engine::Registry& registry, const SceneSnapshot& snapshot,
+                      std::unordered_map<Engine::Entity, Engine::Entity>* outRemap = nullptr);
 
   private:
     SerializationFormat m_Format;

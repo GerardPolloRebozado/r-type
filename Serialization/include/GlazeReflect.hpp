@@ -2,6 +2,7 @@
 #define SERIALIZATION_GLAZE_REFLECT_HPP_
 
 // Engine component reflection (shared with networking/game code via Engine).
+#include "../../Editor/include/Panels/HierarchyPanel.hpp"
 #include "PathUtils.hpp"
 #include "Reflection/ComponentReflect.hpp"
 #include "SceneConfig.hpp"
@@ -26,6 +27,17 @@ template <> struct glz::meta<Serialization::SceneConfig> {
 template <> struct glz::meta<Serialization::ProjectContext> {
     static constexpr auto value =
         glz::object("projectFolder", &Serialization::ProjectContext::projectFolder);
+};
+
+template <> struct glz::meta<Editor::Directory> {
+    static constexpr auto value =
+        glz::object("internalPath", &Editor::Directory::InternalPath, "name",
+                    &Editor::Directory::Name, "entities", &Editor::Directory::entities);
+};
+
+template <> struct glz::meta<Editor::EntityDirectoriesManager> {
+    static constexpr auto value =
+        glz::object("directories", &Editor::EntityDirectoriesManager::directories);
 };
 
 #endif // SERIALIZATION_GLAZE_REFLECT_HPP_
