@@ -7,7 +7,7 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_TEXTSYSTEM_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_TEXTSYSTEM_HPP
 #include "Components/Position.hpp"
-#include "ECS/System.hpp"
+#include "ECS/LayeredRenderSystem.hpp"
 
 namespace Engine {
 /**
@@ -18,23 +18,18 @@ namespace Engine {
  * @ref Position component, the text is drawn using Raylib's text rendering functions:
  * `DrawText` for default fonts or `DrawTextEx` for custom fonts.
  */
-class TextSystem : public System {
+class TextSystem : public LayeredRenderSystem {
   public:
     /**
-     * @brief Updates and renders text for all valid text entities.
-     * @param registry Main ECS registry containing entities and components.
-     * @param dt Delta time for the frame in seconds (unused for static text rendering).
+     * @brief True if @p entity has a Text and belongs to this pass
+     *        (entities tagged with @ref ScreenSpace go in the screen pass).
      */
-    void Render(Registry& registry) override;
+    bool CanDraw(Registry& registry, Entity entity, bool screenSpace) override;
 
     /**
-     * @brief Same as Render, for entities tagged with @ref ScreenSpace (drawn without camera).
-     * @param registry Main ECS registry containing entities and components.
+     * @brief Draws the entity's text at its Position.
      */
-    void RenderScreen(Registry& registry) override;
-
-  private:
-    static void DrawTexts(Registry& registry, bool screenSpace);
+    void DrawEntity(Registry& registry, Entity entity) override;
 };
 } // namespace Engine
 

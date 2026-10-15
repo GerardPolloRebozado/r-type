@@ -13,7 +13,7 @@ namespace Engine {
  * @brief Registers @ref Parent and @ref HierarchySystem for parent-child hierarchies.
  *
  * Initialize this plugin before @ref PositionPlugin so @ref HierarchySystem runs before
- * @ref PositionSystem snapshots prevX/prevY.
+ * @ref PositionSystem snapshots prevX/prevY/prevZ.
  */
 class HierarchyPlugin : public IPlugin {
   public:
