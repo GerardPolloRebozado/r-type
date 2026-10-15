@@ -26,6 +26,7 @@ set(SRC_FILES
         src/Plugins/ColliderPlugin.cpp
         src/Plugins/HierarchyPlugin.cpp
         src/Plugins/InputPlugin.cpp
+        src/Plugins/OpacityPlugin.cpp
         src/Plugins/PluginExample.cpp
         src/Plugins/PositionPlugin.cpp
         src/Plugins/RotationPlugin.cpp
@@ -47,6 +48,8 @@ set(SRC_FILES
         src/Scripting/LuaAPI/Plugins/TextAPI.cpp
         src/Scripting/LuaAPI/Plugins/ColliderAPI.cpp
         src/Scripting/LuaAPI/Plugins/ControllerAPI.cpp
+        src/Scripting/LuaAPI/Plugins/OpacityAPI.cpp
+        src/Scripting/LuaAPI/Plugins/ParentAPI.cpp
         src/Scripting/LuaAPI/Plugins/InputAPI.cpp
         src/Systems/CameraSystem.cpp
         src/Systems/CollisionSystem.cpp
@@ -72,6 +75,7 @@ set(INC_FILES
         include/Components/ComponentExample.hpp
         include/Components/Input.hpp
         include/Components/Name.hpp
+        include/Components/Opacity.hpp
         include/Components/Parent.hpp
         include/Components/PluginExampleEvents.hpp
         include/Components/Position.hpp
@@ -102,6 +106,7 @@ set(INC_FILES
         include/Plugins/HierarchyPlugin.hpp
         include/Plugins/InputPlugin.hpp
         include/Plugins/IPlugin.hpp
+        include/Plugins/OpacityPlugin.hpp
         include/Resources/NetworkHostResource.hpp
         include/Plugins/PluginExample.hpp
         include/Plugins/PositionPlugin.hpp
@@ -127,6 +132,8 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/TextAPI.hpp
         include/Scripting/LuaAPI/Plugins/ColliderAPI.hpp
         include/Scripting/LuaAPI/Plugins/ControllerAPI.hpp
+        include/Scripting/LuaAPI/Plugins/OpacityAPI.hpp
+        include/Scripting/LuaAPI/Plugins/ParentAPI.hpp
         include/Scripting/LuaAPI/Plugins/InputAPI.hpp
         include/Scripting/LuaAPI/Internal/Helpers.hpp
         include/Systems/AudioSystem.hpp

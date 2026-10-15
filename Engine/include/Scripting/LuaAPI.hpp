@@ -23,6 +23,8 @@ class Registry;
  *   - `Collider`  -> `Component.addBoxCollider`
  *   - `Controller`-> `Controller.isActionActive` / `getActiveActions` /
  *                     `addKeybind` / `hasController`, `Controller.KEYBOARD.*`
+ *   - `Opacity`   -> `Component.setOpacity` / `getOpacity`
+ *   - `Parent`    -> `Component.setParent` / `getParent` / `getChildren`
  *   - `Input`     -> `Input.isKey*`, `Input.getMousePosition`, `KEY.*`
  *
  * `Scripting/LuaAPI/` — core modules that are not plugins:
