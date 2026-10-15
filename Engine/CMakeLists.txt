@@ -16,6 +16,7 @@ set(SRC_FILES
         src/components/ShapeComponent.cpp
         src/Core/Application.cpp
         src/Core/Renderer.cpp
+        src/Core/VirtualResolution.cpp
         src/Input/Controller.cpp
         src/Input/IController.cpp
         src/Input/InputManager.cpp
@@ -31,6 +32,21 @@ set(SRC_FILES
         src/Plugins/ShapePlugin.cpp
         src/Plugins/SpritePlugin.cpp
         src/Plugins/TextPlugin.cpp
+        src/Scripting/ScriptPlugin.cpp
+        src/Scripting/ScriptSystem.cpp
+        src/Scripting/LuaAPI.cpp
+        src/Scripting/LuaAPI/LogAPI.cpp
+        src/Scripting/LuaAPI/TimeAPI.cpp
+        src/Scripting/LuaAPI/EntityAPI.cpp
+        src/Scripting/LuaAPI/ComponentQueryAPI.cpp
+        src/Scripting/LuaAPI/SceneAPI.cpp
+        src/Scripting/LuaAPI/Plugins/PositionAPI.cpp
+        src/Scripting/LuaAPI/Plugins/RotationAPI.cpp
+        src/Scripting/LuaAPI/Plugins/SpriteAPI.cpp
+        src/Scripting/LuaAPI/Plugins/ShapeAPI.cpp
+        src/Scripting/LuaAPI/Plugins/TextAPI.cpp
+        src/Scripting/LuaAPI/Plugins/ColliderAPI.cpp
+        src/Scripting/LuaAPI/Plugins/InputAPI.cpp
         src/Systems/CameraSystem.cpp
         src/Systems/CollisionSystem.cpp
         src/Systems/HierarchySystem.cpp
@@ -41,7 +57,6 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
         src/Systems/MultiplayerSystem.cpp
-        src/Logging/LogBuffer.cpp
 )
 
 set(INC_FILES
@@ -66,6 +81,7 @@ set(INC_FILES
         include/Components/Text.hpp
         include/Core/Application.hpp
         include/Core/Renderer.hpp
+        include/Core/VirtualResolution.hpp
         include/ECS/Entity.hpp
         include/ECS/Registry.hpp
         include/ECS/System.hpp
@@ -94,6 +110,23 @@ set(INC_FILES
         include/Plugins/TextPlugin.hpp
         include/Resources/StateResource.hpp
         include/Reflection/ComponentReflect.hpp
+        include/Scripting/ScriptComponent.hpp
+        include/Scripting/ScriptPlugin.hpp
+        include/Scripting/ScriptSystem.hpp
+        include/Scripting/LuaAPI.hpp
+        include/Scripting/LuaAPI/LogAPI.hpp
+        include/Scripting/LuaAPI/TimeAPI.hpp
+        include/Scripting/LuaAPI/EntityAPI.hpp
+        include/Scripting/LuaAPI/ComponentQueryAPI.hpp
+        include/Scripting/LuaAPI/SceneAPI.hpp
+        include/Scripting/LuaAPI/Plugins/PositionAPI.hpp
+        include/Scripting/LuaAPI/Plugins/RotationAPI.hpp
+        include/Scripting/LuaAPI/Plugins/SpriteAPI.hpp
+        include/Scripting/LuaAPI/Plugins/ShapeAPI.hpp
+        include/Scripting/LuaAPI/Plugins/TextAPI.hpp
+        include/Scripting/LuaAPI/Plugins/ColliderAPI.hpp
+        include/Scripting/LuaAPI/Plugins/InputAPI.hpp
+        include/Scripting/LuaAPI/Internal/Helpers.hpp
         include/Systems/AudioSystem.hpp
         include/Systems/CameraSystem.hpp
         include/Systems/CollisionSystem.hpp
@@ -119,11 +152,20 @@ target_compile_definitions(Engine PUBLIC ENGINE_LOG_LEVEL=${ENGINE_LOG_LEVEL})
 
 find_package(PkgConfig REQUIRED)
 set(RAYLIB_CPP_INCLUDE_DIRS ${raylib-cpp_SOURCE_DIR}/include)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LUA REQUIRED IMPORTED_TARGET lua5.4)
+
 target_include_directories(Engine PUBLIC
+        ${LUA_INCLUDE_DIRS}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${RAYLIB_CPP_INCLUDE_DIRS}
         ${RAYLIB_CPP_INCLUDE_DIRS}/raylib-cpp
 )
+# sol2 is third-party: include as SYSTEM so its warnings don't trigger -Werror.
+target_include_directories(Engine SYSTEM PUBLIC ${sol2_SOURCE_DIR}/include)
+# sol2 3.3.1 + modern GCC emits -Wtemplate-body warnings; silence them.
+target_compile_options(Engine PUBLIC -Wno-template-body -Wno-error=template-body)
+target_link_libraries(Engine PUBLIC PkgConfig::LUA)
 target_link_libraries(Engine PUBLIC raylib)
 target_link_libraries(Engine PUBLIC enet_static)
 if (WIN32)

@@ -79,6 +79,12 @@ CPMAddPackage(
         GIT_TAG v9.0.0
 )
 
+CPMAddPackage(
+        NAME sol2
+        GITHUB_REPOSITORY ThePhD/sol2
+        VERSION 3.3.1
+)
+
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
 
 add_subdirectory(Engine)

@@ -309,6 +309,12 @@ void EditorLayer::SetConfiguration(EditorConfig& config) {
         } else {
             m_Registry->GetResource<ProjectContext>().projectFolder = config.m_ProjectFolder;
         }
+        // Also expose EditorConfig as a resource for plugin editors.
+        if (!m_Registry->HasResource<EditorConfig>()) {
+            m_Registry->AddResource<EditorConfig>(config);
+        } else {
+            m_Registry->GetResource<EditorConfig>() = config;
+        }
     }
 }
 

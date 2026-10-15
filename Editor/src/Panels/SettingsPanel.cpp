@@ -1,4 +1,5 @@
 #include "Panels/SettingsPanel.hpp"
+#include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
 #include "SceneSerializer.hpp"
 #include <algorithm>
@@ -41,6 +42,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     mainOut << "#include \"Core/Application.hpp\"\n"
             << "#include <optional>\n"
             << "#include \"SceneSerializer.hpp\"\n"
+            << "#include \"Plugins/AudioPlugin.hpp\"\n"
+            << "#include \"Plugins/HierarchyPlugin.hpp\"\n"
+            << "#include \"Plugins/InputPlugin.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
             << "#include \"Plugins/SpritePlugin.hpp\"\n"
@@ -48,6 +52,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/RotationPlugin.hpp\"\n"
             << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Plugins/CameraPlugin.hpp\"\n"
+            << "#include \"Scripting/ScriptPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
             << "#include <raylib.h>\n\n"
@@ -57,6 +62,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    config.windowTitle = \"" << winTitleStr << "\";\n"
             << "    config.windowWidth = " << config.windowWidth << ";\n"
             << "    config.windowHeight = " << config.windowHeight << ";\n"
+            << "    config.virtualWidth = " << config.virtualWidth << ";\n"
+            << "    config.virtualHeight = " << config.virtualHeight << ";\n"
             << "    config.targetFPS = " << config.targetFPS << ";\n\n"
             << "    Engine::Application app(config);\n"
             << "    Engine::PositionPlugin positionPlugin;\n"
@@ -71,8 +78,16 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    rotationPlugin.Init(app.GetRegistry());\n"
             << "    Engine::ColliderPlugin colliderPlugin;\n"
             << "    colliderPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::HierarchyPlugin hierarchyPlugin;\n"
+            << "    hierarchyPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::InputPlugin inputPlugin;\n"
+            << "    inputPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::AudioPlugin audioPlugin;\n"
+            << "    audioPlugin.Init(app.GetRegistry());\n"
             << "    Engine::CameraPlugin cameraPlugin;\n"
-            << "    cameraPlugin.Init(app.GetRegistry());\n\n"
+            << "    cameraPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::ScriptPlugin scriptPlugin;\n"
+            << "    scriptPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 
@@ -195,6 +210,19 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
 
         ImGui::InputInt("Window Width", &config.windowWidth);
         ImGui::InputInt("Window Height", &config.windowHeight);
+
+        int virtualWidth =
+            Engine::VirtualResolution::ResolveAxis(config.virtualWidth, config.windowWidth);
+        int virtualHeight =
+            Engine::VirtualResolution::ResolveAxis(config.virtualHeight, config.windowHeight);
+        if (ImGui::InputInt("Virtual Width", &virtualWidth)) {
+            config.virtualWidth = virtualWidth;
+        }
+        if (ImGui::InputInt("Virtual Height", &virtualHeight)) {
+            config.virtualHeight = virtualHeight;
+        }
+        ImGui::TextDisabled("Game canvas. Scaled to fit the window.");
+
         ImGui::InputInt("Target FPS", &config.targetFPS);
 
         ImGui::Spacing();

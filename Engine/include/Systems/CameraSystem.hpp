@@ -29,18 +29,17 @@ class CameraSystem : public System {
      * @param viewportWidth Width in pixels of the surface being drawn to.
      * @param viewportHeight Height in pixels of the surface being drawn to.
      */
-    static Camera2D GetActiveCamera(Registry& registry, float viewportWidth,
-                                    float viewportHeight);
+    static Camera2D GetActiveCamera(Registry& registry, float viewportWidth, float viewportHeight);
 
     /**
-     * @brief Converts a window position into a world position.
+     * @brief Converts a canvas position into a world position.
      * @param registry The ECS registry.
-     * @param screen Position in window pixels.
+     * @param screen Position in virtual-canvas pixels.
      */
     static Vector2 ScreenToWorld(Registry& registry, Vector2 screen);
 
     /**
-     * @brief Converts a world position into a window position.
+     * @brief Converts a world position into a canvas position.
      * @param registry The ECS registry.
      * @param world Position in world units.
      */

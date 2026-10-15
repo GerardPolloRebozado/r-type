@@ -1,9 +1,9 @@
 #ifndef EDITOR_RENDERING_SCENERENDERER_HPP_
 #define EDITOR_RENDERING_SCENERENDERER_HPP_
 
+#include "Core/VirtualResolution.hpp"
 #include "ECS/Registry.hpp"
 #include "EditorConfig.hpp"
-#include <raylib-cpp.hpp>
 
 namespace Editor {
 
@@ -13,29 +13,27 @@ namespace Editor {
  *
  * Separates framebuffer management, ECS render systems dispatch,
  * and debug overlay passes (such as collider outlines) from ImGui UI code.
+ * The game canvas is the engine VirtualResolution resource.
  */
 class SceneRenderer {
   public:
     SceneRenderer() = default;
-    ~SceneRenderer();
 
     /**
-     * @brief Executes the complete viewport render pipeline into an off-screen render texture.
+     * @brief Executes the complete viewport render pipeline into the virtual canvas.
      */
     void Render(Engine::Registry& registry, const EditorConfig& config);
 
     /**
      * @brief Returns the rendered texture to be displayed by ImGui panels.
      */
-    const raylib::RenderTexture2D& GetTargetTexture() const {
-        return m_GameTexture;
+    const RenderTexture2D& GetTargetTexture(Engine::Registry& registry) const {
+        return registry.GetResource<Engine::VirtualResolution>().GetTexture();
     }
 
   private:
     void RenderSystems(Engine::Registry& registry);
     void RenderColliderOverlays(Engine::Registry& registry);
-
-    raylib::RenderTexture2D m_GameTexture;
 };
 
 } // namespace Editor

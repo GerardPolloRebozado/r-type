@@ -2,7 +2,6 @@
 #include "Components/Name.hpp"
 #include "Logging/Logger.hpp"
 #include <fstream>
-#include <glaze/glaze.hpp>
 
 namespace Serialization {
 
@@ -38,14 +37,18 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
 
     log_info("Loaded scene: " + sceneData.sceneName);
 
+    const std::string& projectFolder = sceneData.config.m_ProjectFolder;
+
     if (config.has_value()) {
         config->get() = sceneData.config;
+    }
 
-        if (!registry.HasResource<ProjectContext>()) {
-            registry.AddResource<ProjectContext>(config->get().m_ProjectFolder);
-        } else {
-            registry.GetResource<ProjectContext>().projectFolder = config->get().m_ProjectFolder;
-        }
+    // ProjectContext must be registered even when no SceneConfig is passed in
+    // (e.g. built games), so relative asset/script paths resolve correctly
+    if (!registry.HasResource<ProjectContext>()) {
+        registry.AddResource<ProjectContext>(projectFolder);
+    } else {
+        registry.GetResource<ProjectContext>().projectFolder = projectFolder;
     }
 
     m_Serializer.RestoreScene(registry, sceneData.entities);
