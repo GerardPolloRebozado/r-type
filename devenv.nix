@@ -18,6 +18,7 @@
     pkgs.xorg.libXi
     pkgs.xorg.libXcursor
     pkgs.wayland
+    pkgs.lua5_4
   ];
 
   # https://devenv.sh/packages/
@@ -47,6 +48,7 @@
     pkgs.doxygen
 
     pkgs.lefthook
+    pkgs.lua5_4
   ];
 
   # https://devenv.sh/languages/

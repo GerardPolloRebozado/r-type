@@ -1,10 +1,12 @@
 #include "Systems/SpriteSystem.hpp"
 #include "Assets/AssetManager.hpp"
+#include "Components/Opacity.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ScreenSpace.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "ECS/Registry.hpp"
+#include "Plugins/OpacityPlugin.hpp"
 
 namespace Engine {
 
@@ -38,7 +40,14 @@ void SpriteSystem::DrawEntity(Registry& registry, Entity entity) {
         if (registry.HasComponent<Rotation>(entity)) {
             spriteComp.sprite->SetRotation(registry.GetComponent<Rotation>(entity).angle);
         }
-        spriteComp.sprite->Draw({position.x + spriteComp.offsetX, position.y + spriteComp.offsetY});
+        raylib::Color tint = raylib::Color::White();
+        // children without their own Opacity still
+        // inherit faded ancestors (effective alpha is 1.0 when the
+        // chain is fully opaque, i.e. no visual change).
+        tint.a =
+            static_cast<unsigned char>(255.0f * OpacityPlugin::GetEffectiveAlpha(registry, entity));
+        spriteComp.sprite->Draw({position.x + spriteComp.offsetX, position.y + spriteComp.offsetY},
+                                tint);
     }
 }
 

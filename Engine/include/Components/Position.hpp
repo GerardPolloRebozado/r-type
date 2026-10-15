@@ -7,7 +7,8 @@ namespace Engine {
  * @brief A basic component representing a 2D position (x, y) plus a draw layer (z).
  *
  * Holds current (x, y, z), previous-frame (prevX, prevY, prevZ), @ref moved, and @ref relative.
- * Stored x/y are always world coordinates; @ref relative only gates @ref HierarchySystem delta follow.
+ * Stored x/y are always world coordinates; @ref relative only gates @ref HierarchySystem delta
+ * follow.
  */
 struct Position {
     float x;
@@ -18,7 +19,8 @@ struct Position {
     float prevY;
     int prevZ;
 
-    /** @brief True when (x, y, z) differs from (prevX, prevY, prevZ); updated by @ref PositionSystem. */
+    /** @brief True when (x, y, z) differs from (prevX, prevY, prevZ); updated by @ref
+     * PositionSystem. */
     bool moved;
 
     /**
