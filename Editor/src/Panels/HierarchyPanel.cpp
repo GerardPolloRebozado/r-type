@@ -34,7 +34,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             ImGui::TextDisabled("Right click to create an entity...");
         } else {
             for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
-                const auto entity = i;
+                const auto entity = i + 1;
                 std::string label =
                     Engine::GetEntityName(registry, entity) + "##" + std::to_string(entity);
                 if (ImGui::Selectable(label.c_str(), selected.index == static_cast<int>(i))) {

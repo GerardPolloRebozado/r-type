@@ -10,7 +10,7 @@ void TextPlugin::AttachToEntity(Registry& registry, const Entity entity, const s
     registry.AddComponent(entity, Text{txt, 10.0f, WHITE});
     registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
     if (!registry.HasComponent<Position>(entity)) {
-        registry.AddComponent(entity, Position::Create());
+        registry.AddComponent(entity, Position());
     }
 }
 
@@ -19,7 +19,7 @@ void TextPlugin::AttachToEntity(Registry& registry, const Entity entity, const s
     registry.AddComponent(entity, Text{txt, fontSize, WHITE});
     registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
     if (!registry.HasComponent<Position>(entity)) {
-        registry.AddComponent(entity, Position::Create());
+        registry.AddComponent(entity, Position());
     }
 }
 
@@ -28,7 +28,7 @@ void TextPlugin::AttachToEntity(Registry& registry, const Entity entity, const s
     registry.AddComponent(entity, Text{txt, fontSize, WHITE});
     registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
     if (!registry.HasComponent<Position>(entity)) {
-        registry.AddComponent(entity, Position::Create());
+        registry.AddComponent(entity, Position());
     }
 }
 } // namespace Engine

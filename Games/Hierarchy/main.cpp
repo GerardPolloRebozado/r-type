@@ -22,8 +22,8 @@ bool RunHierarchySmokeTest() {
     Engine::Entity parent = registry.CreateEntity();
     Engine::Entity child = registry.CreateEntity();
 
-    registry.AddComponent(parent, Engine::Position::Create(100.0f, 200.0f));
-    registry.AddComponent(child, Engine::Position::Create(110.0f, 220.0f));
+    registry.AddComponent(parent, Engine::Position(100.0f, 200.0f));
+    registry.AddComponent(child, Engine::Position(110.0f, 220.0f));
     Engine::HierarchyPlugin::AttachChild(registry, child, parent, true);
 
     registry.GetSystem<Engine::PositionSystem>()->Update(registry, 0.0f);

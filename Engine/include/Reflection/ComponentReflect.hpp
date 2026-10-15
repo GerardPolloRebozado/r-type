@@ -9,6 +9,7 @@
 // Parent, Name, Input, AudioSource, Keybind, Vector2, Color, ...).
 
 #include "Components/AudioSource.hpp"
+#include "Components/CameraComponent.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/Input.hpp"
 #include "Components/Name.hpp"
@@ -20,10 +21,22 @@
 #include "Components/Text.hpp"
 #include "Core/Application.hpp"
 #include "Inputs/IController.hpp"
+#include "Scripting/ScriptComponent.hpp"
 #include <glaze/glaze.hpp>
 #include <raylib.h>
 
 namespace Engine {} // namespace Engine
+
+template <> struct glz::meta<Engine::Position> {
+    // NB: Position has a constructor (draw-layer z), so it is not an
+    // aggregate and needs explicit reflection. Missing keys in old scenes
+    // keep their default values (z/prevZ default to 0).
+    static constexpr auto value =
+        glz::object("x", &Engine::Position::x, "y", &Engine::Position::y, "z", &Engine::Position::z,
+                    "prevX", &Engine::Position::prevX, "prevY", &Engine::Position::prevY, "prevZ",
+                    &Engine::Position::prevZ, "moved", &Engine::Position::moved, "relative",
+                    &Engine::Position::relative);
+};
 
 template <> struct glz::meta<Engine::SpriteComponent> {
     // NB: the runtime `sprite` pointer is intentionally excluded; only the
@@ -61,6 +74,25 @@ template <> struct glz::meta<Engine::ShapeType> {
     static constexpr auto value = glz::enumerate(
         "RECTANGLE", Engine::ShapeType::RECTANGLE, "CIRCLE", Engine::ShapeType::CIRCLE, "POLYGON",
         Engine::ShapeType::POLYGON, "LINE", Engine::ShapeType::LINE);
+};
+
+template <> struct glz::meta<Engine::ScriptComponent> {
+    // NB: `loaded` and the runtime `scriptTable` are intentionally excluded.
+    static constexpr auto value = glz::object("scriptPath", &Engine::ScriptComponent::scriptPath,
+                                              "autoReload", &Engine::ScriptComponent::autoReload);
+};
+
+template <> struct glz::meta<Engine::CameraComponent> {
+    static constexpr auto value = glz::object(
+        "zoom", &Engine::CameraComponent::zoom, "primary", &Engine::CameraComponent::primary,
+        "followTarget", &Engine::CameraComponent::followTarget, "followSpeed",
+        &Engine::CameraComponent::followSpeed, "clampToBounds",
+        &Engine::CameraComponent::clampToBounds, "bounds", &Engine::CameraComponent::bounds,
+        "shakeTrauma", &Engine::CameraComponent::shakeTrauma, "shakeMagnitude",
+        &Engine::CameraComponent::shakeMagnitude, "shakeDecay",
+        &Engine::CameraComponent::shakeDecay, "shakeOffsetX",
+        &Engine::CameraComponent::shakeOffsetX, "shakeOffsetY",
+        &Engine::CameraComponent::shakeOffsetY);
 };
 
 #endif // ENGINE_REFLECTION_COMPONENTREFLECT_HPP_

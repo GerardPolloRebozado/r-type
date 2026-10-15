@@ -1,8 +1,10 @@
 #ifndef SERIALIZATION_GLAZESERIALIZER_HPP_
 #define SERIALIZATION_GLAZESERIALIZER_HPP_
 
+#include "Components/CameraComponent.hpp"
 #include "ECS/Registry.hpp"
 #include "GlazeReflect.hpp"
+#include "Scripting/ScriptComponent.hpp"
 #include <cstddef>
 #include <cstring>
 #include <fstream>
@@ -46,6 +48,8 @@ class GlazeSerializer {
         std::optional<Engine::Parent> parent;
         std::optional<Engine::Input> input;
         std::optional<Engine::AudioSource> audioSource;
+        std::optional<Engine::CameraComponent> camera;
+        std::optional<Engine::ScriptComponent> script;
     };
 
     struct SceneSnapshot {

@@ -42,7 +42,7 @@ static void BuildScene(Engine::Registry& reg, Serialization::SceneConfig& config
 
     auto player = reg.CreateEntity();
     reg.AddComponent(player, Engine::Name::Create("Player"));
-    reg.AddComponent(player, Engine::Position::Create(10.0f, 20.0f));
+    reg.AddComponent(player, Engine::Position(10.0f, 20.0f));
     reg.AddComponent(player, Engine::Rotation::Create(45.0f));
     Engine::ShapeComponent shape;
     shape.type = Engine::ShapeType::RECTANGLE;
@@ -61,7 +61,7 @@ static void BuildScene(Engine::Registry& reg, Serialization::SceneConfig& config
 
     auto enemy = reg.CreateEntity();
     reg.AddComponent(enemy, Engine::Name::Create("Enemy"));
-    reg.AddComponent(enemy, Engine::Position::Create(30.0f, 40.0f));
+    reg.AddComponent(enemy, Engine::Position(30.0f, 40.0f));
     Engine::ShapeComponent circle;
     circle.type = Engine::ShapeType::CIRCLE;
     circle.radius = 10.0f;
