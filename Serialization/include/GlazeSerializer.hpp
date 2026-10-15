@@ -2,6 +2,7 @@
 #define SERIALIZATION_GLAZESERIALIZER_HPP_
 
 #include "Components/CameraComponent.hpp"
+#include "Components/Opacity.hpp"
 #include "ECS/Registry.hpp"
 #include "GlazeReflect.hpp"
 #include "Scripting/ScriptComponent.hpp"
@@ -45,6 +46,7 @@ class GlazeSerializer {
         std::optional<Engine::ShapeComponent> shape;
         std::optional<Engine::Text> text;
         std::optional<Engine::ColliderComponent> collider;
+        std::optional<Engine::Opacity> opacity;
         std::optional<Engine::Parent> parent;
         std::optional<Engine::Input> input;
         std::optional<Engine::AudioSource> audioSource;

@@ -8,6 +8,7 @@
 #include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/HierarchyPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
+#include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
@@ -47,6 +48,12 @@ void RunEditor(const string& scenePathString) {
     Engine::Application app(config);
 
     // Initialize engine plugins (registers Position component & system)
+    // NOTE: HierarchyPlugin must init before PositionPlugin so
+    // HierarchySystem propagates parent deltas before PositionSystem
+    // snapshots prevX/prevY (see HierarchyPlugin docs). Otherwise children
+    // never follow their parents.
+    Engine::HierarchyPlugin hierarchyPlugin;
+    hierarchyPlugin.Init(app.GetRegistry());
     Engine::PositionPlugin positionPlugin;
     positionPlugin.Init(app.GetRegistry());
     Engine::TextPlugin text_plugin;
@@ -59,8 +66,8 @@ void RunEditor(const string& scenePathString) {
     rotationPlugin.Init(app.GetRegistry());
     Engine::ColliderPlugin colliderPlugin;
     colliderPlugin.Init(app.GetRegistry());
-    Engine::HierarchyPlugin hierarchyPlugin;
-    hierarchyPlugin.Init(app.GetRegistry());
+    Engine::OpacityPlugin opacityPlugin;
+    opacityPlugin.Init(app.GetRegistry());
     Engine::InputPlugin inputPlugin;
     inputPlugin.Init(app.GetRegistry());
     Engine::AudioPlugin audioPlugin;

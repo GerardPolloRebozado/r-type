@@ -3,6 +3,7 @@
 
 #include "Panels/IEditorPanel.hpp"
 #include <string>
+#include <unordered_set>
 
 namespace Editor {
 struct HierarchyPanelSelectedEntity {
@@ -38,6 +39,10 @@ class HierarchyPanel : public IEditorPanel {
 
   private:
     std::string m_Name = "Hierarchy";
+
+    void RenderEntityNode(Engine::Registry& registry, Engine::Entity entity,
+                          HierarchyPanelSelectedEntity& selected,
+                          std::unordered_set<Engine::Entity>& visited, int depth);
 };
 } // namespace Editor
 #endif // EDITOR_PANELS_HIERARCHYPANEL_HPP_

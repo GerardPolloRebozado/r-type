@@ -29,10 +29,6 @@ class HierarchySystem : public System {
      */
     void Update(Registry& registry, float dt) override;
 
-  private:
-    static void CollectReferencedParents(Registry& registry,
-                                         std::unordered_set<Entity>& referencedAsParent);
-
     /**
      * @brief Returns hierarchy roots (referenced as parent, with no @ref Parent of their own).
      */
@@ -42,6 +38,10 @@ class HierarchySystem : public System {
      * @brief Returns entities whose @ref Parent::parent equals @p node.
      */
     static std::vector<Entity> FindDirectChildren(Registry& registry, Entity node);
+
+  private:
+    static void CollectReferencedParents(Registry& registry,
+                                         std::unordered_set<Entity>& referencedAsParent);
 
     /**
      * @brief Computes this node's delta and propagates to relative children, then recurses.

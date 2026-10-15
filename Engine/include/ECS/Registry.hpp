@@ -232,6 +232,23 @@ class Registry {
     }
 
     /**
+     * @brief Checks if an entity is alive (holds at least one component).
+     *
+     * Entity IDs are never reused, so destroyed entities keep their ID but
+     * own no components. Editor panels use this to skip dead rows.
+     * @param entity The entity ID.
+     * @return True if any component is attached to the entity.
+     */
+    bool IsEntityAlive(Entity entity) const {
+        for (const auto& pair : m_ComponentArrays) {
+            if (pair.second->Has(entity)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * @brief Type-erased component removal used by scripting glue.
      * @param type The component type index.
      * @param entity The entity ID.

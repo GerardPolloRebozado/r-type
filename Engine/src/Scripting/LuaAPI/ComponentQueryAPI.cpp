@@ -1,6 +1,7 @@
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/Name.hpp"
+#include "Components/Opacity.hpp"
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
@@ -31,6 +32,7 @@ void registerComponentQuery(sol::state_view lua, Registry& registry) {
         {"Text", std::type_index(typeid(Text))},
         {"Name", std::type_index(typeid(Name))},
         {"Collider", std::type_index(typeid(ColliderComponent))},
+        {"Opacity", std::type_index(typeid(Opacity))},
         {"Parent", std::type_index(typeid(Parent))},
     };
 

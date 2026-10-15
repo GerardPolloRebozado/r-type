@@ -1,9 +1,11 @@
 #include "Systems/ShapeSystem.hpp"
+#include "Components/Opacity.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ScreenSpace.hpp"
 #include "Components/ShapeComponent.hpp"
 #include "ECS/Registry.hpp"
+#include "Plugins/OpacityPlugin.hpp"
 #include <raylib.h>
 #include <rlgl.h>
 
@@ -18,13 +20,21 @@ void ShapeSystem::DrawEntity(Registry& registry, Entity entity) {
     auto& pos = registry.GetComponent<Position>(entity);
     auto& shape = registry.GetComponent<ShapeComponent>(entity);
 
+    // Opacity multiplies the shape's own alpha; a copy avoids
+    // mutating the stored component.
+    // children without their own Opacity still
+    // inherit faded ancestors (1.0 when fully opaque = no change).
+    Color drawColor = shape.color;
+    drawColor.a = static_cast<unsigned char>(static_cast<float>(drawColor.a) *
+                                             OpacityPlugin::GetEffectiveAlpha(registry, entity));
+
     float rotation = 0.0f;
     if (registry.HasComponent<Rotation>(entity)) {
         rotation = registry.GetComponent<Rotation>(entity).angle;
     }
 
-    bool useRlgl = (rotation != 0.0f &&
-                    (shape.type == ShapeType::RECTANGLE || shape.type == ShapeType::LINE));
+    bool useRlgl =
+        (rotation != 0.0f && (shape.type == ShapeType::RECTANGLE || shape.type == ShapeType::LINE));
     if (useRlgl) {
         rlPushMatrix();
         if (shape.type == ShapeType::RECTANGLE) {
@@ -43,30 +53,30 @@ void ShapeSystem::DrawEntity(Registry& registry, Entity entity) {
     switch (shape.type) {
         case ShapeType::RECTANGLE:
             if (shape.filled) {
-                DrawRectangle(pos.x, pos.y, shape.width, shape.height, shape.color);
+                DrawRectangle(pos.x, pos.y, shape.width, shape.height, drawColor);
             } else {
                 DrawRectangleLinesEx({pos.x, pos.y, shape.width, shape.height}, shape.thickness,
-                                     shape.color);
+                                     drawColor);
             }
             break;
         case ShapeType::CIRCLE:
             if (shape.filled) {
-                DrawCircle(pos.x, pos.y, shape.radius, shape.color);
+                DrawCircle(pos.x, pos.y, shape.radius, drawColor);
             } else {
-                DrawCircleLines(pos.x, pos.y, shape.radius, shape.color);
+                DrawCircleLines(pos.x, pos.y, shape.radius, drawColor);
             }
             break;
         case ShapeType::POLYGON:
             if (shape.filled) {
-                DrawPoly({pos.x, pos.y}, shape.sides, shape.radius, rotation, shape.color);
+                DrawPoly({pos.x, pos.y}, shape.sides, shape.radius, rotation, drawColor);
             } else {
                 DrawPolyLinesEx({pos.x, pos.y}, shape.sides, shape.radius, rotation,
-                                shape.thickness, shape.color);
+                                shape.thickness, drawColor);
             }
             break;
         case ShapeType::LINE:
             DrawLineEx({pos.x, pos.y}, {pos.x + shape.endOffset.x, pos.y + shape.endOffset.y},
-                       shape.thickness, shape.color);
+                       shape.thickness, drawColor);
             break;
     }
 
