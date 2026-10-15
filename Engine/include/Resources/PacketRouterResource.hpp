@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 // DO NOT DELETE THIS INCLUDE OR IT WILL NOT COMPILE
-#include "enet.h"
+#include "Compat/EnetWrapper.hpp"
 #include <glaze/glaze.hpp>
 // Glaze reflection for Engine components, so packets embedding them
 // (e.g. Engine::Position) serialize with zero manual code.

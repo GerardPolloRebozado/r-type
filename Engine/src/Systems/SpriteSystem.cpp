@@ -7,6 +7,7 @@
 #include "Components/SpriteComponent.hpp"
 #include "ECS/Registry.hpp"
 #include "Plugins/OpacityPlugin.hpp"
+#include "Resources/ProjectContext.hpp"
 
 namespace Engine {
 
@@ -22,8 +23,10 @@ void SpriteSystem::DrawEntity(Registry& registry, Entity entity) {
     if (!spriteComp.sprite && !spriteComp.assetPath.empty()) {
         if (registry.HasResource<AssetManager>()) {
             auto& am = registry.GetResource<AssetManager>();
+            const std::string resolved =
+                ResolveProjectPath(registry, spriteComp.assetPath).string();
             try {
-                am.LoadSprite(spriteComp.assetPath, spriteComp.assetPath);
+                am.LoadSprite(spriteComp.assetPath, resolved);
             } catch (...) {
             }
             try {

@@ -1,6 +1,7 @@
 #include "Scripting/ScriptSystem.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
+#include "Resources/ProjectContext.hpp"
 #include "Scripting/LuaAPI.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <filesystem>
@@ -55,7 +56,7 @@ void ScriptSystem::loadScript(Registry& registry, Entity entity) {
         return;
     }
 
-    std::filesystem::path fullPath = script.scriptPath;
+    std::filesystem::path fullPath = ResolveProjectPath(registry, script.scriptPath);
 
     if (!std::filesystem::exists(fullPath)) {
         // Only warn once per missing script path to avoid log spam

@@ -12,6 +12,10 @@ set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS TRUE CACHE BOOL "Suppress developer warnin
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(BundleMingwRuntime)
+bundle_mingw_runtime()
+
 set(CPM_DOWNLOAD_VERSION 0.40.0)
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
@@ -38,10 +42,14 @@ CPMAddPackage(
         GIT_TAG master
 )
 
+# NOTE: pinned to a fixed docking commit (Dear ImGui 1.93.1). The floating
+# `docking` branch resolves to a different snapshot per machine/fetch date,
+# which broke the build (tab color renames in 1.92+: TabActive -> TabSelected,
+# TabUnfocused -> TabDimmed, TabUnfocusedActive -> TabDimmedSelected).
 CPMAddPackage(
         NAME imgui
         GITHUB_REPOSITORY ocornut/imgui
-        GIT_TAG docking
+        GIT_TAG d88f238d1d363ef387382b2e29ad12cf96f826ac
 )
 CPMAddPackage(
         NAME rlImGui
