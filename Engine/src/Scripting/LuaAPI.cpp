@@ -13,6 +13,7 @@
 #include "Scripting/LuaAPI/EntityAPI.hpp"
 #include "Scripting/LuaAPI/LogAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ColliderAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/ControllerAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/InputAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/PositionAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/RotationAPI.hpp"
@@ -51,6 +52,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerShape(lua, registry);
     registerText(lua, registry);
     registerCollider(lua, registry);
+    registerController(lua, registry);
     registerInput(lua);
 
     log_info("[LuaAPI] Engine API registered");
