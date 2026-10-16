@@ -29,6 +29,7 @@ set(SRC_FILES
         src/Plugins/SpritePluginEditor.cpp
         src/Plugins/ShapePluginEditor.cpp
         src/Plugins/RotationPluginEditor.cpp
+        src/Plugins/OpacityPluginEditor.cpp
         src/Plugins/ColliderPluginEditor.cpp
         src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
@@ -59,6 +60,7 @@ set(INC_FILES
         include/Plugins/SpritePluginEditor.hpp
         include/Plugins/ShapePluginEditor.hpp
         include/Plugins/RotationPluginEditor.hpp
+        include/Plugins/OpacityPluginEditor.hpp
         include/MultiplatformUtils.hpp
         include/Plugins/ColliderPluginEditor.hpp
         include/Plugins/CameraPluginEditor.hpp

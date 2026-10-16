@@ -144,7 +144,7 @@ class Registry {
      */
     Entity CreateEntity() {
         Entity entity = {m_NextEntityId++};
-        AddComponent<Position>(entity, Position::Create(0, 0));
+        AddComponent<Position>(entity, Position(0, 0));
         AddComponent<Rotation>(entity, Rotation::Create(0.0f));
         return entity;
     }
@@ -226,6 +226,23 @@ class Registry {
             return false;
         }
         return it->second->Has(entity);
+    }
+
+    /**
+     * @brief Checks if an entity is alive (holds at least one component).
+     *
+     * Entity IDs are never reused, so destroyed entities keep their ID but
+     * own no components. Editor panels use this to skip dead rows.
+     * @param entity The entity ID.
+     * @return True if any component is attached to the entity.
+     */
+    bool IsEntityAlive(Entity entity) const {
+        for (const auto& pair : m_ComponentArrays) {
+            if (pair.second->Has(entity)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

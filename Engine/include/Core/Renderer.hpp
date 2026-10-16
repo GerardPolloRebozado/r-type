@@ -8,10 +8,13 @@ namespace Engine {
 /**
  * @brief Draws every system in two passes onto the current render target.
  *
- * 1. World pass: each system's Render(), inside the active camera.
- * 2. Screen pass: each system's RenderScreen(), in plain pixels (HUD).
+ * 1. World pass, inside the active camera.
+ * 2. Screen pass, in plain pixels (HUD): entities tagged with @ref ScreenSpace.
  *
- * Systems are drawn in registration order ( @ref Registry::GetSystemRenderOrder).
+ * In each pass, the entities of every @ref LayeredRenderSystem (sprites, shapes, text) are
+ * drawn first, sorted by @ref Position::z (higher z on top), then by system registration
+ * order ( @ref Registry::GetSystemRenderOrder), then by entity id. After that, each system's
+ * Render() / RenderScreen() runs in registration order, for systems that draw on their own.
  * Shared by the game loop and the Editor scene view so both draw the same thing.
  * Does not call BeginDrawing/EndDrawing nor clear the background.
  * @param registry The ECS registry.

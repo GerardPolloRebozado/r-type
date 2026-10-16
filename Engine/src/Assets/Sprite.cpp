@@ -15,10 +15,14 @@ Sprite::Sprite(const std::string& path) : _texture(path) {
 }
 
 void Sprite::Draw(const raylib::Vector2& position) {
+    Draw(position, raylib::Color::White());
+}
+
+void Sprite::Draw(const raylib::Vector2& position, const raylib::Color& tint) {
     raylib::Rectangle destRect(position.x, position.y, _sourceRect.width * _scale.x,
                                _sourceRect.height * _scale.y);
     raylib::Vector2 origin(0, 0);
-    _texture.Draw(_sourceRect, destRect, origin, _rotation, raylib::Color::White());
+    _texture.Draw(_sourceRect, destRect, origin, _rotation, tint);
 }
 
 const raylib::Texture& Sprite::GetTexture() const {

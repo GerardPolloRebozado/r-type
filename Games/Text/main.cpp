@@ -24,7 +24,7 @@ int main() {
 
     // create the entity for a text on the screen
     Engine::Entity mytextEntity = app.GetRegistry().CreateEntity();
-    app.GetRegistry().AddComponent(mytextEntity, Engine::Position::Create(100.0f, 100.0f));
+    app.GetRegistry().AddComponent(mytextEntity, Engine::Position(100.0f, 100.0f));
     Engine::TextPlugin::AttachToEntity(app.GetRegistry(), mytextEntity, "Hello, World!");
 
     app.Run();

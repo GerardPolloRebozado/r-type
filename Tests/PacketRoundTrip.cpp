@@ -53,7 +53,7 @@ int main() {
     CHECK(keyCalls == 1);
     CHECK(receivedKey == 'x');
 
-    MoveTo sent{7, Engine::Position::Create(1.5f, -2.5f)};
+    MoveTo sent{7, Engine::Position(1.5f, -2.5f)};
     ENetPacket* p2 = Engine::Multiplayer::NetworkHostResource::CreatePacket(moveId, sent, false);
     router.Dispatch(registry, nullptr, p2->data, p2->dataLength);
     enet_packet_destroy(p2);

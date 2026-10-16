@@ -41,7 +41,7 @@ To provide even more clarity in a massive project, scopes can be divided into su
 * **`engine/network`**: Asio UDP sockets, packet serialization, server logic.
 * **`engine/pluginName`**: Collision detection, transforms, audio...
 * **`engine/render`**: Raylib integration, sprite drawing, window management.
-* **`engine/scripting`**: Lua integration, binding generation.
+* **`engine/lua`**: Lua integration, binding generation.
 * **`engine/core`**: Main application loop, delta time calculation, configuration.
 
 ### Editor Sub-scopes (`editor/`)
