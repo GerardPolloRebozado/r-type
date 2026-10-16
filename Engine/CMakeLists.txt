@@ -90,6 +90,7 @@ set(INC_FILES
         include/Components/SpriteComponent.hpp
         include/Components/Text.hpp
         include/Core/Application.hpp
+        include/Core/EditorMode.hpp
         include/Core/Renderer.hpp
         include/Core/VirtualResolution.hpp
         include/ECS/Entity.hpp

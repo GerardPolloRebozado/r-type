@@ -1,5 +1,6 @@
 #include "BundledAssets.hpp"
 #include "Core/Application.hpp"
+#include "Core/EditorMode.hpp"
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
@@ -79,6 +80,9 @@ void RunEditor(const string& scenePathString) {
     scriptPlugin.Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;
     cameraPlugin.Init(app.GetRegistry());
+
+    // This registry is edited, never played
+    app.GetRegistry().AddResource<Engine::EditorMode>();
 
     editorLayer.SetRegistry(app.GetRegistry());
     editorLayer.SetConfiguration(config);

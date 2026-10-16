@@ -1,5 +1,6 @@
 #include "Scripting/SignalDispatch.hpp"
 #include "Components/SignalConnections.hpp"
+#include "Core/EditorMode.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include "Scripting/ScriptComponent.hpp"
@@ -33,6 +34,9 @@ std::vector<SignalProvider> GetSignalProviders() {
 }
 
 void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, Entity other) {
+    if (registry.HasResource<EditorMode>()) {
+        return;
+    }
     if (!registry.IsComponentRegistered<SignalConnections>() ||
         !registry.HasComponent<SignalConnections>(emitter)) {
         return;

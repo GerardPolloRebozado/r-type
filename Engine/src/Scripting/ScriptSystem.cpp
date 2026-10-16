@@ -1,5 +1,6 @@
 #include "Scripting/ScriptSystem.hpp"
 #include "Assets/ProjectPaths.hpp"
+#include "Core/EditorMode.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include "Scripting/LuaAPI.hpp"
@@ -15,6 +16,9 @@ ScriptSystem::~ScriptSystem() = default;
 std::unordered_set<std::string> ScriptSystem::s_warnedMissingScripts;
 
 void ScriptSystem::Update(Registry& registry, float dt) {
+    if (registry.HasResource<EditorMode>()) {
+        return;
+    }
     if (!apiRegistered) {
         lua.open_libraries();
         LuaAPI::registerEngineAPI(lua.lua_state(), registry);
