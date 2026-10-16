@@ -73,23 +73,8 @@ class GlazeSerializer {
                                  const std::vector<EntitySnapshot>& entities);
 
   private:
-    // Older saves named ShapeComponent::color "color)" because WHITE expands
-    // to a (Color) cast and the member-name parser kept the ')'.
-    static void NormalizeLegacyColorKey(std::string& json);
-
     SerializationFormat m_Format;
 };
-
-inline void GlazeSerializer::NormalizeLegacyColorKey(std::string& json) {
-    const std::string from = "\"color)\"";
-    const std::string to = "\"color\"";
-    std::size_t pos = 0;
-
-    while ((pos = json.find(from, pos)) != std::string::npos) {
-        json.replace(pos, from.size(), to);
-        pos += to.size();
-    }
-}
 
 template <typename T> std::string GlazeSerializer::SerializeToString(const T& value) {
     if (m_Format == SerializationFormat::Binary) {
@@ -118,9 +103,7 @@ bool GlazeSerializer::DeserializeFromString(const std::string& data, T& value) {
         std::memcpy(binary.data(), data.data(), data.size());
         return DeserializeFromBinary(binary, value);
     }
-    std::string json = data;
-    NormalizeLegacyColorKey(json);
-    return !glz::read_json(value, json);
+    return !glz::read_json(value, data);
 }
 
 template <typename T>
