@@ -3,6 +3,7 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
+#include "Logging/Logger.hpp"
 #include "Plugins/AudioPlugin.hpp"
 #include "Plugins/CameraPlugin.hpp"
 #include "Plugins/ColliderPlugin.hpp"
@@ -14,6 +15,7 @@
 #include "Plugins/ShapePlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
+#include "Scaffold.hpp"
 #include "Scripting/ScriptPlugin.hpp"
 #include "imgui.h"
 #include "raylib.hpp"
@@ -86,7 +88,117 @@ void RunEditor(const string& scenePathString) {
     editorLayer.Shutdown();
 }
 
-int main() {
+namespace {
+
+int RunNew(int argc, char** argv) {
+    Editor::ProjectRequest request;
+    Editor::ScaffoldResult result;
+    std::string flag;
+
+    if (argc < 3) {
+        log_error("Usage: RTypeEditor new <name> [--path <dir>] [--description <text>]");
+        return 1;
+    }
+    request.name = argv[2];
+    if (request.name.empty() || request.name.rfind("--", 0) == 0) {
+        log_error("Usage: RTypeEditor new <name> [--path <dir>] [--description <text>]");
+        return 1;
+    }
+
+    for (int index = 3; index < argc; ++index) {
+        flag = argv[index];
+        if (flag == "--path") {
+            if (index + 1 >= argc) {
+                log_error("Missing value for --path");
+                return 1;
+            }
+            index += 1;
+            request.path = argv[index];
+        } else if (flag == "--description") {
+            if (index + 1 >= argc) {
+                log_error("Missing value for --description");
+                return 1;
+            }
+            index += 1;
+            request.description = argv[index];
+        } else {
+            log_error("Unknown option: " + flag);
+            return 1;
+        }
+    }
+
+    result = Editor::CreateProject(request);
+    if (!result.ok) {
+        return 1;
+    }
+    RunEditor(result.scenePath);
+    return 0;
+}
+
+int RunCreate(int argc, char** argv) {
+    Editor::ScaffoldResult result;
+    std::string kind;
+    std::string name;
+    std::string enginePath;
+    std::string flag;
+
+    if (argc < 4) {
+        log_error("Usage: RTypeEditor create <system|plugin> <Name> [--path <dir>]");
+        return 1;
+    }
+    kind = argv[2];
+    name = argv[3];
+    if (name.empty() || name.rfind("--", 0) == 0) {
+        log_error("Usage: RTypeEditor create <system|plugin> <Name> [--path <dir>]");
+        return 1;
+    }
+
+    for (int index = 4; index < argc; ++index) {
+        flag = argv[index];
+        if (flag == "--path") {
+            if (index + 1 >= argc) {
+                log_error("Missing value for --path");
+                return 1;
+            }
+            index += 1;
+            enginePath = argv[index];
+        } else {
+            log_error("Unknown option: " + flag);
+            return 1;
+        }
+    }
+
+    if (kind == "system") {
+        result = Editor::CreateSystem(name, enginePath);
+    } else if (kind == "plugin") {
+        result = Editor::CreatePlugin(name, enginePath);
+    } else {
+        log_error("Unknown create target: " + kind);
+        return 1;
+    }
+    if (!result.ok) {
+        return 1;
+    }
+    return 0;
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    std::string command;
+
+    if (argc > 1) {
+        command = argv[1];
+        if (command == "new") {
+            return RunNew(argc, argv);
+        }
+        if (command == "create") {
+            return RunCreate(argc, argv);
+        }
+        log_error("Unknown command: " + command + ". Expected new or create");
+        return 1;
+    }
+
     const int screenWidth = 1280;
     const int screenHeight = 720;
 

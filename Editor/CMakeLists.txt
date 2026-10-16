@@ -34,6 +34,8 @@ set(SRC_FILES
         src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
+        src/ProjectSystemsBuild.cpp
+        src/Scaffold.cpp
         src/Utils/Multiplatform.cpp
 )
 
@@ -63,10 +65,14 @@ set(INC_FILES
         include/Plugins/ColliderPluginEditor.hpp
         include/Plugins/CameraPluginEditor.hpp
         include/Rendering/SceneRenderer.hpp
+        include/GalleryReflect.hpp
+        include/ProjectSystemsBuild.hpp
+        include/Scaffold.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
 target_include_directories(RTypeEditor PRIVATE include ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(RTypeEditor PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
 
 
