@@ -33,7 +33,7 @@ class SceneRenderer {
     }
 
   private:
-    void RenderSystems(Engine::Registry& registry);
+    void RenderSystems(Engine::Registry& registry, std::optional<Camera2D> editorCamera);
     void RenderColliderOverlays(Engine::Registry& registry);
 };
 

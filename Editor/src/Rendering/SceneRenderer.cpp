@@ -21,20 +21,18 @@ void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& confi
     canvas.Begin();
     ClearBackground(BLACK);
 
-    Engine::RenderScene(
-        registry, static_cast<float>(canvas.GetWidth()), static_cast<float>(canvas.GetHeight()),
-        [this, &registry]() { RenderColliderOverlays(registry); }, editorCamera);
-    RenderSystems(registry);
+    RenderSystems(registry, editorCamera);
 
     canvas.End();
 }
 
-void SceneRenderer::RenderSystems(Engine::Registry& registry) {
+void SceneRenderer::RenderSystems(Engine::Registry& registry,
+                                  std::optional<Camera2D> editorCamera) {
     const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
 
-    Engine::RenderScene(registry, static_cast<float>(canvas.GetWidth()),
-                        static_cast<float>(canvas.GetHeight()),
-                        [this, &registry]() { RenderColliderOverlays(registry); });
+    Engine::RenderScene(
+        registry, static_cast<float>(canvas.GetWidth()), static_cast<float>(canvas.GetHeight()),
+        [this, &registry]() { RenderColliderOverlays(registry); }, editorCamera);
 }
 
 void SceneRenderer::RenderColliderOverlays(Engine::Registry& registry) {
