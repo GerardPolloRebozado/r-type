@@ -35,7 +35,8 @@ bool IsValidEntryName(const std::string& name) {
     return name.find('/') == std::string::npos && name.find('\\') == std::string::npos;
 }
 
-std::string ProjectRelative(const std::filesystem::path& project, const std::filesystem::path& path) {
+std::string ProjectRelative(const std::filesystem::path& project,
+                            const std::filesystem::path& path) {
     std::error_code error;
     const std::filesystem::path relative = std::filesystem::relative(path, project, error);
     if (error) {
@@ -79,8 +80,8 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::SpriteComponent>() &&
             registry.HasComponent<Engine::SpriteComponent>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::SpriteComponent>(entity).assetPath, from,
-                               to);
+            RetargetStoredPath(registry.GetComponent<Engine::SpriteComponent>(entity).assetPath,
+                               from, to);
         }
         if (registry.IsComponentRegistered<Engine::ScriptComponent>() &&
             registry.HasComponent<Engine::ScriptComponent>(entity)) {
@@ -92,12 +93,13 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
             registry.HasComponent<Engine::PrefabInstance>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::PrefabInstance>(entity).prefabPath, from,
-                               to);
+            RetargetStoredPath(registry.GetComponent<Engine::PrefabInstance>(entity).prefabPath,
+                               from, to);
         }
         if (registry.IsComponentRegistered<Engine::AudioSource>() &&
             registry.HasComponent<Engine::AudioSource>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::AudioSource>(entity).assetId, from, to);
+            RetargetStoredPath(registry.GetComponent<Engine::AudioSource>(entity).assetId, from,
+                               to);
         }
     }
 }
@@ -128,7 +130,8 @@ void RetargetSavedFiles(const std::filesystem::path& project, const std::string&
         }
         std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
         input.close();
-        if (text.find(fromExact) == std::string::npos && text.find(fromPrefix) == std::string::npos) {
+        if (text.find(fromExact) == std::string::npos &&
+            text.find(fromPrefix) == std::string::npos) {
             continue;
         }
         const std::string original = text;
@@ -314,12 +317,14 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                         ImGui::EndDragDropSource();
                     }
                     if (ImGui::BeginDragDropTarget()) {
-                        const ImGuiPayload* movePayload = ImGui::AcceptDragDropPayload("ASSET_MOVE");
+                        const ImGuiPayload* movePayload =
+                            ImGui::AcceptDragDropPayload("ASSET_MOVE");
                         if (movePayload == nullptr) {
                             movePayload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM");
                         }
                         if (movePayload != nullptr && movePayload->Data != nullptr) {
-                            const std::string relativePath(static_cast<const char*>(movePayload->Data));
+                            const std::string relativePath(
+                                static_cast<const char*>(movePayload->Data));
                             const std::filesystem::path source = m_StartingDirectory / relativePath;
                             pendingSource = source;
                             pendingDestination = path / source.filename();
@@ -443,7 +448,8 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
                 log_error("Assets: invalid folder name");
             } else {
                 const std::filesystem::path folder = m_CurrentDirectory / m_DialogText;
-                if (!IsInsideDirectory(m_StartingDirectory, folder) && folder != m_StartingDirectory) {
+                if (!IsInsideDirectory(m_StartingDirectory, folder) &&
+                    folder != m_StartingDirectory) {
                     log_error("Assets: folder must stay inside the project");
                 } else if (std::filesystem::exists(folder)) {
                     log_error("Assets: " + folder.string() + " already exists");
@@ -489,24 +495,23 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
                 log_error("Assets: the project folder cannot be deleted");
             } else if (!IsInsideDirectory(m_StartingDirectory, m_DialogTarget)) {
                 log_error("Assets: cannot delete a path outside the project");
+            } else {
+                std::error_code error;
+                std::filesystem::remove_all(m_DialogTarget, error);
+                if (error) {
+                    log_error("Assets: failed to delete " + m_DialogTarget.string());
                 } else {
-                    std::error_code error;
-                    std::filesystem::remove_all(m_DialogTarget, error);
-                    if (error) {
-                        log_error("Assets: failed to delete " + m_DialogTarget.string());
-                    } else {
-                        const std::filesystem::path selected(config.m_SelectedAssetPath);
-                        if (selected == m_DialogTarget ||
-                            IsInsideDirectory(m_DialogTarget, selected)) {
-                            config.m_SelectedAssetPath.clear();
-                        }
-                        if (m_CurrentDirectory == m_DialogTarget ||
-                            IsInsideDirectory(m_DialogTarget, m_CurrentDirectory)) {
-                            m_CurrentDirectory = m_StartingDirectory;
-                        }
-                        ImGui::CloseCurrentPopup();
+                    const std::filesystem::path selected(config.m_SelectedAssetPath);
+                    if (selected == m_DialogTarget || IsInsideDirectory(m_DialogTarget, selected)) {
+                        config.m_SelectedAssetPath.clear();
                     }
+                    if (m_CurrentDirectory == m_DialogTarget ||
+                        IsInsideDirectory(m_DialogTarget, m_CurrentDirectory)) {
+                        m_CurrentDirectory = m_StartingDirectory;
+                    }
+                    ImGui::CloseCurrentPopup();
                 }
+            }
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
@@ -526,7 +531,8 @@ bool AssetsPanel::Relocate(Engine::Registry& registry, EditorConfig& config,
         log_error("Assets: cannot move the project root");
         return false;
     }
-    if (!IsInsideDirectory(m_StartingDirectory, destination) && destination != m_StartingDirectory) {
+    if (!IsInsideDirectory(m_StartingDirectory, destination) &&
+        destination != m_StartingDirectory) {
         log_error("Assets: destination must stay inside the project");
         return false;
     }

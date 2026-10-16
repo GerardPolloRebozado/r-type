@@ -6,8 +6,8 @@
 #include "Components/Name.hpp"
 #include "Components/Opacity.hpp"
 #include "Components/Parent.hpp"
-#include "Components/PrefabInstance.hpp"
 #include "Components/Position.hpp"
+#include "Components/PrefabInstance.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
 #include "Components/SpriteComponent.hpp"
@@ -183,8 +183,8 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
     }
 
     for (const auto& entitySnapshot : entities) {
-        const bool remapCamera = entitySnapshot.camera.has_value() &&
-                                 entitySnapshot.camera->followTarget.has_value();
+        const bool remapCamera =
+            entitySnapshot.camera.has_value() && entitySnapshot.camera->followTarget.has_value();
         if (!entitySnapshot.parent.has_value() && !entitySnapshot.connections.has_value() &&
             !remapCamera) {
             continue;

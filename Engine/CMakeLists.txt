@@ -168,11 +168,10 @@ set(ENGINE_LOG_LEVEL "ENGINE_LOG_INFO" CACHE STRING
         "Minimum Engine log level (ENGINE_LOG_ERROR, ENGINE_LOG_DEBUG, ENGINE_LOG_INFO)")
 target_compile_definitions(Engine PUBLIC ENGINE_LOG_LEVEL=${ENGINE_LOG_LEVEL})
 
-find_package(PkgConfig REQUIRED)
-set(RAYLIB_CPP_INCLUDE_DIRS ${raylib-cpp_SOURCE_DIR}/include)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LUA REQUIRED IMPORTED_TARGET lua5.4)
+include(ProvideLua)
+provide_lua()
 
+set(RAYLIB_CPP_INCLUDE_DIRS ${raylib-cpp_SOURCE_DIR}/include)
 target_include_directories(Engine PUBLIC
         ${LUA_INCLUDE_DIRS}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -187,6 +186,21 @@ target_link_libraries(Engine PUBLIC PkgConfig::LUA)
 target_link_libraries(Engine PUBLIC raylib)
 target_link_libraries(Engine PUBLIC enet_static)
 if (WIN32)
-    target_link_libraries(MyEngine PRIVATE ws2_32 winmm)
+    target_link_libraries(Engine PRIVATE ws2_32 winmm)
+    # Narrowly scoped: Engine sources only (PRIVATE, not PUBLIC).
+    # ENet pulls in <windows.h>, whose GDI/USER declarations collide with
+    # raylib (Rectangle, CloseWindow, ShowCursor, DrawText, LoadImage...).
+    # These must NOT be PUBLIC/global because (a) raylib's bundled GLFW
+    # needs the full windows.h, and (b) dependents like the Editor use
+    # portable-file-dialogs, which needs winuser.h (MessageBoxW, IDOK...).
+    # Dependents are protected instead by Compat/EnetWrapper.hpp, which
+    # defines these locally just before including <enet.h>.
+    target_compile_definitions(Engine PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+        NOGDI
+        NOUSER
+        MMNOSOUND
+    )
 endif ()
 target_link_libraries(Engine PUBLIC glaze::glaze)

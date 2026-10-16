@@ -7,6 +7,7 @@ namespace Serialization {
 
 using Engine::ProjectContext;
 using Engine::ResolveAssetPath;
+using Engine::ResolveProjectPath;
 using Engine::ToProjectRelativePath;
 
 } // namespace Serialization

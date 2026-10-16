@@ -56,6 +56,14 @@ inline std::filesystem::path ResolveAssetPath(Registry& registry, const std::str
 }
 
 /**
+ * @brief Legacy alias kept for Windows-branch call sites.
+ * @see ResolveAssetPath
+ */
+inline std::filesystem::path ResolveProjectPath(Registry& registry, const std::string& path) {
+    return ResolveAssetPath(registry, path);
+}
+
+/**
  * @brief Converts an absolute (or foreign) path to project-relative form for
  *        storage in committed files. Paths outside the project are left as-is.
  */

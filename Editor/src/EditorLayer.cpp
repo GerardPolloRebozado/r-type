@@ -274,15 +274,37 @@ void EditorLayer::BeginDockSpace() {
 
         if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
             if (m_Configuration) {
-                std::string exePath =
-                    m_Configuration->m_ProjectFolder + "/" + m_Configuration->m_BuildExecutableName;
+#ifdef _WIN32
+                const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
+#else
+                const std::string exeFile = m_Configuration->m_BuildExecutableName;
+#endif
+                std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
                 if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/.build/" +
-                              m_Configuration->m_BuildExecutableName;
+                    exePath = m_Configuration->m_ProjectFolder + "/.build/" + exeFile;
+                }
+                // Multi-config generators (e.g. Visual Studio) place the binary
+                // in a <Config> subfolder.
+                if (!std::filesystem::exists(exePath)) {
+                    for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
+                        const std::string cand =
+                            m_Configuration->m_ProjectFolder + "/.build/" + cfg + "/" + exeFile;
+                        if (std::filesystem::exists(cand)) {
+                            exePath = cand;
+                            break;
+                        }
+                    }
                 }
                 if (std::filesystem::exists(exePath)) {
+#ifdef _WIN32
+                    // start detaches: system() returns immediately instead of
+                    // freezing the editor while the game runs.
+                    std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
+                                      "\" \"" + exePath + "\"";
+#else
                     std::string cmd =
                         "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" + exePath + "\" &";
+#endif
                     std::system(cmd.c_str());
                 }
             }

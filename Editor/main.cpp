@@ -34,7 +34,7 @@ void RunEditor(const string& scenePathString) {
     projectFolder = projectFolder.parent_path();
 
     config.windowTitle = "Engine Editor";
-    config.m_ProjectFolder = projectFolder;
+    config.m_ProjectFolder = projectFolder.string();
     config.m_InitialScenePath = scenePathString;
     config.windowWidth = 1280;
     config.windowHeight = 720;

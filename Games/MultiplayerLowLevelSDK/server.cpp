@@ -5,6 +5,7 @@
 #include "PacketTypes.hpp"
 #include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
+#include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"

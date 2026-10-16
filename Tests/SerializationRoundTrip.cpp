@@ -1,5 +1,6 @@
 #include "Assets/ProjectPaths.hpp"
-#include "Components/AudioSource.hpp" #include "Components/CameraComponent.hpp"
+#include "Components/AudioSource.hpp"
+#include "Components/CameraComponent.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/CollisionEvents.hpp"
 #include "Components/Input.hpp"

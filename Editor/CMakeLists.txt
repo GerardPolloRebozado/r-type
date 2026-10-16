@@ -37,6 +37,7 @@ set(SRC_FILES
         src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
+        src/Utils/FileDialog.cpp
         src/Utils/Multiplatform.cpp
 )
 
@@ -57,6 +58,7 @@ set(INC_FILES
         include/Panels/InputMappingPanel.hpp
         include/Panels/StatePanel.hpp
         include/Gallery.hpp
+        include/FileDialog.hpp
         include/PluginEditor.hpp
         include/Plugins/PositionPluginEditor.hpp
         include/Plugins/TextPluginEditor.hpp
@@ -86,3 +88,6 @@ endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui glaze::glaze)
+
+include(BakeEditorToolchain)
+bake_editor_toolchain(RTypeEditor)

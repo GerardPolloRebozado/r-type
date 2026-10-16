@@ -21,7 +21,8 @@ class PreviewPanel : public IEditorPanel {
   private:
     struct PrefabPreviewState;
 
-    void RenderPrefab(Engine::Registry& scene, EditorConfig& config, const std::string& absolutePath);
+    void RenderPrefab(Engine::Registry& scene, EditorConfig& config,
+                      const std::string& absolutePath);
     void EnsurePrefabLoaded(Engine::Registry& scene, EditorConfig& config,
                             const std::string& absolutePath);
     void DrawPrefabControls();

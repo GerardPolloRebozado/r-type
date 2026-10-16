@@ -10,9 +10,9 @@
 #include "ECS/Registry.hpp"
 #include "PacketRouterResource.hpp"
 
+#include "Compat/EnetWrapper.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <enet.h>
 #include <glaze/glaze.hpp>
 #include <optional>
 #include <stdexcept>

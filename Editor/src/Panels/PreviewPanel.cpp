@@ -144,7 +144,8 @@ void ApplySprite(Engine::Registry& scene, Engine::Entity entity,
     }
 }
 
-void ApplyShape(Engine::Registry& scene, Engine::Entity entity, const Engine::ShapeComponent& source) {
+void ApplyShape(Engine::Registry& scene, Engine::Entity entity,
+                const Engine::ShapeComponent& source) {
     scene.RegisterComponent<Engine::ShapeComponent>();
     if (!scene.HasComponent<Engine::ShapeComponent>(entity)) {
         scene.AddComponent<Engine::ShapeComponent>(entity, Engine::ShapeComponent{});
@@ -262,8 +263,7 @@ void PreviewPanel::EnsurePrefabLoaded(Engine::Registry& scene, EditorConfig& con
 }
 
 void PreviewPanel::DrawPrefabControls() {
-    if (!m_Prefab || !m_Prefab->registry ||
-        m_Prefab->root == static_cast<Engine::Entity>(-1)) {
+    if (!m_Prefab || !m_Prefab->registry || m_Prefab->root == static_cast<Engine::Entity>(-1)) {
         return;
     }
 
@@ -366,8 +366,7 @@ void PreviewPanel::RenderPrefab(Engine::Registry& scene, EditorConfig& config,
     }
 
     EnsurePrefabLoaded(scene, config, absolutePath);
-    ImGui::Text("Previewing: %s",
-                std::filesystem::path(absolutePath).filename().string().c_str());
+    ImGui::Text("Previewing: %s", std::filesystem::path(absolutePath).filename().string().c_str());
     ImGui::Separator();
     if (!m_Prefab || m_Prefab->loadFailed || !m_Prefab->registry) {
         ImGui::TextDisabled("Could not read this prefab.");

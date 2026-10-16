@@ -8,8 +8,8 @@
 #include "Resources/NetworkHostResource.hpp"
 #include "Resources/PacketRouterResource.hpp"
 
+#include "Compat/EnetWrapper.hpp"
 #include "ECS/Registry.hpp"
-#include "enet.h"
 
 #include <iostream>
 #include <span>
@@ -18,7 +18,7 @@ namespace Engine::Multiplayer {
 NetworkHostResource NetworkHostResource::CreateServer(const std::uint16_t port,
                                                       const std::size_t maxClients,
                                                       const std::size_t channels) {
-    ENetAddress address;
+    ENetAddress address{};
     address.host = ENET_HOST_ANY;
     address.port = port;
     return {&address, maxClients, channels, true};
@@ -36,8 +36,10 @@ NetworkHostResource::~NetworkHostResource() {
 
 ENetPeer* NetworkHostResource::Connect(const std::string_view host, const uint16_t port,
                                        const size_t channels) {
-    ENetAddress address;
-    enet_address_set_host(&address, host.data());
+    ENetAddress address{};
+    const std::string hostStr(
+        host); // needed to avoid windows crash because string_view may not have null terminal
+    enet_address_set_host(&address, hostStr.c_str());
     address.port = port;
     server_peer = enet_host_connect(m_host, &address, channels, 0);
     return server_peer;

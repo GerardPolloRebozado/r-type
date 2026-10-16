@@ -45,13 +45,36 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
 }
 
 bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry& registry,
-                                  std::optional<std::reference_wrapper<SceneConfig>> config,
-                                  SerializationFormat format) {
+                                  const std::optional<std::reference_wrapper<SceneConfig>> config,
+                                  const SerializationFormat format) {
     m_Serializer.SetFormat(format);
 
+    std::error_code ec;
+    const std::string fallbackFolder =
+        std::filesystem::absolute(filepath, ec).parent_path().string();
+    auto registerContext = [&](const std::string& folder) {
+        if (!registry.HasResource<ProjectContext>()) {
+            registry.AddResource<ProjectContext>(folder);
+        } else {
+            registry.GetResource<ProjectContext>().projectFolder = folder;
+        }
+    };
+
+    if (!std::filesystem::exists(filepath, ec) || ec) {
+        log_info("Scene file not found, starting with an empty scene: " + filepath);
+        registerContext(fallbackFolder);
+        if (config.has_value()) {
+            config->get().m_ProjectFolder = fallbackFolder;
+        }
+        return true;
+    }
+
     SceneData sceneData;
-    if (!m_Serializer.DeserializeFromFile(filepath, sceneData)) {
-        log_error("Failed to deserialize scene from file: " + filepath);
+    std::string error;
+    if (!m_Serializer.DeserializeFromFile(filepath, sceneData, &error)) {
+        log_error("Failed to deserialize scene from file: " + filepath +
+                  (error.empty() ? "" : " (" + error + ")"));
+        registerContext(fallbackFolder);
         return false;
     }
 

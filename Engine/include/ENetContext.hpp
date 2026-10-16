@@ -6,7 +6,7 @@
 */
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_MULTIPLAYERPLUGIN_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_MULTIPLAYERPLUGIN_HPP
-#include "enet.h"
+#include "Compat/EnetWrapper.hpp"
 
 #include <stdexcept>
 

@@ -46,7 +46,7 @@ class EntitySubtree {
      * path, sizes, and script are applied to this entity later; position is not.
      */
     static std::string SavePrefab(Engine::Registry& registry, Engine::Entity root,
-                                   const std::filesystem::path& directory);
+                                  const std::filesystem::path& directory);
 
     /**
      * @brief Spawns the subtree stored in a `.prefab` and marks the new root.
@@ -59,16 +59,16 @@ class EntitySubtree {
      * @brief Reads a `.prefab` file into subtree snapshots.
      * @return False when the file is missing or empty.
      */
-    static bool ReadPrefabFile(
-        const std::string& absolutePath,
-        std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots);
+    static bool
+    ReadPrefabFile(const std::string& absolutePath,
+                   std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots);
 
     /**
      * @brief Writes subtree snapshots as a `.prefab` file.
      */
-    static bool WritePrefabFile(
-        const std::string& absolutePath,
-        const std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots);
+    static bool
+    WritePrefabFile(const std::string& absolutePath,
+                    const std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots);
 };
 } // namespace Editor
 

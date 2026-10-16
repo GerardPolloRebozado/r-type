@@ -36,6 +36,11 @@ class GlazeSerializer {
 
     template <typename T> bool DeserializeFromFile(const std::string& filepath, T& value);
 
+    // Same as above, but captures a human-readable parse error (empty when
+    // the file itself could not be opened).
+    template <typename T>
+    bool DeserializeFromFile(const std::string& filepath, T& value, std::string* error);
+
     SerializationFormat GetFormat() const;
     void SetFormat(SerializationFormat format);
 
@@ -139,6 +144,12 @@ bool GlazeSerializer::SerializeToFile(const std::string& filepath, const T& valu
 
 template <typename T>
 bool GlazeSerializer::DeserializeFromFile(const std::string& filepath, T& value) {
+    return DeserializeFromFile(filepath, value, nullptr);
+}
+
+template <typename T>
+bool GlazeSerializer::DeserializeFromFile(const std::string& filepath, T& value,
+                                          std::string* error) {
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         return false;
@@ -155,7 +166,14 @@ bool GlazeSerializer::DeserializeFromFile(const std::string& filepath, T& value)
 
     std::string content(size, '\0');
     file.read(content.data(), size);
-    return DeserializeFromString(content, value);
+    const glz::error_ctx err = glz::read_json(value, content);
+    if (err) {
+        if (error != nullptr) {
+            *error = glz::format_error(err, content);
+        }
+        return false;
+    }
+    return true;
 }
 
 } // namespace Serialization
