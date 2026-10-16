@@ -1,5 +1,6 @@
 #include "Core/Application.hpp"
 #include "Components/Name.hpp"
+#include "Components/PrefabInstance.hpp"
 #include "Core/Renderer.hpp"
 #include "Logging/Logger.hpp"
 #include <chrono>
@@ -29,6 +30,7 @@ Application::Application(const ApplicationConfig& config) : m_Config(config), m_
              std::to_string(virtualHeight));
 
     m_Registry.RegisterComponent<Name>();
+    m_Registry.RegisterComponent<PrefabInstance>();
 }
 
 Application::~Application() {

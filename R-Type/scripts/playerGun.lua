@@ -1,16 +1,17 @@
---- playerGun.lua Attached to: Gun (child of Player entity)
+-- playerGun.lua
+-- Attached to: Gun (child of Player entity)
 -- Features: Muzzle flash + shooting projectiles
 
 local Script = {}
 
-local MUZZLE_01 = "muzzleflash_000.png"
-local MUZZLE_02 = "muzzleflash_001.png"
-local FRAME_DURATION = 0.1
+local MUZZLE_01 = "assets/player/shoot/muzzleflash_000.png"
+local MUZZLE_02 = "assets/player/shoot/muzzleflash_001.png"
+local FRAME_DURATION = 0.05
 
-local PROJECTILE_SPRITE = "laserbeam.png"
+local PROJECTILE_SPRITE = "assets/player/shoot/laserbeam.png"
 
-local PROJECTILE_SPEED = 500.0 -- pixels per second
-local PROJECTILE_LIFETIME = 3.0 -- seconds before auto-remove
+local PROJECTILE_SPEED = 1800.0 -- pixels per second
+local PROJECTILE_LIFETIME = 2.0 -- seconds before auto-remove
 
 -- Shooting state
 function Script:onCreate(entity)
@@ -69,7 +70,7 @@ function Script:onUpdate(entity, dt)
 
 	if shootDown and not self.shootDown and self.cooldown <= 0 then
 		self:fireProjectile()
-		self.cooldown = 0.3
+		self.cooldown = 0.15
 	end
 
 	self.shootDown = shootDown
@@ -100,12 +101,24 @@ function Script:fireProjectile()
 
 	Component.setOpacity(projEntity, 1.0)
 
+	Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
+
 	table.insert(self.projectiles, {
 		entity = projEntity,
 		timer = PROJECTILE_LIFETIME,
 	})
 
 	log.info("[" .. tostring(entity) .. "] Fired projectile")
+end
+
+function Script:onProjectileHit(bullet, wall)
+	Entity.queueDestroy(bullet)
+	for i = #self.projectiles, 1, -1 do
+		if self.projectiles[i].entity == bullet then
+			table.remove(self.projectiles, i)
+			break
+		end
+	end
 end
 
 function Script:onDestroy(entity)

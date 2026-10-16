@@ -9,56 +9,17 @@
 ** (e.g. "scripts/test.lua"). This resolver turns them into loadable paths
 ** using the ProjectContext resource (registered by the editor and by
 ** SceneSerializer::Deserialize).
+**
+** Compatibility shim: the canonical implementation lives in
+** Assets/ProjectPaths.hpp (ResolveAssetPath + ToProjectRelativePath).
+** This header re-exports it so legacy `#include
+** "Resources/ProjectContext.hpp"` / `ResolveProjectPath` call sites
+** (e.g. SpriteSystem) keep compiling, including on Windows where both
+** headers previously defined `Engine::ProjectContext` and clashed.
 */
 #ifndef ENGINE_RESOURCES_PROJECTCONTEXT_HPP_
 #define ENGINE_RESOURCES_PROJECTCONTEXT_HPP_
 
-#include "ECS/Registry.hpp"
-
-#include <filesystem>
-#include <string>
-
-namespace Engine {
-
-struct ProjectContext {
-    std::string projectFolder;
-    ProjectContext() = default;
-    explicit ProjectContext(std::string folder) : projectFolder(std::move(folder)) {}
-};
-
-/**
- * @brief Resolves a stored (possibly project-relative) path to a loadable one.
- * Absolute paths that exist are returned unchanged. Otherwise the path is
- * looked up under the ProjectContext folder (plus a filename fallback).
- * The best candidate is always returned, even if it does not exist, so
- * error messages point at the right location.
- */
-inline std::filesystem::path ResolveProjectPath(Registry& registry, const std::string& path) {
-    if (path.empty()) {
-        return std::filesystem::path{};
-    }
-    std::filesystem::path p(path);
-    std::error_code ec;
-    if (p.is_absolute() && std::filesystem::exists(p, ec)) {
-        return p;
-    }
-    if (registry.HasResource<ProjectContext>()) {
-        const auto& proj = registry.GetResource<ProjectContext>().projectFolder;
-        if (!proj.empty()) {
-            std::filesystem::path full = std::filesystem::path(proj) / p;
-            if (std::filesystem::exists(full, ec)) {
-                return full;
-            }
-            std::filesystem::path fromFilename = std::filesystem::path(proj) / p.filename();
-            if (std::filesystem::exists(fromFilename, ec)) {
-                return fromFilename;
-            }
-            return full;
-        }
-    }
-    return p;
-}
-
-} // namespace Engine
+#include "Assets/ProjectPaths.hpp"
 
 #endif // ENGINE_RESOURCES_PROJECTCONTEXT_HPP_

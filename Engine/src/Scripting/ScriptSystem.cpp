@@ -1,7 +1,8 @@
 #include "Scripting/ScriptSystem.hpp"
+#include "Assets/ProjectPaths.hpp"
+#include "Core/EditorMode.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
-#include "Resources/ProjectContext.hpp"
 #include "Scripting/LuaAPI.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <filesystem>
@@ -15,6 +16,9 @@ ScriptSystem::~ScriptSystem() = default;
 std::unordered_set<std::string> ScriptSystem::s_warnedMissingScripts;
 
 void ScriptSystem::Update(Registry& registry, float dt) {
+    if (registry.HasResource<EditorMode>()) {
+        return;
+    }
     if (!apiRegistered) {
         lua.open_libraries();
         LuaAPI::registerEngineAPI(lua.lua_state(), registry);
@@ -56,7 +60,7 @@ void ScriptSystem::loadScript(Registry& registry, Entity entity) {
         return;
     }
 
-    std::filesystem::path fullPath = ResolveProjectPath(registry, script.scriptPath);
+    std::filesystem::path fullPath = ResolveAssetPath(registry, script.scriptPath);
 
     if (!std::filesystem::exists(fullPath)) {
         // Only warn once per missing script path to avoid log spam

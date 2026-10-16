@@ -1,12 +1,12 @@
 local Player = {}
 
-Player.speed = 250.0
+Player.speed = 500.0
 
-local IDLE = "sprite_003.png"
-local DOWN_START = "sprite_002.png"
-local DOWN_MOVE = "sprite_001.png"
-local UP_START = "sprite_004.png"
-local UP_MOVE = "sprite_005.png"
+local IDLE = "assets/player/sprite_003.png"
+local DOWN_START = "assets/player/sprite_002.png"
+local DOWN_MOVE = "assets/player/sprite_001.png"
+local UP_START = "assets/player/sprite_004.png"
+local UP_MOVE = "assets/player/sprite_005.png"
 
 local START_DURATION = 0.2
 
@@ -74,6 +74,10 @@ function Player:onUpdate(entity, dt)
 		local len = math.sqrt(dx * dx + dy * dy)
 		Transform.translate(entity, (dx / len) * self.speed * dt, (dy / len) * self.speed * dt)
 	end
+end
+
+function Player:collisionTest(one, two)
+	log.info("Connection!")
 end
 
 function Player:onDestroy(entity)

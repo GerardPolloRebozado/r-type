@@ -2,6 +2,7 @@
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
 #include "Panels/AssetsPanel.hpp"
+#include "Panels/ConnectionsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/InputMappingPanel.hpp"
@@ -29,6 +30,7 @@ ImFont* g_IconFont = nullptr;
 EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<HierarchyPanel>());
     AddPanel(std::make_unique<InspectorPanel>());
+    AddPanel(std::make_unique<ConnectionsPanel>());
     AddPanel(std::make_unique<ConsolePanel>());
     AddPanel(std::make_unique<AssetsPanel>());
     AddPanel(std::make_unique<SceneViewPanel>());
@@ -189,6 +191,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("State", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
+        ImGui::DockBuilderDockWindow("Connections", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);

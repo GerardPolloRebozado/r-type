@@ -14,7 +14,9 @@ add_custom_command(
 set(SRC_FILES
         src/EditorLayer.cpp
         src/EditorStyle.cpp
+        src/EntitySubtree.cpp
         src/Panels/AssetsPanel.cpp
+        src/Panels/ConnectionsPanel.cpp
         src/Panels/ConsolePanel.cpp
         src/Panels/HierarchyPanel.cpp
         src/Panels/InspectorPanel.cpp
@@ -31,6 +33,7 @@ set(SRC_FILES
         src/Plugins/RotationPluginEditor.cpp
         src/Plugins/OpacityPluginEditor.cpp
         src/Plugins/ColliderPluginEditor.cpp
+        src/Plugins/ConnectionsPluginEditor.cpp
         src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
@@ -42,7 +45,9 @@ set(INC_FILES
         include/EditorConfig.hpp
         include/EditorLayer.hpp
         include/EditorStyle.hpp
+        include/EntitySubtree.hpp
         include/Panels/AssetsPanel.hpp
+        include/Panels/ConnectionsPanel.hpp
         include/Panels/ConsolePanel.hpp
         include/Panels/HierarchyPanel.hpp
         include/Panels/IEditorPanel.hpp
@@ -63,6 +68,7 @@ set(INC_FILES
         include/Plugins/OpacityPluginEditor.hpp
         include/MultiplatformUtils.hpp
         include/Plugins/ColliderPluginEditor.hpp
+        include/Plugins/ConnectionsPluginEditor.hpp
         include/Plugins/CameraPluginEditor.hpp
         include/Rendering/SceneRenderer.hpp
 )

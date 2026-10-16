@@ -28,6 +28,7 @@ set(SRC_FILES
         src/Plugins/InputPlugin.cpp
         src/Plugins/OpacityPlugin.cpp
         src/Plugins/PluginExample.cpp
+        src/Plugins/SignalPlugin.cpp
         src/Plugins/PositionPlugin.cpp
         src/Plugins/RotationPlugin.cpp
         src/Plugins/ShapePlugin.cpp
@@ -35,6 +36,7 @@ set(SRC_FILES
         src/Plugins/TextPlugin.cpp
         src/Scripting/ScriptPlugin.cpp
         src/Scripting/ScriptSystem.cpp
+        src/Scripting/SignalDispatch.cpp
         src/Scripting/LuaAPI.cpp
         src/Scripting/LuaAPI/LogAPI.cpp
         src/Scripting/LuaAPI/TimeAPI.cpp
@@ -47,6 +49,7 @@ set(SRC_FILES
         src/Scripting/LuaAPI/Plugins/ShapeAPI.cpp
         src/Scripting/LuaAPI/Plugins/TextAPI.cpp
         src/Scripting/LuaAPI/Plugins/ColliderAPI.cpp
+        src/Scripting/LuaAPI/Plugins/ConnectionsAPI.cpp
         src/Scripting/LuaAPI/Plugins/ControllerAPI.cpp
         src/Scripting/LuaAPI/Plugins/OpacityAPI.cpp
         src/Scripting/LuaAPI/Plugins/ParentAPI.cpp
@@ -66,6 +69,7 @@ set(SRC_FILES
 set(INC_FILES
         include/Assets/AssetManager.hpp
         include/Assets/Music.hpp
+        include/Assets/ProjectPaths.hpp
         include/Assets/Sound.hpp
         include/Assets/Sprites.hpp
         include/Components/AudioSource.hpp
@@ -82,9 +86,11 @@ set(INC_FILES
         include/Components/Rotation.hpp
         include/Components/ScreenSpace.hpp
         include/Components/ShapeComponent.hpp
+        include/Components/SignalConnections.hpp
         include/Components/SpriteComponent.hpp
         include/Components/Text.hpp
         include/Core/Application.hpp
+        include/Core/EditorMode.hpp
         include/Core/Renderer.hpp
         include/Core/VirtualResolution.hpp
         include/ECS/Entity.hpp
@@ -107,6 +113,7 @@ set(INC_FILES
         include/Plugins/InputPlugin.hpp
         include/Plugins/IPlugin.hpp
         include/Plugins/OpacityPlugin.hpp
+        include/Plugins/SignalPlugin.hpp
         include/Resources/NetworkHostResource.hpp
         include/Plugins/PluginExample.hpp
         include/Plugins/PositionPlugin.hpp
@@ -119,6 +126,7 @@ set(INC_FILES
         include/Scripting/ScriptComponent.hpp
         include/Scripting/ScriptPlugin.hpp
         include/Scripting/ScriptSystem.hpp
+        include/Scripting/SignalDispatch.hpp
         include/Scripting/LuaAPI.hpp
         include/Scripting/LuaAPI/LogAPI.hpp
         include/Scripting/LuaAPI/TimeAPI.hpp
@@ -131,6 +139,7 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/ShapeAPI.hpp
         include/Scripting/LuaAPI/Plugins/TextAPI.hpp
         include/Scripting/LuaAPI/Plugins/ColliderAPI.hpp
+        include/Scripting/LuaAPI/Plugins/ConnectionsAPI.hpp
         include/Scripting/LuaAPI/Plugins/ControllerAPI.hpp
         include/Scripting/LuaAPI/Plugins/OpacityAPI.hpp
         include/Scripting/LuaAPI/Plugins/ParentAPI.hpp

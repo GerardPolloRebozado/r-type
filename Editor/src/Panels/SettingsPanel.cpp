@@ -68,6 +68,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/HierarchyPlugin.hpp\"\n"
             << "#include \"Plugins/InputPlugin.hpp\"\n"
             << "#include \"Plugins/OpacityPlugin.hpp\"\n"
+            << "#include \"Plugins/SignalPlugin.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
             << "#include \"Plugins/SpritePlugin.hpp\"\n"
@@ -107,6 +108,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    colliderPlugin.Init(app.GetRegistry());\n"
             << "    Engine::OpacityPlugin opacityPlugin;\n"
             << "    opacityPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::SignalPlugin signalPlugin;\n"
+            << "    signalPlugin.Init(app.GetRegistry());\n"
             << "    Engine::InputPlugin inputPlugin;\n"
             << "    inputPlugin.Init(app.GetRegistry());\n"
             << "    Engine::AudioPlugin audioPlugin;\n"
@@ -196,15 +199,22 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         toolchainArgs += " -DCMAKE_MAKE_PROGRAM=\"" + std::string(EDITOR_CMAKE_MAKE_PROGRAM) + "\"";
     }
 #endif
+    // Portable parallel build: `cmake --build --parallel` works with every
+    // generator (make, ninja, MSVC...), unlike `make -C ... -j`.
+    unsigned int jobs = std::thread::hardware_concurrency();
+    if (jobs == 0) {
+        jobs = 1;
+    }
+    const std::string parallelArgs = " --parallel " + std::to_string(jobs);
 #ifdef _WIN32
     std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
                       " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
-                      exeNameStr + "\" --config Release 2>&1 & cmake -E rm -f \"" + rootPath +
-                      "/.editor_build.cmake\"";
+                      exeNameStr + "\" --config Release" + parallelArgs +
+                      " 2>&1 & cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
 #else
     std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
                       " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
-                      exeNameStr + "\" 2>&1; cmake -E rm -f \"" + rootPath +
+                      exeNameStr + "\"" + parallelArgs + " 2>&1; cmake -E rm -f \"" + rootPath +
                       "/.editor_build.cmake\"";
 #endif
 

@@ -4,6 +4,7 @@
 #include "Components/Name.hpp"
 #include "Components/Position.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Scripting/SignalDispatch.hpp"
 #include <raylib-cpp.hpp>
 #include <raymath.hpp>
 #include <vector>
@@ -204,6 +205,10 @@ void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool 
             }
         }
     }
+    Signals::EmitSignal(registry, a, "onCollisionEnter", b);
+    if (isTrigger) {
+        Signals::EmitSignal(registry, a, "onTriggerEnter", b);
+    }
 
     if (registry.HasComponent<CollisionEvents>(b)) {
         auto events = registry.GetComponent<CollisionEvents>(b);
@@ -219,6 +224,10 @@ void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool 
                 }
             }
         }
+    }
+    Signals::EmitSignal(registry, b, "onCollisionEnter", a);
+    if (isTrigger) {
+        Signals::EmitSignal(registry, b, "onTriggerEnter", a);
     }
 }
 
@@ -239,6 +248,10 @@ void CollisionSystem::StayContact(Registry& registry, const Entity a, const Enti
             }
         }
     }
+    Signals::EmitSignal(registry, a, "onCollisionStay", b);
+    if (isTrigger) {
+        Signals::EmitSignal(registry, a, "onTriggerStay", b);
+    }
 
     if (registry.HasComponent<CollisionEvents>(b)) {
         auto events = registry.GetComponent<CollisionEvents>(b);
@@ -254,6 +267,10 @@ void CollisionSystem::StayContact(Registry& registry, const Entity a, const Enti
                 }
             }
         }
+    }
+    Signals::EmitSignal(registry, b, "onCollisionStay", a);
+    if (isTrigger) {
+        Signals::EmitSignal(registry, b, "onTriggerStay", a);
     }
 }
 
@@ -274,6 +291,10 @@ void CollisionSystem::ExitContact(Registry& registry, const Entity a, const Enti
             }
         }
     }
+    Signals::EmitSignal(registry, a, "onCollisionExit", b);
+    if (isTrigger) {
+        Signals::EmitSignal(registry, a, "onTriggerExit", b);
+    }
 
     if (registry.HasComponent<CollisionEvents>(b)) {
         auto events = registry.GetComponent<CollisionEvents>(b);
@@ -289,6 +310,10 @@ void CollisionSystem::ExitContact(Registry& registry, const Entity a, const Enti
                 }
             }
         }
+    }
+    Signals::EmitSignal(registry, b, "onCollisionExit", a);
+    if (isTrigger) {
+        Signals::EmitSignal(registry, b, "onTriggerExit", a);
     }
 }
 

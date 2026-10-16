@@ -1,5 +1,6 @@
 #include "Scripting/LuaAPI/Plugins/SpriteAPI.hpp"
 #include "Assets/AssetManager.hpp"
+#include "Assets/ProjectPaths.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
@@ -25,7 +26,7 @@ bool loadSpriteTexture(Registry& registry, const std::string& path) {
         } catch (...) {
             // Not cached yet: fall through to LoadSprite
         }
-        am.LoadSprite(path, path);
+        am.LoadSprite(path, ResolveAssetPath(registry, path).string());
         return true;
     } catch (const std::exception& e) {
         log_error(std::string("[LuaAPI] Sprite load failed for '") + path + "': " + e.what());

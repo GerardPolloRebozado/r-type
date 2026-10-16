@@ -1,5 +1,6 @@
 #include "BundledAssets.hpp"
 #include "Core/Application.hpp"
+#include "Core/EditorMode.hpp"
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
@@ -12,6 +13,7 @@
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
+#include "Plugins/SignalPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
 #include "Scripting/ScriptPlugin.hpp"
@@ -68,6 +70,8 @@ void RunEditor(const string& scenePathString) {
     colliderPlugin.Init(app.GetRegistry());
     Engine::OpacityPlugin opacityPlugin;
     opacityPlugin.Init(app.GetRegistry());
+    Engine::SignalPlugin signalPlugin;
+    signalPlugin.Init(app.GetRegistry());
     Engine::InputPlugin inputPlugin;
     inputPlugin.Init(app.GetRegistry());
     Engine::AudioPlugin audioPlugin;
@@ -76,6 +80,9 @@ void RunEditor(const string& scenePathString) {
     scriptPlugin.Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;
     cameraPlugin.Init(app.GetRegistry());
+
+    // This registry is edited, never played
+    app.GetRegistry().AddResource<Engine::EditorMode>();
 
     editorLayer.SetRegistry(app.GetRegistry());
     editorLayer.SetConfiguration(config);
