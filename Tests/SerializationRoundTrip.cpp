@@ -1,18 +1,25 @@
-#include "Components/AudioSource.hpp"
+#include "Assets/ProjectPaths.hpp"
+#include "Components/AudioSource.hpp" #include "Components/CameraComponent.hpp"
 #include "Components/ColliderComponent.hpp"
+#include "Components/CollisionEvents.hpp"
 #include "Components/Input.hpp"
 #include "Components/Name.hpp"
+#include "Components/Opacity.hpp"
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Components/SignalConnections.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "Components/Text.hpp"
 #include "ECS/Registry.hpp"
 #include "SceneConfig.hpp"
 #include "SceneSerializer.hpp"
+#include "Scripting/ScriptComponent.hpp"
 #include <cassert>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 
 static int failures = 0;
@@ -35,6 +42,11 @@ static void RegisterAll(Engine::Registry& reg) {
     reg.RegisterComponent<Engine::Parent>();
     reg.RegisterComponent<Engine::Input>();
     reg.RegisterComponent<Engine::AudioSource>();
+    reg.RegisterComponent<Engine::Opacity>();
+    reg.RegisterComponent<Engine::CameraComponent>();
+    reg.RegisterComponent<Engine::ScriptComponent>();
+    reg.RegisterComponent<Engine::SignalConnections>();
+    reg.RegisterComponent<Engine::CollisionEvents>();
 }
 
 static void BuildScene(Engine::Registry& reg, Serialization::SceneConfig& config) {
@@ -159,10 +171,10 @@ static void VerifyScene(Engine::Registry& reg, const Serialization::SceneConfig&
     CHECK(config.windowHeight == 1080);
     CHECK(config.windowTitle == "SerdeTest");
     CHECK(config.targetFPS == 144);
-    CHECK(config.m_ProjectFolder == "/tmp/proj");
+    CHECK(config.m_ProjectFolder == "/local/machine/proj");
     CHECK(config.m_BuildExecutableName == "SerdeGame");
     CHECK(config.m_BuildWindowTitle == "SerdeGameTitle");
-    CHECK(config.m_InitialScenePath == "/tmp/proj/test.scene");
+    CHECK(config.m_InitialScenePath == "/local/machine/proj/local.scene");
     CHECK(config.m_InputMap.at("Jump").size() == 1);
     CHECK(config.m_InputMap.at("Jump")[0].key == 32);
     CHECK(config.m_InputMap.at("Jump")[0].type == Engine::DeviceType::KEYBOARD);
@@ -186,6 +198,8 @@ int main() {
         Engine::Registry loaded;
         RegisterAll(loaded);
         Serialization::SceneConfig loadedConfig;
+        loadedConfig.m_ProjectFolder = "/local/machine/proj";
+        loadedConfig.m_InitialScenePath = "/local/machine/proj/local.scene";
         Serialization::SceneSerializer reader;
         CHECK(reader.Deserialize(path, loaded, loadedConfig, format));
         VerifyScene(loaded, loadedConfig);
@@ -193,6 +207,36 @@ int main() {
         std::cout << ((format == SerializationFormat::JSON) ? "JSON" : "Binary")
                   << " round-trip done\n";
         std::remove(path);
+    }
+
+    {
+        const std::string projDir = "/tmp/nproj_save";
+        const std::string sceneFile = projDir + "/scenes/s.scene";
+        std::filesystem::create_directories(projDir + "/scenes");
+
+        Engine::Registry reg;
+        RegisterAll(reg);
+        Serialization::SceneConfig config;
+        config.m_ProjectFolder = projDir;
+        config.m_InitialScenePath = sceneFile;
+        Serialization::SceneSerializer writer;
+        writer.Serialize(sceneFile, reg, config, SerializationFormat::JSON);
+
+        std::ifstream in(sceneFile);
+        const std::string raw((std::istreambuf_iterator<char>(in)),
+                              std::istreambuf_iterator<char>());
+        CHECK(raw.find("\"projectFolder\":\"..\"") != std::string::npos);
+        CHECK(raw.find("\"initialScenePath\":\"scenes/s.scene\"") != std::string::npos);
+        CHECK(raw.find("/tmp/nproj_save") == std::string::npos);
+
+        Engine::Registry loaded;
+        RegisterAll(loaded);
+        Serialization::SceneConfig loadedConfig;
+        Serialization::SceneSerializer reader;
+        CHECK(reader.Deserialize(sceneFile, loaded, std::nullopt, SerializationFormat::JSON));
+        CHECK(loaded.GetResource<Engine::ProjectContext>().projectFolder == projDir);
+
+        std::filesystem::remove_all(projDir);
     }
 
     if (failures == 0) {

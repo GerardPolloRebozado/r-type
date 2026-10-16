@@ -31,6 +31,7 @@ set(SRC_FILES
         src/Plugins/RotationPluginEditor.cpp
         src/Plugins/OpacityPluginEditor.cpp
         src/Plugins/ColliderPluginEditor.cpp
+        src/Plugins/ConnectionsPluginEditor.cpp
         src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
@@ -61,6 +62,7 @@ set(INC_FILES
         include/Plugins/OpacityPluginEditor.hpp
         include/MultiplatformUtils.hpp
         include/Plugins/ColliderPluginEditor.hpp
+        include/Plugins/ConnectionsPluginEditor.hpp
         include/Plugins/CameraPluginEditor.hpp
         include/Rendering/SceneRenderer.hpp
 )
