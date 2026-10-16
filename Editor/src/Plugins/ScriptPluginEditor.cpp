@@ -119,7 +119,8 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         ImGui::SameLine();
         ImGui::PushItemWidth(-1);
         if (ImGui::InputText("##ScriptPath", buffer, sizeof(buffer),
-                             ImGuiInputTextFlags_EnterReturnsTrue)) {
+                             ImGuiInputTextFlags_EnterReturnsTrue) ||
+            ImGui::IsItemDeactivatedAfterEdit()) {
             script.scriptPath = buffer;
             // Force a reload next update.
             script.loaded = false;

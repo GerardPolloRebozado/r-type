@@ -21,8 +21,8 @@ const char* SpritePluginEditor::GetIcon() const {
     return ICON_FA_IMAGE;
 }
 
-static void LoadSpriteForComponent(Engine::Registry& registry, Engine::SpriteComponent& spriteComp,
-                                   const std::string& inputPath) {
+void LoadSpriteForComponent(Engine::Registry& registry, Engine::SpriteComponent& spriteComp,
+                            const std::string& inputPath) {
     if (inputPath.empty()) {
         spriteComp.sprite = nullptr;
         spriteComp.assetPath = "";
@@ -92,7 +92,8 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         ImGui::Text("Path");
         ImGui::SameLine();
         if (ImGui::InputText("##SpritePath", buffer, sizeof(buffer),
-                             ImGuiInputTextFlags_EnterReturnsTrue)) {
+                             ImGuiInputTextFlags_EnterReturnsTrue) ||
+            ImGui::IsItemDeactivatedAfterEdit()) {
             std::string newPath(buffer);
             if (newPath != currentPath) {
                 LoadSpriteForComponent(registry, spriteComp, newPath);

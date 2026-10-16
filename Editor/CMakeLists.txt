@@ -14,6 +14,7 @@ add_custom_command(
 set(SRC_FILES
         src/EditorLayer.cpp
         src/EditorStyle.cpp
+        src/EntitySubtree.cpp
         src/Panels/AssetsPanel.cpp
         src/Panels/ConnectionsPanel.cpp
         src/Panels/ConsolePanel.cpp
@@ -43,6 +44,7 @@ set(INC_FILES
         include/EditorConfig.hpp
         include/EditorLayer.hpp
         include/EditorStyle.hpp
+        include/EntitySubtree.hpp
         include/Panels/AssetsPanel.hpp
         include/Panels/ConnectionsPanel.hpp
         include/Panels/ConsolePanel.hpp
