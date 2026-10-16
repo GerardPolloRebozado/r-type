@@ -2,8 +2,10 @@
 #define EDITOR_ENTITYSUBTREE_HPP_
 
 #include "ECS/Registry.hpp"
+#include "GlazeSerializer.hpp"
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace Editor {
 /**
@@ -40,8 +42,8 @@ class EntitySubtree {
      * @return The project-relative path, or an empty string when the write fails.
      *
      * An existing file is left untouched. The next name is `Name_2.prefab`, then
-     * `Name_3.prefab`. The stored path is a marker only: later edits to the file
-     * do not update this entity.
+     * `Name_3.prefab`. The stored path is a marker. Preview edits to the sprite
+     * path, sizes, and script are applied to this entity later; position is not.
      */
     static std::string SavePrefab(Engine::Registry& registry, Engine::Entity root,
                                    const std::filesystem::path& directory);
@@ -52,6 +54,21 @@ class EntitySubtree {
      * @return The new root, or `(Entity)-1` when the file cannot be read.
      */
     static Engine::Entity SpawnPrefab(Engine::Registry& registry, const std::string& prefabPath);
+
+    /**
+     * @brief Reads a `.prefab` file into subtree snapshots.
+     * @return False when the file is missing or empty.
+     */
+    static bool ReadPrefabFile(
+        const std::string& absolutePath,
+        std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots);
+
+    /**
+     * @brief Writes subtree snapshots as a `.prefab` file.
+     */
+    static bool WritePrefabFile(
+        const std::string& absolutePath,
+        const std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots);
 };
 } // namespace Editor
 

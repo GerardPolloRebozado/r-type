@@ -220,4 +220,25 @@ Engine::Entity EntitySubtree::SpawnPrefab(Engine::Registry& registry,
     SetPrefabLink(registry, root, relative);
     return root;
 }
+
+bool EntitySubtree::ReadPrefabFile(
+    const std::string& absolutePath,
+    std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots) {
+    PrefabDocument document;
+    Serialization::GlazeSerializer serializer;
+    if (!serializer.DeserializeFromFile(absolutePath, document) || document.entities.empty()) {
+        return false;
+    }
+    snapshots = std::move(document.entities);
+    return true;
+}
+
+bool EntitySubtree::WritePrefabFile(
+    const std::string& absolutePath,
+    const std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots) {
+    PrefabDocument document;
+    document.entities = snapshots;
+    Serialization::GlazeSerializer serializer;
+    return serializer.SerializeToFile(absolutePath, document);
+}
 } // namespace Editor

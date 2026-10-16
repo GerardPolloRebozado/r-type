@@ -21,8 +21,8 @@ const char* SpritePluginEditor::GetIcon() const {
     return ICON_FA_IMAGE;
 }
 
-static void LoadSpriteForComponent(Engine::Registry& registry, Engine::SpriteComponent& spriteComp,
-                                   const std::string& inputPath) {
+void LoadSpriteForComponent(Engine::Registry& registry, Engine::SpriteComponent& spriteComp,
+                            const std::string& inputPath) {
     if (inputPath.empty()) {
         spriteComp.sprite = nullptr;
         spriteComp.assetPath = "";

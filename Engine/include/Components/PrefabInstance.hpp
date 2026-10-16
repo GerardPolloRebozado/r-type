@@ -9,9 +9,9 @@ namespace Engine {
  * @struct PrefabInstance
  * @brief Marks the root of a subtree that was saved as or spawned from a `.prefab`.
  *
- * `prefabPath` is project-relative. It only records which file the subtree came
- * from so instances can be found later. Editing that file does not change
- * entities that already have this component.
+ * `prefabPath` is project-relative. Preview edits to the sprite path, sprite
+ * scale, shape size, and script are copied onto every instance of that file.
+ * Position is left where each instance was placed.
  */
 struct PrefabInstance {
     std::string prefabPath;
