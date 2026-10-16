@@ -12,6 +12,7 @@
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
+#include "Plugins/SignalPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
 #include "Scripting/ScriptPlugin.hpp"
@@ -68,6 +69,8 @@ void RunEditor(const string& scenePathString) {
     colliderPlugin.Init(app.GetRegistry());
     Engine::OpacityPlugin opacityPlugin;
     opacityPlugin.Init(app.GetRegistry());
+    Engine::SignalPlugin signalPlugin;
+    signalPlugin.Init(app.GetRegistry());
     Engine::InputPlugin inputPlugin;
     inputPlugin.Init(app.GetRegistry());
     Engine::AudioPlugin audioPlugin;

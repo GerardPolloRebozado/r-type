@@ -1,4 +1,5 @@
---- playerGun.lua Attached to: Gun (child of Player entity)
+-- playerGun.lua
+-- Attached to: Gun (child of Player entity)
 -- Features: Muzzle flash + shooting projectiles
 
 local Script = {}
@@ -100,12 +101,24 @@ function Script:fireProjectile()
 
 	Component.setOpacity(projEntity, 1.0)
 
+	Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
+
 	table.insert(self.projectiles, {
 		entity = projEntity,
 		timer = PROJECTILE_LIFETIME,
 	})
 
 	log.info("[" .. tostring(entity) .. "] Fired projectile")
+end
+
+function Script:onProjectileHit(bullet, wall)
+	Entity.queueDestroy(bullet)
+	for i = #self.projectiles, 1, -1 do
+		if self.projectiles[i].entity == bullet then
+			table.remove(self.projectiles, i)
+			break
+		end
+	end
 end
 
 function Script:onDestroy(entity)

@@ -67,6 +67,10 @@ GlazeSerializer::SceneSnapshot GlazeSerializer::CaptureScene(Engine::Registry& r
             entitySnapshot.opacity = registry.GetComponent<Engine::Opacity>(entity);
             hasAnyComponent = true;
         }
+        if (registry.HasComponent<Engine::SignalConnections>(entity)) {
+            entitySnapshot.connections = registry.GetComponent<Engine::SignalConnections>(entity);
+            hasAnyComponent = true;
+        }
         if (registry.HasComponent<Engine::Parent>(entity)) {
             entitySnapshot.parent = registry.GetComponent<Engine::Parent>(entity);
             hasAnyComponent = true;
@@ -142,6 +146,10 @@ void GlazeSerializer::RestoreScene(Engine::Registry& registry, const SceneSnapsh
         if (entitySnapshot.opacity.has_value()) {
             registry.AddComponent<Engine::Opacity>(entity, entitySnapshot.opacity.value());
         }
+        if (entitySnapshot.connections.has_value()) {
+            registry.AddComponent<Engine::SignalConnections>(entity,
+                                                             entitySnapshot.connections.value());
+        }
         if (entitySnapshot.input.has_value()) {
             registry.AddComponent<Engine::Input>(entity, entitySnapshot.input.value());
         }
@@ -156,17 +164,28 @@ void GlazeSerializer::RestoreScene(Engine::Registry& registry, const SceneSnapsh
         }
     }
 
-    // Pass 2: restore Parent links with remapped entity IDs so hierarchies survive
-    // even when serialized IDs do not match the freshly created ones.
     for (const auto& entitySnapshot : snapshot.entities) {
-        if (!entitySnapshot.parent.has_value()) {
+        if (!entitySnapshot.parent.has_value() && !entitySnapshot.connections.has_value()) {
             continue;
         }
         const Engine::Entity entity = idRemap[entitySnapshot.entityId];
-        const Engine::Entity oldParent = entitySnapshot.parent->parent;
-        const auto it = idRemap.find(oldParent);
-        const Engine::Entity newParent = (it != idRemap.end()) ? it->second : oldParent;
-        registry.AddComponent<Engine::Parent>(entity, Engine::Parent::Create(newParent));
+        if (entitySnapshot.parent.has_value()) {
+            const Engine::Entity oldParent = entitySnapshot.parent->parent;
+            const auto it = idRemap.find(oldParent);
+            const Engine::Entity newParent = (it != idRemap.end()) ? it->second : oldParent;
+            registry.AddComponent<Engine::Parent>(entity, Engine::Parent::Create(newParent));
+        }
+        if (entitySnapshot.connections.has_value() &&
+            registry.HasComponent<Engine::SignalConnections>(entity)) {
+            auto& connections =
+                registry.GetComponent<Engine::SignalConnections>(entity).connections;
+            for (auto& connection : connections) {
+                const auto it = idRemap.find(connection.target);
+                if (it != idRemap.end()) {
+                    connection.target = it->second;
+                }
+            }
+        }
     }
 }
 } // namespace Serialization

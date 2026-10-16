@@ -7,13 +7,14 @@
 //   - `Scripting/LuaAPI/Plugins/`   -> one file per Engine plugin (Position,
 //                                      Rotation, Sprite, Shape, Text,
 //                                      Collider, Controller, Opacity, Parent,
-//                                      Input)
+//                                      Input, Connections)
 #include "Scripting/LuaAPI.hpp"
 #include "Logging/Logger.hpp"
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
 #include "Scripting/LuaAPI/EntityAPI.hpp"
 #include "Scripting/LuaAPI/LogAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ColliderAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/ConnectionsAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ControllerAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/InputAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/OpacityAPI.hpp"
@@ -55,6 +56,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerShape(lua, registry);
     registerText(lua, registry);
     registerCollider(lua, registry);
+    registerConnections(lua, registry);
     registerController(lua, registry);
     registerOpacity(lua, registry);
     registerParent(lua, registry);

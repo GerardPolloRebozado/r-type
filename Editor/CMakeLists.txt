@@ -15,6 +15,7 @@ set(SRC_FILES
         src/EditorLayer.cpp
         src/EditorStyle.cpp
         src/Panels/AssetsPanel.cpp
+        src/Panels/ConnectionsPanel.cpp
         src/Panels/ConsolePanel.cpp
         src/Panels/HierarchyPanel.cpp
         src/Panels/InspectorPanel.cpp
@@ -43,6 +44,7 @@ set(INC_FILES
         include/EditorLayer.hpp
         include/EditorStyle.hpp
         include/Panels/AssetsPanel.hpp
+        include/Panels/ConnectionsPanel.hpp
         include/Panels/ConsolePanel.hpp
         include/Panels/HierarchyPanel.hpp
         include/Panels/IEditorPanel.hpp

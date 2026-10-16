@@ -3,6 +3,7 @@
 
 #include "Components/CameraComponent.hpp"
 #include "Components/Opacity.hpp"
+#include "Components/SignalConnections.hpp"
 #include "ECS/Registry.hpp"
 #include "GlazeReflect.hpp"
 #include "Scripting/ScriptComponent.hpp"
@@ -47,6 +48,7 @@ class GlazeSerializer {
         std::optional<Engine::Text> text;
         std::optional<Engine::ColliderComponent> collider;
         std::optional<Engine::Opacity> opacity;
+        std::optional<Engine::SignalConnections> connections;
         std::optional<Engine::Parent> parent;
         std::optional<Engine::Input> input;
         std::optional<Engine::AudioSource> audioSource;

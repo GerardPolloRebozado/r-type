@@ -76,6 +76,10 @@ function Player:onUpdate(entity, dt)
 	end
 end
 
+function Player:collisionTest(one, two)
+	log.info("Connection!")
+end
+
 function Player:onDestroy(entity)
 	log.info("[player.lua] onDestroy entity " .. tostring(entity))
 end
