@@ -8,12 +8,15 @@ namespace Engine {
  * @class PositionSystem
  * @brief A system that updates the Position component of entities.
  *
- * Stores the previous coordinates before the current frame modifies position.
+ * Snapshots previous coordinates for EVERY Position holder (not just
+ * @ref System::m_Entities, which nothing fills automatically) so
+ * @ref HierarchySystem always sees a fresh baseline. Must run after
+ * HierarchySystem in the update order (see HierarchyPlugin).
  */
 class PositionSystem : public System {
   public:
     /**
-     * @brief Updates previous position for entities in @ref System::m_Entities.
+     * @brief Snapshots prevX/prevY (and the moved flag) for all Positions.
      * @param registry The ECS registry containing the components.
      * @param dt Delta time for framerate independent movement.
      */

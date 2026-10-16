@@ -29,8 +29,7 @@ class CameraSystem : public System {
      * @param viewportWidth Width in pixels of the surface being drawn to.
      * @param viewportHeight Height in pixels of the surface being drawn to.
      */
-    static Camera2D GetActiveCamera(Registry& registry, float viewportWidth,
-                                    float viewportHeight);
+    static Camera2D GetActiveCamera(Registry& registry, float viewportWidth, float viewportHeight);
 
     /**
      * @brief Converts a canvas position into a world position.

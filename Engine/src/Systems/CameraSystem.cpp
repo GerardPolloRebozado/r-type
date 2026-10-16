@@ -56,8 +56,8 @@ void CameraSystem::Update(Registry& registry, float dt) {
             registry.HasComponent<Position>(*camera.followTarget)) {
             auto& position = registry.GetComponent<Position>(entity);
             const auto& target = registry.GetComponent<Position>(*camera.followTarget);
-            const float t = camera.followSpeed <= 0.0f ? 1.0f
-                                                       : std::min(1.0f, camera.followSpeed * dt);
+            const float t =
+                camera.followSpeed <= 0.0f ? 1.0f : std::min(1.0f, camera.followSpeed * dt);
             position.x += (target.x - position.x) * t;
             position.y += (target.y - position.y) * t;
         }

@@ -1,7 +1,10 @@
 #include "Gallery.hpp"
 #include "BundledAssets.hpp"
 #include "EditorLayer.hpp"
+#include "GalleryReflect.hpp"
+#include "Logging/Logger.hpp"
 #include "MultiplatformUtils.hpp"
+#include "Scaffold.hpp"
 #include "imgui.h"
 #include "portable-file-dialogs.h"
 #include <algorithm>
@@ -48,6 +51,24 @@ void LoadGalleryFonts() {
 
 namespace Editor {
 
+std::string OpenProjectFolder(const std::string& folder, const std::string& name) {
+    ProjectRequest request;
+    request.path = folder;
+    request.name = name;
+    if (request.name.empty()) {
+        request.name = std::filesystem::path(folder).filename().string();
+    }
+    if (request.name.empty()) {
+        request.name = "Untitled";
+    }
+
+    const ScaffoldResult result = EnsureProjectScene(request);
+    if (!result.ok) {
+        return "";
+    }
+    return result.scenePath;
+}
+
 std::vector<ProjectData> Gallery::FindProjects() {
     auto configDirectory = ConfigDirectory();
     if (!std::filesystem::exists(configDirectory)) {
@@ -68,8 +89,10 @@ std::vector<ProjectData> Gallery::FindProjects() {
     const std::string content((std::istreambuf_iterator<char>(file)),
                               std::istreambuf_iterator<char>());
 
+    // GalleryReflect.hpp (included above) is required so these keys match projects.json.
     std::vector<ProjectData> projects;
     if (glz::read_json(projects, content)) {
+        log_error("Failed to parse " + settingsPath.string());
         return {};
     }
 
@@ -92,7 +115,10 @@ void Gallery::UpdateProjectList(const std::string& projectPath) {
     it->lastOpened = std::to_string(now);
 
     std::string output;
-    glz::write_json(projects, output);
+    if (glz::write_json(projects, output)) {
+        log_error("Failed to write project list");
+        return;
+    }
 
     const auto settingsPath = ConfigDirectory() / "projects.json";
     std::ofstream file(settingsPath);
@@ -103,7 +129,7 @@ void Gallery::UpdateProjectList(const std::string& projectPath) {
 }
 
 std::string Editor::Gallery::DrawGallery() {
-    static std::vector<ProjectData> projects = Gallery::FindProjects();
+    std::vector<ProjectData> projects = Gallery::FindProjects();
     static char searchBuffer[128] = "";
     std::string scenePath = "";
 
@@ -251,15 +277,16 @@ std::string Editor::Gallery::DrawGallery() {
                         storedProjects.push_back(project);
 
                         std::string output;
-                        glz::write_json(storedProjects, output);
-                        std::ofstream outFile(settingsPath);
-                        if (outFile) {
-                            outFile << output;
+                        if (glz::write_json(storedProjects, output)) {
+                            log_error("Failed to write " + settingsPath.string());
+                        } else {
+                            std::ofstream outFile(settingsPath);
+                            if (outFile) {
+                                outFile << output;
+                            }
                         }
 
                         ImGui::CloseCurrentPopup();
-
-                        projects.push_back(project);
 
                         projName[0] = '\0';
                         projDesc[0] = '\0';
@@ -276,6 +303,11 @@ std::string Editor::Gallery::DrawGallery() {
 
             ImGui::SameLine();
             if (ImGui::Button("Open", ImVec2(60, 0))) {
+                const auto dir =
+                    pfd::select_folder("Select Project Directory", pfd::path::home()).result();
+                if (!dir.empty()) {
+                    scenePath = OpenProjectFolder(dir, "");
+                }
             }
 
             ImGui::Spacing();
@@ -308,9 +340,7 @@ std::string Editor::Gallery::DrawGallery() {
                     ImVec2 p = ImGui::GetCursorScreenPos();
 
                     if (ImGui::InvisibleButton("##click", ImGui::GetContentRegionAvail())) {
-                        std::filesystem::path path = projects[i].path;
-                        path /= "test.scene"; // TODO: save "lastOpenScene" in json.
-                        scenePath = path;
+                        scenePath = OpenProjectFolder(projects[i].path, projects[i].name);
                     }
 
                     if (ImGui::IsItemHovered()) {

@@ -63,9 +63,10 @@ void HierarchySystem::WalkSubtree(Registry& registry, Entity node) {
     }
 
     Position& nodePosition = registry.GetComponent<Position>(node);
-    // x/y are world space; delta comes from PositionSystem's prev snapshot on the prior frame.
+    // x/y/z are world space; delta comes from PositionSystem's prev snapshot on the prior frame.
     float const dx = nodePosition.x - nodePosition.prevX;
     float const dy = nodePosition.y - nodePosition.prevY;
+    int const dz = nodePosition.z - nodePosition.prevZ;
 
     std::vector<Entity> const children = FindDirectChildren(registry, node);
 
@@ -76,6 +77,7 @@ void HierarchySystem::WalkSubtree(Registry& registry, Entity node) {
             if (childPosition.relative) {
                 childPosition.x += dx;
                 childPosition.y += dy;
+                childPosition.z += dz;
             }
         }
 

@@ -1,6 +1,7 @@
 #include "Panels/SettingsPanel.hpp"
 #include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
+#include "ProjectSystemsBuild.hpp"
 #include "SceneSerializer.hpp"
 #include <algorithm>
 #include <array>
@@ -42,6 +43,10 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     mainOut << "#include \"Core/Application.hpp\"\n"
             << "#include <optional>\n"
             << "#include \"SceneSerializer.hpp\"\n"
+            << "#include \"Plugins/AudioPlugin.hpp\"\n"
+            << "#include \"Plugins/HierarchyPlugin.hpp\"\n"
+            << "#include \"Plugins/InputPlugin.hpp\"\n"
+            << "#include \"Plugins/OpacityPlugin.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
             << "#include \"Plugins/TextPlugin.hpp\"\n"
             << "#include \"Plugins/SpritePlugin.hpp\"\n"
@@ -49,9 +54,12 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/RotationPlugin.hpp\"\n"
             << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Plugins/CameraPlugin.hpp\"\n"
+            << "#include \"Scripting/ScriptPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
-            << "#include <raylib.h>\n\n"
+            << "#include <raylib.h>\n"
+            << Editor::ProjectSystemsMainCppSnippet(projFolder)
+            << "\n"
             << "int main() {\n"
             << "    ChangeDirectory(GetApplicationDirectory());\n"
             << "    Engine::ApplicationConfig config;\n"
@@ -62,6 +70,10 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    config.virtualHeight = " << config.virtualHeight << ";\n"
             << "    config.targetFPS = " << config.targetFPS << ";\n\n"
             << "    Engine::Application app(config);\n"
+            << "    // HierarchyPlugin before PositionPlugin: parent deltas must\n"
+            << "    // propagate before prevX/prevY are snapshotted.\n"
+            << "    Engine::HierarchyPlugin hierarchyPlugin;\n"
+            << "    hierarchyPlugin.Init(app.GetRegistry());\n"
             << "    Engine::PositionPlugin positionPlugin;\n"
             << "    positionPlugin.Init(app.GetRegistry());\n"
             << "    Engine::TextPlugin textPlugin;\n"
@@ -74,8 +86,16 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    rotationPlugin.Init(app.GetRegistry());\n"
             << "    Engine::ColliderPlugin colliderPlugin;\n"
             << "    colliderPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::OpacityPlugin opacityPlugin;\n"
+            << "    opacityPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::InputPlugin inputPlugin;\n"
+            << "    inputPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::AudioPlugin audioPlugin;\n"
+            << "    audioPlugin.Init(app.GetRegistry());\n"
             << "    Engine::CameraPlugin cameraPlugin;\n"
-            << "    cameraPlugin.Init(app.GetRegistry());\n\n"
+            << "    cameraPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::ScriptPlugin scriptPlugin;\n"
+            << "    scriptPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 
@@ -99,6 +119,11 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         }
     }
 
+    if (std::filesystem::exists(std::filesystem::path(projFolder) /
+                                Editor::kProjectRegisterHeader)) {
+        mainOut << "\n    RegisterScaffoldedSystems(app.GetRegistry());\n";
+    }
+
     mainOut << "\n    app.Run();\n"
             << "    return 0;\n"
             << "}\n";
@@ -110,9 +135,19 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         rootPath = "..";
     }
 
+    const std::string projectSystemsCmake = Editor::ProjectSystemsEditorBuildSnippet(projFolder);
+    const std::filesystem::path projectSystemsDir =
+        Editor::ProjectSystemsDirectory(std::filesystem::path(projFolder));
+
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
-    cmakeOut << "add_executable(" << exeNameStr << " \"" << projFolder << "/main.cpp\")\n"
-             << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization)\n"
+    cmakeOut << projectSystemsCmake
+             << "add_executable(" << exeNameStr << " \"" << projFolder << "/main.cpp\" "
+             << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
+    if (std::filesystem::exists(projectSystemsDir)) {
+        cmakeOut << "target_include_directories(" << exeNameStr << " PRIVATE \""
+                 << projectSystemsDir.string() << "\")\n";
+    }
+    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization)\n"
              << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
              << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
              << projFolder << "/" << exeNameStr << "\"\n"

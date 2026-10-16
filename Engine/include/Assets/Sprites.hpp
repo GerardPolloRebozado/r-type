@@ -36,6 +36,14 @@ class Sprite {
     void Draw(const raylib::Vector2& position);
 
     /**
+     * @brief Draws the sprite with a tint color (e.g. a faded alpha for opacity).
+     *        Per-call tint: safe for textures shared between entities.
+     * @param position The world-space position to draw the sprite at.
+     * @param tint Color multiplier applied to every pixel.
+     */
+    void Draw(const raylib::Vector2& position, const raylib::Color& tint);
+
+    /**
      * @brief Gets the underlying raylib texture.
      * @return Constant reference to the raylib::Texture.
      */
