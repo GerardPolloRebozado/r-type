@@ -1,5 +1,6 @@
 #include "GalleryReflect.hpp"
 #include "MultiplatformUtils.hpp"
+#include "ProjectSystemsBuild.hpp"
 #include "Scaffold.hpp"
 #include "SceneSerializer.hpp"
 
@@ -166,6 +167,26 @@ static void TestCreateSystem(const std::filesystem::path& sourceRoot) {
     CHECK(!invalid.ok);
 }
 
+static void TestCreateProjectSystem(const std::filesystem::path& sourceRoot) {
+    PrepareEngineFixture(sourceRoot);
+
+    const std::filesystem::path projectDir = sourceRoot / "GalleryProject";
+    std::filesystem::create_directories(projectDir);
+    Editor::ProjectRequest request;
+    request.name = "GalleryProject";
+    request.path = projectDir.string();
+    Editor::ScaffoldResult project = Editor::EnsureProjectScene(request);
+    CHECK(project.ok);
+
+    Editor::ScaffoldResult created = Editor::CreateSystem("ProjectTest", projectDir.string());
+    CHECK(created.ok);
+    CHECK(std::filesystem::exists(projectDir / "system/ProjectTestSystem.hpp"));
+    CHECK(std::filesystem::exists(projectDir / "system/ProjectTestSystem.cpp"));
+    CHECK(std::filesystem::exists(projectDir / Editor::kProjectBuildCmake));
+    CHECK(std::filesystem::exists(projectDir / Editor::kProjectRegisterHeader));
+    CHECK(CMakeListsContains(projectDir / Editor::kProjectBuildCmake, "ProjectTestSystem.cpp"));
+}
+
 static void TestCreatePlugin(const std::filesystem::path& sourceRoot) {
     PrepareEngineFixture(sourceRoot);
 
@@ -216,16 +237,19 @@ static void TestProjectListJson() {
 int main() {
     const std::filesystem::path home = MakeTempDir("home");
     const std::filesystem::path systemRoot = MakeTempDir("system_root");
+    const std::filesystem::path projectSystemRoot = MakeTempDir("project_system_root");
     const std::filesystem::path pluginRoot = MakeTempDir("plugin_root");
 
     TestProjectListJson();
     TestCreateProject(home);
     TestEnsureProjectScene(home);
     TestCreateSystem(systemRoot);
+    TestCreateProjectSystem(projectSystemRoot);
     TestCreatePlugin(pluginRoot);
 
     std::filesystem::remove_all(home);
     std::filesystem::remove_all(systemRoot);
+    std::filesystem::remove_all(projectSystemRoot);
     std::filesystem::remove_all(pluginRoot);
 
     if (failures == 0) {

@@ -33,6 +33,7 @@ set(SRC_FILES
         src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
+        src/ProjectSystemsBuild.cpp
         src/Scaffold.cpp
         src/Utils/Multiplatform.cpp
 )
@@ -63,6 +64,7 @@ set(INC_FILES
         include/Plugins/CameraPluginEditor.hpp
         include/Rendering/SceneRenderer.hpp
         include/GalleryReflect.hpp
+        include/ProjectSystemsBuild.hpp
         include/Scaffold.hpp
 )
 

@@ -32,14 +32,23 @@ If `test.scene` already exists, the command prints an error and does not open th
 
 `<Name>` is a C++ identifier. `System` is appended when the name does not already end with it, so `Damage` and `DamageSystem` both create `DamageSystem`.
 
-`--path` is the engine root (the folder that contains `CMakeLists.txt`, `include/`, and `src/`). When `--path` is omitted, that folder is the **current working directory** (run from `Engine/` or pass `--path Engine` from the repository root).
+`--path` is where the files are written. When it is omitted, that location is the **current working directory**.
 
-The command writes the header and source under that tree and adds them to its `CMakeLists.txt`:
+The command walks upward from there to find `Engine/CMakeLists.txt` (or an engine tree in the current folder) and updates that CMake so the new sources build.
+
+**Inside the engine** (for example your cwd is `Engine/`, or `--path Engine` from the repo root):
 
 - `include/Systems/<Name>System.hpp`
 - `src/Systems/<Name>System.cpp`
+- entries appended to `Engine/CMakeLists.txt`
 
-It does not open the editor, and it does not register the system. Call `RegisterSystem` from a plugin `Init` when you want it to run. Existing files are left unchanged.
+**Inside a Gallery project** (for example your cwd is the project folder that contains `test.scene`):
+
+- `system/<Name>System.hpp`
+- `system/<Name>System.cpp`
+- `system/build.cmake` and `system/rtype_scaffold_register.hpp` for editor builds
+
+Rebuild the project from the editor (or run CMake for the engine) after scaffolding. Existing files are left unchanged.
 
 ## Create a plugin
 
@@ -47,15 +56,9 @@ It does not open the editor, and it does not register the system. Call `Register
 ./RTypeEditor create plugin <Name> [--path <dir>]
 ```
 
-`<Name>` is a C++ identifier. `Plugin` is appended when the name does not already end with it. `--path` works the same as for `create system`. `Health` and `HealthPlugin` both create:
+`<Name>` is a C++ identifier. `Plugin` is appended when the name does not already end with it. `--path` works the same as for `create system`.
 
-- `include/Components/Health.hpp`
-- `include/Systems/HealthSystem.hpp`
-- `src/Systems/HealthSystem.cpp`
-- `include/Plugins/HealthPlugin.hpp`
-- `src/Plugins/HealthPlugin.cpp`
-
-`HealthPlugin::Init` registers the component and the system. The command does not open the editor. Call `Init` from game code to use the plugin. Existing files are left unchanged.
+In the engine tree, `Health` and `HealthPlugin` both create the usual `include/` and `src/` layout under `Engine/`. In a Gallery project they are created under `system/` instead, with the same CMake and registration hooks as project systems.
 
 ## Exit status
 
@@ -68,7 +71,10 @@ Run the automated scaffold checks after building:
 ```bash
 cmake --build build --target ScaffoldRoundTrip
 ./build/ScaffoldRoundTrip
+bash Tests/scaffold_integration.sh
 ```
+
+`Tests/scaffold_integration.sh` exercises the CLI from a Gallery project folder and from `Engine/`, then compiles the generated sources (including an `EDITOR_BUILD` game target).
 
 For a safe walkthrough that keeps everything under `/tmp` (including a fake `Engine/` tree via `--path`), run `bash Tests/scaffold_cli_tmp.sh` from the repository root. The script keeps the project folder so it still appears in the Gallery after you quit the editor. Re-launch `./build/RTypeEditor` with no arguments to see the list.
 

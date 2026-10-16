@@ -82,7 +82,7 @@ CPMAddPackage(
 CPMAddPackage(
         NAME sol2
         GITHUB_REPOSITORY ThePhD/sol2
-        VERSION 3.3.1
+        GIT_TAG v3.5.0
 )
 
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)

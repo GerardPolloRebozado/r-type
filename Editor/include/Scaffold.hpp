@@ -58,23 +58,25 @@ ScaffoldResult CreateProject(const ProjectRequest& request);
 ScaffoldResult EnsureProjectScene(const ProjectRequest& request);
 
 /**
- * @brief Writes a system under an engine tree and lists it in that tree's CMake.
+ * @brief Writes a system in the working tree and updates CMake so it builds.
  *
  * @param name C++ identifier. @c System is appended when it is not already the suffix.
- * @param enginePath Root of the engine (contains @c CMakeLists.txt, @c include/, @c src/).
- *     Empty uses the process current working directory.
- * @return Result. Does not open a window and does not register the system.
- */
-ScaffoldResult CreateSystem(const std::string& name, const std::string& enginePath = "");
-
-/**
- * @brief Writes a component, system, and plugin and lists them in that tree's CMake.
- *
- * @param name C++ identifier. @c Plugin is appended when it is not already the suffix.
- * @param enginePath Root of the engine. Empty uses the process current working directory.
+ * @param outputPath Directory where files are written. Empty uses the current working directory.
+ *     When that folder is the engine (or inside it), files go under @c include/ and @c src/ and
+ *     @c Engine/CMakeLists.txt is updated. Otherwise files go under @c system/ in the project
+ *     and @c system/build.cmake is updated for editor builds.
  * @return Result. Does not open a window.
  */
-ScaffoldResult CreatePlugin(const std::string& name, const std::string& enginePath = "");
+ScaffoldResult CreateSystem(const std::string& name, const std::string& outputPath = "");
+
+/**
+ * @brief Writes a component, system, and plugin and updates CMake so they build.
+ *
+ * @param name C++ identifier. @c Plugin is appended when it is not already the suffix.
+ * @param outputPath Same rules as @ref CreateSystem.
+ * @return Result. Does not open a window.
+ */
+ScaffoldResult CreatePlugin(const std::string& name, const std::string& outputPath = "");
 
 } // namespace Editor
 

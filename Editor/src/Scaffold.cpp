@@ -4,6 +4,7 @@
 #include "GalleryReflect.hpp"
 #include "Logging/Logger.hpp"
 #include "MultiplatformUtils.hpp"
+#include "ProjectSystemsBuild.hpp"
 #include "SceneSerializer.hpp"
 
 #include <cctype>
@@ -13,6 +14,7 @@
 #include <fstream>
 #include <glaze/glaze.hpp>
 #include <iterator>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -125,12 +127,12 @@ bool WriteEmptyScene(const std::filesystem::path& scenePath, const std::filesyst
     return WriteNewFile(scenePath, sceneJson + "\n", error);
 }
 
-std::filesystem::path ResolveEngineRoot(const std::string& enginePath) {
+std::filesystem::path ResolveOutputRoot(const std::string& outputPath) {
     std::filesystem::path root;
-    if (enginePath.empty()) {
+    if (outputPath.empty()) {
         root = std::filesystem::current_path();
     } else {
-        root = std::filesystem::absolute(enginePath);
+        root = std::filesystem::absolute(outputPath);
     }
     std::error_code error;
     const std::filesystem::path canonical = std::filesystem::weakly_canonical(root, error);
@@ -138,6 +140,68 @@ std::filesystem::path ResolveEngineRoot(const std::string& enginePath) {
         root = canonical;
     }
     return root;
+}
+
+bool CMakeListsHasEngineSources(const std::filesystem::path& cmakeFile) {
+    std::ifstream in(cmakeFile);
+    if (!in) {
+        return false;
+    }
+    const std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return contents.find("set(SRC_FILES") != std::string::npos &&
+           contents.find("set(INC_FILES") != std::string::npos;
+}
+
+std::optional<std::filesystem::path> FindEngineCMakeLists(std::filesystem::path start) {
+    std::error_code error;
+    const std::filesystem::path canonical = std::filesystem::weakly_canonical(start, error);
+    if (!error) {
+        start = canonical;
+    }
+
+    for (std::filesystem::path dir = start;; dir = dir.parent_path()) {
+        const std::filesystem::path local = dir / "CMakeLists.txt";
+        if (std::filesystem::exists(local) && CMakeListsHasEngineSources(local)) {
+            return local;
+        }
+        const std::filesystem::path nested = dir / "Engine" / "CMakeLists.txt";
+        if (std::filesystem::exists(nested) && CMakeListsHasEngineSources(nested)) {
+            return nested;
+        }
+        if (!dir.has_parent_path() || dir == dir.parent_path()) {
+            break;
+        }
+    }
+    return std::nullopt;
+}
+
+bool IsPathInside(const std::filesystem::path& child, const std::filesystem::path& parent) {
+    std::error_code error;
+    const std::filesystem::path resolvedChild = std::filesystem::weakly_canonical(child, error);
+    const std::filesystem::path resolvedParent =
+        error ? parent : std::filesystem::weakly_canonical(parent, error);
+    if (resolvedChild == resolvedParent) {
+        return true;
+    }
+    const std::filesystem::path relative =
+        std::filesystem::relative(resolvedChild, resolvedParent, error);
+    if (error || relative.empty()) {
+        return false;
+    }
+    const std::string relativeText = relative.generic_string();
+    return !(relativeText.rfind("..", 0) == 0);
+}
+
+bool UsesEngineLayout(const std::filesystem::path& outputRoot,
+                      const std::filesystem::path& engineRoot) {
+    if (outputRoot == engineRoot || IsPathInside(outputRoot, engineRoot)) {
+        return true;
+    }
+    if (std::filesystem::exists(outputRoot / "include" / "Systems") ||
+        std::filesystem::exists(outputRoot / "src" / "Systems")) {
+        return true;
+    }
+    return false;
 }
 
 bool InsertCMakeEntries(const std::filesystem::path& cmakeFile,
@@ -221,8 +285,8 @@ std::string SystemHeader(const std::string& systemName) {
            guard + "\n";
 }
 
-std::string SystemSource(const std::string& systemName) {
-    return "#include \"Systems/" + systemName +
+std::string SystemSource(const std::string& systemName, const std::string& includePath) {
+    return "#include \"" + includePath + systemName +
            ".hpp\"\n"
            "\n"
            "namespace Engine {\n"
@@ -261,17 +325,21 @@ std::string ComponentHeader(const std::string& componentName, const std::string&
 }
 
 std::string PluginHeader(const std::string& pluginName, const std::string& componentName,
-                         const std::string& systemName) {
+                         const std::string& systemName, bool projectLayout) {
     const std::string guard = "ENGINE_PLUGINS_" + Upper(pluginName) + "_HPP_";
+    const std::string componentInclude =
+        projectLayout ? componentName + ".hpp" : "Components/" + componentName + ".hpp";
+    const std::string systemInclude =
+        projectLayout ? systemName + ".hpp" : "Systems/" + systemName + ".hpp";
     return "#ifndef " + guard + "\n#define " + guard +
            "\n"
-           "#include \"Components/" +
-           componentName +
-           ".hpp\"\n"
+           "#include \"" +
+           componentInclude +
+           "\"\n"
            "#include \"Plugins/IPlugin.hpp\"\n"
-           "#include \"Systems/" +
-           systemName +
-           ".hpp\"\n"
+           "#include \"" +
+           systemInclude +
+           "\"\n"
            "\n"
            "namespace Engine {\n"
            "\n"
@@ -300,8 +368,10 @@ std::string PluginHeader(const std::string& pluginName, const std::string& compo
 }
 
 std::string PluginSource(const std::string& pluginName, const std::string& componentName,
-                         const std::string& systemName) {
-    return "#include \"Plugins/" + pluginName +
+                         const std::string& systemName, const std::string& includePath) {
+    (void)componentName;
+    (void)systemName;
+    return "#include \"" + includePath + pluginName +
            ".hpp\"\n"
            "\n"
            "namespace Engine {\n"
@@ -326,11 +396,10 @@ struct EngineFile {
     std::string cmakePath;
 };
 
-ScaffoldResult WriteEngineFiles(const std::filesystem::path& engineRoot,
+ScaffoldResult WriteEngineFiles(const std::filesystem::path& cmakeFile,
                                 const std::vector<EngineFile>& files) {
-    const std::filesystem::path cmakeFile = engineRoot / "CMakeLists.txt";
     if (!std::filesystem::exists(cmakeFile)) {
-        return Fail("CMakeLists.txt was not found under " + engineRoot.string());
+        return Fail("CMakeLists.txt was not found: " + cmakeFile.string());
     }
 
     for (const EngineFile& file : files) {
@@ -359,6 +428,49 @@ ScaffoldResult WriteEngineFiles(const std::filesystem::path& engineRoot,
 
     std::string message = "Created";
     for (const EngineFile& file : files) {
+        message += " " + file.path.string();
+    }
+    return Succeed(message, "");
+}
+
+struct ProjectFile {
+    std::filesystem::path path;
+    std::string contents;
+    std::string cppFileName;
+};
+
+ScaffoldResult WriteProjectFiles(const std::filesystem::path& projectRoot,
+                                 const std::vector<ProjectFile>& files) {
+    for (const ProjectFile& file : files) {
+        if (std::filesystem::exists(file.path)) {
+            return Fail("File already exists: " + file.path.string());
+        }
+    }
+
+    for (const ProjectFile& file : files) {
+        std::string error;
+        if (!WriteNewFile(file.path, file.contents, error)) {
+            return Fail(error);
+        }
+    }
+
+    for (const ProjectFile& file : files) {
+        if (file.cppFileName.empty()) {
+            continue;
+        }
+        std::string error;
+        if (!AppendProjectSystemSource(projectRoot, file.cppFileName, error)) {
+            return Fail(error);
+        }
+    }
+
+    std::string error;
+    if (!RegenerateProjectRegister(projectRoot, error)) {
+        return Fail(error);
+    }
+
+    std::string message = "Created";
+    for (const ProjectFile& file : files) {
         message += " " + file.path.string();
     }
     return Succeed(message, "");
@@ -470,7 +582,7 @@ ScaffoldResult CreateProjectImpl(const ProjectRequest& request) {
     return Succeed("Created project " + folder.string(), createdScene.string());
 }
 
-ScaffoldResult CreateSystemImpl(const std::string& name, const std::string& enginePath) {
+ScaffoldResult CreateSystemImpl(const std::string& name, const std::string& outputPath) {
     if (!IsIdentifier(name)) {
         return Fail("System name must be a C++ identifier");
     }
@@ -479,28 +591,52 @@ ScaffoldResult CreateSystemImpl(const std::string& name, const std::string& engi
         return Fail("System name conflicts with Engine::System");
     }
 
-    const std::filesystem::path root = ResolveEngineRoot(enginePath);
-    if (std::filesystem::exists(root) && !std::filesystem::is_directory(root)) {
-        return Fail("Engine path is not a directory: " + root.string());
+    const std::filesystem::path outputRoot = ResolveOutputRoot(outputPath);
+    if (std::filesystem::exists(outputRoot) && !std::filesystem::is_directory(outputRoot)) {
+        return Fail("Output path is not a directory: " + outputRoot.string());
     }
-    std::vector<EngineFile> files = {
-        EngineFile{
-            root / "include" / "Systems" / (systemName + ".hpp"),
+
+    const std::optional<std::filesystem::path> cmakeFile = FindEngineCMakeLists(outputRoot);
+    if (!cmakeFile.has_value()) {
+        return Fail("Could not find Engine CMakeLists.txt from " + outputRoot.string());
+    }
+
+    const std::filesystem::path engineRoot = cmakeFile->parent_path();
+    if (UsesEngineLayout(outputRoot, engineRoot)) {
+        std::vector<EngineFile> files = {
+            EngineFile{
+                engineRoot / "include" / "Systems" / (systemName + ".hpp"),
+                SystemHeader(systemName),
+                "INC_FILES",
+                "include/Systems/" + systemName + ".hpp",
+            },
+            EngineFile{
+                engineRoot / "src" / "Systems" / (systemName + ".cpp"),
+                SystemSource(systemName, "Systems/"),
+                "SRC_FILES",
+                "src/Systems/" + systemName + ".cpp",
+            },
+        };
+        return WriteEngineFiles(*cmakeFile, files);
+    }
+
+    const std::filesystem::path systemsDir = ProjectSystemsDirectory(outputRoot);
+    std::vector<ProjectFile> files = {
+        ProjectFile{
+            systemsDir / (systemName + ".hpp"),
             SystemHeader(systemName),
-            "INC_FILES",
-            "include/Systems/" + systemName + ".hpp",
+            "",
         },
-        EngineFile{
-            root / "src" / "Systems" / (systemName + ".cpp"),
-            SystemSource(systemName),
-            "SRC_FILES",
-            "src/Systems/" + systemName + ".cpp",
+        ProjectFile{
+            systemsDir / (systemName + ".cpp"),
+            SystemSource(systemName, ""),
+            systemName + ".cpp",
         },
     };
-    return WriteEngineFiles(root, files);
+    return WriteProjectFiles(outputRoot, files);
 }
 
-ScaffoldResult CreatePluginImpl(const std::string& name, const std::string& enginePath) {
+ScaffoldResult CreatePluginImpl(const std::string& name, const std::string& outputPath) {
     if (!IsIdentifier(name)) {
         return Fail("Plugin name must be a C++ identifier");
     }
@@ -515,43 +651,82 @@ ScaffoldResult CreatePluginImpl(const std::string& name, const std::string& engi
         return Fail("System name conflicts with Engine::System");
     }
 
-    const std::filesystem::path root = ResolveEngineRoot(enginePath);
-    if (std::filesystem::exists(root) && !std::filesystem::is_directory(root)) {
-        return Fail("Engine path is not a directory: " + root.string());
+    const std::filesystem::path outputRoot = ResolveOutputRoot(outputPath);
+    if (std::filesystem::exists(outputRoot) && !std::filesystem::is_directory(outputRoot)) {
+        return Fail("Output path is not a directory: " + outputRoot.string());
     }
-    std::vector<EngineFile> files = {
-        EngineFile{
-            root / "include" / "Components" / (componentName + ".hpp"),
+
+    const std::optional<std::filesystem::path> cmakeFile = FindEngineCMakeLists(outputRoot);
+    if (!cmakeFile.has_value()) {
+        return Fail("Could not find Engine CMakeLists.txt from " + outputRoot.string());
+    }
+
+    const std::filesystem::path engineRoot = cmakeFile->parent_path();
+    if (UsesEngineLayout(outputRoot, engineRoot)) {
+        std::vector<EngineFile> files = {
+            EngineFile{
+                engineRoot / "include" / "Components" / (componentName + ".hpp"),
+                ComponentHeader(componentName, systemName),
+                "INC_FILES",
+                "include/Components/" + componentName + ".hpp",
+            },
+            EngineFile{
+                engineRoot / "include" / "Systems" / (systemName + ".hpp"),
+                SystemHeader(systemName),
+                "INC_FILES",
+                "include/Systems/" + systemName + ".hpp",
+            },
+            EngineFile{
+                engineRoot / "src" / "Systems" / (systemName + ".cpp"),
+                SystemSource(systemName, "Systems/"),
+                "SRC_FILES",
+                "src/Systems/" + systemName + ".cpp",
+            },
+            EngineFile{
+                engineRoot / "include" / "Plugins" / (pluginName + ".hpp"),
+                PluginHeader(pluginName, componentName, systemName, false),
+                "INC_FILES",
+                "include/Plugins/" + pluginName + ".hpp",
+            },
+            EngineFile{
+                engineRoot / "src" / "Plugins" / (pluginName + ".cpp"),
+                PluginSource(pluginName, componentName, systemName, "Plugins/"),
+                "SRC_FILES",
+                "src/Plugins/" + pluginName + ".cpp",
+            },
+        };
+        return WriteEngineFiles(*cmakeFile, files);
+    }
+
+    const std::filesystem::path systemsDir = ProjectSystemsDirectory(outputRoot);
+    std::vector<ProjectFile> files = {
+        ProjectFile{
+            systemsDir / (componentName + ".hpp"),
             ComponentHeader(componentName, systemName),
-            "INC_FILES",
-            "include/Components/" + componentName + ".hpp",
+            "",
         },
-        EngineFile{
-            root / "include" / "Systems" / (systemName + ".hpp"),
+        ProjectFile{
+            systemsDir / (systemName + ".hpp"),
             SystemHeader(systemName),
-            "INC_FILES",
-            "include/Systems/" + systemName + ".hpp",
+            "",
         },
-        EngineFile{
-            root / "src" / "Systems" / (systemName + ".cpp"),
-            SystemSource(systemName),
-            "SRC_FILES",
-            "src/Systems/" + systemName + ".cpp",
+        ProjectFile{
+            systemsDir / (systemName + ".cpp"),
+            SystemSource(systemName, ""),
+            systemName + ".cpp",
         },
-        EngineFile{
-            root / "include" / "Plugins" / (pluginName + ".hpp"),
-            PluginHeader(pluginName, componentName, systemName),
-            "INC_FILES",
-            "include/Plugins/" + pluginName + ".hpp",
+        ProjectFile{
+            systemsDir / (pluginName + ".hpp"),
+            PluginHeader(pluginName, componentName, systemName, true),
+            "",
         },
-        EngineFile{
-            root / "src" / "Plugins" / (pluginName + ".cpp"),
-            PluginSource(pluginName, componentName, systemName),
-            "SRC_FILES",
-            "src/Plugins/" + pluginName + ".cpp",
+        ProjectFile{
+            systemsDir / (pluginName + ".cpp"),
+            PluginSource(pluginName, componentName, systemName, ""),
+            pluginName + ".cpp",
         },
     };
-    return WriteEngineFiles(root, files);
+    return WriteProjectFiles(outputRoot, files);
 }
 
 ScaffoldResult EnsureProjectSceneImpl(const ProjectRequest& request) {
