@@ -103,58 +103,25 @@ void CollectEntities(Engine::Registry& registry, Engine::Entity entity,
     }
 }
 
-bool SpriteChanged(const Snapshot& baseline, const Snapshot& current) {
-    if (!current.sprite.has_value()) {
-        return false;
+std::string NormalizeStoredPath(std::string path) {
+    std::replace(path.begin(), path.end(), '\\', '/');
+    if (path.rfind("./", 0) == 0) {
+        path.erase(0, 2);
     }
-    if (!baseline.sprite.has_value()) {
-        return true;
-    }
-    return current.sprite->assetPath != baseline.sprite->assetPath ||
-           current.sprite->scaleX != baseline.sprite->scaleX ||
-           current.sprite->scaleY != baseline.sprite->scaleY;
+    return path;
 }
 
-bool ShapeChanged(const Snapshot& baseline, const Snapshot& current) {
-    if (!current.shape.has_value()) {
+bool SamePrefab(Engine::Registry& scene, const std::string& stored, const std::string& relative,
+                const std::string& absolutePath) {
+    if (stored.empty()) {
         return false;
     }
-    if (!baseline.shape.has_value()) {
+    if (NormalizeStoredPath(stored) == NormalizeStoredPath(relative)) {
         return true;
     }
-    return current.shape->width != baseline.shape->width ||
-           current.shape->height != baseline.shape->height ||
-           current.shape->radius != baseline.shape->radius;
-}
-
-bool ScriptChanged(const Snapshot& baseline, const Snapshot& current) {
-    if (!current.script.has_value()) {
-        return false;
-    }
-    if (!baseline.script.has_value()) {
-        return true;
-    }
-    return current.script->scriptPath != baseline.script->scriptPath;
-}
-
-bool SyncedFieldsChanged(const std::vector<Snapshot>& baseline,
-                         const std::vector<Snapshot>& current) {
-    const std::size_t count = std::min(baseline.size(), current.size());
-    for (std::size_t i = 0; i < count; ++i) {
-        if (SpriteChanged(baseline[i], current[i]) || ShapeChanged(baseline[i], current[i]) ||
-            ScriptChanged(baseline[i], current[i])) {
-            return true;
-        }
-    }
-    if (current.size() > baseline.size()) {
-        for (std::size_t i = baseline.size(); i < current.size(); ++i) {
-            if (current[i].sprite.has_value() || current[i].shape.has_value() ||
-                current[i].script.has_value()) {
-                return true;
-            }
-        }
-    }
-    return false;
+    const std::filesystem::path storedFile = ResolveAssetPath(scene, stored);
+    std::error_code error;
+    return std::filesystem::equivalent(storedFile, absolutePath, error);
 }
 
 void ApplySprite(Engine::Registry& scene, Engine::Entity entity,
@@ -165,9 +132,11 @@ void ApplySprite(Engine::Registry& scene, Engine::Entity entity,
             entity, Engine::SpriteComponent(nullptr, "", 0.0f, 0.0f, source.scaleX, source.scaleY));
     }
     auto& sprite = scene.GetComponent<Engine::SpriteComponent>(entity);
-    if (sprite.assetPath != source.assetPath) {
+    if (sprite.assetPath != source.assetPath || sprite.sprite == nullptr) {
         LoadSpriteForComponent(scene, sprite, source.assetPath);
     }
+    sprite.offsetX = source.offsetX;
+    sprite.offsetY = source.offsetY;
     sprite.scaleX = source.scaleX;
     sprite.scaleY = source.scaleY;
     if (sprite.sprite) {
@@ -335,9 +304,6 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
     }
 
     std::vector<Snapshot> current = CaptureSubtree(*m_Prefab->registry, m_Prefab->root);
-    if (!SyncedFieldsChanged(m_Prefab->fileSnapshots, current)) {
-        return;
-    }
 
     // Positions stay in the file so placed instances do not jump. A component
     // removed in the preview is put back here, so instances keep it too.
@@ -362,6 +328,7 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
         return;
     }
 
+    std::size_t updated = 0;
     if (scene.IsComponentRegistered<Engine::PrefabInstance>()) {
         for (std::size_t id = 1; id < scene.GetEntityCount(); ++id) {
             const Engine::Entity instanceRoot = id;
@@ -369,10 +336,12 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
                 !scene.HasComponent<Engine::PrefabInstance>(instanceRoot)) {
                 continue;
             }
-            if (scene.GetComponent<Engine::PrefabInstance>(instanceRoot).prefabPath !=
-                m_Prefab->relativePath) {
+            auto& link = scene.GetComponent<Engine::PrefabInstance>(instanceRoot);
+            if (!SamePrefab(scene, link.prefabPath, m_Prefab->relativePath,
+                            m_Prefab->absolutePath)) {
                 continue;
             }
+            link.prefabPath = m_Prefab->relativePath;
             std::vector<Engine::Entity> instanceEntities;
             std::unordered_set<Engine::Entity> seen;
             CollectEntities(scene, instanceRoot, instanceEntities, seen, 0);
@@ -380,10 +349,13 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
             for (std::size_t i = 0; i < count; ++i) {
                 ApplySnapshot(scene, instanceEntities[i], current[i]);
             }
+            ++updated;
         }
     }
 
     m_Prefab->fileSnapshots = std::move(current);
+    log_info("Prefab saved: " + m_Prefab->relativePath + " (" + std::to_string(updated) +
+             " instances)");
 }
 
 void PreviewPanel::RenderPrefab(Engine::Registry& scene, EditorConfig& config,
@@ -403,8 +375,14 @@ void PreviewPanel::RenderPrefab(Engine::Registry& scene, EditorConfig& config,
     }
     std::unordered_set<Engine::Entity> seen;
     LoadPrefabSprites(*m_Prefab->registry, m_Prefab->root, seen, 0);
+    bool save = false;
+    if (ImGui::Button("Save")) {
+        save = true;
+    }
     DrawPrefabControls();
-    SyncPrefabEdits(scene);
+    if (save) {
+        SyncPrefabEdits(scene);
+    }
 }
 
 void PreviewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {

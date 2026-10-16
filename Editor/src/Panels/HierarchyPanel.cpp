@@ -169,7 +169,6 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
 
         ImGui::TextDisabled("Drag a row onto another to parent - drop on empty space to detach");
         ImGui::TextDisabled("Right-click a row for options - Del removes the selection");
-        ImGui::TextDisabled("Ctrl+C / Ctrl+V copies the selection and its children");
 
         // Window drag drop target
         ImGui::Dummy(ImGui::GetContentRegionAvail());

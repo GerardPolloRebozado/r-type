@@ -92,7 +92,8 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         ImGui::Text("Path");
         ImGui::SameLine();
         if (ImGui::InputText("##SpritePath", buffer, sizeof(buffer),
-                             ImGuiInputTextFlags_EnterReturnsTrue)) {
+                             ImGuiInputTextFlags_EnterReturnsTrue) ||
+            ImGui::IsItemDeactivatedAfterEdit()) {
             std::string newPath(buffer);
             if (newPath != currentPath) {
                 LoadSpriteForComponent(registry, spriteComp, newPath);
