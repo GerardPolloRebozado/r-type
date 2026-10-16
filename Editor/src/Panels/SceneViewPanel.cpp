@@ -12,7 +12,7 @@
 namespace Editor {
 
 void SceneViewPanel::RenderGame(Engine::Registry& registry, EditorConfig& config) {
-    m_Renderer.Render(registry, config);
+    m_Renderer.Render(registry, config, m_EditorCamera);
 }
 
 static bool IsPointInRect(const ImVec2& pt, const ImVec2& min, const ImVec2& max) {
@@ -40,7 +40,14 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             ImGui::PopStyleVar();
             return;
         }
-
+        if (!m_EditorCameraInitialized) {
+            float w = static_cast<float>(targetTexture.texture.width);
+            float h = static_cast<float>(targetTexture.texture.height);
+            m_EditorCamera.offset = {w * 0.5f, h * 0.5f};
+            m_EditorCamera.target = {w * 0.5f, h * 0.5f};
+            m_EditorCamera.zoom = 1.0f;
+            m_EditorCameraInitialized = true;
+        }
         // We calculate aspect ratio to center it
         float aspect = static_cast<float>(targetTexture.texture.width) /
                        static_cast<float>(targetTexture.texture.height);
@@ -65,9 +72,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         float scaleX = drawSize.x / static_cast<float>(targetTexture.texture.width);
         float scaleY = drawSize.y / static_cast<float>(targetTexture.texture.height);
 
-        const Camera2D camera = Engine::CameraSystem::GetActiveCamera(
-            registry, static_cast<float>(targetTexture.texture.width),
-            static_cast<float>(targetTexture.texture.height));
+        const Camera2D camera = m_EditorCamera;
         auto worldToView = [&](const Camera2D& cam, float x, float y) {
             const Vector2 px = GetWorldToScreen2D({x, y}, cam);
             return ImVec2(textureScreenPos.x + px.x * scaleX, textureScreenPos.y + px.y * scaleY);
@@ -76,7 +81,18 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             return GetScreenToWorld2D(
                 {(x - textureScreenPos.x) / scaleX, (y - textureScreenPos.y) / scaleY}, cam);
         };
-
+        if (ImGui::IsItemHovered()) {
+            float wheel = ImGui::GetIO().MouseWheel;
+            if (wheel != 0.0f) {
+                m_EditorCamera.zoom = std::clamp(m_EditorCamera.zoom + wheel * 0.1f, 0.1f, 10.0f);
+            }
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right) ||
+                ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+                ImVec2 delta = ImGui::GetIO().MouseDelta;
+                m_EditorCamera.target.x -= (delta.x / scaleX) / m_EditorCamera.zoom;
+                m_EditorCamera.target.y -= (delta.y / scaleY) / m_EditorCamera.zoom;
+            }
+        }
         if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
             auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
             if (selected.entity != -1 && registry.HasComponent<Engine::Position>(selected.entity)) {

@@ -3,6 +3,8 @@
 
 #include "ECS/Registry.hpp"
 #include <functional>
+#include <optional>
+#include <raylib-cpp.hpp>
 
 namespace Engine {
 /**
@@ -21,7 +23,8 @@ namespace Engine {
  *        still inside the camera.
  */
 void RenderScene(Registry& registry, float viewportWidth, float viewportHeight,
-                 const std::function<void()>& worldOverlay = nullptr);
+                 const std::function<void()>& worldOverlay = nullptr,
+                 std::optional<Camera2D> cameraOverride = std::nullopt);
 } // namespace Engine
 
 #endif // ENGINE_CORE_RENDERER_HPP_

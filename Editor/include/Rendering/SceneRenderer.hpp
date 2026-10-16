@@ -22,7 +22,8 @@ class SceneRenderer {
     /**
      * @brief Executes the complete viewport render pipeline into the virtual canvas.
      */
-    void Render(Engine::Registry& registry, const EditorConfig& config);
+    void Render(Engine::Registry& registry, const EditorConfig& config,
+                std::optional<Camera2D> editorCamera = std::nullopt);
 
     /**
      * @brief Returns the rendered texture to be displayed by ImGui panels.

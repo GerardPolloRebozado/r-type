@@ -9,7 +9,8 @@
 
 namespace Editor {
 
-void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& config) {
+void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& config,
+                           std::optional<Camera2D> editorCamera) {
     int virtualWidth =
         Engine::VirtualResolution::ResolveAxis(config.virtualWidth, config.windowWidth);
     int virtualHeight =
@@ -20,6 +21,9 @@ void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& confi
     canvas.Begin();
     ClearBackground(BLACK);
 
+    Engine::RenderScene(
+        registry, static_cast<float>(canvas.GetWidth()), static_cast<float>(canvas.GetHeight()),
+        [this, &registry]() { RenderColliderOverlays(registry); }, editorCamera);
     RenderSystems(registry);
 
     canvas.End();

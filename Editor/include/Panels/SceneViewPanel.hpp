@@ -27,7 +27,8 @@ class SceneViewPanel : public IEditorPanel {
     float m_InitialEntityAngle = 0.0f;
     // Camera frozen when a drag starts, so dragging the camera entity itself does not feed back
     Camera2D m_DragCamera{{0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, 1.0f};
-
+    Camera2D m_EditorCamera{{0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, 1.0f};
+    bool m_EditorCameraInitialized = false;
     SceneRenderer m_Renderer;
 };
 
