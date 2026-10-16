@@ -140,9 +140,20 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     cmakeOut.close();
 
     std::string buildDir = projFolder + "/.build";
+
+    std::string parallelJobs;
+#if defined(__APPLE__)
+    parallelJobs = "$(sysctl -n hw.ncpu)";
+#elif defined(_WIN32)
+    parallelJobs = "1";
+#else
+    parallelJobs = "$(nproc)";
+#endif
+
     std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath +
                       "\" -DEDITOR_BUILD=ON && make -C \"" + buildDir + "\" \"" + exeNameStr +
-                      "\" -j$(nproc) 2>&1; rm -f \"" + rootPath + "/.editor_build.cmake\"";
+                      "\" -j" + parallelJobs + " 2>&1; rm -f \"" + rootPath +
+                      "/.editor_build.cmake\"";
 
     if (s_BuildThread.joinable()) {
         s_BuildThread.join();
