@@ -1,8 +1,10 @@
 #include "Panels/AssetsPanel.hpp"
 #include "EditorConfig.hpp"
 #include "EditorLayer.hpp"
+#include "EntitySubtree.hpp"
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 
 namespace Editor {
 
@@ -175,6 +177,21 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
         }
 
         ImGui::EndTable();
+    }
+
+    // File buttons do not cover the gaps, so the drop target is the panel rect.
+    // BeginDragDropTarget only attaches to the last submitted item.
+    const ImVec2 regionMin = ImGui::GetWindowContentRegionMin();
+    const ImVec2 regionMax = ImGui::GetWindowContentRegionMax();
+    const ImVec2 windowPos = ImGui::GetWindowPos();
+    const ImRect dropRect(ImVec2(windowPos.x + regionMin.x, windowPos.y + regionMin.y),
+                          ImVec2(windowPos.x + regionMax.x, windowPos.y + regionMax.y));
+    if (ImGui::BeginDragDropTargetCustom(dropRect, ImGui::GetID("##entity-prefab-drop"))) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY_ID")) {
+            const Engine::Entity dragged = *static_cast<const Engine::Entity*>(payload->Data);
+            EntitySubtree::SavePrefab(registry, dragged, m_CurrentDirectory);
+        }
+        ImGui::EndDragDropTarget();
     }
 
     ImGui::End();

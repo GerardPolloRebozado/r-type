@@ -3,6 +3,7 @@
 
 #include "Components/CameraComponent.hpp"
 #include "Components/Opacity.hpp"
+#include "Components/PrefabInstance.hpp"
 #include "Components/SignalConnections.hpp"
 #include "ECS/Registry.hpp"
 #include "GlazeReflect.hpp"
@@ -54,6 +55,8 @@ class GlazeSerializer {
         std::optional<Engine::AudioSource> audioSource;
         std::optional<Engine::CameraComponent> camera;
         std::optional<Engine::ScriptComponent> script;
+        // Absent on old scenes. Present only on a subtree root tied to a .prefab.
+        std::optional<Engine::PrefabInstance> prefab;
     };
 
     struct SceneSnapshot {
@@ -63,6 +66,11 @@ class GlazeSerializer {
 
     SceneSnapshot CaptureScene(Engine::Registry& registry);
     void RestoreScene(Engine::Registry& registry, const SceneSnapshot& snapshot);
+
+    EntitySnapshot CaptureEntity(Engine::Registry& registry, Engine::Entity entity);
+    // New ids. The first snapshot becomes the returned root. Empty input returns (Entity)-1.
+    Engine::Entity SpawnEntities(Engine::Registry& registry,
+                                 const std::vector<EntitySnapshot>& entities);
 
   private:
     // Older saves named ShapeComponent::color "color)" because WHITE expands

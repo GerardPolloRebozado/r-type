@@ -6,6 +6,7 @@
 #include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "EditorConfig.hpp"
+#include "EntitySubtree.hpp"
 #include "Logging/Logger.hpp"
 #include "Panels/StatePanel.hpp"
 #include "Plugins/HierarchyPlugin.hpp"
@@ -40,6 +41,28 @@ void MarkSubtreeVisited(Engine::Registry& registry, Engine::Entity entity,
         MarkSubtreeVisited(registry, child, visited, depth + 1);
     }
 }
+
+bool IsPrefabPath(const std::string& path) {
+    return path.size() >= 7 && path.ends_with(".prefab");
+}
+
+void SelectSpawned(Engine::Registry& registry, HierarchyPanelSelectedEntity& selected,
+                   Engine::Entity entity) {
+    selected.entity = entity;
+    selected.index = static_cast<int>(entity);
+    if (registry.HasResource<StatePanelSelectedState>()) {
+        auto& stateSel = registry.GetResource<StatePanelSelectedState>();
+        stateSel.groupIndex = -1;
+        stateSel.stateIndex = -1;
+    }
+}
+
+void PasteClipboard(Engine::Registry& registry, HierarchyPanelSelectedEntity& selected) {
+    const Engine::Entity pasted = EntitySubtree::Paste(registry);
+    if (pasted != static_cast<Engine::Entity>(-1)) {
+        SelectSpawned(registry, selected, pasted);
+    }
+}
 } // namespace
 
 void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
@@ -61,6 +84,24 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             }
             const bool hasSelection = selected.entity != static_cast<Engine::Entity>(-1) &&
                                       registry.IsEntityAlive(selected.entity);
+            if (!hasSelection) {
+                ImGui::BeginDisabled();
+            }
+            if (ImGui::MenuItem("Copy", "Ctrl+C")) {
+                EntitySubtree::Copy(registry, selected.entity);
+            }
+            if (!hasSelection) {
+                ImGui::EndDisabled();
+            }
+            if (!EntitySubtree::CanPaste()) {
+                ImGui::BeginDisabled();
+            }
+            if (ImGui::MenuItem("Paste", "Ctrl+V")) {
+                PasteClipboard(registry, selected);
+            }
+            if (!EntitySubtree::CanPaste()) {
+                ImGui::EndDisabled();
+            }
             if (!hasSelection) {
                 ImGui::BeginDisabled();
             }
@@ -111,8 +152,24 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             selected.index = -1;
         }
 
+        // Only while this window is focused and no text item is active, so
+        // fields in other panels keep Ctrl+C / Ctrl+V.
+        if (ImGui::IsWindowFocused() && !ImGui::IsAnyItemActive()) {
+            const ImGuiIO& io = ImGui::GetIO();
+            if (io.KeyCtrl && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_C, false) &&
+                selected.entity != static_cast<Engine::Entity>(-1) &&
+                registry.IsEntityAlive(selected.entity)) {
+                EntitySubtree::Copy(registry, selected.entity);
+            }
+            if (io.KeyCtrl && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_V, false) &&
+                EntitySubtree::CanPaste()) {
+                PasteClipboard(registry, selected);
+            }
+        }
+
         ImGui::TextDisabled("Drag a row onto another to parent - drop on empty space to detach");
         ImGui::TextDisabled("Right-click a row for options - Del removes the selection");
+        ImGui::TextDisabled("Ctrl+C / Ctrl+V copies the selection and its children");
 
         // Window drag drop target
         ImGui::Dummy(ImGui::GetContentRegionAvail());
@@ -128,33 +185,42 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                     ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                 const char* path = (const char*)payload->Data;
                 std::string rawPath(path);
-                std::string relPath = ToProjectRelativePath(registry, rawPath);
-                auto resolvedPath = ResolveAssetPath(registry, relPath);
-                try {
-                    std::shared_ptr<Engine::Sprite> spr = nullptr;
-                    if (registry.HasResource<Engine::AssetManager>()) {
-                        auto& am = registry.GetResource<Engine::AssetManager>();
-                        try {
-                            auto existing = am.GetSprite(relPath);
-                            if (existing && existing->GetTexture().id == 0) {
-                                am.UnloadSprite(relPath);
-                            }
-                        } catch (...) {
-                        }
-                        am.LoadSprite(relPath, resolvedPath.string());
-                        spr = am.GetSprite(relPath);
-                    } else {
-                        spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
+                // A .prefab is a subtree, not a texture. The sprite path below
+                // would try to load the JSON as an image.
+                if (IsPrefabPath(rawPath)) {
+                    const Engine::Entity spawned = EntitySubtree::SpawnPrefab(registry, rawPath);
+                    if (spawned != static_cast<Engine::Entity>(-1)) {
+                        SelectSpawned(registry, selected, spawned);
                     }
-                    const Engine::Entity newEntity = registry.CreateEntity();
-                    registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
-                    registry.AddComponent<Engine::Rotation>(newEntity,
-                                                            Engine::Rotation::Create(0.0f));
-                    registry.AddComponent<Engine::SpriteComponent>(
-                        newEntity, Engine::SpriteComponent(spr, relPath));
-                    selected.entity = newEntity;
-                    selected.index = static_cast<int>(newEntity);
-                } catch (...) {
+                } else {
+                    std::string relPath = ToProjectRelativePath(registry, rawPath);
+                    auto resolvedPath = ResolveAssetPath(registry, relPath);
+                    try {
+                        std::shared_ptr<Engine::Sprite> spr = nullptr;
+                        if (registry.HasResource<Engine::AssetManager>()) {
+                            auto& am = registry.GetResource<Engine::AssetManager>();
+                            try {
+                                auto existing = am.GetSprite(relPath);
+                                if (existing && existing->GetTexture().id == 0) {
+                                    am.UnloadSprite(relPath);
+                                }
+                            } catch (...) {
+                            }
+                            am.LoadSprite(relPath, resolvedPath.string());
+                            spr = am.GetSprite(relPath);
+                        } else {
+                            spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
+                        }
+                        const Engine::Entity newEntity = registry.CreateEntity();
+                        registry.AddComponent<Engine::Position>(newEntity, Engine::Position(0, 0));
+                        registry.AddComponent<Engine::Rotation>(newEntity,
+                                                                Engine::Rotation::Create(0.0f));
+                        registry.AddComponent<Engine::SpriteComponent>(
+                            newEntity, Engine::SpriteComponent(spr, relPath));
+                        selected.entity = newEntity;
+                        selected.index = static_cast<int>(newEntity);
+                    } catch (...) {
+                    }
                 }
             }
             ImGui::EndDragDropTarget();
@@ -238,39 +304,48 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
             const char* path = (const char*)payload->Data;
             std::string rawPath(path);
-            std::string relPath = ToProjectRelativePath(registry, rawPath);
-            auto resolvedPath = ResolveAssetPath(registry, relPath);
-            try {
-                std::shared_ptr<Engine::Sprite> spr = nullptr;
-                if (registry.HasResource<Engine::AssetManager>()) {
-                    auto& am = registry.GetResource<Engine::AssetManager>();
-                    try {
-                        auto existing = am.GetSprite(relPath);
-                        if (existing && existing->GetTexture().id == 0) {
-                            am.UnloadSprite(relPath);
+            // A .prefab drop spawns a subtree. It must not replace this row's sprite.
+            if (IsPrefabPath(rawPath)) {
+                const Engine::Entity spawned = EntitySubtree::SpawnPrefab(registry, rawPath);
+                if (spawned != static_cast<Engine::Entity>(-1)) {
+                    SelectSpawned(registry, selected, spawned);
+                }
+            } else {
+                std::string relPath = ToProjectRelativePath(registry, rawPath);
+                auto resolvedPath = ResolveAssetPath(registry, relPath);
+                try {
+                    std::shared_ptr<Engine::Sprite> spr = nullptr;
+                    if (registry.HasResource<Engine::AssetManager>()) {
+                        auto& am = registry.GetResource<Engine::AssetManager>();
+                        try {
+                            auto existing = am.GetSprite(relPath);
+                            if (existing && existing->GetTexture().id == 0) {
+                                am.UnloadSprite(relPath);
+                            }
+                        } catch (...) {
                         }
-                    } catch (...) {
+                        am.LoadSprite(relPath, resolvedPath.string());
+                        spr = am.GetSprite(relPath);
+                    } else {
+                        spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
                     }
-                    am.LoadSprite(relPath, resolvedPath.string());
-                    spr = am.GetSprite(relPath);
-                } else {
-                    spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
+                    if (!registry.HasComponent<Engine::Position>(entity)) {
+                        registry.AddComponent<Engine::Position>(entity, Engine::Position(0, 0));
+                    }
+                    if (!registry.HasComponent<Engine::Rotation>(entity)) {
+                        registry.AddComponent<Engine::Rotation>(entity,
+                                                                Engine::Rotation::Create(0.0f));
+                    }
+                    if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
+                        auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
+                        sc.sprite = spr;
+                        sc.assetPath = relPath;
+                    } else {
+                        registry.AddComponent<Engine::SpriteComponent>(
+                            entity, Engine::SpriteComponent(spr, relPath));
+                    }
+                } catch (...) {
                 }
-                if (!registry.HasComponent<Engine::Position>(entity)) {
-                    registry.AddComponent<Engine::Position>(entity, Engine::Position(0, 0));
-                }
-                if (!registry.HasComponent<Engine::Rotation>(entity)) {
-                    registry.AddComponent<Engine::Rotation>(entity, Engine::Rotation::Create(0.0f));
-                }
-                if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
-                    auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
-                    sc.sprite = spr;
-                    sc.assetPath = relPath;
-                } else {
-                    registry.AddComponent<Engine::SpriteComponent>(
-                        entity, Engine::SpriteComponent(spr, relPath));
-                }
-            } catch (...) {
             }
         }
         ImGui::EndDragDropTarget();
@@ -298,6 +373,18 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
     }
 
     if (ImGui::BeginPopupContextItem()) {
+        if (ImGui::MenuItem("Copy", "Ctrl+C")) {
+            EntitySubtree::Copy(registry, entity);
+        }
+        if (!EntitySubtree::CanPaste()) {
+            ImGui::BeginDisabled();
+        }
+        if (ImGui::MenuItem("Paste", "Ctrl+V")) {
+            PasteClipboard(registry, selected);
+        }
+        if (!EntitySubtree::CanPaste()) {
+            ImGui::EndDisabled();
+        }
         if (ImGui::MenuItem("Remove Entity")) {
             registry.DestroyEntity(entity);
             if (selected.entity == entity || !registry.IsEntityAlive(selected.entity)) {
