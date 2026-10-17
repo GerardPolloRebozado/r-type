@@ -45,15 +45,6 @@ ENetPeer* NetworkHostResource::Connect(const std::string_view host, const uint16
     return server_peer;
 };
 
-void NetworkHostResource::RegisterMultiplayerComponents(Registry& registry) {
-    if (!registry.IsComponentRegistered<PlayerInformation>()) {
-        registry.RegisterComponent<PlayerInformation>();
-    }
-    if (!registry.IsComponentRegistered<YourPlayerId>()) {
-        registry.RegisterComponent<YourPlayerId>();
-    }
-}
-
 std::optional<std::size_t> NetworkHostResource::GetNetworkId(Registry& registry,
                                                              Entity entity) const {
     if (!registry.IsComponentRegistered<PlayerInformation>()) {
@@ -83,7 +74,6 @@ std::optional<ENetPeer*> NetworkHostResource::GetPeer(Entity entity) const {
 
 void NetworkHostResource::TrackNetworkEntity(Registry& registry, Entity entity,
                                              std::size_t networkId) {
-    RegisterMultiplayerComponents(registry);
     if (registry.HasComponent<PlayerInformation>(entity)) {
         registry.GetComponent<PlayerInformation>(entity).id = networkId;
     } else {
@@ -95,24 +85,28 @@ void NetworkHostResource::TrackNetworkEntity(Registry& registry, Entity entity,
     }
 }
 
-void NetworkHostResource::Poll(uint32_t timeoutMs, PacketRouterResource router,
+void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& router,
                                Registry& registry) {
     ENetEvent event;
+    auto& packetRegistry = registry.GetResource<PacketRegistryResource>();
+    const auto YourPlayerIdPacketID = packetRegistry.GetOrRegister("your_player_id");
     while (enet_host_service(m_host, &event, timeoutMs) > 0) {
         switch (event.type) {
             case ENET_EVENT_TYPE_CONNECT: {
                 if (m_isServer) {
-                    RegisterMultiplayerComponents(registry);
                     const auto playerEntity = registry.CreateEntity();
                     const std::size_t networkId = m_nextNetworkId++;
                     registry.AddComponent(playerEntity, PlayerInformation{networkId});
                     m_idToEntity[networkId] = playerEntity;
                     m_entityToPeer[playerEntity] = event.peer;
                     SetPeerEntity(event.peer, playerEntity);
-                    auto* packet = CreatePacket(YourPlayerIdPacket, YourPlayerId{networkId}, true);
+                    auto* packet =
+                        CreatePacket(YourPlayerIdPacketID, YourPlayerId{networkId}, true);
                     Send(event.peer, packet, 0);
                 }
-                router.m_OnConnect(registry, event.peer);
+                if (router.m_OnConnect) {
+                    router.m_OnConnect(registry, event.peer);
+                }
                 break;
             }
             case ENET_EVENT_TYPE_RECEIVE: {
@@ -122,7 +116,7 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, PacketRouterResource router,
                     // game handlers run so existing code keeps working.
                     const auto packetId = static_cast<PacketTypeID>(event.packet->data[0] |
                                                                     (event.packet->data[1] << 8));
-                    if (!m_isServer && packetId == YourPlayerIdPacket) {
+                    if (!m_isServer && packetId == YourPlayerIdPacketID) {
                         YourPlayerId assigned{};
                         const std::span<const std::byte> payload{
                             reinterpret_cast<const std::byte*>(event.packet->data +
@@ -163,7 +157,9 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, PacketRouterResource router,
                     event.peer->data = nullptr;
                 }
                 std::cout << "New disconnection" << std::endl;
-                router.m_OnDisconnect(registry, event.peer);
+                if (router.m_OnDisconnect) {
+                    router.m_OnDisconnect(registry, event.peer);
+                }
                 break;
             }
             default:

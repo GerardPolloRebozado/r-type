@@ -5,17 +5,21 @@
 #include "PacketTypes.hpp"
 #include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
+#include "Plugins/MultiplayerPlugin.hpp"
 #include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
 #include "Resources/NetworkHostResource.hpp"
 #include "Systems/MultiplayerSystem.hpp"
+#include <cstddef>
 #include <iostream>
 #include <raylib.h>
+#include <span>
 
 static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPress& keyPress) {
     auto& host = registry.GetResource<Engine::Multiplayer::NetworkHostResource>();
+    auto& packetResgitry = registry.GetResource<Engine::Multiplayer::PacketRegistryResource>();
     const auto entity = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer);
     if (!entity.has_value()) {
         return;
@@ -47,13 +51,14 @@ static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPres
     }
     const auto newPosition = NewPlayerPos{*networkId, position};
     const auto newPosNotification = Engine::Multiplayer::NetworkHostResource::CreatePacket(
-        NewPlayerPosPacket, newPosition, false);
+        packetResgitry.GetOrRegister("new_player_pos"), newPosition, false);
     registry.GetResource<Engine::Multiplayer::NetworkHostResource>().SendAllHost(newPosNotification,
                                                                                  0);
 }
 
 static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
     const auto& host = registry.GetResource<Engine::Multiplayer::NetworkHostResource>();
+    auto& packetResgitry = registry.GetResource<Engine::Multiplayer::PacketRegistryResource>();
     const auto playerEntity = Engine::Multiplayer::NetworkHostResource::GetEntityID(peer);
     if (!playerEntity.has_value()) {
         return;
@@ -78,14 +83,15 @@ static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
         }
         // send all other player positions
         auto* catchUp = Engine::Multiplayer::NetworkHostResource::CreatePacket(
-            NewPlayerPosPacket,
+            packetResgitry.GetOrRegister("new_player_pos"),
             NewPlayerPos{existingPlayer.id,
                          registry.GetComponent<Engine::Position>(existingEntity)},
             true);
         Engine::Multiplayer::NetworkHostResource::Send(peer, catchUp, 0);
         // tell existing players about the new player
         auto* announce = Engine::Multiplayer::NetworkHostResource::CreatePacket(
-            NewPlayerPosPacket, NewPlayerPos{*newPlayerId, newPlayerPos}, true);
+            packetResgitry.GetOrRegister("new_player_pos"),
+            NewPlayerPos{*newPlayerId, newPlayerPos}, true);
         Engine::Multiplayer::NetworkHostResource::Send(*existingPeer, announce, 0);
     }
 }
@@ -115,20 +121,30 @@ int main() {
     Engine::ShapePlugin shapePlugin;
     shapePlugin.Init(app.GetRegistry());
 
+    Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;
+    multiplayerPlugin.Init(app.GetRegistry());
+
     auto& registry = app.GetRegistry();
+    auto& packetResgitry = registry.GetResource<Engine::Multiplayer::PacketRegistryResource>();
 
     auto& host = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
         Engine::Multiplayer::NetworkHostResource::CreateServer(3000, 10));
-    Engine::Multiplayer::NetworkHostResource::RegisterMultiplayerComponents(registry);
     (void)host;
 
     registry.RegisterComponent<KeyPress>();
 
-    auto& router =
-        registry.AddResource<Engine::Multiplayer::PacketRouterResource>(OnConnect, OnDisconnect);
-    router.RegisterHandler<KeyPress>(KeyPressPacket, KeyPressed);
-
-    registry.RegisterSystem<Engine::MultiplayerSystem>();
+    auto& router = registry.GetResource<Engine::Multiplayer::PacketRouterResource>();
+    router.m_OnConnect = OnConnect;
+    router.m_OnDisconnect = OnDisconnect;
+    router.On(
+        packetResgitry.GetOrRegister("key_press"),
+        [](Engine::Registry& registry, ENetPeer* peer, const uint8_t* payload, std::size_t size) {
+            KeyPress keyPress{};
+            const std::span buffer{reinterpret_cast<const std::byte*>(payload), size};
+            if (!glz::read_beve(keyPress, buffer)) {
+                KeyPressed(registry, peer, keyPress);
+            }
+        });
 
     app.Run();
 

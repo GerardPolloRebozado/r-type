@@ -51,6 +51,26 @@ void registerComponentQuery(sol::state_view lua, Registry& registry) {
         }
         registry.RemoveComponentByType(it->second, entity);
     };
+
+    // Returns every entity carrying the given component, as an array table.
+    // Lets scripts iterate the world (e.g. a server snapshotting all positions)
+    // without knowing entity ids up front.
+    component["entitiesWith"] = [lua,
+                                 &registry](const std::string& typeName) mutable -> sol::table {
+        sol::table out = lua.create_table();
+        const auto it = kComponentTypeIds.find(typeName);
+        if (it == kComponentTypeIds.end()) {
+            return out;
+        }
+        int count = 0;
+        for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
+            const Entity entity{i};
+            if (registry.HasComponentByType(it->second, entity)) {
+                out[++count] = entity;
+            }
+        }
+        return out;
+    };
 }
 
 } // namespace Engine::LuaAPI
