@@ -22,9 +22,6 @@ local BODY_LAYER = "Enemy"
 local BODY_MASK = Layers.bit("Player") + Layers.bit("PlayerBullet") + Layers.bit("Wall")
 local SENSOR_MASK = Layers.bit("Wall")
 
--- Death plays the same explosion as every other enemy (enemy1.lua). Only a
--- real shot counts: floor, ceiling and stage blocks are all "Wall", and the
--- walker touches those constantly.
 local EXPLOSION = {
 	"assets/effects/enemy-explosion-1000.png",
 	"assets/effects/enemy-explosion-1001.png",
@@ -51,10 +48,6 @@ function Script:onCreate(entity)
 	self.turnLock = 0.0
 	self.exploding = false
 
-	-- The scene does not author a connection for this entity (the Pata-Patas
-	-- have theirs written into test.scene), so the script wires its own death
-	-- callback here. Component.connect is idempotent, so a script reload
-	-- re-running onCreate does not duplicate the connection.
 	Component.connect(entity, "onCollisionEnter", entity, "onCollisionEnter")
 
 	Component.setSpritePath(entity, WALK_FRAMES[self.frame])
@@ -71,8 +64,6 @@ function Script:onCreate(entity)
 		end
 	end
 
-	-- The sensor is authored in front of the body, so it decides which way we
-	-- start walking (and which way the art has to face).
 	if self.sensor ~= nil then
 		local dx = Transform.getPosition(self.sensor).x - Transform.getPosition(entity).x
 		self.dir = (dx >= 0) and 1 or -1
@@ -85,8 +76,6 @@ function Script:onUpdate(entity, dt)
 		dt = 1.0 / 60.0
 	end
 
-	-- Already dead: freeze where the shot landed (no gravity, no walking, no
-	-- turning) and play the explosion out, exactly like enemy1.lua does.
 	if self.exploding then
 		self:AnimateExplosion(entity, dt)
 		return
@@ -94,9 +83,6 @@ function Script:onUpdate(entity, dt)
 
 	self.turnLock = math.max(0.0, self.turnLock - dt)
 
-	-- Fall, and stop falling as soon as something holds the body up. While
-	-- grounded gravity keeps pressing the body against the floor, which is what
-	-- makes the contact stay alive frame after frame.
 	self.vy = self.vy + GRAVITY * dt
 	Transform.translate(entity, 0.0, self.vy * dt)
 	if self.vy > 0.0 and Component.isColliding(entity) then
@@ -104,7 +90,6 @@ function Script:onUpdate(entity, dt)
 		self.grounded = true
 	end
 
-	-- Hop every now and then, but only from the ground.
 	self.jumpTimer = self.jumpTimer - dt
 	if self.grounded and self.jumpTimer <= 0.0 then
 		self.vy = -JUMP_SPEED
@@ -114,7 +99,6 @@ function Script:onUpdate(entity, dt)
 
 	Transform.translate(entity, WALK_SPEED * self.dir * dt, 0.0)
 
-	-- Something is coming up in front: walk the other way.
 	if self.turnLock <= 0.0 and self.sensor ~= nil and Component.isColliding(self.sensor) then
 		self:TurnAround()
 	end
@@ -125,8 +109,6 @@ end
 function Script:TurnAround()
 	self.dir = -self.dir
 	self.turnLock = TURN_LOCKOUT
-	-- Mirrors the sprite and the whole subtree, so the sensor ends up in front
-	-- of the body on the new side.
 	Component.flipX(self.entity)
 end
 
@@ -134,9 +116,6 @@ function Script:onCollisionEnter(this, other)
 	if self.exploding then
 		return
 	end
-	-- Floor, ceiling and stage blocks all live on "Wall"; the walker is on top
-	-- of the floor from the very first second, so contact alone must not kill
-	-- it. The front sensor never sees bullets either (Wall-only mask).
 	if Component.getColliderLayerName(other) ~= KILLER_LAYER then
 		return
 	end
@@ -165,8 +144,6 @@ end
 
 function Script:Animate(entity, dt)
 	if not self.grounded then
-		-- Held pose while airborne. The walk timer restarts on landing instead
-		-- of burning through a dozen frames at once.
 		self.elapsed = 0.0
 		if self.frame ~= AIR_FRAME then
 			self.frame = AIR_FRAME
