@@ -44,7 +44,8 @@ template <> struct glz::meta<Engine::SpriteComponent> {
     static constexpr auto value = glz::object(
         "assetPath", &Engine::SpriteComponent::assetPath, "offsetX",
         &Engine::SpriteComponent::offsetX, "offsetY", &Engine::SpriteComponent::offsetY, "scaleX",
-        &Engine::SpriteComponent::scaleX, "scaleY", &Engine::SpriteComponent::scaleY);
+        &Engine::SpriteComponent::scaleX, "scaleY", &Engine::SpriteComponent::scaleY, "flipX",
+        &Engine::SpriteComponent::flipX, "flipY", &Engine::SpriteComponent::flipY);
 };
 
 template <> struct glz::meta<Engine::Text> {

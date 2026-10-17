@@ -72,7 +72,33 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         t["offsetY"] = sc.offsetY;
         t["scaleX"] = sc.scaleX;
         t["scaleY"] = sc.scaleY;
+        t["flipX"] = sc.flipX;
+        t["flipY"] = sc.flipY;
         return sol::make_object(lua, t);
+    };
+
+    component["getSpriteFlip"] = [lua, &registry](Entity entity) mutable -> sol::object {
+        if (!registry.HasComponent<SpriteComponent>(entity)) {
+            return sol::make_object(lua, sol::lua_nil);
+        }
+        const auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        sol::table t = lua.create_table();
+        t["flipX"] = sc.flipX;
+        t["flipY"] = sc.flipY;
+        return sol::make_object(lua, t);
+    };
+
+    component["setSpriteFlip"] = [&registry](Entity entity, bool flipX,
+                                             sol::optional<bool> flipYOpt) -> bool {
+        if (!registry.HasComponent<SpriteComponent>(entity)) {
+            return false;
+        }
+        auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        sc.flipX = flipX;
+        if (flipYOpt.has_value()) {
+            sc.flipY = flipYOpt.value();
+        }
+        return true;
     };
 
     component["getSpriteScale"] = [lua, &registry](Entity entity) mutable -> sol::object {

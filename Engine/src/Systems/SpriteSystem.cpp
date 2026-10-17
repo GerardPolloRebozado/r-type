@@ -8,6 +8,7 @@
 #include "ECS/Registry.hpp"
 #include "Plugins/OpacityPlugin.hpp"
 #include "Resources/ProjectContext.hpp"
+#include <cmath>
 
 namespace Engine {
 
@@ -49,8 +50,27 @@ void SpriteSystem::DrawEntity(Registry& registry, Entity entity) {
         // chain is fully opaque, i.e. no visual change).
         tint.a =
             static_cast<unsigned char>(255.0f * OpacityPlugin::GetEffectiveAlpha(registry, entity));
-        spriteComp.sprite->Draw({position.x + spriteComp.offsetX, position.y + spriteComp.offsetY},
-                                tint);
+        const raylib::Vector2 drawPosition = {position.x + spriteComp.offsetX,
+                                              position.y + spriteComp.offsetY};
+        if (spriteComp.flipX || spriteComp.flipY) {
+            const raylib::Rectangle original = spriteComp.sprite->GetSourceRect();
+            raylib::Rectangle flipped = original;
+            if (spriteComp.flipX) {
+                flipped.width = -std::fabs(flipped.width);
+            }
+            if (spriteComp.flipY) {
+                flipped.height = -std::fabs(flipped.height);
+            }
+            if (flipped.width != 0.0f && flipped.height != 0.0f) {
+                spriteComp.sprite->SetSourceRect(flipped);
+                spriteComp.sprite->Draw(drawPosition, tint);
+                spriteComp.sprite->SetSourceRect(original);
+            } else {
+                spriteComp.sprite->Draw(drawPosition, tint);
+            }
+        } else {
+            spriteComp.sprite->Draw(drawPosition, tint);
+        }
     }
 }
 

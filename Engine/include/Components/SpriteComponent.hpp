@@ -35,6 +35,18 @@ struct SpriteComponent {
     float scaleY = 1.0f;
 
     /**
+     * @brief Mirrors the sprite horizontally, about its own drawn centre.
+     *
+     * Purely visual: the position, the collider and the children are untouched,
+     * so a walker that turns around still needs its rig mirrored (see the
+     * `Component.flipX` Lua helper, which flips the sprite and the subtree).
+     */
+    bool flipX = false;
+
+    /** @brief Mirrors the sprite vertically, about its own drawn centre. Purely visual. */
+    bool flipY = false;
+
+    /**
      * @brief Constructs a SpriteComponent with an optional existing sprite pointer.
      * @param spritePtr A shared pointer to an existing Sprite. Defaults to nullptr.
      * @param path The file path or alias of the asset.
@@ -42,12 +54,14 @@ struct SpriteComponent {
      * @param offsetY Offset from entity position on Y.
      * @param scaleX Horizontal scale. Defaults to 1.0f.
      * @param scaleY Vertical scale. Defaults to 1.0f.
+     * @param flipX Mirror horizontally. Defaults to false.
+     * @param flipY Mirror vertically. Defaults to false.
      */
     SpriteComponent(std::shared_ptr<Sprite> spritePtr = nullptr, const std::string& path = "",
                     float offsetX = 0.0f, float offsetY = 0.0f, float scaleX = 1.0f,
-                    float scaleY = 1.0f)
+                    float scaleY = 1.0f, bool flipX = false, bool flipY = false)
         : sprite(spritePtr), assetPath(path), offsetX(offsetX), offsetY(offsetY), scaleX(scaleX),
-          scaleY(scaleY) {}
+          scaleY(scaleY), flipX(flipX), flipY(flipY) {}
 };
 } // namespace Engine
 

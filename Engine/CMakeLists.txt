@@ -66,6 +66,7 @@ set(SRC_FILES
         src/Systems/MultiplayerSystem.cpp
         src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
         include/Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp
+        src/Utils/EntityFlip.cpp
 )
 
 set(INC_FILES
@@ -162,6 +163,7 @@ set(INC_FILES
         include/Systems/MultiplayerSystem.hpp
         include/ENetContext.hpp
         include/Logging/LogBuffer.hpp
+        include/Utils/EntityFlip.hpp
         src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
         include/Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp
         include/Resources/PacketRegistryResource.hpp

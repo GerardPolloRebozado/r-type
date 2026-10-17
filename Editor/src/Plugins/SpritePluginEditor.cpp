@@ -127,6 +127,16 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
             }
         }
 
+        bool flipX = spriteComp.flipX;
+        if (ImGui::Checkbox("Flip X", &flipX)) {
+            spriteComp.flipX = flipX;
+        }
+        ImGui::SameLine();
+        bool flipY = spriteComp.flipY;
+        if (ImGui::Checkbox("Flip Y", &flipY)) {
+            spriteComp.flipY = flipY;
+        }
+
         // Preview thumbnail in Inspector
         if (spriteComp.sprite && spriteComp.sprite->GetTexture().id > 0) {
             const auto& tex = spriteComp.sprite->GetTexture();
