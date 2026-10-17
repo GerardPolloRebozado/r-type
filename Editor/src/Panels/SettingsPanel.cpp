@@ -1,6 +1,7 @@
 #include "Panels/SettingsPanel.hpp"
 #include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
+#include "ProjectSystemsBuild.hpp"
 #include "SceneSerializer.hpp"
 #include <algorithm>
 #include <array>
@@ -79,7 +80,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Scripting/ScriptPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
-            << "#include <raylib.h>\n\n"
+            << "#include <raylib.h>\n"
+            << Editor::ProjectSystemsMainCppSnippet(projFolder) << "\n"
             << "int main() {\n"
             << "    ChangeDirectory(GetApplicationDirectory());\n"
             << "    Engine::ApplicationConfig config;\n"
@@ -141,6 +143,11 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         }
     }
 
+    if (std::filesystem::exists(std::filesystem::path(projFolder) /
+                                Editor::kProjectRegisterHeader)) {
+        mainOut << "\n    RegisterScaffoldedSystems(app.GetRegistry());\n";
+    }
+
     mainOut << "\n    app.Run();\n"
             << "    return 0;\n"
             << "}\n";
@@ -156,14 +163,24 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     // `cmake -E rm -f` with this same absolute path on all platforms.
     rootPath = std::filesystem::absolute(rootPath).generic_string();
 
+    const std::string projectSystemsCmake = Editor::ProjectSystemsEditorBuildSnippet(projFolder);
+    const std::filesystem::path projectSystemsDir =
+        Editor::ProjectSystemsDirectory(std::filesystem::path(projFolder));
+
     std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
 #ifdef _WIN32
     const std::string exeFileStr = exeNameStr + ".exe";
 #else
     const std::string exeFileStr = exeNameStr;
 #endif
-    cmakeOut << "add_executable(" << exeNameStr << " \"" << projFolder << "/main.cpp\")\n"
-             << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization)\n"
+    cmakeOut << projectSystemsCmake << "add_executable(" << exeNameStr << " \"" << projFolder
+             << "/main.cpp\" "
+             << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
+    if (std::filesystem::exists(projectSystemsDir)) {
+        cmakeOut << "target_include_directories(" << exeNameStr << " PRIVATE \""
+                 << projectSystemsDir.string() << "\")\n";
+    }
+    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization)\n"
              << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
              << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
              << projFolder << "/" << exeFileStr << "\"\n"

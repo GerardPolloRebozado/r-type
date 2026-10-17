@@ -66,6 +66,7 @@ nav:
       - Interface Overview: editor/interface.md
       - Using Plugins: editor/plugins.md
       - Scene Serialization: editor/serialization.md
+      - Command Line: editor/cli.md
   - API Reference:
       - Classes: Engine/annotated.md
       - Files: Engine/files.md
