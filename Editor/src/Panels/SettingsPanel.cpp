@@ -68,6 +68,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/AudioPlugin.hpp\"\n"
             << "#include \"Plugins/HierarchyPlugin.hpp\"\n"
             << "#include \"Plugins/InputPlugin.hpp\"\n"
+            << "#include \"Plugins/MultiplayerPlugin.hpp\"\n"
             << "#include \"Plugins/OpacityPlugin.hpp\"\n"
             << "#include \"Plugins/SignalPlugin.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
@@ -122,7 +123,11 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    Engine::CameraPlugin cameraPlugin;\n"
             << "    cameraPlugin.Init(app.GetRegistry());\n"
             << "    Engine::ScriptPlugin scriptPlugin;\n"
-            << "    scriptPlugin.Init(app.GetRegistry());\n\n"
+            << "    scriptPlugin.Init(app.GetRegistry());\n"
+            // MultiplayerPlugin after ScriptPlugin: systems run in registration
+            // order, so scripts create the network host before MultiplayerSystem polls.
+            << "    Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;\n"
+            << "    multiplayerPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 

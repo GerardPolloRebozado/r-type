@@ -31,18 +31,10 @@ using Multiplayer::PacketRegistryResource;
 using Multiplayer::PacketRouterResource;
 
 PacketRegistryResource* GetPacketRegistry(Registry& registry) {
-    if (!registry.HasResource<PacketRegistryResource>()) {
-        log_error("[Net] PacketRegistryResource missing: did you forget MultiplayerPlugin?");
-        return nullptr;
-    }
     return &registry.GetResource<PacketRegistryResource>();
 }
 
 PacketRouterResource* GetPacketRouter(Registry& registry) {
-    if (!registry.HasResource<PacketRouterResource>()) {
-        log_error("[Net] PacketRouterResource missing: did you forget MultiplayerPlugin?");
-        return nullptr;
-    }
     return &registry.GetResource<PacketRouterResource>();
 }
 
