@@ -55,29 +55,35 @@ void DrawLayered(Registry& registry, bool screenSpace) {
 } // namespace
 
 void RenderScene(Registry& registry, float viewportWidth, float viewportHeight,
-                     const std::function<void()>& worldOverlay,
-                     std::optional<Camera2D> cameraOverride) {
-        auto const& systems = registry.GetSystems();
-    
-        if (cameraOverride) {
-            BeginMode2D(*cameraOverride);
-        } else {
-            BeginMode2D(CameraSystem::GetActiveCamera(registry, viewportWidth, viewportHeight));
-        }
-        DrawLayered(registry, false);
-    
-        for (std::type_index const& systemId : registry.GetSystemRenderOrder()) {
-            systems.at(systemId)->Render(registry);
-        }
-        if (worldOverlay) {
-            worldOverlay();
-        }
-        EndMode2D();
-    
-        DrawLayered(registry, true);
-        for (std::type_index const& systemId : registry.GetSystemRenderOrder()) {
-            systems.at(systemId)->RenderScreen(registry);
-        }
+                 const std::function<void()>& worldOverlay, std::optional<Camera2D> cameraOverride,
+                 std::optional<Camera2D> screenCameraOverride) {
+    auto const& systems = registry.GetSystems();
+
+    if (cameraOverride) {
+        BeginMode2D(*cameraOverride);
+    } else {
+        BeginMode2D(CameraSystem::GetActiveCamera(registry, viewportWidth, viewportHeight));
     }
+    DrawLayered(registry, false);
+
+    for (std::type_index const& systemId : registry.GetSystemRenderOrder()) {
+        systems.at(systemId)->Render(registry);
+    }
+    if (worldOverlay) {
+        worldOverlay();
+    }
+    EndMode2D();
+
+    if (screenCameraOverride) {
+        BeginMode2D(*screenCameraOverride);
+    }
+    DrawLayered(registry, true);
+    for (std::type_index const& systemId : registry.GetSystemRenderOrder()) {
+        systems.at(systemId)->RenderScreen(registry);
+    }
+    if (screenCameraOverride) {
+        EndMode2D();
+    }
+}
 
 } // namespace Engine

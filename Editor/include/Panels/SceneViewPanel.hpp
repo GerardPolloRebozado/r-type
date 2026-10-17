@@ -3,6 +3,8 @@
 
 #include "Panels/IEditorPanel.hpp"
 #include "Rendering/SceneRenderer.hpp"
+#include <array>
+#include <optional>
 #include <raylib.h>
 #include <string>
 
@@ -18,6 +20,32 @@ class SceneViewPanel : public IEditorPanel {
     const std::string& GetName() const override;
 
   private:
+    /**
+     * @brief Frames the editor camera on the game camera's viewport, once.
+     *
+     * The game camera's visible area fills kGameViewFillRatio of the scene view,
+     * so both what the game will render and its surroundings are visible.
+     * No-op after the first success, and retries while sizes are unknown.
+     */
+    void InitEditorCamera(Engine::Registry& registry, float viewWidth, float viewHeight);
+
+    /**
+     * @brief Corners of the region the game camera renders, in render-target pixels.
+     *
+     * Maps the game canvas corners through the game camera into world space and then
+     * through the editor camera into the render target.
+     */
+    std::array<Vector2, 4> GameViewportInTarget(Engine::Registry& registry, int canvasWidth,
+                                                int canvasHeight) const;
+
+    /**
+     * @brief Camera mapping game canvas pixels into the region the game camera renders.
+     *
+     * Used for the screen-space (HUD) pass so UI is previewed where the game shows it.
+     * Null when there is no canvas to map.
+     */
+    std::optional<Camera2D> GameScreenCamera(Engine::Registry& registry) const;
+
     std::string m_Name = "Scene";
 
     enum class GizmoState { None, DraggingX, DraggingY, DraggingBoth, DraggingRotation };
@@ -29,6 +57,9 @@ class SceneViewPanel : public IEditorPanel {
     Camera2D m_DragCamera{{0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, 1.0f};
     Camera2D m_EditorCamera{{0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, 1.0f};
     bool m_EditorCameraInitialized = false;
+    // Size of the scene tab, in pixels, as reported by the last frame. The scene is
+    // rendered before the UI, so framing and the render target follow it one frame late.
+    Vector2 m_ViewportSize{0.0f, 0.0f};
     SceneRenderer m_Renderer;
 };
 

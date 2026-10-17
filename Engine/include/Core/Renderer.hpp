@@ -24,10 +24,15 @@ namespace Engine {
  * @param viewportHeight Height in pixels of the surface being drawn to.
  * @param worldOverlay Optional extra world-space drawing done after the systems,
  *        still inside the camera.
+ * @param cameraOverride Optional camera used instead of the active one for the world pass.
+ * @param screenCameraOverride Optional camera applied to the screen-space pass, so callers
+ *        drawing to a surface larger than the canvas (the Editor scene view) can preview the
+ *        HUD where the game would show it. Omitted => HUD drawn in plain pixels, as at runtime.
  */
 void RenderScene(Registry& registry, float viewportWidth, float viewportHeight,
                  const std::function<void()>& worldOverlay = nullptr,
-                 std::optional<Camera2D> cameraOverride = std::nullopt);
+                 std::optional<Camera2D> cameraOverride = std::nullopt,
+                 std::optional<Camera2D> screenCameraOverride = std::nullopt);
 } // namespace Engine
 
 #endif // ENGINE_CORE_RENDERER_HPP_
