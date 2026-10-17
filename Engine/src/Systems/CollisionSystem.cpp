@@ -43,6 +43,13 @@ void CollisionSystem::Update(Registry& registry, float) {
                 continue;
             }
             const auto& colB = registry.GetComponent<ColliderComponent>(b);
+
+            // both colliders must accept each other's layer, so
+            // either side can opt out of the whole pair (see CollisionLayers).
+            if (!ColliderComponent::CanCollide(colA, colB)) {
+                continue;
+            }
+
             auto& posB = registry.GetComponent<Position>(b);
             const auto& rotB = registry.HasComponent<Rotation>(b)
                                    ? registry.GetComponent<Rotation>(b)

@@ -4,10 +4,13 @@
 #include "Components/ShapeComponent.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
+#include "Logging/Logger.hpp"
 #include "Scripting/LuaAPI/Internal/Helpers.hpp"
 #include "Systems/CollisionSystem.hpp"
+#include <cstdint>
 #include <optional>
 #include <sol/sol.hpp>
+#include <string>
 
 namespace Engine::LuaAPI {
 
@@ -18,15 +21,21 @@ namespace {
 // `registry`, which outlives every Lua closure. Capturing a local lambda by
 // reference here would "dangle" once this function returns.
 bool addBoxColliderImpl(Registry& registry, Entity entity, float width, float height,
-                        bool isTrigger, bool isStatic) {
+                        sol::optional<bool> isTrigger, sol::optional<bool> isStatic) {
     if (!registry.IsEntityAlive(entity)) {
         return false;
     }
     Internal::ensureTransform(registry, entity, false);
     ColliderComponent cc;
-    cc.enabled = true;
-    cc.isTrigger = isTrigger;
-    cc.isStatic = isStatic;
+    if (registry.HasComponent<ColliderComponent>(entity)) {
+        cc = registry.GetComponent<ColliderComponent>(entity);
+    }
+    if (isTrigger.has_value()) {
+        cc.isTrigger = isTrigger.value();
+    }
+    if (isStatic.has_value()) {
+        cc.isStatic = isStatic.value();
+    }
     ShapeComponent shape;
     shape.type = ShapeType::RECTANGLE;
     shape.width = width;
@@ -47,10 +56,10 @@ void registerCollider(sol::state_view lua, Registry& registry) {
 
     component["addBoxCollider"] = sol::overload(
         [&registry](Entity entity, float width, float height) {
-            return addBoxColliderImpl(registry, entity, width, height, false, false);
+            return addBoxColliderImpl(registry, entity, width, height, sol::nullopt, sol::nullopt);
         },
         [&registry](Entity entity, float width, float height, bool isTrigger) {
-            return addBoxColliderImpl(registry, entity, width, height, isTrigger, false);
+            return addBoxColliderImpl(registry, entity, width, height, isTrigger, sol::nullopt);
         },
         [&registry](Entity entity, float width, float height, bool isTrigger, bool isStatic) {
             return addBoxColliderImpl(registry, entity, width, height, isTrigger, isStatic);
@@ -134,6 +143,83 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         registry.GetComponent<ColliderComponent>(entity).isStatic = isStatic;
         return true;
     };
+
+    component["getColliderLayer"] = [&registry](Entity entity) -> sol::optional<int> {
+        if (!registry.HasComponent<ColliderComponent>(entity)) {
+            return std::nullopt;
+        }
+        return registry.GetComponent<ColliderComponent>(entity).layer;
+    };
+
+    // Accepts a layer index or one of the CollisionLayers names ("Enemy", ...)
+    component["setColliderLayer"] = sol::overload(
+        [&registry](Entity entity, int layer) -> bool {
+            if (!registry.HasComponent<ColliderComponent>(entity) || layer < 0 ||
+                layer >= CollisionLayers::kLayerCount) {
+                return false;
+            }
+            registry.GetComponent<ColliderComponent>(entity).layer = layer;
+            return true;
+        },
+        [&registry](Entity entity, const std::string& layerName) -> bool {
+            const int layer = CollisionLayers::Index(layerName);
+            if (!registry.HasComponent<ColliderComponent>(entity) || layer < 0) {
+                return false;
+            }
+            registry.GetComponent<ColliderComponent>(entity).layer = layer;
+            return true;
+        });
+
+    component["getColliderLayerName"] = [&registry](Entity entity) -> sol::optional<std::string> {
+        if (!registry.HasComponent<ColliderComponent>(entity)) {
+            return std::nullopt;
+        }
+        return CollisionLayers::Name(registry.GetComponent<ColliderComponent>(entity).layer);
+    };
+
+    component["getColliderMask"] = [&registry](Entity entity) -> sol::optional<std::uint32_t> {
+        if (!registry.HasComponent<ColliderComponent>(entity)) {
+            return std::nullopt;
+        }
+        return registry.GetComponent<ColliderComponent>(entity).mask;
+    };
+
+    component["setColliderMask"] = [&registry](Entity entity, std::uint32_t mask) -> bool {
+        if (!registry.HasComponent<ColliderComponent>(entity)) {
+            return false;
+        }
+        registry.GetComponent<ColliderComponent>(entity).mask = mask;
+        return true;
+    };
+
+    // Same predicate the CollisionSystem uses, so scripts can ask "would these
+    // two ever touch?" without waiting for a contact
+    component["collidersCanCollide"] = [&registry](Entity a, Entity b) -> bool {
+        if (!registry.HasComponent<ColliderComponent>(a) ||
+            !registry.HasComponent<ColliderComponent>(b)) {
+            return false;
+        }
+        return ColliderComponent::CanCollide(registry.GetComponent<ColliderComponent>(a),
+                                             registry.GetComponent<ColliderComponent>(b));
+    };
+
+    sol::table layers = Internal::ensureNamespace(lua, "Layers");
+    layers["name"] = [](int layer) { return CollisionLayers::Name(layer); };
+    layers["index"] = [](const std::string& name) { return CollisionLayers::Index(name); };
+    // Accepts a layer number or one of the preset names ("Enemy")
+    layers["bit"] =
+        sol::overload([](int layer) { return CollisionLayers::Bit(layer); },
+                      [](const std::string& name) {
+                          const int layer = CollisionLayers::Index(name);
+                          if (layer < 0) {
+                              log_error("[Layers.bit] Unknown layer '" + name + "', using no bits");
+                              return CollisionLayers::kNoLayers;
+                          }
+                          return CollisionLayers::Bit(layer);
+                      });
+    layers["all"] = CollisionLayers::kAllLayers;
+    layers["none"] = CollisionLayers::kNoLayers;
+    layers["count"] = CollisionLayers::kLayerCount;
 
     // Polls the CollisionSystem's active contact pairs for this frame.
     // False (empty) when the system is not registered.

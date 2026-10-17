@@ -99,6 +99,9 @@ function Script:fireProjectile()
 	Component.addSprite(projEntity, PROJECTILE_SPRITE, 0, 0, 4.0, 4.0)
 	Component.addBoxCollider(projEntity, 32, 32)
 
+	Component.setColliderLayer(projEntity, "PlayerBullet")
+	Component.setColliderMask(projEntity, Layers.bit("Enemy") + Layers.bit("EnemyBullet") + Layers.bit("Wall"))
+
 	Component.setOpacity(projEntity, 1.0)
 
 	Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
@@ -111,7 +114,9 @@ function Script:fireProjectile()
 	log.info("[" .. tostring(entity) .. "] Fired projectile")
 end
 
-function Script:onProjectileHit(bullet, wall)
+-- Fired for any allowed hit (enemy, enemy bullet or wall); the shot is always
+-- consumed on impact.
+function Script:onProjectileHit(bullet, other)
 	Entity.queueDestroy(bullet)
 	for i = #self.projectiles, 1, -1 do
 		if self.projectiles[i].entity == bullet then

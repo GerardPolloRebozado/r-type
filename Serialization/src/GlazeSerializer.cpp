@@ -138,6 +138,7 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
             Engine::Position restored = entitySnapshot.position.value();
             restored.prevX = restored.x;
             restored.prevY = restored.y;
+            restored.prevZ = restored.z;
             restored.moved = false;
             registry.AddComponent<Engine::Position>(entity, restored);
         }

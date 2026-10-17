@@ -13,6 +13,9 @@ namespace Engine {
 /**
  * @class CollisionSystem
  * @brief Detects overlaps between colliders using Raylib and fires enter/stay/exit events.
+ *
+ * Pairs are filtered by @ref ColliderComponent::CanCollide before detection, so
+ * a restrictive layer mask silences resolution and events for that pair too.
  */
 class CollisionSystem : public System {
   public:

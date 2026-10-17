@@ -8,54 +8,60 @@ local TRI_FREQ = 0.9 -- zigzag cycles per second
 
 local TRAIL_KEEP_PX = 1500.0
 
+local SPACING = 100.0 -- pitch between links; must match enemy1.lua (and the authored layout)
+
 local Script = {}
 
+-- Link order along the trail: entity ids say nothing about where a link sits in
+-- the formation (getChildren order is arbitrary, and pasting one copies ids in
+-- creation order), so sort by x - left of the drift means "in front".
+local function SortByX(ids)
+	table.sort(ids, function(a, b)
+		return Transform.getPosition(a).x < Transform.getPosition(b).x
+	end)
+	return ids
+end
+
+-- Lays a straight trail behind the (invisible) leader.
+--
+-- The links sample the trail at exact i*SPACING steps behind the leader, so the
+-- leader must sit *ahead* of every link. The scene may place the group node
+-- anywhere in the formation though, and a link authored in front of the leader
+-- folds the seeded polyline back on itself: every sample past the fold then
+-- lands on the wrong side, so the links swap places and pile up on each other
+-- until the fold ages out of the trail (~12s at DRIFT_SPEED).
+-- Re-anchor the leader at the head instead of trusting the authored layout: it
+-- holds no sprite, and the links are driven from the trail every frame anyway.
 local function SeedTrail(entity)
 	_PataTrails = _PataTrails or {}
 	local key = "trail_" .. tostring(entity)
 	local trail = {}
 	_PataTrails[key] = trail
 
-	local pos = Transform.getPosition(entity)
-	table.insert(trail, { x = pos.x, y = pos.y })
-
 	local sibs = Component.getChildren(entity) or {}
-	table.sort(sibs)
-	for _, id in ipairs(sibs) do
-		local p = Transform.getPosition(id)
-		table.insert(trail, { x = p.x, y = p.y })
+	SortByX(sibs)
+
+	-- Drift is leftward, so the formation trails to the right (+x): the head
+	-- sits one SPACING step left of the leading link, at the links' height.
+	local head = Transform.getPosition(entity)
+	if #sibs > 0 then
+		local lead = Transform.getPosition(sibs[1])
+		head = { x = lead.x - SPACING, y = lead.y }
+		Transform.setPosition(entity, head.x, head.y)
 	end
 
-	local dirX, dirY = 1.0, 0.0
-	if #trail >= 2 then
-		local a, b = trail[#trail - 1], trail[#trail]
-		local dx, dy = b.x - a.x, b.y - a.y
-		local len = math.sqrt(dx * dx + dy * dy)
-		if len > 0.001 then
-			dirX, dirY = dx / len, dy / len
-		end
-	end
-	local covered = 0.0
-	for i = 1, #trail - 1 do
-		local a, b = trail[i], trail[i + 1]
-		local dx, dy = b.x - a.x, b.y - a.y
-		covered = covered + math.sqrt(dx * dx + dy * dy)
-	end
-	local tip = trail[#trail]
-	local need = (#sibs + 2) * 90.0
-	while covered < need do
-		tip = { x = tip.x + dirX * 90.0, y = tip.y + dirY * 90.0 }
-		table.insert(trail, tip)
-		covered = covered + 90.0
+	table.insert(trail, { x = head.x, y = head.y })
+	for step = 1, #sibs + 2 do
+		table.insert(trail, { x = head.x + SPACING * step, y = head.y })
 	end
 end
 
 function Script:onCreate(entity)
 	self.entity = entity
 	self.time = 0.5 / TRI_FREQ
-	local pos = Transform.getPosition(entity)
-	self.baseY = pos.y
 	SeedTrail(entity)
+	-- Read after seeding: SeedTrail may re-anchor the leader at the head.
+	self.baseY = Transform.getPosition(entity).y
 	log.info("[" .. tostring(entity) .. "] Script created")
 end
 

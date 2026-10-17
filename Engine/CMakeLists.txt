@@ -76,6 +76,7 @@ set(INC_FILES
         include/Components/CameraComponent.hpp
         include/Components/ColliderComponent.hpp
         include/Components/CollisionEvents.hpp
+        include/Components/CollisionLayers.hpp
         include/Components/ComponentExample.hpp
         include/Components/Input.hpp
         include/Components/Name.hpp

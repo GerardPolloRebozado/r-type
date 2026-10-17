@@ -28,7 +28,17 @@ local EXPLOSION = {
 
 local FRAME_DURATION = 0.1
 
-local SPACING = 90.0
+local SPACING = 100.0
+
+-- Link order along the trail: entity ids say nothing about where a link sits in
+-- the formation, so sort by x - the group's drift is leftward, so left = in
+-- front. Must match group-patapata.lua.
+local function SortByX(ids)
+	table.sort(ids, function(a, b)
+		return Transform.getPosition(a).x < Transform.getPosition(b).x
+	end)
+	return ids
+end
 
 local function TrailPointAt(trail, dist)
 	local walked = 0.0
@@ -60,7 +70,7 @@ function Enemy:onCreate(entity)
 	if parent ~= nil then
 		self.trailKey = "trail_" .. tostring(parent)
 		local sibs = Component.getChildren(parent)
-		table.sort(sibs)
+		SortByX(sibs)
 		for i, id in ipairs(sibs) do
 			if id == entity then
 				self.linkIndex = i
