@@ -170,10 +170,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
              << ")\n";
     cmakeOut.close();
 
-    std::string buildDir = projFolder + "/.build";
+    std::string buildDir = projFolder + "/build";
     // Drop a stale build tree (e.g. configured with another generator before).
-    // Guarded: only ever removes "<project>/.build".
-    if (buildDir.size() > 7 && buildDir.compare(buildDir.size() - 7, 7, "/.build") == 0) {
+    if (buildDir.size() > 7 && buildDir.compare(buildDir.size() - 7, 7, "/build") == 0) {
         std::error_code ec;
         std::filesystem::remove_all(buildDir, ec);
     }

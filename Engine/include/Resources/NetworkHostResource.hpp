@@ -59,7 +59,7 @@ class NetworkHostResource {
      * @param router router to use when a new packet is received
      * @param registry of the game
      */
-    void Poll(uint32_t timeoutMs, PacketRouterResource router, Registry& registry);
+    void Poll(uint32_t timeoutMs, const PacketRouterResource& router, Registry& registry);
 
     /**
      *
@@ -74,14 +74,6 @@ class NetworkHostResource {
      * @param entity The entity to save in the peer
      */
     static void SetPeerEntity(ENetPeer* peer, Entity entity);
-
-    /**
-     * @brief Registers the SDK-owned multiplayer components on the registry.
-     * Idempotent: safe to call more than once. The SDK also calls this
-     * internally on server connect, so games never strictly need it.
-     * @param registry game registry
-     */
-    static void RegisterMultiplayerComponents(Registry& registry);
 
     /**
      * @brief True when this host was created with CreateServer().
@@ -180,15 +172,34 @@ class NetworkHostResource {
             payload.clear();
         }
 
-        Buffer buffer;
-        buffer.reserve(sizeof(uint16_t) + payload.size());
-        const auto rawId = static_cast<uint16_t>(id);
-        buffer.push_back(static_cast<std::byte>(rawId & 0xFF));
-        buffer.push_back(static_cast<std::byte>((rawId >> 8) & 0xFF));
-        buffer.insert(buffer.end(), payload.begin(), payload.end());
+        return CreateRawPacket(static_cast<uint16_t>(id),
+                               payload.empty() ? nullptr
+                                               : reinterpret_cast<const uint8_t*>(payload.data()),
+                               payload.size(), reliable);
+    }
 
+    /**
+     * @brief Builds a packet from already-serialized payload bytes (Lua JSON tables,
+     * raw strings). Prepends the 2-byte little-endian packet ID header.
+     */
+    static ENetPacket* CreateRawPacket(std::uint16_t id, const uint8_t* payload,
+                                       std::size_t payloadSize, bool reliable) {
+        Buffer buffer;
+        buffer.reserve(sizeof(uint16_t) + payloadSize);
+        buffer.push_back(static_cast<std::byte>(id & 0xFF));
+        buffer.push_back(static_cast<std::byte>((id >> 8) & 0xFF));
+        if (payload != nullptr && payloadSize > 0) {
+            const auto* bytes = reinterpret_cast<const std::byte*>(payload);
+            buffer.insert(buffer.end(), bytes, bytes + payloadSize);
+        }
         const enet_uint32 flags = reliable ? ENET_PACKET_FLAG_RELIABLE : 0;
         return enet_packet_create(buffer.data(), buffer.size(), flags);
+    }
+
+    static ENetPacket* CreateRawPacket(std::uint16_t id, const Buffer& payload, bool reliable) {
+        return CreateRawPacket(
+            id, payload.empty() ? nullptr : reinterpret_cast<const uint8_t*>(payload.data()),
+            payload.size(), reliable);
     }
 
     // disable host copy

@@ -281,14 +281,14 @@ void EditorLayer::BeginDockSpace() {
 #endif
                 std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
                 if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/.build/" + exeFile;
+                    exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
                 }
                 // Multi-config generators (e.g. Visual Studio) place the binary
                 // in a <Config> subfolder.
                 if (!std::filesystem::exists(exePath)) {
                     for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
                         const std::string cand =
-                            m_Configuration->m_ProjectFolder + "/.build/" + cfg + "/" + exeFile;
+                            m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
                         if (std::filesystem::exists(cand)) {
                             exePath = cand;
                             break;

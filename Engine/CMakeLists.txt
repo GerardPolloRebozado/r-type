@@ -64,6 +64,8 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
         src/Systems/MultiplayerSystem.cpp
+        src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
+        include/Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp
 )
 
 set(INC_FILES
@@ -159,6 +161,11 @@ set(INC_FILES
         include/Systems/MultiplayerSystem.hpp
         include/ENetContext.hpp
         include/Logging/LogBuffer.hpp
+        src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
+        include/Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp
+        include/Resources/PacketRegistryResource.hpp
+        include/Plugins/MultiplayerPlugin.hpp
+        src/Plugins/MultiplayerPlugin.cpp
 )
 
 add_library(Engine STATIC ${SRC_FILES} ${INC_FILES})
@@ -196,11 +203,11 @@ if (WIN32)
     # Dependents are protected instead by Compat/EnetWrapper.hpp, which
     # defines these locally just before including <enet.h>.
     target_compile_definitions(Engine PRIVATE
-        WIN32_LEAN_AND_MEAN
-        NOMINMAX
-        NOGDI
-        NOUSER
-        MMNOSOUND
+            WIN32_LEAN_AND_MEAN
+            NOMINMAX
+            NOGDI
+            NOUSER
+            MMNOSOUND
     )
 endif ()
 target_link_libraries(Engine PUBLIC glaze::glaze)
