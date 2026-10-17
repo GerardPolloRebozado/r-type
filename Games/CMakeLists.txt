@@ -1,6 +1,5 @@
 add_subdirectory(Sounds)
 add_subdirectory(R-Type)
-add_subdirectory(R-Type-Multiplayer)
 add_subdirectory(Example)
 add_subdirectory(Text)
 add_subdirectory(Sprites)

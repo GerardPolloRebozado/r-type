@@ -1,6 +1,7 @@
 #include "Core/Application.hpp"
 #include "Components/Name.hpp"
 #include "Components/PrefabInstance.hpp"
+#include "Core/LaunchOptions.hpp"
 #include "Core/Renderer.hpp"
 #include "Logging/Logger.hpp"
 #include <chrono>
@@ -28,6 +29,8 @@ Application::Application(const ApplicationConfig& config) : m_Config(config), m_
     m_Registry.AddResource<VirtualResolution>(virtualWidth, virtualHeight);
     log_info("[Engine] Virtual resolution: " + std::to_string(virtualWidth) + "x" +
              std::to_string(virtualHeight));
+
+    m_Registry.AddResource<LaunchOptions>(LaunchOptions{config.args});
 
     m_Registry.RegisterComponent<Name>();
     m_Registry.RegisterComponent<PrefabInstance>();

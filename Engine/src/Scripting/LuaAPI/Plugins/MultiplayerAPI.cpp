@@ -26,9 +26,9 @@
 namespace Engine::LuaAPI {
 namespace {
 
-using Engine::Multiplayer::NetworkHostResource;
-using Engine::Multiplayer::PacketRegistryResource;
-using Engine::Multiplayer::PacketRouterResource;
+using Multiplayer::NetworkHostResource;
+using Multiplayer::PacketRegistryResource;
+using Multiplayer::PacketRouterResource;
 
 PacketRegistryResource* GetPacketRegistry(Registry& registry) {
     if (!registry.HasResource<PacketRegistryResource>()) {
