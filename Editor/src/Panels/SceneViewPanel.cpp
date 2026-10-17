@@ -6,13 +6,128 @@
 #include "EditorConfig.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Systems/CameraSystem.hpp"
+#include <algorithm>
+#include <cmath>
 #include <imgui.h>
 #include <rlImGui.h>
 
 namespace Editor {
 
+namespace {
+constexpr float kGameViewFillRatio = 0.7f;
+constexpr float kMinEditorZoom = 0.1f;
+constexpr float kMaxEditorZoom = 10.0f;
+constexpr ImU32 kGameViewFillColor = IM_COL32(120, 200, 255, 16);
+constexpr ImU32 kGameViewBorderColor = IM_COL32(140, 210, 255, 200);
+} // namespace
+
+void SceneViewPanel::InitEditorCamera(Engine::Registry& registry, float viewWidth,
+                                      float viewHeight) {
+    if (m_EditorCameraInitialized || viewWidth <= 0.0f || viewHeight <= 0.0f ||
+        !registry.HasResource<Engine::VirtualResolution>()) {
+        return;
+    }
+
+    const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
+    const float width = static_cast<float>(canvas.GetWidth());
+    const float height = static_cast<float>(canvas.GetHeight());
+    if (width <= 0.0f || height <= 0.0f) {
+        return;
+    }
+
+    const Camera2D gameCamera = Engine::CameraSystem::GetActiveCamera(registry, width, height);
+    const Vector2 corners[4] = {GetScreenToWorld2D({0.0f, 0.0f}, gameCamera),
+                                GetScreenToWorld2D({width, 0.0f}, gameCamera),
+                                GetScreenToWorld2D({width, height}, gameCamera),
+                                GetScreenToWorld2D({0.0f, height}, gameCamera)};
+
+    float minX = corners[0].x;
+    float maxX = corners[0].x;
+    float minY = corners[0].y;
+    float maxY = corners[0].y;
+    for (const Vector2& corner : corners) {
+        minX = std::min(minX, corner.x);
+        maxX = std::max(maxX, corner.x);
+        minY = std::min(minY, corner.y);
+        maxY = std::max(maxY, corner.y);
+    }
+
+    const float extentX = std::max(maxX - minX, 1.0f);
+    const float extentY = std::max(maxY - minY, 1.0f);
+    const float fit = std::min(viewWidth / extentX, viewHeight / extentY);
+
+    m_EditorCamera.offset = {viewWidth * 0.5f, viewHeight * 0.5f};
+    m_EditorCamera.rotation = 0.0f;
+    m_EditorCamera.target = {(minX + maxX) * 0.5f, (minY + maxY) * 0.5f};
+    m_EditorCamera.zoom = std::clamp(kGameViewFillRatio * fit, kMinEditorZoom, kMaxEditorZoom);
+    m_EditorCameraInitialized = true;
+}
+
+std::array<Vector2, 4> SceneViewPanel::GameViewportInTarget(Engine::Registry& registry,
+                                                            int canvasWidth,
+                                                            int canvasHeight) const {
+    const float width = static_cast<float>(canvasWidth);
+    const float height = static_cast<float>(canvasHeight);
+    const Camera2D gameCamera = Engine::CameraSystem::GetActiveCamera(registry, width, height);
+    // Canvas pixels -> world (game camera) -> render-target pixels (editor camera)
+    auto canvasToTarget = [&](float x, float y) {
+        const Vector2 world = GetScreenToWorld2D({x, y}, gameCamera);
+        return GetWorldToScreen2D(world, m_EditorCamera);
+    };
+    return {canvasToTarget(0.0f, 0.0f), canvasToTarget(width, 0.0f), canvasToTarget(width, height),
+            canvasToTarget(0.0f, height)};
+}
+
+std::optional<Camera2D> SceneViewPanel::GameScreenCamera(Engine::Registry& registry) const {
+    if (!registry.HasResource<Engine::VirtualResolution>()) {
+        return std::nullopt;
+    }
+    const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
+    const int canvasWidth = canvas.GetWidth();
+    const int canvasHeight = canvas.GetHeight();
+    if (canvasWidth <= 0 || canvasHeight <= 0) {
+        return std::nullopt;
+    }
+
+    const std::array<Vector2, 4> quad = GameViewportInTarget(registry, canvasWidth, canvasHeight);
+    float minX = quad[0].x;
+    float maxX = quad[0].x;
+    float minY = quad[0].y;
+    float maxY = quad[0].y;
+    for (const Vector2& corner : quad) {
+        minX = std::min(minX, corner.x);
+        maxX = std::max(maxX, corner.x);
+        minY = std::min(minY, corner.y);
+        maxY = std::max(maxY, corner.y);
+    }
+    if (maxX <= minX || maxY <= minY) {
+        return std::nullopt;
+    }
+
+    Camera2D screenCamera{
+        {0.0f, 0.0f}, {minX, minY}, 0.0f, (maxX - minX) / static_cast<float>(canvasWidth)};
+    return screenCamera;
+}
+
 void SceneViewPanel::RenderGame(Engine::Registry& registry, EditorConfig& config) {
-    m_Renderer.Render(registry, config);
+    const Vector2 viewport = m_ViewportSize;
+    if (viewport.x <= 0.0f || viewport.y <= 0.0f) {
+        Vector2 fallback{1280.0f, 720.0f};
+        if (registry.HasResource<Engine::VirtualResolution>()) {
+            const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
+            fallback = {static_cast<float>(canvas.GetWidth()),
+                        static_cast<float>(canvas.GetHeight())};
+        }
+        m_Renderer.Render(registry, config, fallback, m_EditorCamera);
+        return;
+    }
+
+    if (!m_EditorCameraInitialized) {
+        InitEditorCamera(registry, viewport.x, viewport.y);
+    }
+    m_EditorCamera.offset = {viewport.x * 0.5f, viewport.y * 0.5f};
+
+    m_Renderer.Render(registry, config, viewport, m_EditorCamera, GameScreenCamera(registry));
 }
 
 static bool IsPointInRect(const ImVec2& pt, const ImVec2& min, const ImVec2& max) {
@@ -32,29 +147,18 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             ImVec2(viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y);
         ImVec2 viewportSize = ImVec2(viewportMaxRegion.x - viewportMinRegion.x,
                                      viewportMaxRegion.y - viewportMinRegion.y);
+        // The scene is rendered before the UI, so this size drives the next frame's
+        // render target (and the initial framing)
+        m_ViewportSize = Vector2{viewportSize.x, viewportSize.y};
 
-        // Draw the Game Texture
-        const auto& targetTexture = m_Renderer.GetTargetTexture(registry);
+        // Draw the Game Texture across the whole tab: the scene view is the viewport.
+        const auto& targetTexture = m_Renderer.GetTargetTexture();
         if (targetTexture.id == 0) {
             ImGui::End();
             ImGui::PopStyleVar();
             return;
         }
-
-        // We calculate aspect ratio to center it
-        float aspect = static_cast<float>(targetTexture.texture.width) /
-                       static_cast<float>(targetTexture.texture.height);
-        ImVec2 drawSize = viewportSize;
-        if (drawSize.x / aspect <= drawSize.y) {
-            drawSize.y = drawSize.x / aspect;
-        } else {
-            drawSize.x = drawSize.y * aspect;
-        }
-
-        ImVec2 cursor = ImGui::GetCursorPos();
-        cursor.x += (viewportSize.x - drawSize.x) * 0.5f;
-        cursor.y += (viewportSize.y - drawSize.y) * 0.5f;
-        ImGui::SetCursorPos(cursor);
+        const ImVec2 drawSize = viewportSize;
 
         rlImGuiImageRect(&targetTexture.texture, static_cast<int>(drawSize.x),
                          static_cast<int>(drawSize.y),
@@ -65,9 +169,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         float scaleX = drawSize.x / static_cast<float>(targetTexture.texture.width);
         float scaleY = drawSize.y / static_cast<float>(targetTexture.texture.height);
 
-        const Camera2D camera = Engine::CameraSystem::GetActiveCamera(
-            registry, static_cast<float>(targetTexture.texture.width),
-            static_cast<float>(targetTexture.texture.height));
+        const Camera2D camera = m_EditorCamera;
         auto worldToView = [&](const Camera2D& cam, float x, float y) {
             const Vector2 px = GetWorldToScreen2D({x, y}, cam);
             return ImVec2(textureScreenPos.x + px.x * scaleX, textureScreenPos.y + px.y * scaleY);
@@ -76,7 +178,42 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             return GetScreenToWorld2D(
                 {(x - textureScreenPos.x) / scaleX, (y - textureScreenPos.y) / scaleY}, cam);
         };
+        if (ImGui::IsItemHovered()) {
+            const float wheel = ImGui::GetIO().MouseWheel;
+            if (wheel != 0.0f) {
+                const ImVec2 mouse = ImGui::GetMousePos();
+                const Vector2 before = viewToWorld(m_EditorCamera, mouse.x, mouse.y);
+                m_EditorCamera.zoom = std::clamp(m_EditorCamera.zoom * std::pow(1.1f, wheel),
+                                                 kMinEditorZoom, kMaxEditorZoom);
+                const Vector2 after = viewToWorld(m_EditorCamera, mouse.x, mouse.y);
+                m_EditorCamera.target.x += before.x - after.x;
+                m_EditorCamera.target.y += before.y - after.y;
+            }
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right) ||
+                ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+                ImVec2 delta = ImGui::GetIO().MouseDelta;
+                m_EditorCamera.target.x -= (delta.x / scaleX) / m_EditorCamera.zoom;
+                m_EditorCamera.target.y -= (delta.y / scaleY) / m_EditorCamera.zoom;
+            }
+        }
 
+        if (registry.HasResource<Engine::VirtualResolution>()) {
+            const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
+            const int canvasWidth = canvas.GetWidth();
+            const int canvasHeight = canvas.GetHeight();
+            if (canvasWidth > 0 && canvasHeight > 0) {
+                const std::array<Vector2, 4> gameViewportPixels =
+                    GameViewportInTarget(registry, canvasWidth, canvasHeight);
+                ImVec2 gameView[4];
+                for (size_t i = 0; i < gameViewportPixels.size(); ++i) {
+                    gameView[i] = ImVec2(textureScreenPos.x + gameViewportPixels[i].x * scaleX,
+                                         textureScreenPos.y + gameViewportPixels[i].y * scaleY);
+                }
+                ImDrawList* overlay = ImGui::GetWindowDrawList();
+                overlay->AddConvexPolyFilled(gameView, 4, kGameViewFillColor);
+                overlay->AddPolyline(gameView, 4, kGameViewBorderColor, 2.0f, ImDrawFlags_Closed);
+            }
+        }
         if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
             auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
             if (selected.entity != -1 && registry.HasComponent<Engine::Position>(selected.entity)) {

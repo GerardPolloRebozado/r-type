@@ -172,8 +172,12 @@ target_include_directories(Engine PUBLIC
 )
 # sol2 is third-party: include as SYSTEM so its warnings don't trigger -Werror.
 target_include_directories(Engine SYSTEM PUBLIC ${sol2_SOURCE_DIR}/include)
-# sol2 3.3.1 + modern GCC emits -Wtemplate-body warnings; silence them.
-target_compile_options(Engine PUBLIC -Wno-template-body -Wno-error=template-body)
+# sol2 3.3.1 + modern GCC emits -Wtemplate-body warnings; silence them if supported.
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-Wtemplate-body" HAS_TEMPLATE_BODY)
+if (HAS_TEMPLATE_BODY)
+    target_compile_options(Engine PUBLIC -Wno-template-body -Wno-error=template-body)
+endif ()
 target_link_libraries(Engine PUBLIC PkgConfig::LUA)
 target_link_libraries(Engine PUBLIC raylib)
 target_link_libraries(Engine PUBLIC enet_static)
