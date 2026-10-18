@@ -2,10 +2,10 @@
 -- Attached to: Server
 
 local Script = {
-    isServer = false
+    isServer = false,
 }
 
--- constants (copied from player.lua for animation if needed)
+-- Animation / movement constants (assets/player)
 local IDLE = "assets/player/sprite_003.png"
 local DOWN_START = "assets/player/sprite_002.png"
 local DOWN_MOVE = "assets/player/sprite_001.png"
@@ -14,18 +14,17 @@ local UP_MOVE = "assets/player/sprite_005.png"
 local START_DURATION = 0.2
 local SPEED = 500.0
 
--- state tables keyed by netId
-local nextNetId = 1
-local netIdByPeer = {}    -- peer (lightuserdata) -> netId
-local playerByNet = {}    -- netId -> entity
-local peerByNet = {}      -- netId -> peer
-local inputByNet = {}     -- netId -> {up,down,left,right,shoot}
-local animByNet = {}      -- netId -> {direction, elapsed, currentSprite}
+local players = {}
+local inputByEntity = {}
+local animByEntity = {}
 
-local function stateOf(netId, entity)
+-- Latest network input per player entity, global so other scripts can read it
+NetInput = NetInput or {}
+
+local function stateOf(entity)
     local p = Transform.getPosition(entity)
     return {
-        netId = netId,
+        netId = Net.networkId(entity),
         x = p.x,
         y = p.y,
         rot = Transform.getRotation(entity),
@@ -35,74 +34,91 @@ local function stateOf(netId, entity)
 end
 
 local function broadcastAll()
+    if #players == 0 then
+        return
+    end
     local world = { players = {} }
-    for id, e in pairs(playerByNet) do
-        world.players[#world.players + 1] = stateOf(id, e)
+    for _, e in ipairs(players) do
+        world.players[#world.players + 1] = stateOf(e)
     end
     Net.broadcast("world_state", world, false)
+end
+
+local function spawnPlayer(peer)
+    local playerEntity = Net.peerEntity(peer)
+    if playerEntity == nil then
+        return
+    end
+
+    Component.addSprite(playerEntity, IDLE, 0, -6, 4, 4)
+    Transform.setPosition(playerEntity, 0.0, 0.0)
+
+    local gunEntity = Entity.create()
+    Component.setParent(gunEntity, playerEntity)
+    Component.addSprite(gunEntity, "assets/player/shoot/muzzleflash_000.png", 0, 0, 4, 4)
+    Component.addScript(gunEntity, "scripts/playerGun.lua")
+
+    players[#players + 1] = playerEntity
+    inputByEntity[playerEntity] = {
+        up = false, down = false, left = false, right = false, shoot = false,
+    }
+    animByEntity[playerEntity] = { direction = nil, elapsed = 0.0, currentSprite = IDLE }
+
+    broadcastAll()
+end
+
+local function despawnPlayer(entity, netId)
+    for i = #players, 1, -1 do
+        if players[i] == entity then
+            table.remove(players, i)
+            break
+        end
+    end
+    inputByEntity[entity] = nil
+    animByEntity[entity] = nil
+    NetInput[entity] = nil
+
+    for _, child in ipairs(Component.getChildren(entity)) do
+        Entity.destroy(child)
+    end
+
+    if netId ~= nil then
+        Net.broadcast("player_left", { netId = netId }, true)
+    end
 end
 
 function Script:onCreate(entity)
     self.entity = entity
     log.info("[" .. tostring(entity) .. "] Script created")
+
     local mode = (type(arg) == "table" and arg[1]) or nil
     if mode ~= "--server" then
         return
     end
     self.isServer = true
-    print("Running as server")
 
     Net.startServer(3000)
 
     Net.onConnect(function(peer)
+        spawnPlayer(peer)
+    end)
+
+    Net.onDisconnect(function(peer)
         local playerEntity = Net.peerEntity(peer)
         if playerEntity == nil then
             return
         end
-
-        local id = nextNetId
-        nextNetId = nextNetId + 1
-
-        Component.addSprite(playerEntity, "assets/player/sprite_003.png", 0, -6, 4, 4)
-        Transform.setPosition(playerEntity, 0.0, 0.0)
-
-        local gunEntity = Entity.create()
-        Component.setParent(gunEntity, playerEntity)
-        Component.addSprite(gunEntity, "assets/player/shoot/muzzleflash_000.png", 0, 0, 4, 4)
-        Component.addScript()
-
-        netIdByPeer[peer] = id
-        playerByNet[id] = playerEntity
-        peerByNet[id] = peer
-        inputByNet[id] = { up = false, down = false, left = false, right = false, shoot = false }
-        animByNet[id] = { direction = nil, elapsed = 0.0, currentSprite = IDLE }
-
-        Net.send(peer, "welcome", { netId = id }, true)
-        broadcastAll()
-    end)
-
-    Net.onDisconnect(function(peer)
-        local id = netIdByPeer[peer]
-        if id == nil then
-            return
-        end
-        netIdByPeer[peer] = nil
-        playerByNet[id] = nil
-        peerByNet[id] = nil
-        inputByNet[id] = nil
-        animByNet[id] = nil
-        Net.broadcast("player_left", { netId = id }, true)
+        despawnPlayer(playerEntity, Net.networkId(playerEntity))
     end)
 
     Net.on("key_press", function(peer, data)
         if type(data) ~= "table" then
             return
         end
-        local id = netIdByPeer[peer]
-        if id == nil then
-            return
+        local playerEntity = Net.peerEntity(peer)
+        if playerEntity ~= nil then
+            inputByEntity[playerEntity] = data
         end
-        inputByNet[id] = data
     end)
 end
 
@@ -129,13 +145,12 @@ local function step(entity, input, dt)
     Transform.translate(entity, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt)
 end
 
-local function animate(entity, netId, dt)
-    local a = animByNet[netId]
-    if not a then
+local function animate(entity, input, dt)
+    local a = animByEntity[entity]
+    if a == nil then
         return
     end
 
-    local input = inputByNet[netId]
     local direction
     if input.up and not input.down then
         direction = "up"
@@ -172,11 +187,12 @@ function Script:onUpdate(entity, dt)
         dt = 1.0 / 60.0
     end
 
-    for id, e in pairs(playerByNet) do
-        local input = inputByNet[id]
+    for _, e in ipairs(players) do
+        local input = inputByEntity[e]
         if input then
+            NetInput[e] = input
             step(e, input, dt)
-            animate(e, id, dt)
+            animate(e, input, dt)
         end
     end
 

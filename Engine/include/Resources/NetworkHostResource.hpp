@@ -125,6 +125,15 @@ class NetworkHostResource {
     void TrackNetworkEntity(Registry& registry, Entity entity, std::size_t networkId);
 
     /**
+     * @brief Removes an entity's network binding (network id and peer). Call
+     * this before destroying a replica so GetEntityByNetworkId no longer
+     * resolves the stale entity.
+     * @param registry game registry
+     * @param entity entity to unbind
+     */
+    void UntrackNetworkEntity(Registry& registry, Entity entity);
+
+    /**
      * @brief Sends a packet to all users
      * @param packet packet created, you can create one with NetworkHostResource::CreatePacket()
      * @param channel the channel to use to send the information

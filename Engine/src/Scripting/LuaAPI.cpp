@@ -24,6 +24,7 @@
 #include "Scripting/LuaAPI/Plugins/ParentAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/PositionAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/RotationAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/ScriptAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ShapeAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/SpriteAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/TextAPI.hpp"
@@ -65,6 +66,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerParent(lua, registry);
     registerInput(lua);
     registerMultiplayer(lua, registry);
+    registerScript(lua, registry);
 
     // Command-line arguments, published as the Lua global `arg` (1-indexed) so
     // scripts can pick a run mode without any game logic in C++.

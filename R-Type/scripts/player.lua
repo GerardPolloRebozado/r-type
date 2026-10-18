@@ -11,7 +11,6 @@ local UP_MOVE = "assets/player/sprite_005.png"
 local START_DURATION = 0.2
 
 local serverPeer = nil
-local myNetId = nil
 local lastInput = { up = false, down = false, left = false, right = false, shoot = false }
 
 function Player:onCreate(entity)
@@ -22,12 +21,6 @@ function Player:onCreate(entity)
 
     Component.setSpritePath(entity, IDLE)
     self.currentSprite = IDLE
-
-    Net.on("welcome", function(_, data)
-        if type(data) == "table" and data.netId then
-            myNetId = data.netId
-        end
-    end)
 
     Net.onConnect(function(peer)
         serverPeer = peer

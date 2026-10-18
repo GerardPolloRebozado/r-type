@@ -401,6 +401,63 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
         }
         return sol::make_object(lua, static_cast<double>(*entity));
     };
+
+    // Network ids are assigned and tracked by the engine (server on connect,
+    // client via the your_player_id handshake), so scripts never keep their own
+    // id <-> entity tables.
+    net["networkId"] = [&registry](sol::this_state ts, Entity entity) -> sol::object {
+        sol::state_view lua(ts);
+        if (!registry.HasResource<NetworkHostResource>()) {
+            return sol::object{};
+        }
+        const auto id = registry.GetResource<NetworkHostResource>().GetNetworkId(registry, entity);
+        if (!id.has_value()) {
+            return sol::object{};
+        }
+        return sol::make_object(lua, static_cast<double>(*id));
+    };
+
+    net["entityFromId"] = [&registry](sol::this_state ts, double networkId) -> sol::object {
+        sol::state_view lua(ts);
+        if (!registry.HasResource<NetworkHostResource>()) {
+            return sol::object{};
+        }
+        const auto entity = registry.GetResource<NetworkHostResource>().GetEntityByNetworkId(
+            static_cast<std::size_t>(networkId));
+        if (!entity.has_value()) {
+            return sol::object{};
+        }
+        return sol::make_object(lua, *entity);
+    };
+
+    net["track"] = [&registry](Entity entity, double networkId) -> bool {
+        if (!registry.HasResource<NetworkHostResource>() || !registry.IsEntityAlive(entity)) {
+            return false;
+        }
+        registry.GetResource<NetworkHostResource>().TrackNetworkEntity(
+            registry, entity, static_cast<std::size_t>(networkId));
+        return true;
+    };
+
+    net["untrack"] = [&registry](Entity entity) -> bool {
+        if (!registry.HasResource<NetworkHostResource>()) {
+            return false;
+        }
+        registry.GetResource<NetworkHostResource>().UntrackNetworkEntity(registry, entity);
+        return true;
+    };
+
+    net["localEntity"] = [&registry](sol::this_state ts) -> sol::object {
+        sol::state_view lua(ts);
+        if (!registry.HasResource<NetworkHostResource>()) {
+            return sol::object{};
+        }
+        const auto entity = registry.GetResource<NetworkHostResource>().GetLocalEntity();
+        if (!entity.has_value()) {
+            return sol::object{};
+        }
+        return sol::make_object(lua, *entity);
+    };
 }
 
 } // namespace Engine::LuaAPI

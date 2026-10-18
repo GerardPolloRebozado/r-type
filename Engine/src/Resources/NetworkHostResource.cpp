@@ -85,6 +85,17 @@ void NetworkHostResource::TrackNetworkEntity(Registry& registry, Entity entity,
     }
 }
 
+void NetworkHostResource::UntrackNetworkEntity(Registry& registry, Entity entity) {
+    if (registry.IsComponentRegistered<PlayerInformation>() &&
+        registry.HasComponent<PlayerInformation>(entity)) {
+        m_idToEntity.erase(registry.GetComponent<PlayerInformation>(entity).id);
+    }
+    m_entityToPeer.erase(entity);
+    if (m_localEntity.has_value() && *m_localEntity == entity) {
+        m_localEntity.reset();
+    }
+}
+
 void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& router,
                                Registry& registry) {
     ENetEvent event;
@@ -143,7 +154,11 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                 break;
             }
             case ENET_EVENT_TYPE_DISCONNECT: {
-                if (const auto entity = GetEntityID(event.peer)) {
+                const auto entity = GetEntityID(event.peer);
+                if (router.m_OnDisconnect) {
+                    router.m_OnDisconnect(registry, event.peer);
+                }
+                if (entity.has_value()) {
                     m_entityToPeer.erase(*entity);
                     if (registry.IsComponentRegistered<PlayerInformation>() &&
                         registry.HasComponent<PlayerInformation>(*entity)) {
@@ -157,9 +172,6 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                     event.peer->data = nullptr;
                 }
                 std::cout << "New disconnection" << std::endl;
-                if (router.m_OnDisconnect) {
-                    router.m_OnDisconnect(registry, event.peer);
-                }
                 break;
             }
             default:
