@@ -55,19 +55,24 @@ function Script:onCreate(entity)
     Net.startServer(3000)
 
     Net.onConnect(function(peer)
-        local e = Net.peerEntity(peer)
-        if e == nil then
+        local playerEntity = Net.peerEntity(peer)
+        if playerEntity == nil then
             return
         end
 
         local id = nextNetId
         nextNetId = nextNetId + 1
 
-        Component.addSprite(e, "assets/player/sprite_003.png", 0, -6, 4, 4)
-        Transform.setPosition(e, 0.0, 0.0)
+        Component.addSprite(playerEntity, "assets/player/sprite_003.png", 0, -6, 4, 4)
+        Transform.setPosition(playerEntity, 0.0, 0.0)
+
+        local gunEntity = Entity.create()
+        Component.setParent(gunEntity, playerEntity)
+        Component.addSprite(gunEntity, "assets/player/shoot/muzzleflash_000.png", 0, 0, 4, 4)
+        Component.addScript()
 
         netIdByPeer[peer] = id
-        playerByNet[id] = e
+        playerByNet[id] = playerEntity
         peerByNet[id] = peer
         inputByNet[id] = { up = false, down = false, left = false, right = false, shoot = false }
         animByNet[id] = { direction = nil, elapsed = 0.0, currentSprite = IDLE }

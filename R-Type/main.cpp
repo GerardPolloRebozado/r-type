@@ -60,8 +60,6 @@ int main(int argc, char* argv[]) {
     cameraPlugin.Init(app.GetRegistry());
     Engine::ScriptPlugin scriptPlugin;
     scriptPlugin.Init(app.GetRegistry());
-    // MultiplayerPlugin after ScriptPlugin: systems run in registration order,
-    // so scripts create the network host before MultiplayerSystem polls it.
     Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;
     multiplayerPlugin.Init(app.GetRegistry());
 
