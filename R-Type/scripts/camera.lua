@@ -1,4 +1,8 @@
--- camera-pan.lua
+-- camera.lua
+-- Auto-pan camera to the right
+
+local Script = {}
+
 local SPEED = 60.0 -- world units (pixels) per second, to the right
 local RAMP_TIME = 1.5 -- seconds to ease up to full speed (0.0 = instant)
 local STOP_X = nil -- e.g. 4000.0 to stop there; nil = never stop
