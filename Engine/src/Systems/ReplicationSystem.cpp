@@ -22,14 +22,12 @@
 #include <unordered_set>
 
 namespace Engine::Multiplayer {
-
 ReplicationSystem::ReplicationSystem() {
     const char* debug = std::getenv("RTYPE_NET_DEBUG");
     m_debug = debug != nullptr && std::string(debug) != "0";
 }
 
 namespace {
-
 constexpr Entity kInvalidEntity = static_cast<Entity>(-1);
 /** Default speed for network entities that have no gameplay script to move them. */
 constexpr float kDefaultMoveSpeed = 500.0f;
@@ -59,17 +57,11 @@ std::string GenericString(const glz::generic::object_t& obj, const char* key,
     return it->second.get_string();
 }
 
-NetInput ParseNetInput(const glz::generic& value) {
-    NetInput input;
-    if (!value.is_object()) {
-        return input;
+std::set<Action> ParseNetInput(const glz::generic_json<>& value) {
+    std::set<Action> input;
+    if (glz::read_json(input, value)) {
+        return {};
     }
-    const auto& obj = value.get_object();
-    input.up = GenericBool(obj, "up");
-    input.down = GenericBool(obj, "down");
-    input.left = GenericBool(obj, "left");
-    input.right = GenericBool(obj, "right");
-    input.shoot = GenericBool(obj, "shoot");
     return input;
 }
 
@@ -172,7 +164,6 @@ glz::generic SerializeSpriteState(Registry& registry, Entity entity) {
     obj["flipY"] = sprite.flipY;
     return out;
 }
-
 } // namespace
 
 void ReplicationSystem::Update(Registry& registry, float dt) {
@@ -552,7 +543,7 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
 
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic message{};
-        if (glz::read_json(message, raw) || !message.is_object()) {
+        if (glz::read_beve(message, raw) || !message.is_object()) {
             return;
         }
         const auto& obj = message.get_object();
@@ -570,22 +561,13 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
         if (!registry.HasResource<PlayerInputState>()) {
             registry.AddResource<PlayerInputState>();
         }
-        const NetInput parsed = ParseNetInput(inputIt->second);
-        if (m_debug) {
-            static std::size_t debugTicks = 0;
-            if (++debugTicks % 60 == 0) {
-                log_info("[NetDebug] server input id=" + std::to_string(networkId) + " up=" +
-                         std::to_string(parsed.up) + " down=" + std::to_string(parsed.down) +
-                         " left=" + std::to_string(parsed.left) + " right=" +
-                         std::to_string(parsed.right) + " shoot=" + std::to_string(parsed.shoot));
-            }
-        }
+        const auto parsed = ParseNetInput(inputIt->second);
         registry.GetResource<PlayerInputState>().byNetworkId[networkId] = parsed;
     });
 }
 
-void ReplicationSystem::ApplyDefaultMovement(Registry& registry, NetworkHostResource& host,
-                                             float dt) {
+void ReplicationSystem::ApplyDefaultMovement(Registry& registry, const NetworkHostResource& host,
+                                             const float dt) {
     if (!registry.HasResource<PlayerInputState>() || dt <= 0.0f) {
         return;
     }
@@ -610,16 +592,16 @@ void ReplicationSystem::ApplyDefaultMovement(Registry& registry, NetworkHostReso
 
         float dx = 0.0f;
         float dy = 0.0f;
-        if (input.left) {
+        if (input.contains("LEFT")) {
             dx -= 1.0f;
         }
-        if (input.right) {
+        if (input.contains("RIGHT")) {
             dx += 1.0f;
         }
-        if (input.up) {
+        if (input.contains("UP")) {
             dy -= 1.0f;
         }
-        if (input.down) {
+        if (input.contains("DOWN")) {
             dy += 1.0f;
         }
         if (dx == 0.0f && dy == 0.0f) {
@@ -806,40 +788,15 @@ void ReplicationSystem::SendLocalInput(Registry& registry, NetworkHostResource& 
     glz::generic message = glz::generic::object_t{};
     auto& obj = message.get_object();
     obj["id"] = static_cast<double>(*localNetworkId);
+    obj["input"] = controller->getNetworkedActiveActions();
+    std::vector<std::byte> buffer{};
 
-    const char* testInput = std::getenv("RTYPE_TEST_INPUT");
-    const std::string forced = testInput != nullptr ? testInput : "";
-    const bool up = controller->isActionActive("UP") || forced == "up";
-    const bool down = controller->isActionActive("DOWN") || forced == "down";
-    const bool left = controller->isActionActive("LEFT") || forced == "left";
-    const bool right = controller->isActionActive("RIGHT") || forced == "right";
-    const bool shoot = controller->isActionActive("SHOOT") || forced == "shoot";
-    if (m_debug) {
-        static std::size_t debugTicks = 0;
-        if (++debugTicks % 60 == 0) {
-            log_info("[NetDebug] client input up=" + std::to_string(up) +
-                     " down=" + std::to_string(down) + " left=" + std::to_string(left) +
-                     " right=" + std::to_string(right) + " shoot=" + std::to_string(shoot));
-        }
-    }
-
-    glz::generic input = glz::generic::object_t{};
-    auto& io = input.get_object();
-    io["up"] = up;
-    io["down"] = down;
-    io["left"] = left;
-    io["right"] = right;
-    io["shoot"] = shoot;
-    obj["input"] = input;
-
-    std::string json;
-    if (glz::write_json(message, json)) {
+    if (glz::write_beve(message, buffer)) {
         return;
     }
     const auto packetId = packetRegistry.GetOrRegister("player_input");
     auto* packet = NetworkHostResource::CreateRawPacket(
-        static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-        json.size(), false);
+        packetId, reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size(), false);
     if (packet != nullptr) {
         host.Send(packet, 0);
     }
@@ -855,5 +812,4 @@ Entity ReplicationSystem::SpawnFromPrefab(Registry& registry, const std::string&
     }
     return spawner.Spawn(registry, prefabPath);
 }
-
 } // namespace Engine::Multiplayer

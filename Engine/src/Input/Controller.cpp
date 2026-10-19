@@ -8,7 +8,6 @@
 #include <algorithm>
 
 namespace Engine {
-
 Controller::Controller(int gamepadId) : m_gamepadId(gamepadId) {}
 
 bool Controller::isKeybindPressed(const Keybind& kb) const {
@@ -39,11 +38,15 @@ bool Controller::isKeybindPressed(const Keybind& kb) const {
 
 void Controller::Update() {
     _activeActions.clear();
+    _networkedActions.clear();
     for (const auto& [action, keybinds] : m_keymap) {
         for (const auto& kb : keybinds) {
-            if (isKeybindPressed(kb)) {
-                _activeActions.push_back(action);
-                break;
+            if (!isKeybindPressed(kb)) {
+                continue;
+            }
+            _activeActions.emplace(action);
+            if (kb.networked) {
+                _networkedActions.emplace(action);
             }
         }
     }
@@ -54,11 +57,14 @@ void Controller::addKeybind(const Action& action, const Keybind& kb) {
 }
 
 bool Controller::isActionActive(const std::string& action) const {
-    return std::find(_activeActions.begin(), _activeActions.end(), action) != _activeActions.end();
+    return std::ranges::find(_activeActions, action) != _activeActions.end();
 }
 
-const std::vector<IController::Action>& Controller::getActiveActions() const {
+const std::set<Action>& Controller::getActiveActions() const {
     return _activeActions;
 }
 
+const std::set<Action>& Controller::getNetworkedActiveActions() const {
+    return _networkedActions;
+}
 } // namespace Engine

@@ -7,12 +7,13 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_ICONTROLLER_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_ICONTROLLER_HPP
 #include "raylib-cpp.hpp"
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace Engine {
-
+using Action = std::string;
 /**
  * @enum DeviceType
  * @brief Input device categories.
@@ -27,6 +28,8 @@ struct Keybind {
     int key = 0;
     int composeKey = 0;
     DeviceType type = KEYBOARD;
+    /** @brief When true this bind's action is sent to the server in player_input. */
+    bool networked = false;
 };
 
 /**
@@ -38,7 +41,6 @@ struct Keybind {
  */
 class IController {
   public:
-    using Action = std::string;
     using Kmap = std::unordered_map<Action, std::vector<Keybind>>;
 
     virtual ~IController() = default;
@@ -63,14 +65,22 @@ class IController {
     virtual bool isActionActive(const std::string& action) const = 0;
 
     /**
+     * @brief Returns all actions currently active in this frame that should be send to the server
+     * @return Const reference to active actions list that should be sent to the server
+     */
+    virtual const std::set<Action>& getNetworkedActiveActions() const = 0;
+
+    /**
      * @brief Returns all actions currently active in this frame.
      * @return Const reference to active actions list.
      */
-    virtual const std::vector<Action>& getActiveActions() const = 0;
+    virtual const std::set<Action>& getActiveActions() const = 0;
 
-  protected:
     /** @brief Active actions triggered during this tick/frame. */
-    std::vector<Action> _activeActions;
+    std::set<Action> _activeActions;
+
+    /** @brief Subset of _activeActions whose pressed binds are marked networked. */
+    std::set<Action> _networkedActions;
 
     /** @brief Mapping of action names to one or more physical key bindings. */
     Kmap m_keymap;

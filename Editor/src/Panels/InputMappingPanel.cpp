@@ -5,7 +5,6 @@
 #include <raylib.h>
 
 namespace Editor {
-
 bool InputMappingPanel::s_IsOpen = false;
 
 InputMappingPanel::InputMappingPanel() : m_Name(ICON_FA_GAMEPAD " Input Map") {
@@ -16,7 +15,7 @@ const std::string& InputMappingPanel::GetName() const {
     return m_Name;
 }
 
-const char* InputMappingPanel::GetKeyName(int key, Engine::DeviceType type) const {
+const char* InputMappingPanel::GetKeyName(const int key, Engine::DeviceType type) const {
     if (key == 0 && type == Engine::KEYBOARD) {
         return "None";
     }
@@ -213,12 +212,13 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
             int bindIndex = 0;
             int bindToDelete = -1;
 
-            if (ImGui::BeginTable("##table", 4,
+            if (ImGui::BeginTable("##table", 5,
                                   ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                       ImGuiTableFlags_Resizable)) {
                 ImGui::TableSetupColumn("Device");
                 ImGui::TableSetupColumn("Key");
                 ImGui::TableSetupColumn("Modifier");
+                ImGui::TableSetupColumn("Networked");
                 ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 30.0f);
                 ImGui::TableHeadersRow();
 
@@ -284,7 +284,7 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                         m_ListeningKeybindIndex == bindIndex && m_ListeningIsModifier) {
                         ImGui::Button("Press key...", ImVec2(-FLT_MIN, 0));
                         int pressedKey = -1;
-                        int k = GetKeyPressed();
+                        const int k = GetKeyPressed();
                         if (k != 0) {
                             pressedKey = k;
                         }
@@ -314,8 +314,11 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                     }
                     ImGui::PopID();
 
-                    // Delete Bind
                     ImGui::TableSetColumnIndex(3);
+                    ImGui::Checkbox("Networked", &kb.networked);
+
+                    // Delete Bind
+                    ImGui::TableSetColumnIndex(4);
                     if (ImGui::Button(ICON_FA_XMARK)) {
                         bindToDelete = bindIndex;
                     }
@@ -350,5 +353,4 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
 
     ImGui::End();
 }
-
 } // namespace Editor

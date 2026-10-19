@@ -278,9 +278,9 @@ Paddle (server side):
 ```lua
 function Paddle:onUpdate(e, dt)
     if not shouldSimulate(e) then return end
-    local i = Net.input(e) or { up = Controller.isActionActive("UP"),
-                                down = Controller.isActionActive("DOWN") }
-    local dy = (i.down and 1 or 0) - (i.up and 1 or 0)
+    local i = Net.input(e) or { UP = Controller.isActionActive("UP"),
+                                DOWN = Controller.isActionActive("DOWN") }
+    local dy = (i.DOWN and 1 or 0) - (i.UP and 1 or 0)
     Transform.translate(e, 0, dy * SPEED * dt)
 end
 ```
@@ -309,10 +309,11 @@ Net.rpc(victim, "hurt", { hp = newHp })
 Net.onEntityRpc("hurt", function(e, data) self.hp = data.hp; self.flash = 0.2 end)
 ```
 
-Extra actions (dash / reload) are not in `player_input`, so the local client asks the server:
+`player_input` carries the whole set of active action names marked `networked`, so extra actions
+(dash / reload) work on the server too — no extra RPC needed as long as the keybind is networked:
 
 ```lua
-if Net.isLocal(e) and Controller.isActionActive("DASH") then Net.rpc(e, "dash", {}) end
+if Net.isServer() and input.DASH then Net.rpc(e, "dash", {}) end
 ```
 
 Respawn should **reuse** the player entity rather than destroy and re-create it: the server binds a

@@ -140,7 +140,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         for (const auto& kb : keybinds) {
             mainOut << "    controller->addKeybind(\"" << cppEscape(action) << "\", {" << kb.key
                     << ", " << kb.composeKey << ", static_cast<Engine::DeviceType>("
-                    << static_cast<int>(kb.type) << ")});\n";
+                    << static_cast<int>(kb.type) << "), " << (kb.networked ? "true" : "false")
+                    << "});\n";
         }
     }
     mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";

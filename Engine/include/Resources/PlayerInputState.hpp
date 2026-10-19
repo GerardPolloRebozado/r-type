@@ -1,24 +1,12 @@
 #ifndef ENGINE_RESOURCES_PLAYERINPUTSTATE_HPP_
 #define ENGINE_RESOURCES_PLAYERINPUTSTATE_HPP_
 
+#include "Inputs/IController.hpp"
 #include <cstddef>
+#include <set>
 #include <unordered_map>
 
 namespace Engine::Multiplayer {
-
-/**
- * @struct NetInput
- * @brief The last input snapshot received for one player.
- * TODO: this is not correct, it should be flexible, obviously
- */
-struct NetInput {
-    bool up = false;
-    bool down = false;
-    bool left = false;
-    bool right = false;
-    bool shoot = false;
-};
-
 /**
  * @struct PlayerInputState
  * @brief Server-side store of the latest input for every connected player.
@@ -29,9 +17,8 @@ struct NetInput {
  * prefab-spawned player.
  */
 struct PlayerInputState {
-    std::unordered_map<std::size_t, NetInput> byNetworkId;
+    std::unordered_map<std::size_t, std::set<Action>> byNetworkId;
 };
-
 } // namespace Engine::Multiplayer
 
 #endif // ENGINE_RESOURCES_PLAYERINPUTSTATE_HPP_

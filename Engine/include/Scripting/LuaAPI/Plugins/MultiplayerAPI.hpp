@@ -17,7 +17,7 @@ class Registry;
 }
 
 namespace Engine::LuaAPI {
-void registerMultiplayer(sol::state_view lua, Registry& registry);
+void registerMultiplayer(const sol::state_view& lua, Registry& registry);
 } // namespace Engine::LuaAPI
 
 #endif // G_ING_500_BAR_5_1_RTYPE_1_MULTIPLAYERAPI_HPP

@@ -16,7 +16,8 @@ namespace Engine::LuaAPI {
  * Exposes:
  *   - `Controller.isActionActive(action [, playerId])`
  *   - `Controller.getActiveActions([playerId])`
- *   - `Controller.addKeybind(action, key [, deviceType [, composeKey [, playerId]]])`
+ *   - `Controller.addKeybind(action, key [, deviceType [, composeKey [, playerId [, networked]]]])`
+ *     `networked` (default false) marks the bind's action as sent to the server in `player_input`.
  *   - `Controller.hasController([playerId])`
  *   - `Controller.KEYBOARD / MOUSE / GAMEPAD / TOUCH` device constants
  *

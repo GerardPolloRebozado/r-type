@@ -7,6 +7,7 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_CONTROLLER_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_CONTROLLER_HPP
 #include "IController.hpp"
+#include <set>
 
 namespace Engine {
 /**
@@ -41,12 +42,18 @@ class Controller : public IController {
     /**
      * @brief Retrieves all active actions for this frame.
      */
-    const std::vector<Action>& getActiveActions() const override;
+    const std::set<Action>& getActiveActions() const override;
+
+    /**
+     * @brief Returns all actions currently active in this frame that should be send to the server
+     * @return Const reference to active actions list that should be sent to the server
+     */
+    const std::set<Action>& getNetworkedActiveActions() const override;
 
     /**
      * @brief Sets the gamepad ID for this controller.
      */
-    void setGamepadId(int gamepadId) {
+    void setGamepadId(const int gamepadId) {
         m_gamepadId = gamepadId;
     }
 
