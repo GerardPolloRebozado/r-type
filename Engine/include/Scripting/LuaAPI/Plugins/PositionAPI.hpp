@@ -11,7 +11,8 @@ class Registry;
 namespace Engine::LuaAPI {
 /**
  * @brief Registers the position half of the `Transform` namespace:
- *        getPosition / setPosition / translate / getZIndex / setZIndex.
+ *        getPosition ({x, y, z}) / setPosition (x, y [, z]) / translate /
+ *        getZIndex / setZIndex.
  *        Mirrors Engine's PositionPlugin / PositionSystem.
  *
  * @param lua View of the shared Lua state (lambdas capture a copy by value).
