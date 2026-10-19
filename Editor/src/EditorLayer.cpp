@@ -145,7 +145,11 @@ void EditorLayer::OnUpdate() {
             panel->OnImGuiRender(*m_Registry, *m_Configuration);
         }
     }
-
+    static bool s_FirstFrame = true;
+    if (s_FirstFrame) {
+        ImGui::SetWindowFocus("Hierarchy");
+        s_FirstFrame = false;
+    }
     EndDockSpace();
 
     rlImGuiEnd();
@@ -199,8 +203,8 @@ void EditorLayer::BeginDockSpace() {
         ImGuiID dock_down_id =
             ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.40f, nullptr, &dock_main_id);
 
-        ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("State", dock_left_id);
+        ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
         ImGui::DockBuilderDockWindow("Connections", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
