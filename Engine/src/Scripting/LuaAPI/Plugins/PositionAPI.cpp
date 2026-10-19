@@ -42,6 +42,7 @@ void registerPosition(sol::state_view lua, Registry& registry) {
         }
     };
 
+    // Moves in x/y only; the draw layer is left as is (use setZIndex to change it).
     transform["translate"] = [&registry](Entity entity, float dx, float dy) {
         if (!registry.HasComponent<Position>(entity)) {
             registry.AddComponent<Position>(entity, Position{dx, dy});
