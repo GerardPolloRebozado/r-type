@@ -2,6 +2,7 @@
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
 #include "Panels/AssetsPanel.hpp"
+#include "Panels/ConnectionsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/InputMappingPanel.hpp"
@@ -9,7 +10,9 @@
 #include "Panels/PreviewPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
 #include "Panels/SettingsPanel.hpp"
+#include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
@@ -17,6 +20,15 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <rlImGui.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 #include "BundledAssets.hpp"
 #include "Gallery.hpp"
@@ -29,6 +41,7 @@ ImFont* g_IconFont = nullptr;
 EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<HierarchyPanel>());
     AddPanel(std::make_unique<InspectorPanel>());
+    AddPanel(std::make_unique<ConnectionsPanel>());
     AddPanel(std::make_unique<ConsolePanel>());
     AddPanel(std::make_unique<AssetsPanel>());
     AddPanel(std::make_unique<SceneViewPanel>());
@@ -189,6 +202,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("State", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
+        ImGui::DockBuilderDockWindow("Connections", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
@@ -270,21 +284,110 @@ void EditorLayer::BeginDockSpace() {
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
 
         if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
+            if (m_Configuration && m_Registry) {
+                // Save scene first
+                if (!m_Configuration->m_InitialScenePath.empty()) {
+                    Serialization::SceneSerializer serializer;
+                    serializer.Serialize(m_Configuration->m_InitialScenePath, *m_Registry,
+                                         *m_Configuration);
+                }
+            }
             if (m_Configuration) {
-                std::string exePath =
-                    m_Configuration->m_ProjectFolder + "/" + m_Configuration->m_BuildExecutableName;
+#ifdef _WIN32
+                const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
+#else
+                const std::string exeFile = m_Configuration->m_BuildExecutableName;
+#endif
+                std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
                 if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/.build/" +
-                              m_Configuration->m_BuildExecutableName;
+                    exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
+                }
+                if (!std::filesystem::exists(exePath)) {
+                    exePath = m_Configuration->m_ProjectFolder + "/build/Games/R-Type/" + exeFile;
+                }
+                // Multi-config generators (e.g. Visual Studio) place the binary
+                // in a <Config> subfolder.
+                if (!std::filesystem::exists(exePath)) {
+                    for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
+                        const std::string cand =
+                            m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
+                        if (std::filesystem::exists(cand)) {
+                            exePath = cand;
+                            break;
+                        }
+                        const std::string cand2 = m_Configuration->m_ProjectFolder +
+                                                  "/build/Games/R-Type/" + cfg + "/" + exeFile;
+                        if (std::filesystem::exists(cand2)) {
+                            exePath = cand2;
+                            break;
+                        }
+                    }
                 }
                 if (std::filesystem::exists(exePath)) {
+#ifdef _WIN32
+                    // start detaches: system() returns immediately instead of
+                    // freezing the editor while the game runs.
+                    std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
+                                      "\" \"" + exePath + "\"";
+#else
                     std::string cmd =
                         "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" + exePath + "\" &";
+#endif
                     std::system(cmd.c_str());
                 }
             }
         }
-        ImGui::PopStyleColor(3);
+        ImGui::PopStyleColor(3); // Pop Play button style colors
+
+        ImGui::SameLine(0, spacing);
+
+        // Play Multiplayer: launch server + N clients for the current scene.
+        const bool gamesRunning = !m_GameProcesses.empty();
+        if (gamesRunning) {
+            ImGui::PushStyleColor(ImGuiCol_Button, redBg);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, redBg);
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+            if (ImGui::Button(ICON_FA_STOP, ImVec2(button_size, 0))) {
+                StopGames();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Stop all game processes");
+            }
+            ImGui::PopStyleColor(3);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, normalBg);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverBg);
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+            if (ImGui::Button(ICON_FA_USER_GROUP, ImVec2(button_size, 0))) {
+                if (m_Configuration && m_Registry && !m_Configuration->m_InitialScenePath.empty()) {
+                    // Scene path relative to the project folder (the game's CWD).
+                    const std::string sceneName =
+                        std::filesystem::path(m_Configuration->m_InitialScenePath)
+                            .filename()
+                            .string();
+                    std::vector<std::string> serverArgs{"--server", sceneName};
+                    if (m_Configuration->m_MultiplayerServerHeadless) {
+                        serverArgs.push_back("--headless");
+                    }
+                    LaunchGame(serverArgs);
+                    const int maxClients =
+                        static_cast<int>(Engine::Multiplayer::PlayerSlotState::kMaxPlayers);
+                    const int clients =
+                        std::clamp(m_Configuration->m_MultiplayerClientCount, 1, maxClients);
+                    for (int i = 0; i < clients; ++i) {
+                        // --client makes MultiplayerPlugin create a client host
+                        // and connect to the server launched above. Without it
+                        // the game would run in single-player mode.
+                        LaunchGame({"--client", sceneName});
+                    }
+                }
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Play Multiplayer (server + %d clients)",
+                                  m_Configuration ? m_Configuration->m_MultiplayerClientCount : 0);
+            }
+            ImGui::PopStyleColor(3);
+        }
 
         ImGui::PopStyleVar(2);
         ImGui::EndMenuBar();
@@ -293,6 +396,112 @@ void EditorLayer::BeginDockSpace() {
 
 void EditorLayer::EndDockSpace() {
     ImGui::End(); // End MainDockSpaceWindow
+}
+
+bool EditorLayer::LaunchGame(const std::vector<std::string>& args) {
+    if (!m_Configuration) {
+        return false;
+    }
+#ifdef _WIN32
+    const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
+#else
+    const std::string exeFile = m_Configuration->m_BuildExecutableName;
+#endif
+    std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
+    if (!std::filesystem::exists(exePath)) {
+        exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
+    }
+    if (!std::filesystem::exists(exePath)) {
+        for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
+            const std::string cand =
+                m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
+            if (std::filesystem::exists(cand)) {
+                exePath = cand;
+                break;
+            }
+        }
+    }
+    if (!std::filesystem::exists(exePath)) {
+        return false;
+    }
+
+#ifdef _WIN32
+    std::string cmdLine = "\"" + exePath + "\"";
+    for (const auto& a : args) {
+        cmdLine += " \"" + a + "\"";
+    }
+    STARTUPINFOA si{};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi{};
+    if (!CreateProcessA(nullptr, const_cast<char*>(cmdLine.c_str()), nullptr, nullptr, FALSE,
+                        CREATE_NEW_CONSOLE, nullptr, m_Configuration->m_ProjectFolder.c_str(), &si,
+                        &pi)) {
+        return false;
+    }
+    CloseHandle(pi.hThread);
+    m_GameProcesses.push_back(pi.hProcess);
+#else
+    // Build argv: exePath, args..., nullptr
+    std::vector<std::string> argv;
+    argv.push_back(exePath);
+    for (const auto& a : args) {
+        argv.push_back(a);
+    }
+    std::vector<char*> cargv;
+    for (auto& a : argv) {
+        cargv.push_back(const_cast<char*>(a.c_str()));
+    }
+    cargv.push_back(nullptr);
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        return false;
+    }
+    if (pid == 0) {
+        setpgid(0, 0);
+        execvp(exePath.c_str(), cargv.data());
+        _exit(127); // execvp failed
+    }
+    m_GameProcesses.push_back(pid);
+#endif
+    return true;
+}
+
+void EditorLayer::StopGames() {
+#ifdef _WIN32
+    for (HANDLE h : m_GameProcesses) {
+        if (h) {
+            // Ask politely, then force-kill if it ignores us.
+            EnumWindows(
+                [](HWND wnd, LPARAM param) -> BOOL {
+                    DWORD pid = 0;
+                    GetWindowThreadProcessId(wnd, &pid);
+                    if (pid == reinterpret_cast<DWORD>(param) && IsWindowVisible(wnd)) {
+                        PostMessage(wnd, WM_CLOSE, 0, 0);
+                    }
+                    return TRUE;
+                },
+                reinterpret_cast<LPARAM>(GetProcessId(h)));
+            TerminateProcess(h, 0);
+            CloseHandle(h);
+        }
+    }
+#else
+    for (pid_t pid : m_GameProcesses) {
+        if (pid <= 0) {
+            continue;
+        }
+        // Kill the whole process group the child created.
+        kill(-pid, SIGTERM);
+    }
+    // Reap so they don't linger as zombies.
+    for (pid_t pid : m_GameProcesses) {
+        if (pid > 0) {
+            waitpid(pid, nullptr, WNOHANG);
+        }
+    }
+#endif
+    m_GameProcesses.clear();
 }
 } // namespace Editor
 

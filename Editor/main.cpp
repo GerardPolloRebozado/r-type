@@ -1,5 +1,6 @@
 #include "BundledAssets.hpp"
 #include "Core/Application.hpp"
+#include "Core/EditorMode.hpp"
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
@@ -11,8 +12,10 @@
 #include "Plugins/InputPlugin.hpp"
 #include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/ReplicationPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
+#include "Plugins/SignalPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
 #include "Scaffold.hpp"
@@ -34,7 +37,7 @@ void RunEditor(const string& scenePathString) {
     projectFolder = projectFolder.parent_path();
 
     config.windowTitle = "Engine Editor";
-    config.m_ProjectFolder = projectFolder;
+    config.m_ProjectFolder = projectFolder.string();
     config.m_InitialScenePath = scenePathString;
     config.windowWidth = 1280;
     config.windowHeight = 720;
@@ -66,10 +69,14 @@ void RunEditor(const string& scenePathString) {
     shapePlugin.Init(app.GetRegistry());
     Engine::RotationPlugin rotationPlugin;
     rotationPlugin.Init(app.GetRegistry());
+    Engine::Multiplayer::ReplicationPlugin replicationPlugin;
+    replicationPlugin.Init(app.GetRegistry());
     Engine::ColliderPlugin colliderPlugin;
     colliderPlugin.Init(app.GetRegistry());
     Engine::OpacityPlugin opacityPlugin;
     opacityPlugin.Init(app.GetRegistry());
+    Engine::SignalPlugin signalPlugin;
+    signalPlugin.Init(app.GetRegistry());
     Engine::InputPlugin inputPlugin;
     inputPlugin.Init(app.GetRegistry());
     Engine::AudioPlugin audioPlugin;
@@ -78,6 +85,9 @@ void RunEditor(const string& scenePathString) {
     scriptPlugin.Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;
     cameraPlugin.Init(app.GetRegistry());
+
+    // This registry is edited, never played
+    app.GetRegistry().AddResource<Engine::EditorMode>();
 
     editorLayer.SetRegistry(app.GetRegistry());
     editorLayer.SetConfiguration(config);

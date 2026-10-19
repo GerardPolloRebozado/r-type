@@ -146,24 +146,20 @@ static void TestCreateSystem(const std::filesystem::path& sourceRoot) {
     PrepareEngineFixture(sourceRoot);
 
     const std::filesystem::path engineDir = sourceRoot / "Engine";
-    Editor::ScaffoldResult created =
-        Editor::CreateSystem("RoundTrip", engineDir.string());
+    Editor::ScaffoldResult created = Editor::CreateSystem("RoundTrip", engineDir.string());
     CHECK(created.ok);
     CHECK(std::filesystem::exists(engineDir / "include/Systems/RoundTripSystem.hpp"));
     CHECK(std::filesystem::exists(engineDir / "src/Systems/RoundTripSystem.cpp"));
     CHECK(CMakeListsContains(engineDir / "CMakeLists.txt", "src/Systems/RoundTripSystem.cpp"));
     CHECK(CMakeListsContains(engineDir / "CMakeLists.txt", "include/Systems/RoundTripSystem.hpp"));
 
-    Editor::ScaffoldResult duplicate =
-        Editor::CreateSystem("RoundTrip", engineDir.string());
+    Editor::ScaffoldResult duplicate = Editor::CreateSystem("RoundTrip", engineDir.string());
     CHECK(!duplicate.ok);
 
-    Editor::ScaffoldResult suffixed =
-        Editor::CreateSystem("RoundTripSystem", engineDir.string());
+    Editor::ScaffoldResult suffixed = Editor::CreateSystem("RoundTripSystem", engineDir.string());
     CHECK(!suffixed.ok);
 
-    Editor::ScaffoldResult invalid =
-        Editor::CreateSystem("9Bad", engineDir.string());
+    Editor::ScaffoldResult invalid = Editor::CreateSystem("9Bad", engineDir.string());
     CHECK(!invalid.ok);
 }
 
@@ -191,8 +187,7 @@ static void TestCreatePlugin(const std::filesystem::path& sourceRoot) {
     PrepareEngineFixture(sourceRoot);
 
     const std::filesystem::path engineDir = sourceRoot / "Engine";
-    Editor::ScaffoldResult created =
-        Editor::CreatePlugin("RoundTrip", engineDir.string());
+    Editor::ScaffoldResult created = Editor::CreatePlugin("RoundTrip", engineDir.string());
     CHECK(created.ok);
     CHECK(std::filesystem::exists(engineDir / "include/Components/RoundTrip.hpp"));
     CHECK(std::filesystem::exists(engineDir / "include/Systems/RoundTripSystem.hpp"));
@@ -207,8 +202,7 @@ static void TestCreatePlugin(const std::filesystem::path& sourceRoot) {
     CHECK(pluginText.find("RegisterComponent<RoundTrip>") != std::string::npos);
     CHECK(pluginText.find("RegisterSystem<RoundTripSystem>") != std::string::npos);
 
-    Editor::ScaffoldResult duplicate =
-        Editor::CreatePlugin("RoundTrip", engineDir.string());
+    Editor::ScaffoldResult duplicate = Editor::CreatePlugin("RoundTrip", engineDir.string());
     CHECK(!duplicate.ok);
 }
 

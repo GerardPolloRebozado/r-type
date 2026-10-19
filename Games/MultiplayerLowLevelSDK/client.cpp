@@ -13,7 +13,11 @@
 #include <raylib.h>
 
 #include "PacketTypes.hpp"
+#include "Plugins/MultiplayerPlugin.hpp"
+#include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
+#include <cstddef>
+#include <span>
 
 class SendKeySystem : public Engine::System {
   public:
@@ -36,8 +40,9 @@ class SendKeySystem : public Engine::System {
         if (keyPressed.key == 0) {
             return;
         }
+        auto& packetRegistry = registry.GetResource<Engine::Multiplayer::PacketRegistryResource>();
         ENetPacket* packet = Engine::Multiplayer::NetworkHostResource::CreatePacket(
-            KeyPressPacket, keyPressed, true);
+            packetRegistry.GetOrRegister("key_press"), keyPressed, true);
         registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Send(packet, 0);
     }
 
@@ -103,26 +108,46 @@ int main() {
     Engine::ShapePlugin shapePlugin;
     shapePlugin.Init(app.GetRegistry());
 
+    Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;
+    multiplayerPlugin.Init(app.GetRegistry());
+
     auto& registry = app.GetRegistry();
     auto& host = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
         Engine::Multiplayer::NetworkHostResource::CreateClient(2));
-    Engine::Multiplayer::NetworkHostResource::RegisterMultiplayerComponents(registry);
     registry.RegisterComponent<KeyPress>();
     (void)host;
-    auto* peer = registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Connect(
-        "192.168.202.217", 3000);
+    auto* peer =
+        registry.GetResource<Engine::Multiplayer::NetworkHostResource>().Connect("localhost", 3000);
     (void)peer;
 
-    auto& router =
-        registry.AddResource<Engine::Multiplayer::PacketRouterResource>(OnConnect, OnDisconnect);
-    router.RegisterHandler<Engine::Multiplayer::YourPlayerId>(
-        Engine::Multiplayer::YourPlayerIdPacket, SpawnMyPlayer);
+    auto& packetRegistry = registry.GetResource<Engine::Multiplayer::PacketRegistryResource>();
+
+    auto& router = registry.GetResource<Engine::Multiplayer::PacketRouterResource>();
+    router.m_OnConnect = OnConnect;
+    router.m_OnDisconnect = OnDisconnect;
+    router.On(
+        packetRegistry.GetOrRegister("your_player_id"),
+        [](Engine::Registry& registry, ENetPeer* peer, const uint8_t* payload, std::size_t size) {
+            Engine::Multiplayer::YourPlayerId assigned{};
+            const std::span buffer{reinterpret_cast<const std::byte*>(payload), size};
+            if (!glz::read_beve(assigned, buffer)) {
+                SpawnMyPlayer(registry, peer, assigned);
+            }
+        });
 
     registry.RegisterSystem<Engine::MultiplayerSystem>();
     const auto textEntity = registry.CreateEntity();
     const auto& textComponent = Engine::Text("Use W/A/S/D to move, you are the white square", 60);
     registry.AddComponent(textEntity, textComponent);
-    router.RegisterHandler<NewPlayerPos>(NewPlayerPosPacket, UpdatePlayerPosition);
+    router.On(
+        packetRegistry.GetOrRegister("new_player_pos"),
+        [](Engine::Registry& registry, ENetPeer* peer, const uint8_t* payload, std::size_t size) {
+            NewPlayerPos newPos{};
+            const std::span buffer{reinterpret_cast<const std::byte*>(payload), size};
+            if (!glz::read_beve(newPos, buffer)) {
+                UpdatePlayerPosition(registry, peer, newPos);
+            }
+        });
 
     app.Run();
 

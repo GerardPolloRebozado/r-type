@@ -13,6 +13,9 @@
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 
+#include <cstdint>
+#include <string>
+
 namespace Editor {
 
 const char* ColliderPluginEditor::GetName() const {
@@ -54,6 +57,63 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
         bool isEnabled = collider.enabled;
         if (ImGui::Checkbox("Enabled", &isEnabled)) {
             collider.enabled = isEnabled;
+        }
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("Collision Filter");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Two colliders only interact when each one's mask\n"
+                              "contains the other's layer. Clear the bits you\n"
+                              "don't want this entity to touch.");
+        }
+
+        const std::string layerPreview = Engine::CollisionLayers::Name(collider.layer);
+        if (ImGui::BeginCombo("Layer", layerPreview.c_str())) {
+            for (int candidate = 0; candidate < Engine::CollisionLayers::kLayerCount; ++candidate) {
+                const bool isSelected = (candidate == collider.layer);
+                const std::string label = Engine::CollisionLayers::Name(candidate);
+                if (ImGui::Selectable(label.c_str(), isSelected)) {
+                    collider.layer = candidate;
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::TextUnformatted("Collides with");
+        for (int layerIndex = 0; layerIndex < Engine::CollisionLayers::kNamedLayerCount;
+             ++layerIndex) {
+            const std::uint32_t bit = Engine::CollisionLayers::Bit(layerIndex);
+            if (bit == 0u) {
+                break;
+            }
+            bool touches = (collider.mask & bit) != 0u;
+            const std::string label = Engine::CollisionLayers::Name(layerIndex);
+            ImGui::PushID(layerIndex);
+            if (ImGui::Checkbox(label.c_str(), &touches)) {
+                collider.mask = touches ? (collider.mask | bit) : (collider.mask & ~bit);
+            }
+            ImGui::PopID();
+            if ((layerIndex % 4) != 3 &&
+                layerIndex + 1 < Engine::CollisionLayers::kNamedLayerCount) {
+                ImGui::SameLine();
+            }
+        }
+
+        int maskValue = static_cast<int>(collider.mask);
+        if (ImGui::InputInt("Mask (hex, all 32 layers)", &maskValue, 1, 16,
+                            ImGuiInputTextFlags_CharsHexadecimal)) {
+            collider.mask = static_cast<std::uint32_t>(maskValue);
+        }
+
+        if (ImGui::Button("All Layers")) {
+            collider.mask = Engine::CollisionLayers::kAllLayers;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("No Layers")) {
+            collider.mask = Engine::CollisionLayers::kNoLayers;
         }
 
         ImGui::Separator();

@@ -1,0 +1,99 @@
+#ifndef ENGINE_SYSTEMS_REPLICATIONSYSTEM_HPP_
+#define ENGINE_SYSTEMS_REPLICATIONSYSTEM_HPP_
+
+#include "Components/NetworkComponent.hpp"
+#include "ECS/Entity.hpp"
+#include "ECS/Registry.hpp"
+#include "ECS/System.hpp"
+#include "Resources/PacketRegistryResource.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
+#include "Compat/EnetWrapper.hpp"
+
+namespace Engine::Multiplayer {
+
+class NetworkHostResource;
+
+/**
+ * @class ReplicationSystem
+ * @brief Declarative networking foundation.
+ *
+ * Reads @ref NetworkComponent on entities and drives spawn/despawn, identity
+ * binding, and state sync — without gameplay scripts hand-rolling packets.
+ *
+ * Scene entities:
+ *   - "Server": already present on every machine; the scene entity id doubles
+ *     as the network id, so clients match their local copy without spawning.
+ *   - "Client": a per-player template. The server destroys it and spawns one
+ *     instance of NetworkComponent::prefabPath per connected client. Clients
+ *     receive those instances through replication_spawn.
+ *   - "Shared": ignored, built from the same scene on every machine.
+ *
+ * Runtime entities (bullets, effects): a script calls Net.replicate(entity,
+ * ...) and the server assigns an id, broadcasts a spawn, then syncs state.
+ * Clients instantiate a bare entity (or a prefab when prefabPath is set) and
+ * apply Position/Rotation/Sprite from the snapshot.
+ *
+ * Design notes for future prediction/interpolation:
+ *   - Replication runs on the fixed simulation tick.
+ *   - State is published as full snapshots (rewindable), not deltas.
+ *   - Ownership cleanly separates simulate vs interpolate entities.
+ *   - Input is stored server-side and exposed to gameplay scripts through
+ *     Net.input(entity), so movement stays in Lua without scripts ever touching
+ *     ENet.
+ */
+class ReplicationSystem : public System {
+  public:
+    ReplicationSystem();
+    ~ReplicationSystem() noexcept override = default;
+
+    void Update(Registry& registry, float dt) override;
+
+  private:
+    void Initialize(Registry& registry, NetworkHostResource& host);
+    void ProcessConnect(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
+                        Entity placeholder, std::size_t networkId);
+    void ProcessDisconnect(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
+                           Entity entity, std::size_t networkId);
+    void BroadcastState(Registry& registry, NetworkHostResource& host,
+                        PacketRegistryResource& packetRegistry);
+    void SendSpawn(Registry& registry, NetworkHostResource& host,
+                   PacketRegistryResource& packetRegistry, Entity entity,
+                   const NetworkComponent& network,
+                   std::optional<std::uint8_t> slot = std::nullopt);
+    void SendDespawn(Registry& registry, NetworkHostResource& host,
+                     PacketRegistryResource& packetRegistry, std::size_t networkId);
+    void RegisterStateHandler(Registry& registry);
+    void RegisterSpawnHandler(Registry& registry);
+    void RegisterDespawnHandler(Registry& registry);
+    void RegisterInputHandler(Registry& registry);
+    void ApplyDefaultMovement(Registry& registry, NetworkHostResource& host, float dt);
+    void SendLocalInput(Registry& registry, NetworkHostResource& host,
+                        PacketRegistryResource& packetRegistry);
+    Entity SpawnFromPrefab(Registry& registry, const std::string& prefabPath);
+
+    bool m_initialized = false;
+    bool m_handlersRegistered = false;
+    /** Player prefab captured from the scene's Client template before it is removed. */
+    std::string m_playerPrefabPath;
+    /**
+     * Ids already announced to clients with a reliable replication_spawn.
+     * Scene Server entities are pre-seeded (both sides load the same scene);
+     * runtime entities and players are added when their spawn is sent. Used to
+     * avoid duplicate spawns and to detect destroyed entities that clients
+     * still know about (including ones created and destroyed in one tick).
+     */
+    std::unordered_set<std::size_t> m_announcedIds;
+    /** RTYPE_NET_DEBUG=1 prints player positions once per second. */
+    bool m_debug = false;
+    std::size_t m_debugTicks = 0;
+};
+
+} // namespace Engine::Multiplayer
+
+#endif // ENGINE_SYSTEMS_REPLICATIONSYSTEM_HPP_

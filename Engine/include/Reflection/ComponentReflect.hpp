@@ -13,6 +13,7 @@
 #include "Components/ColliderComponent.hpp"
 #include "Components/Input.hpp"
 #include "Components/Name.hpp"
+#include "Components/NetworkComponent.hpp"
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
@@ -44,7 +45,8 @@ template <> struct glz::meta<Engine::SpriteComponent> {
     static constexpr auto value = glz::object(
         "assetPath", &Engine::SpriteComponent::assetPath, "offsetX",
         &Engine::SpriteComponent::offsetX, "offsetY", &Engine::SpriteComponent::offsetY, "scaleX",
-        &Engine::SpriteComponent::scaleX, "scaleY", &Engine::SpriteComponent::scaleY);
+        &Engine::SpriteComponent::scaleX, "scaleY", &Engine::SpriteComponent::scaleY, "flipX",
+        &Engine::SpriteComponent::flipX, "flipY", &Engine::SpriteComponent::flipY);
 };
 
 template <> struct glz::meta<Engine::Text> {
@@ -93,6 +95,14 @@ template <> struct glz::meta<Engine::CameraComponent> {
         &Engine::CameraComponent::shakeDecay, "shakeOffsetX",
         &Engine::CameraComponent::shakeOffsetX, "shakeOffsetY",
         &Engine::CameraComponent::shakeOffsetY);
+};
+
+template <> struct glz::meta<Engine::NetworkComponent> {
+    // NB: `networkId` is engine-assigned at runtime and intentionally excluded.
+    static constexpr auto value = glz::object(
+        "authority", &Engine::NetworkComponent::authority, "syncTransform",
+        &Engine::NetworkComponent::syncTransform, "syncSprite",
+        &Engine::NetworkComponent::syncSprite, "prefabPath", &Engine::NetworkComponent::prefabPath);
 };
 
 #endif // ENGINE_REFLECTION_COMPONENTREFLECT_HPP_

@@ -4,6 +4,7 @@
 #include "ECS/Registry.hpp"
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace Engine {
 /**
@@ -24,8 +25,19 @@ struct ApplicationConfig {
     bool maximized = false;
     std::string windowTitle = "Game Engine";
     int targetFPS = 60;
+    /**
+     * @brief Command-line arguments (excluding argv[0]).
+     * Registered as LaunchOptions and published to Lua as the global `arg`,
+     * so scripts can branch on flags such as --server / --client.
+     */
+    std::vector<std::string> args;
     std::function<void()> onUI = nullptr;
     std::function<void(Registry&)> customRender = nullptr;
+    /**
+     * @brief When true, runs without a window or rendering. Systems and
+     * networking still tick. Used by the editor's headless-server launch.
+     */
+    bool headless = false;
 };
 
 /**

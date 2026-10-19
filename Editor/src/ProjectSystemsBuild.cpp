@@ -86,9 +86,8 @@ bool RegenerateProjectRegister(const std::filesystem::path& projectRoot, std::st
     std::vector<std::string> pluginHeaders;
     std::vector<std::string> systemHeaders;
     std::error_code ec;
-    for (const auto& entry :
-         std::filesystem::directory_iterator(systemsDir, std::filesystem::directory_options::skip_permission_denied,
-                                             ec)) {
+    for (const auto& entry : std::filesystem::directory_iterator(
+             systemsDir, std::filesystem::directory_options::skip_permission_denied, ec)) {
         if (ec || !entry.is_regular_file()) {
             continue;
         }
@@ -153,7 +152,8 @@ bool RegenerateProjectRegister(const std::filesystem::path& projectRoot, std::st
 }
 
 std::string ProjectSystemsEditorBuildSnippet(const std::string& projectFolder) {
-    const std::filesystem::path buildCmake = std::filesystem::path(projectFolder) / kProjectBuildCmake;
+    const std::filesystem::path buildCmake =
+        std::filesystem::path(projectFolder) / kProjectBuildCmake;
     if (!std::filesystem::exists(buildCmake)) {
         return {};
     }

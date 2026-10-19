@@ -1,12 +1,12 @@
 #include "Gallery.hpp"
 #include "BundledAssets.hpp"
 #include "EditorLayer.hpp"
+#include "FileDialog.hpp"
 #include "GalleryReflect.hpp"
 #include "Logging/Logger.hpp"
 #include "MultiplatformUtils.hpp"
 #include "Scaffold.hpp"
 #include "imgui.h"
-#include "portable-file-dialogs.h"
 #include <algorithm>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
@@ -236,8 +236,7 @@ std::string Editor::Gallery::DrawGallery() {
 
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_FOLDER_OPEN " Browse...")) {
-                    auto dir =
-                        pfd::select_folder("Select Project Directory", pfd::path::home()).result();
+                    auto dir = Editor::PickFolderDialog("Select Project Directory");
                     if (!dir.empty()) {
                         strncpy(projPath, dir.c_str(), IM_ARRAYSIZE(projPath) - 1);
                     }
@@ -303,8 +302,7 @@ std::string Editor::Gallery::DrawGallery() {
 
             ImGui::SameLine();
             if (ImGui::Button("Open", ImVec2(60, 0))) {
-                const auto dir =
-                    pfd::select_folder("Select Project Directory", pfd::path::home()).result();
+                const auto dir = Editor::PickFolderDialog("Select Project Directory");
                 if (!dir.empty()) {
                     scenePath = OpenProjectFolder(dir, "");
                 }

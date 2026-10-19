@@ -44,12 +44,12 @@ void EditorStyle::Apply() {
     colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.24f, 0.48f, 0.73f, 1.00f);
     colors[ImGuiCol_ResizeGripActive] = ImVec4(0.28f, 0.56f, 0.85f, 1.00f);
 
-    // Tabs
+    // Tabs (Dear ImGui >= 1.92 naming; imgui is pinned in CMakeLists.txt).
     colors[ImGuiCol_Tab] = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
     colors[ImGuiCol_TabHovered] = ImVec4(0.24f, 0.48f, 0.73f, 0.80f);
-    colors[ImGuiCol_TabActive] = ImVec4(0.24f, 0.48f, 0.73f, 1.00f);
-    colors[ImGuiCol_TabUnfocused] = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
-    colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.22f, 0.22f, 0.22f, 1.00f);
+    colors[ImGuiCol_TabSelected] = ImVec4(0.24f, 0.48f, 0.73f, 1.00f);
+    colors[ImGuiCol_TabDimmed] = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+    colors[ImGuiCol_TabDimmedSelected] = ImVec4(0.22f, 0.22f, 0.22f, 1.00f);
 
     colors[ImGuiCol_DockingPreview] = ImVec4(0.24f, 0.48f, 0.73f, 0.70f);
     colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);

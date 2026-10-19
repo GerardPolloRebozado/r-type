@@ -26,6 +26,8 @@ class Registry;
  *   - `Opacity`   -> `Component.setOpacity` / `getOpacity`
  *   - `Parent`    -> `Component.setParent` / `getParent` / `getChildren`
  *   - `Input`     -> `Input.isKey*`, `Input.getMousePosition`, `KEY.*`
+ *   - `Multiplayer` -> `Net.register` / `on` / `off` / `send` / `broadcast` /
+ *                       `onConnect` / `onDisconnect` / `isServer` / `localId`
  *
  * `Scripting/LuaAPI/` — core modules that are not plugins:
  *

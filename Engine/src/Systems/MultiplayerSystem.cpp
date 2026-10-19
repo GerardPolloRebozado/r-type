@@ -12,6 +12,11 @@
 
 namespace Engine {
 void MultiplayerSystem::Update(Registry& registry, float dt) {
+    // The network host is optional: a game may create it later from Lua
+    // (Net.startServer / Net.startClient). Poll nothing until it exists.
+    if (!registry.HasResource<Multiplayer::NetworkHostResource>()) {
+        return;
+    }
     auto& networkHost = registry.GetResource<Multiplayer::NetworkHostResource>();
     auto& router = registry.GetResource<Multiplayer::PacketRouterResource>();
     networkHost.Poll(0, router, registry);

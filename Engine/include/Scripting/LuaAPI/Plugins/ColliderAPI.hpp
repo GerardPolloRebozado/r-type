@@ -10,10 +10,35 @@ class Registry;
 
 namespace Engine::LuaAPI {
 /**
- * @brief Registers `Component.addBoxCollider`.
+ * @brief Registers collider bindings in the `Component` namespace.
  *        Mirrors Engine's ColliderPlugin / ColliderComponent.
  *
- * @param lua View of the shared Lua state (lambdas capture a copy by value).
+ *   - `Component.addBoxCollider(entity, w, h [, isTrigger [, isStatic]])` -> bool
+ *     Reconfigures an existing collider in place: the shape is always replaced,
+ *     but layer/mask/enabled (and any flag that was not passed) are preserved.
+ *   - `Component.getColliderSize(entity)` -> {w, h, width, height} table or nil
+ *   - `Component.setColliderSize(entity, w, h)` -> bool
+ *   - `Component.getColliderEnabled(entity)` -> bool or nil
+ *   - `Component.setColliderEnabled(entity, v)` -> bool
+ *   - `Component.getColliderTrigger(entity)` -> bool or nil
+ *   - `Component.setColliderTrigger(entity, v)` -> bool
+ *   - `Component.getColliderStatic(entity)` -> bool or nil
+ *   - `Component.setColliderStatic(entity, v)` -> bool
+ *   - `Component.getColliderLayer(entity)` -> int or nil
+ *   - `Component.getColliderLayerName(entity)` -> string or nil
+ *   - `Component.setColliderLayer(entity, layerOrName)` -> bool
+ *   - `Component.getColliderMask(entity)` -> int or nil
+ *   - `Component.setColliderMask(entity, mask)` -> bool
+ *   - `Component.collidersCanCollide(a, b)` -> bool (the CollisionSystem pair filter)
+ *   - `Component.isColliding(entity)` -> bool (polls CollisionSystem contacts)
+ *   - `Component.getCollisions(entity)` -> array table of other entity ids
+ *
+ * Also registers the `Layers` namespace: `Layers.name(i)`, `Layers.index("Enemy")`,
+ * `Layers.bit(i | "Enemy")`, `Layers.all`, `Layers.none`, `Layers.count`.
+ *
+ * Removal uses the existing generic `Component.remove(entity, "Collider")`.
+ *
+ * @param lua View of the shared Lua state (used at registration time only).
  * @param registry ECS registry used to add the Collider component.
  */
 void registerCollider(sol::state_view lua, Registry& registry);

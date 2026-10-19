@@ -1,11 +1,16 @@
 #include "Scripting/LuaAPI/Plugins/ParentAPI.hpp"
+#include "Components/ColliderComponent.hpp"
 #include "Components/Parent.hpp"
+#include "Components/Position.hpp"
+#include "Components/ShapeComponent.hpp"
+#include "Components/SpriteComponent.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include "Plugins/HierarchyPlugin.hpp"
 #include "Scripting/LuaAPI/Internal/Helpers.hpp"
 #include "Systems/HierarchySystem.hpp"
+#include "Utils/EntityFlip.hpp"
 #include <sol/sol.hpp>
 #include <string>
 
@@ -15,6 +20,10 @@ void registerParent(sol::state_view lua, Registry& registry) {
     // Idempotent: guarantees the Parent array exists even when the game never
     // ran HierarchyPlugin (Lua-first prototypes, editor preview scenes).
     registry.RegisterComponent<Parent>();
+    registry.RegisterComponent<Position>();
+    registry.RegisterComponent<ColliderComponent>();
+    registry.RegisterComponent<ShapeComponent>();
+    registry.RegisterComponent<SpriteComponent>();
 
     sol::table component = Internal::ensureNamespace(lua, "Component");
 
@@ -51,6 +60,10 @@ void registerParent(sol::state_view lua, Registry& registry) {
             }
         }
         return out;
+    };
+
+    component["flipX"] = [&registry](Entity entity) -> bool {
+        return FlipEntityX(registry, entity);
     };
 }
 

@@ -1,5 +1,7 @@
 #include "Core/Application.hpp"
 #include "Components/Name.hpp"
+#include "Components/PrefabInstance.hpp"
+#include "Core/LaunchOptions.hpp"
 #include "Core/Renderer.hpp"
 #include "Logging/Logger.hpp"
 #include <chrono>
@@ -10,25 +12,35 @@
 
 namespace Engine {
 Application::Application(const ApplicationConfig& config) : m_Config(config), m_IsRunning(false) {
-    log_info("[Engine] Initializing Application window: " + m_Config.windowTitle);
+    if (m_Config.headless) {
+        log_info("[Engine] Starting in headless mode (no window, no rendering).");
+    } else {
+        log_info("[Engine] Initializing Application window: " + m_Config.windowTitle);
 
-    unsigned int maximizedFlag = config.maximized ? FLAG_WINDOW_MAXIMIZED : 0;
+        unsigned int maximizedFlag = config.maximized ? FLAG_WINDOW_MAXIMIZED : 0;
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | maximizedFlag);
+        SetConfigFlags(FLAG_WINDOW_RESIZABLE | maximizedFlag);
 
-    InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
-    SetTargetFPS(m_Config.targetFPS);
-    SetWindowMinSize(320, 240);
+        InitWindow(m_Config.windowWidth, m_Config.windowHeight, m_Config.windowTitle.c_str());
+        SetTargetFPS(m_Config.targetFPS);
+        SetWindowMinSize(320, 240);
+    }
 
     int virtualWidth = VirtualResolution::ResolveAxis(m_Config.virtualWidth, m_Config.windowWidth);
     int virtualHeight =
         VirtualResolution::ResolveAxis(m_Config.virtualHeight, m_Config.windowHeight);
 
-    m_Registry.AddResource<VirtualResolution>(virtualWidth, virtualHeight);
-    log_info("[Engine] Virtual resolution: " + std::to_string(virtualWidth) + "x" +
-             std::to_string(virtualHeight));
+    // no window on headless
+    if (!m_Config.headless) {
+        m_Registry.AddResource<VirtualResolution>(virtualWidth, virtualHeight);
+        log_info("[Engine] Virtual resolution: " + std::to_string(virtualWidth) + "x" +
+                 std::to_string(virtualHeight));
+    }
+
+    m_Registry.AddResource<LaunchOptions>(LaunchOptions{config.args});
 
     m_Registry.RegisterComponent<Name>();
+    m_Registry.RegisterComponent<PrefabInstance>();
 }
 
 Application::~Application() {
@@ -37,7 +49,9 @@ Application::~Application() {
     if (m_Registry.HasResource<VirtualResolution>()) {
         m_Registry.GetResource<VirtualResolution>().Unload();
     }
-    CloseWindow();
+    if (!m_Config.headless) {
+        CloseWindow();
+    }
 }
 
 void Application::Run() {
@@ -49,7 +63,7 @@ void Application::Run() {
 
     log_info("[Engine] Entering main game loop.");
 
-    while (m_IsRunning && !WindowShouldClose()) {
+    while (m_IsRunning && (m_Config.headless || !WindowShouldClose())) {
         auto currentTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsedTime = currentTime - previousTime;
         previousTime = currentTime;
@@ -69,7 +83,8 @@ void Application::Run() {
 }
 
 void Application::PreUpdate(float dt) {
-    if (!m_Config.customRender && m_Registry.HasResource<VirtualResolution>()) {
+    if (!m_Config.headless && !m_Config.customRender &&
+        m_Registry.HasResource<VirtualResolution>()) {
         auto& virtualResolution = m_Registry.GetResource<VirtualResolution>();
 
         virtualResolution.UpdateLetterbox(GetScreenWidth(), GetScreenHeight());
@@ -92,6 +107,9 @@ void Application::Update(float dt) {
 }
 
 void Application::PostUpdate(float dt) {
+    if (m_Config.headless) {
+        return; // No window, no canvas: systems already ran in Update().
+    }
     if (m_Config.customRender) {
         m_Config.customRender(m_Registry);
 

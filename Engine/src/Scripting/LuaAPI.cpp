@@ -7,19 +7,24 @@
 //   - `Scripting/LuaAPI/Plugins/`   -> one file per Engine plugin (Position,
 //                                      Rotation, Sprite, Shape, Text,
 //                                      Collider, Controller, Opacity, Parent,
-//                                      Input)
+//                                      Input, Connections)
 #include "Scripting/LuaAPI.hpp"
+#include "Core/LaunchOptions.hpp"
+#include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
 #include "Scripting/LuaAPI/EntityAPI.hpp"
 #include "Scripting/LuaAPI/LogAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ColliderAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/ConnectionsAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ControllerAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/InputAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/OpacityAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ParentAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/PositionAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/RotationAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/ScriptAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ShapeAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/SpriteAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/TextAPI.hpp"
@@ -55,10 +60,24 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerShape(lua, registry);
     registerText(lua, registry);
     registerCollider(lua, registry);
+    registerConnections(lua, registry);
     registerController(lua, registry);
     registerOpacity(lua, registry);
     registerParent(lua, registry);
     registerInput(lua);
+    registerMultiplayer(lua, registry);
+    registerScript(lua, registry);
+
+    // Command-line arguments, published as the Lua global `arg` (1-indexed) so
+    // scripts can pick a run mode without any game logic in C++.
+    if (registry.HasResource<LaunchOptions>()) {
+        const auto& args = registry.GetResource<LaunchOptions>().args;
+        sol::table argTable = lua.create_table();
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            argTable[i + 1] = args[i];
+        }
+        lua["arg"] = argTable;
+    }
 
     log_info("[LuaAPI] Engine API registered");
 }

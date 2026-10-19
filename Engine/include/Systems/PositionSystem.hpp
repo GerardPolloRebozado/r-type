@@ -16,7 +16,7 @@ namespace Engine {
 class PositionSystem : public System {
   public:
     /**
-     * @brief Snapshots prevX/prevY (and the moved flag) for all Positions.
+     * @brief Snapshots prevX/prevY/prevZ (and the moved flag) for all Positions.
      * @param registry The ECS registry containing the components.
      * @param dt Delta time for framerate independent movement.
      */

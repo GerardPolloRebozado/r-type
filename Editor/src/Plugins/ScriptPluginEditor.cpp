@@ -119,7 +119,8 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         ImGui::SameLine();
         ImGui::PushItemWidth(-1);
         if (ImGui::InputText("##ScriptPath", buffer, sizeof(buffer),
-                             ImGuiInputTextFlags_EnterReturnsTrue)) {
+                             ImGuiInputTextFlags_EnterReturnsTrue) ||
+            ImGui::IsItemDeactivatedAfterEdit()) {
             script.scriptPath = buffer;
             // Force a reload next update.
             script.loaded = false;
@@ -132,7 +133,7 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
             if (const ImGuiPayload* payload =
                     ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                 const char* path = static_cast<const char*>(payload->Data);
-                script.scriptPath = path;
+                script.scriptPath = ToProjectRelativePath(registry, path);
                 script.loaded = false;
                 script.scriptTable = sol::lua_nil;
             }
@@ -142,7 +143,7 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         ImGui::Checkbox("Auto Reload", &script.autoReload);
 
         if (!script.scriptPath.empty()) {
-            bool exists = std::filesystem::exists(script.scriptPath);
+            bool exists = std::filesystem::exists(ResolveAssetPath(registry, script.scriptPath));
             if (script.loaded) {
                 ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.4f, 1.0f), "Loaded");
             } else if (exists) {

@@ -147,7 +147,8 @@ bool CMakeListsHasEngineSources(const std::filesystem::path& cmakeFile) {
     if (!in) {
         return false;
     }
-    const std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const std::string contents((std::istreambuf_iterator<char>(in)),
+                               std::istreambuf_iterator<char>());
     return contents.find("set(SRC_FILES") != std::string::npos &&
            contents.find("set(INC_FILES") != std::string::npos;
 }
