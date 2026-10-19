@@ -75,8 +75,8 @@ void registerController(sol::state_view lua, Registry& registry) {
 
     controller["addKeybind"] =
         [&registry](const std::string& action, int key, sol::optional<int> deviceOpt,
-                    sol::optional<int> composeKeyOpt, const sol::optional<int> playerIdOpt,
-                    sol::optional<bool> networkedOpt) -> bool {
+                    const sol::optional<int> composeKeyOpt, const sol::optional<int> playerIdOpt,
+                    const sol::optional<bool> networkedOpt) -> bool {
         const int device = deviceOpt.value_or(static_cast<int>(KEYBOARD));
         if (device < static_cast<int>(KEYBOARD) || device > static_cast<int>(TOUCH)) {
             return false;
@@ -90,8 +90,7 @@ void registerController(sol::state_view lua, Registry& registry) {
         kb.key = key;
         kb.composeKey = composeKeyOpt.value_or(0);
         kb.type = static_cast<DeviceType>(device);
-        kb.networked = networkedOpt.value_or(false);
-        ctrl->addKeybind(action, kb);
+        ctrl->addKeybind(action, kb, networkedOpt.value_or(false));
         return true;
     };
 }

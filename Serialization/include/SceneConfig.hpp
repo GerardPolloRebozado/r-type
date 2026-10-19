@@ -19,8 +19,8 @@ struct SceneConfig : public Engine::ApplicationConfig {
     int m_MultiplayerClientCount = 2;
     bool m_MultiplayerServerHeadless = false;
 
-    // Map of Action Name -> List of Keybinds
-    std::unordered_map<std::string, std::vector<Engine::Keybind>> m_InputMap;
+    // Map of Action Name -> shortcuts + whether the action is networked
+    std::unordered_map<std::string, Engine::ActionBinding> m_InputMap;
 };
 
 } // namespace Serialization

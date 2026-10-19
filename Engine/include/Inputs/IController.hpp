@@ -28,7 +28,16 @@ struct Keybind {
     int key = 0;
     int composeKey = 0;
     DeviceType type = KEYBOARD;
-    /** @brief When true this bind's action is sent to the server in player_input. */
+};
+
+/**
+ * @struct ActionBinding
+ * @brief All shortcuts bound to one action name, plus whether that action is sent to the server.
+ */
+struct ActionBinding {
+    std::vector<Keybind> keybinds;
+
+    /** @brief When true this action is sent to the server in player_input. */
     bool networked = false;
 };
 
@@ -41,7 +50,7 @@ struct Keybind {
  */
 class IController {
   public:
-    using Kmap = std::unordered_map<Action, std::vector<Keybind>>;
+    using Kmap = std::unordered_map<Action, ActionBinding>;
 
     virtual ~IController() = default;
 
@@ -54,8 +63,9 @@ class IController {
      * @brief Binds a key/button to an abstract action name.
      * @param action The string identifier of the action (e.g. "JUMP", "SHOOT").
      * @param kb The Keybind descriptor.
+     * @param networked When true, marks the action as sent to the server in player_input.
      */
-    virtual void addKeybind(const Action& action, const Keybind& kb) = 0;
+    virtual void addKeybind(const Action& action, const Keybind& kb, bool networked = false) = 0;
 
     /**
      * @brief Checks if an action is currently active in this frame.
@@ -79,10 +89,10 @@ class IController {
     /** @brief Active actions triggered during this tick/frame. */
     std::set<Action> _activeActions;
 
-    /** @brief Subset of _activeActions whose pressed binds are marked networked. */
+    /** @brief Subset of _activeActions whose action is marked networked. */
     std::set<Action> _networkedActions;
 
-    /** @brief Mapping of action names to one or more physical key bindings. */
+    /** @brief Mapping of action names to their shortcuts and network flag. */
     Kmap m_keymap;
 };
 } // namespace Engine

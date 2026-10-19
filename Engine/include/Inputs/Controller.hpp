@@ -31,8 +31,11 @@ class Controller : public IController {
 
     /**
      * @brief Binds a physical button/key to an action name.
+     * @param action the action to add
+     * @param kb the specific keybind
+     * @param networked When true, marks the action as sent to the server in player_input.
      */
-    void addKeybind(const Action& action, const Keybind& kb) override;
+    void addKeybind(const Action& action, const Keybind& kb, bool networked = false) override;
 
     /**
      * @brief Checks if a specific action is active this frame.

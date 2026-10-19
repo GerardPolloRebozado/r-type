@@ -39,21 +39,24 @@ bool Controller::isKeybindPressed(const Keybind& kb) const {
 void Controller::Update() {
     _activeActions.clear();
     _networkedActions.clear();
-    for (const auto& [action, keybinds] : m_keymap) {
-        for (const auto& kb : keybinds) {
+    for (const auto& [action, binding] : m_keymap) {
+        for (const auto& kb : binding.keybinds) {
             if (!isKeybindPressed(kb)) {
                 continue;
             }
             _activeActions.emplace(action);
-            if (kb.networked) {
+            if (binding.networked) {
                 _networkedActions.emplace(action);
             }
+            break;
         }
     }
 }
 
-void Controller::addKeybind(const Action& action, const Keybind& kb) {
-    m_keymap[action].push_back(kb);
+void Controller::addKeybind(const Action& action, const Keybind& kb, const bool networked) {
+    ActionBinding& binding = m_keymap[action];
+    binding.keybinds.push_back(kb);
+    binding.networked = binding.networked || networked;
 }
 
 bool Controller::isActionActive(const std::string& action) const {

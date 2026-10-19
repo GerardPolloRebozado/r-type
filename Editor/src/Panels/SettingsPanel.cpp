@@ -136,12 +136,12 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
             << "    auto controller = std::make_unique<Engine::Controller>();\n";
 
-    for (const auto& [action, keybinds] : config.m_InputMap) {
-        for (const auto& kb : keybinds) {
+    for (const auto& [action, binding] : config.m_InputMap) {
+        for (const auto& kb : binding.keybinds) {
             mainOut << "    controller->addKeybind(\"" << cppEscape(action) << "\", {" << kb.key
                     << ", " << kb.composeKey << ", static_cast<Engine::DeviceType>("
-                    << static_cast<int>(kb.type) << "), " << (kb.networked ? "true" : "false")
-                    << "});\n";
+                    << static_cast<int>(kb.type) << ")}, " << (binding.networked ? "true" : "false")
+                    << ");\n";
         }
     }
     mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";

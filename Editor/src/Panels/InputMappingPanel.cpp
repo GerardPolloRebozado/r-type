@@ -189,7 +189,7 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
     if (ImGui::Button(ICON_FA_PLUS " Add Action")) {
         std::string action(m_NewActionBuffer);
         if (!action.empty() && config.m_InputMap.find(action) == config.m_InputMap.end()) {
-            config.m_InputMap[action] = std::vector<Engine::Keybind>();
+            config.m_InputMap[action] = Engine::ActionBinding{};
         }
         std::memset(m_NewActionBuffer, 0, sizeof(m_NewActionBuffer));
     }
@@ -199,9 +199,12 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
     std::string actionToDelete = "";
 
     // List Actions
-    for (auto& [actionName, keybinds] : config.m_InputMap) {
+    for (auto& [actionName, binding] : config.m_InputMap) {
         ImGui::PushID(actionName.c_str());
         bool actionOpen = ImGui::TreeNodeEx(actionName.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+
+        ImGui::SameLine();
+        ImGui::Checkbox("Networked", &binding.networked);
 
         ImGui::SameLine(ImGui::GetWindowWidth() - 40);
         if (ImGui::Button(ICON_FA_TRASH)) {
@@ -212,17 +215,16 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
             int bindIndex = 0;
             int bindToDelete = -1;
 
-            if (ImGui::BeginTable("##table", 5,
+            if (ImGui::BeginTable("##table", 4,
                                   ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                       ImGuiTableFlags_Resizable)) {
                 ImGui::TableSetupColumn("Device");
                 ImGui::TableSetupColumn("Key");
                 ImGui::TableSetupColumn("Modifier");
-                ImGui::TableSetupColumn("Networked");
                 ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 30.0f);
                 ImGui::TableHeadersRow();
 
-                for (auto& kb : keybinds) {
+                for (auto& kb : binding.keybinds) {
                     ImGui::TableNextRow();
                     ImGui::PushID(bindIndex);
 
@@ -314,11 +316,8 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                     }
                     ImGui::PopID();
 
-                    ImGui::TableSetColumnIndex(3);
-                    ImGui::Checkbox("Networked", &kb.networked);
-
                     // Delete Bind
-                    ImGui::TableSetColumnIndex(4);
+                    ImGui::TableSetColumnIndex(3);
                     if (ImGui::Button(ICON_FA_XMARK)) {
                         bindToDelete = bindIndex;
                     }
@@ -330,11 +329,11 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
             }
 
             if (bindToDelete != -1) {
-                keybinds.erase(keybinds.begin() + bindToDelete);
+                binding.keybinds.erase(binding.keybinds.begin() + bindToDelete);
             }
 
             if (ImGui::Button(ICON_FA_PLUS " Add Keybind")) {
-                keybinds.push_back({0, 0, Engine::KEYBOARD});
+                binding.keybinds.push_back({0, 0, Engine::KEYBOARD});
             }
 
             ImGui::TreePop();
