@@ -49,6 +49,9 @@
 
     pkgs.lefthook
     pkgs.lua5_4
+    pkgs.wasmtime
+
+    pkgs.emscripten
   ];
 
   # https://devenv.sh/languages/
