@@ -2,9 +2,11 @@ project(RTypeEditor)
 
 file(GLOB_RECURSE ASSETS_LIST CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*")
 
+set(ASSET_BUNDLER_EXECUTABLE "${CMAKE_BINARY_DIR}/AssetBundler")
+
 add_custom_command(
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp
-        COMMAND AssetBundler ${CMAKE_CURRENT_SOURCE_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp
+        COMMAND ${ASSET_BUNDLER_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp
         DEPENDS AssetBundler ${ASSETS_LIST}
         COMMENT "Bundling assets for Editor..."
 )
@@ -96,6 +98,11 @@ endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui glaze::glaze)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    target_compile_options(RTypeEditor PRIVATE -s ASYNCIFY)
+    target_link_options(RTypeEditor PRIVATE -s ASYNCIFY)
+endif()
 
 include(BakeEditorToolchain)
 bake_editor_toolchain(RTypeEditor)

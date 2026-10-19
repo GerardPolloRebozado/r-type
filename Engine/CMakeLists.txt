@@ -206,7 +206,25 @@ check_cxx_compiler_flag("-Wtemplate-body" HAS_TEMPLATE_BODY)
 if (HAS_TEMPLATE_BODY)
     target_compile_options(Engine PUBLIC -Wno-template-body -Wno-error=template-body)
 endif ()
-target_link_libraries(Engine PUBLIC PkgConfig::LUA)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    CPMAddPackage(
+            NAME lua
+            GITHUB_REPOSITORY lua/lua
+            GIT_TAG v5.4.7
+            DOWNLOAD_ONLY YES
+    )
+    if(EXISTS "${lua_SOURCE_DIR}/lua.h")
+        file(GLOB LUA_WASM_SOURCES "${lua_SOURCE_DIR}/*.c")
+        list(REMOVE_ITEM LUA_WASM_SOURCES
+                "${lua_SOURCE_DIR}/lua.c"
+                "${lua_SOURCE_DIR}/luac.c")
+        add_library(lua STATIC ${LUA_WASM_SOURCES})
+        target_include_directories(lua PUBLIC "${lua_SOURCE_DIR}")
+        target_link_libraries(Engine PUBLIC lua)
+    endif()
+else()
+    target_link_libraries(Engine PUBLIC PkgConfig::LUA)
+endif()
 target_link_libraries(Engine PUBLIC raylib)
 target_link_libraries(Engine PUBLIC enet_static)
 if (WIN32)
