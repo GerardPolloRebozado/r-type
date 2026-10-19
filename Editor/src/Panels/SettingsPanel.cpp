@@ -2,6 +2,7 @@
 #include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
 #include "ProjectSystemsBuild.hpp"
+#include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
 #include <algorithm>
 #include <array>
@@ -69,6 +70,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/HierarchyPlugin.hpp\"\n"
             << "#include \"Plugins/InputPlugin.hpp\"\n"
             << "#include \"Plugins/MultiplayerPlugin.hpp\"\n"
+            << "#include \"Plugins/ReplicationPlugin.hpp\"\n"
             << "#include \"Plugins/OpacityPlugin.hpp\"\n"
             << "#include \"Plugins/SignalPlugin.hpp\"\n"
             << "#include \"Plugins/PositionPlugin.hpp\"\n"
@@ -95,6 +97,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    config.targetFPS = " << config.targetFPS << ";\n\n"
 
             << "    config.args = std::vector<std::string>(argv + 1, argv + argc);\n"
+            << "    for (const auto& a : config.args) {\n"
+            << "        if (a == \"--headless\") config.headless = true;\n"
+            << "    }\n"
             << "    Engine::Application app(config);\n"
             << "    // HierarchyPlugin before PositionPlugin: parent deltas must\n"
             << "    // propagate before prevX/prevY are snapshotted.\n"
@@ -124,8 +129,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    cameraPlugin.Init(app.GetRegistry());\n"
             << "    Engine::ScriptPlugin scriptPlugin;\n"
             << "    scriptPlugin.Init(app.GetRegistry());\n"
-            // MultiplayerPlugin after ScriptPlugin: systems run in registration
-            // order, so scripts create the network host before MultiplayerSystem polls.
+            << "    Engine::Multiplayer::ReplicationPlugin replicationPlugin;\n"
+            << "    replicationPlugin.Init(app.GetRegistry());\n"
             << "    Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;\n"
             << "    multiplayerPlugin.Init(app.GetRegistry());\n\n"
             << "    auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();\n"
@@ -345,6 +350,23 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
         if (ImGui::InputText("Window Title", winTitle.data(), winTitle.size())) {
             config.m_BuildWindowTitle = winTitle.data();
         }
+
+        ImGui::Spacing();
+        ImGui::Text("Multiplayer Playtest");
+        ImGui::Separator();
+
+        ImGui::InputInt("Client Count", &config.m_MultiplayerClientCount);
+        const int maxClients = static_cast<int>(Engine::Multiplayer::PlayerSlotState::kMaxPlayers);
+        if (config.m_MultiplayerClientCount < 1) {
+            config.m_MultiplayerClientCount = 1;
+        }
+        if (config.m_MultiplayerClientCount > maxClients) {
+            config.m_MultiplayerClientCount = maxClients;
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Between 1 and %d (one color per player)", maxClients);
+        }
+        ImGui::Checkbox("Headless Server", &config.m_MultiplayerServerHeadless);
 
         ImGui::Spacing();
         ImGui::Text("Window Settings");

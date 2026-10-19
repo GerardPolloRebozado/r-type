@@ -1,9 +1,3 @@
--- TODO: _PataTrails is a bad idea. The engine should give us a proper way
--- to do this instead: ordered children (getChildren order is random, hence
--- the sort below), custom signals a script can emit (so links subscribe to
--- group movement instead of re-reading a trail buffer every frame), and a
--- real shared-data object instead of a _G global. See Unity (UnityEvent,
--- ScriptableObjects) and Godot (signals, shared Resources, autoloads)
 local Enemy = {}
 
 local SPRITES = {
@@ -13,7 +7,7 @@ local SPRITES = {
 	"assets/enemies/red-spinner/enemy1003.png",
 	"assets/enemies/red-spinner/enemy1004.png",
 	"assets/enemies/red-spinner/enemy1005.png",
-	"assets/enemies/red-spinner/enemy1006.png",
+	"assets/enemies/red-spinner/enemy1005.png",
 	"assets/enemies/red-spinner/enemy1007.png",
 }
 
@@ -30,9 +24,19 @@ local FRAME_DURATION = 0.1
 
 local SPACING = 100.0
 
--- Link order along the trail: entity ids say nothing about where a link sits in
--- the formation, so sort by x - the group's drift is leftward, so left = in
--- front. Must match group-patapata.lua.
+-- Only the server (and single-player) simulates replicated enemies. On a
+-- networked client, ReplicationSystem applies the server state. Entities
+-- without a NetworkComponent (no network id) still simulate locally.
+local function shouldSimulate(entity)
+	if Net == nil or not Net.isNetworked() then
+		return true
+	end
+	if Net.isServer() then
+		return true
+	end
+	return Net.networkId(entity) == nil
+end
+
 local function SortByX(ids)
 	table.sort(ids, function(a, b)
 		return Transform.getPosition(a).x < Transform.getPosition(b).x
@@ -61,6 +65,10 @@ function Enemy:onCreate(entity)
 	self.elapsed = 0.0
 	self.exploding = false
 
+	-- Without this the collision callback is never invoked, so the enemy can
+	-- never be destroyed. bink.lua does the same in its onCreate.
+	Component.connect(entity, "onCollisionEnter", entity, "onCollisionEnter")
+
 	Component.setSpritePath(entity, SPRITES[self.frame])
 	Component.addBoxCollider(entity, 32, 32)
 
@@ -81,6 +89,10 @@ function Enemy:onCreate(entity)
 end
 
 function Enemy:onUpdate(entity, dt)
+	if not shouldSimulate(entity) then
+		return
+	end
+
 	if not dt or dt <= 0 then
 		dt = 1.0 / 60.0
 	end
@@ -124,7 +136,16 @@ function Enemy:onUpdate(entity, dt)
 end
 
 function Enemy:onCollisionEnter(this, other)
+	if not shouldSimulate(this) then
+		return
+	end
+
 	if self.exploding then
+		return
+	end
+
+	-- Only die from player bullets, not from walls/floor
+	if Component.getColliderLayerName(other) ~= "PlayerBullet" then
 		return
 	end
 

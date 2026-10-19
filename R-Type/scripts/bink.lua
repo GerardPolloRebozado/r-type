@@ -37,6 +37,19 @@ local function NextJumpDelay()
 	return JUMP_DELAY_MIN + math.random() * (JUMP_DELAY_MAX - JUMP_DELAY_MIN)
 end
 
+-- Only the server (and single-player) simulates replicated enemies. On a
+-- networked client, ReplicationSystem applies the server state. Entities
+-- without a NetworkComponent (no network id) still simulate locally.
+local function shouldSimulate(entity)
+	if Net == nil or not Net.isNetworked() then
+		return true
+	end
+	if Net.isServer() then
+		return true
+	end
+	return Net.networkId(entity) == nil
+end
+
 function Script:onCreate(entity)
 	self.entity = entity
 	self.dir = -1
@@ -72,6 +85,10 @@ function Script:onCreate(entity)
 end
 
 function Script:onUpdate(entity, dt)
+	if not shouldSimulate(entity) then
+		return
+	end
+
 	if not dt or dt <= 0 then
 		dt = 1.0 / 60.0
 	end
@@ -113,6 +130,10 @@ function Script:TurnAround()
 end
 
 function Script:onCollisionEnter(this, other)
+	if not shouldSimulate(this) then
+		return
+	end
+
 	if self.exploding then
 		return
 	end

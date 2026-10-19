@@ -1,16 +1,20 @@
 /*
 ** EPITECH PROJECT, 2026
-** G-ING-500-BAR-5-1-rtype-1
+** G-ING_500_BAR_5_1_RTYPE_1
 ** File description:
 ** MultiplayerAPI.cpp
 */
 #include "Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp"
 
+#include "Components/NetworkComponent.hpp"
 #include "ECS/Registry.hpp"
+#include "Inputs/InputManager.hpp"
 #include "Logging/Logger.hpp"
 #include "Resources/NetworkHostResource.hpp"
 #include "Resources/PacketRegistryResource.hpp"
 #include "Resources/PacketRouterResource.hpp"
+#include "Resources/PlayerInputState.hpp"
+#include "Resources/PlayerSlotState.hpp"
 #include "Scripting/LuaAPI/Internal/Helpers.hpp"
 
 #include <algorithm>
@@ -24,11 +28,11 @@
 #include <string>
 
 namespace Engine::LuaAPI {
-namespace {
 
 using Multiplayer::NetworkHostResource;
 using Multiplayer::PacketRegistryResource;
 using Multiplayer::PacketRouterResource;
+using Multiplayer::PlayerSlotState;
 
 PacketRegistryResource* GetPacketRegistry(Registry& registry) {
     return &registry.GetResource<PacketRegistryResource>();
@@ -171,8 +175,6 @@ sol::object DecodePayload(sol::state_view lua, const uint8_t* payload, std::size
     }
     return sol::make_object(lua, raw); // not JSON: deliver the raw string
 }
-
-} // namespace
 
 void registerMultiplayer(sol::state_view lua, Registry& registry) {
     sol::table net = Internal::ensureNamespace(lua, "Net");
@@ -417,6 +419,28 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
         return sol::make_object(lua, static_cast<double>(*id));
     };
 
+    // Color slot (0-based) the server assigned to a player (0 = first color)
+    net["playerSlot"] = [&registry](sol::this_state ts, Entity entity) -> sol::object {
+        sol::state_view lua(ts);
+        if (!registry.HasResource<NetworkHostResource>() ||
+            !registry.HasResource<PlayerSlotState>()) {
+            return sol::object{};
+        }
+        const auto networkId =
+            registry.GetResource<NetworkHostResource>().GetNetworkId(registry, entity);
+        if (!networkId.has_value()) {
+            return sol::object{};
+        }
+        const auto slot = registry.GetResource<PlayerSlotState>().Get(*networkId);
+        if (!slot.has_value()) {
+            return sol::object{};
+        }
+        return sol::make_object(lua, static_cast<int>(*slot));
+    };
+
+    // Number of distinct player colors/slots the game supports.
+    net["maxPlayers"] = []() { return static_cast<int>(PlayerSlotState::kMaxPlayers); };
+
     net["entityFromId"] = [&registry](sol::this_state ts, double networkId) -> sol::object {
         sol::state_view lua(ts);
         if (!registry.HasResource<NetworkHostResource>()) {
@@ -457,6 +481,271 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
             return sol::object{};
         }
         return sol::make_object(lua, *entity);
+    };
+
+    // True when this process created a host (Play Multiplayer), false for
+    // single-player. Lets one script support both modes
+    net["isNetworked"] = [&registry]() { return registry.HasResource<NetworkHostResource>(); };
+
+    // True when the entity belongs to this client (its network id matches the
+    // id the server assigned to this process)
+    net["isLocal"] = [&registry](Entity entity) -> bool {
+        if (!registry.HasResource<NetworkHostResource>()) {
+            return false;
+        }
+        auto& host = registry.GetResource<NetworkHostResource>();
+        const auto localId = host.GetLocalNetworkId();
+        const auto entityId = host.GetNetworkId(registry, entity);
+        return localId.has_value() && entityId.has_value() && *localId == *entityId;
+    };
+
+    /**
+     * Input for an entity, as a Lua table { up, down, left, right, shoot }.
+     *
+     * - Server: the last input received for that player.
+     * - Client: the local controller input when the entity is the local player.
+     * - Remote entity / single-player: nil (the caller falls back to Controller).
+     *
+     * This is what lets gameplay scripts move server-authoritative players
+     * without ever touching ENet: player.lua simply reads Net.input(entity).
+     */
+    net["input"] = [&registry](sol::this_state ts, Entity entity) -> sol::object {
+        sol::state_view lua(ts);
+        if (!registry.HasResource<NetworkHostResource>()) {
+            return sol::object{};
+        }
+        auto& host = registry.GetResource<NetworkHostResource>();
+        const auto entityId = host.GetNetworkId(registry, entity);
+        if (!entityId.has_value()) {
+            return sol::object{};
+        }
+
+        auto makeTable = [&lua](const Multiplayer::NetInput& input) {
+            sol::table table = lua.create_table();
+            table["up"] = input.up;
+            table["down"] = input.down;
+            table["left"] = input.left;
+            table["right"] = input.right;
+            table["shoot"] = input.shoot;
+            return sol::make_object(lua, table);
+        };
+
+        if (host.IsServer()) {
+            Multiplayer::NetInput input{};
+            if (registry.HasResource<Multiplayer::PlayerInputState>()) {
+                const auto& inputs =
+                    registry.GetResource<Multiplayer::PlayerInputState>().byNetworkId;
+                if (const auto it = inputs.find(*entityId); it != inputs.end()) {
+                    input = it->second;
+                }
+            }
+            return makeTable(input);
+        }
+
+        const auto localId = host.GetLocalNetworkId();
+        if (!localId.has_value() || *localId != *entityId ||
+            !registry.HasResource<InputManager>()) {
+            return sol::object{};
+        }
+        auto* controller = registry.GetResource<InputManager>().GetController(1);
+        if (controller == nullptr) {
+            return sol::object{};
+        }
+        Multiplayer::NetInput input;
+        input.up = controller->isActionActive("UP");
+        input.down = controller->isActionActive("DOWN");
+        input.left = controller->isActionActive("LEFT");
+        input.right = controller->isActionActive("RIGHT");
+        input.shoot = controller->isActionActive("SHOOT");
+        return makeTable(input);
+    };
+
+    /**
+     * Marks a runtime entity (bullet, effect, ...) as replicated.
+     * Net.replicate(entity, "Server", true, true)
+     *
+     * On the server this assigns a network id immediately; ReplicationSystem
+     * announces the spawn and syncs Position/Rotation/Sprite from then on. On
+     * a client it only tags the entity (clients never broadcast).
+     */
+    net["replicate"] = [&registry](Entity entity, sol::optional<std::string> authority,
+                                   sol::optional<bool> syncTransform,
+                                   sol::optional<bool> syncSprite,
+                                   sol::optional<std::string> prefabPath) -> bool {
+        if (!registry.IsEntityAlive(entity) ||
+            !registry.IsComponentRegistered<NetworkComponent>()) {
+            return false;
+        }
+        NetworkComponent network;
+        if (registry.HasComponent<NetworkComponent>(entity)) {
+            network = registry.GetComponent<NetworkComponent>(entity);
+        }
+        network.authority = authority.value_or("Server");
+        network.syncTransform = syncTransform.value_or(true);
+        network.syncSprite = syncSprite.value_or(false);
+        if (prefabPath.has_value()) {
+            network.prefabPath = *prefabPath;
+        }
+
+        registry.AddComponent<NetworkComponent>(entity, network);
+        if (registry.HasResource<NetworkHostResource>()) {
+            auto& host = registry.GetResource<NetworkHostResource>();
+            if (host.IsServer() && network.networkId == 0) {
+                network.networkId = host.GetNextNetworkId();
+                registry.AddComponent<NetworkComponent>(entity, network);
+                host.TrackNetworkEntity(registry, entity, network.networkId);
+            }
+        }
+        return true;
+    };
+
+    // Sends a custom message to all other machines about this entity
+    // Usage: entity:rpc("methodName", { arg1 = 1, arg2 = "hello" })
+    net["rpc"] = [&registry](Entity entity, const std::string& method, sol::object data) -> bool {
+        if (!registry.HasResource<NetworkHostResource>() ||
+            !registry.HasResource<PacketRegistryResource>()) {
+            return false;
+        }
+        if (!registry.HasComponent<NetworkComponent>(entity)) {
+            return false;
+        }
+        const auto& netComp = registry.GetComponent<NetworkComponent>(entity);
+        if (netComp.networkId == 0) {
+            return false;
+        }
+
+        auto& host = registry.GetResource<NetworkHostResource>();
+        auto& packetRegistry = registry.GetResource<PacketRegistryResource>();
+
+        // Serialize the RPC payload
+        glz::generic msg{};
+        msg = glz::generic::object_t{};
+        auto& obj = msg.get_object();
+        obj["entityId"] = static_cast<double>(netComp.networkId);
+        obj["method"] = method;
+        std::set<const void*> seen;
+        obj["data"] = LuaToGeneric(data, seen, 0);
+
+        std::string json;
+        if (!glz::write_json(msg, json)) {
+            return false;
+        }
+
+        const auto packetId = packetRegistry.GetOrRegister("entity_rpc");
+        auto* packet = NetworkHostResource::CreateRawPacket(
+            static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
+            json.size(), true);
+        if (!packet) {
+            return false;
+        }
+
+        if (host.IsServer()) {
+            host.SendAllHost(packet, 0);
+        } else {
+            host.Send(packet, 0);
+        }
+        return true;
+    };
+
+    // Entity-scoped RPC escape hatch (unreliable)
+    // Same as rpc but sent unreliably (for high-frequency updates)
+    net["rpcUnreliable"] = [&registry](Entity entity, const std::string& method,
+                                       sol::object data) -> bool {
+        if (!registry.HasResource<NetworkHostResource>() ||
+            !registry.HasResource<PacketRegistryResource>()) {
+            return false;
+        }
+        if (!registry.HasComponent<NetworkComponent>(entity)) {
+            return false;
+        }
+        const auto& netComp = registry.GetComponent<NetworkComponent>(entity);
+        if (netComp.networkId == 0) {
+            return false;
+        }
+
+        auto& host = registry.GetResource<NetworkHostResource>();
+        auto& packetRegistry = registry.GetResource<PacketRegistryResource>();
+
+        glz::generic msg{};
+        msg = glz::generic::object_t{};
+        auto& obj = msg.get_object();
+        obj["entityId"] = static_cast<double>(netComp.networkId);
+        obj["method"] = method;
+        std::set<const void*> seen;
+        obj["data"] = LuaToGeneric(data, seen, 0);
+
+        std::string json;
+        if (!glz::write_json(msg, json)) {
+            return false;
+        }
+
+        const auto packetId = packetRegistry.GetOrRegister("entity_rpc");
+        auto* packet = NetworkHostResource::CreateRawPacket(
+            static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
+            json.size(), false);
+        if (!packet) {
+            return false;
+        }
+
+        if (host.IsServer()) {
+            host.SendAllHost(packet, 0);
+        } else {
+            host.Send(packet, 0);
+        }
+        return true;
+    };
+
+    // Register a handler for entity RPCs
+    // Usage: Net.onEntityRpc("methodName", function(entity, data) ... end)
+    net["onEntityRpc"] = [&registry](sol::this_state ts, const std::string& method,
+                                     sol::function handler) -> bool {
+        if (!registry.HasResource<PacketRouterResource>() || !handler.valid()) {
+            return false;
+        }
+        auto& router = registry.GetResource<PacketRouterResource>();
+
+        const auto packetId =
+            registry.GetResource<PacketRegistryResource>().GetOrRegister("entity_rpc");
+
+        router.On(packetId, [method, handler](Registry& registry, ENetPeer* peer,
+                                              const uint8_t* payload, std::size_t size) {
+            if (size == 0 || payload == nullptr) {
+                return;
+            }
+            const std::string raw{reinterpret_cast<const char*>(payload), size};
+            glz::generic msg{};
+            if (!glz::read_json(msg, raw)) {
+                return;
+            }
+
+            auto& host = registry.GetResource<NetworkHostResource>();
+            const auto& obj = msg.get_object();
+            auto it = obj.find("entityId");
+            if (it == obj.end()) {
+                return;
+            }
+            const std::size_t netId = static_cast<std::size_t>(it->second.get<double>());
+
+            auto methodIt = obj.find("method");
+            if (methodIt == obj.end() || methodIt->second.get<std::string>() != method) {
+                return;
+            }
+
+            if (auto found = host.GetEntityByNetworkId(netId); found.has_value()) {
+                Entity entity = *found;
+                auto dataIt = obj.find("data");
+                sol::object data = sol::object{};
+                if (dataIt != obj.end()) {
+                    data = GenericToLua(sol::state_view{handler.lua_state()}, dataIt->second);
+                }
+                auto result = handler(entity, data);
+                if (!result.valid()) {
+                    sol::error err = result;
+                    log_error("[Net] entity:rpc '" + method + "' handler error: " + err.what());
+                }
+            }
+        });
+        return true;
     };
 }
 

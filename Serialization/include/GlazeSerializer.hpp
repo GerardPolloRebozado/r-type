@@ -2,11 +2,13 @@
 #define SERIALIZATION_GLAZESERIALIZER_HPP_
 
 #include "Components/CameraComponent.hpp"
+#include "Components/NetworkComponent.hpp"
 #include "Components/Opacity.hpp"
 #include "Components/PrefabInstance.hpp"
 #include "Components/SignalConnections.hpp"
 #include "ECS/Registry.hpp"
 #include "GlazeReflect.hpp"
+#include "Reflection/ComponentReflect.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <cstddef>
 #include <cstring>
@@ -60,6 +62,7 @@ class GlazeSerializer {
         std::optional<Engine::AudioSource> audioSource;
         std::optional<Engine::CameraComponent> camera;
         std::optional<Engine::ScriptComponent> script;
+        std::optional<Engine::NetworkComponent> network;
         // Absent on old scenes. Present only on a subtree root tied to a .prefab.
         std::optional<Engine::PrefabInstance> prefab;
     };

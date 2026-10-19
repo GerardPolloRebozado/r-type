@@ -16,6 +16,9 @@ struct SceneConfig : public Engine::ApplicationConfig {
     std::string m_BuildWindowTitle = "Game";
     std::string m_InitialScenePath;
 
+    int m_MultiplayerClientCount = 2;
+    bool m_MultiplayerServerHeadless = false;
+
     // Map of Action Name -> List of Keybinds
     std::unordered_map<std::string, std::vector<Engine::Keybind>> m_InputMap;
 };

@@ -7,6 +7,6 @@ add_custom_command(
     COMMENT "Bundling assets for R-Type..."
 )
 
-add_executable(R-Type main.cpp ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
-target_include_directories(R-Type PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(R-Type PRIVATE Engine)
+add_executable(Game main.cpp ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
+target_include_directories(Game PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(Game PRIVATE Engine Serialization)

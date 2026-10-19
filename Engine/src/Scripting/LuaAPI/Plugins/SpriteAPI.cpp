@@ -1,6 +1,7 @@
 #include "Scripting/LuaAPI/Plugins/SpriteAPI.hpp"
 #include "Assets/AssetManager.hpp"
 #include "Assets/ProjectPaths.hpp"
+#include "Components/Name.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
@@ -163,6 +164,21 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         sc.sprite = am.GetSprite(path);
         sc.assetPath = path;
         return true;
+    };
+
+    // Find an entity by its Name component value
+    // not ideal though
+    component["findEntityByName"] = [&registry, lua](const std::string& name) -> sol::object {
+        for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
+            Entity entity = i;
+            if (registry.HasComponent<Engine::Name>(entity)) {
+                const auto& nameComp = registry.GetComponent<Engine::Name>(entity);
+                if (nameComp.value == name) {
+                    return sol::make_object(lua, entity);
+                }
+            }
+        }
+        return sol::object{};
     };
 }
 

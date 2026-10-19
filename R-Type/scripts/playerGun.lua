@@ -1,6 +1,10 @@
 -- playerGun.lua
 -- Attached to: Gun (child of Player entity)
--- Features: Muzzle flash + shooting projectiles (server-authoritative)
+-- Features: Muzzle flash + server-authoritative projectiles.
+--
+-- Only the single-player process and the server fire. A networked client
+-- sends its SHOOT bit in the input packet; the server spawns the projectile and
+-- marks it as a replicated runtime entity, so every client sees it.
 
 local Script = {}
 
@@ -13,6 +17,37 @@ local PROJECTILE_SPRITE = "assets/player/shoot/laserbeam.png"
 local PROJECTILE_SPEED = 1800.0 -- pixels per second
 local PROJECTILE_LIFETIME = 2.0 -- seconds before auto-remove
 local FIRE_COOLDOWN = 0.15 -- seconds between shots
+
+local function isNetworked()
+    return Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked()
+end
+
+local function shouldSimulate()
+    if not isNetworked() then
+        return true
+    end
+    return Net.isServer()
+end
+
+local function readInput(owner)
+    if Net ~= nil and Net.input ~= nil then
+        local input = Net.input(owner)
+        if input ~= nil then
+            return input
+        end
+    end
+    return {
+        shoot = Controller.isActionActive("SHOOT"),
+    }
+end
+
+local function isShootDown(entity)
+    local owner = Component.getParent(entity)
+    if owner == nil then
+        return false
+    end
+    return readInput(owner).shoot == true
+end
 
 function Script:onCreate(entity)
     self.entity = entity
@@ -27,20 +62,14 @@ function Script:onCreate(entity)
 
     Component.setSpritePath(entity, MUZZLE_01)
     Component.setOpacity(entity, 0.0)
-
-    log.info("[" .. tostring(entity) .. "] Script created")
-end
-
-local function isShootDown(entity)
-    local owner = Component.getParent(entity)
-    if owner == nil then
-        return false
-    end
-    local input = NetInput and NetInput[owner]
-    return (input and input.shoot) == true
 end
 
 function Script:onUpdate(entity, dt)
+    -- Networked client: the server decides when bullets exist.
+    if not shouldSimulate() then
+        return
+    end
+
     if not dt or dt <= 0 then
         dt = 1.0 / 60.0
     end
@@ -115,14 +144,16 @@ function Script:fireProjectile()
 
     Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
 
+    -- In multiplayer this assigns a network id and makes ReplicationSystem
+    -- announce the spawn + sync its position/sprite to every client.
+    if isNetworked() then
+        Net.replicate(projEntity, "Server", true, true)
+    end
+
     table.insert(self.projectiles, {
         entity = projEntity,
         timer = PROJECTILE_LIFETIME,
     })
-
-    Net.broadcast("shoot", { x = gunPosX, y = gunPosY + 6 }, true)
-
-    log.info("[" .. tostring(self.entity) .. "] Fired projectile")
 end
 
 function Script:onProjectileHit(bullet, other)
@@ -140,7 +171,6 @@ function Script:onDestroy(entity)
         Entity.destroy(proj.entity)
     end
     self.projectiles = {}
-    log.info("[" .. tostring(entity) .. "] Script destroyed")
 end
 
 return Script

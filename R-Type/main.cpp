@@ -9,6 +9,7 @@
 #include "Plugins/MultiplayerPlugin.hpp"
 #include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/ReplicationPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
 #include "Plugins/SignalPlugin.hpp"
@@ -31,6 +32,11 @@ int main(int argc, char* argv[]) {
     config.targetFPS = 60;
 
     config.args = std::vector<std::string>(argv + 1, argv + argc);
+    for (const auto& a : config.args) {
+        if (a == "--headless") {
+            config.headless = true;
+        }
+    }
     Engine::Application app(config);
     // HierarchyPlugin before PositionPlugin: parent deltas must
     // propagate before prevX/prevY are snapshotted.
@@ -60,6 +66,8 @@ int main(int argc, char* argv[]) {
     cameraPlugin.Init(app.GetRegistry());
     Engine::ScriptPlugin scriptPlugin;
     scriptPlugin.Init(app.GetRegistry());
+    Engine::Multiplayer::ReplicationPlugin replicationPlugin;
+    replicationPlugin.Init(app.GetRegistry());
     Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;
     multiplayerPlugin.Init(app.GetRegistry());
 

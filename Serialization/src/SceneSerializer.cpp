@@ -1,6 +1,7 @@
 #include "SceneSerializer.hpp"
 #include "Components/Name.hpp"
 #include "Logging/Logger.hpp"
+#include "RuntimePrefab.hpp"
 #include <filesystem>
 #include <fstream>
 
@@ -48,6 +49,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
                                   const std::optional<std::reference_wrapper<SceneConfig>> config,
                                   const SerializationFormat format) {
     m_Serializer.SetFormat(format);
+    RegisterRuntimePrefabSpawner(registry);
 
     std::error_code ec;
     const std::string fallbackFolder =

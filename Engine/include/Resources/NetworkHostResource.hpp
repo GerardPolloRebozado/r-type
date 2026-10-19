@@ -75,11 +75,26 @@ class NetworkHostResource {
      */
     static void SetPeerEntity(ENetPeer* peer, Entity entity);
 
-    /**
-     * @brief True when this host was created with CreateServer().
-     */
     bool IsServer() const {
         return m_isServer;
+    }
+
+    /**
+     * @brief Assigns and returns the next network id.
+     */
+    std::size_t GetNextNetworkId() {
+        return m_nextNetworkId++;
+    }
+
+    /**
+     * @brief Sets the next id to assign.
+     *
+     * Replication reserves the low ids for entities that already exist in the
+     * scene on every machine, and starts runtime spawns (players, bullets)
+     * above them to avoid collisions.
+     */
+    void SetNextNetworkId(std::size_t id) {
+        m_nextNetworkId = id;
     }
 
     /**
@@ -113,6 +128,27 @@ class NetworkHostResource {
      * @brief Peer backing a server-side player entity, if still connected.
      */
     std::optional<ENetPeer*> GetPeer(Entity entity) const;
+
+    struct ConnectionEvent {
+        enum class Type { Connect, Disconnect };
+        Type type;
+        ENetPeer* peer;
+        /** Player entity bound to the peer when the event was raised, if any. */
+        Entity entity = static_cast<Entity>(-1);
+        /** Network id bound to the peer when the event was raised, 0 if none. */
+        std::size_t networkId = 0;
+    };
+    /** Queue a connect/disconnect for the replication system to process. */
+    void QueueEvent(ConnectionEvent::Type type, ENetPeer* peer,
+                    Entity entity = static_cast<Entity>(-1), std::size_t networkId = 0) {
+        m_eventQueue.push_back(ConnectionEvent{type, peer, entity, networkId});
+    }
+    /** Drain queued connection events (called by ReplicationSystem each tick). */
+    std::vector<ConnectionEvent> DrainEvents() {
+        std::vector<ConnectionEvent> out = std::move(m_eventQueue);
+        m_eventQueue.clear();
+        return out;
+    }
 
     /**
      * @brief Binds an entity to a network id and tags it with PlayerInformation.
@@ -216,7 +252,8 @@ class NetworkHostResource {
         : m_host(other.m_host), server_peer(other.server_peer), m_isServer(other.m_isServer),
           m_nextNetworkId(other.m_nextNetworkId), m_localNetworkId(other.m_localNetworkId),
           m_localEntity(other.m_localEntity), m_idToEntity(std::move(other.m_idToEntity)),
-          m_entityToPeer(std::move(other.m_entityToPeer)) {
+          m_entityToPeer(std::move(other.m_entityToPeer)),
+          m_eventQueue(std::move(other.m_eventQueue)) {
         other.m_host = nullptr;
         other.server_peer = nullptr;
     }
@@ -234,6 +271,7 @@ class NetworkHostResource {
             m_localEntity = other.m_localEntity;
             m_idToEntity = std::move(other.m_idToEntity);
             m_entityToPeer = std::move(other.m_entityToPeer);
+            m_eventQueue = std::move(other.m_eventQueue);
             other.m_host = nullptr;
             other.server_peer = nullptr;
         }
@@ -263,6 +301,7 @@ class NetworkHostResource {
     std::optional<Entity> m_localEntity;
     std::unordered_map<std::size_t, Entity> m_idToEntity;
     std::unordered_map<Entity, ENetPeer*> m_entityToPeer;
+    std::vector<ConnectionEvent> m_eventQueue;
 };
 } // namespace Engine::Multiplayer
 #endif // G_ING_500_BAR_5_1_RTYPE_1_NETWORKHOST_HPP

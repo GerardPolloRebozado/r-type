@@ -65,6 +65,7 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
         src/Systems/MultiplayerSystem.cpp
+        src/Systems/ReplicationSystem.cpp
         src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
         include/Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp
         src/Utils/EntityFlip.cpp
@@ -84,6 +85,7 @@ set(INC_FILES
         include/Components/ComponentExample.hpp
         include/Components/Input.hpp
         include/Components/Name.hpp
+        include/Components/NetworkComponent.hpp
         include/Components/Opacity.hpp
         include/Components/Parent.hpp
         include/Components/PluginExampleEvents.hpp
@@ -120,6 +122,9 @@ set(INC_FILES
         include/Plugins/OpacityPlugin.hpp
         include/Plugins/SignalPlugin.hpp
         include/Resources/NetworkHostResource.hpp
+        include/Resources/PlayerInputState.hpp
+        include/Resources/PlayerSlotState.hpp
+        include/Resources/PrefabSpawner.hpp
         include/Plugins/PluginExample.hpp
         include/Plugins/PositionPlugin.hpp
         include/Plugins/RotationPlugin.hpp
@@ -163,6 +168,7 @@ set(INC_FILES
         include/Systems/TextSystem.hpp
         include/Resources/PacketRouterResource.hpp
         include/Systems/MultiplayerSystem.hpp
+        include/Systems/ReplicationSystem.hpp
         include/ENetContext.hpp
         include/Logging/LogBuffer.hpp
         include/Utils/EntityFlip.hpp
@@ -170,7 +176,9 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp
         include/Resources/PacketRegistryResource.hpp
         include/Plugins/MultiplayerPlugin.hpp
+        include/Plugins/ReplicationPlugin.hpp
         src/Plugins/MultiplayerPlugin.cpp
+        src/Plugins/ReplicationPlugin.cpp
 )
 
 add_library(Engine STATIC ${SRC_FILES} ${INC_FILES})

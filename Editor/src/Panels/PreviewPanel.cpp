@@ -17,6 +17,7 @@
 #include "Logging/Logger.hpp"
 #include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
+#include "Plugins/NetworkComponentPluginEditor.hpp"
 #include "Plugins/OpacityPluginEditor.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
@@ -63,6 +64,7 @@ void RegisterPreviewComponents(Engine::Registry& registry) {
     registry.RegisterComponent<Engine::ScriptComponent>();
     registry.RegisterComponent<Engine::SignalConnections>();
     registry.RegisterComponent<Engine::PrefabInstance>();
+    registry.RegisterComponent<Engine::NetworkComponent>();
 }
 
 void CollectSubtree(Engine::Registry& registry, Engine::Entity entity,
@@ -203,6 +205,9 @@ void ApplySnapshot(Engine::Registry& scene, Engine::Entity entity, const Snapsho
     if (source.script.has_value()) {
         ApplyScript(scene, entity, *source.script);
     }
+    if (source.network.has_value()) {
+        scene.AddComponent(entity, *source.network);
+    }
 }
 } // namespace
 
@@ -217,6 +222,7 @@ struct PreviewPanel::PrefabPreviewState {
 
 PreviewPanel::PreviewPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<NetworkComponentPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<TextPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ShapePluginEditor>());
     m_PluginEditors.push_back(std::make_unique<RotationPluginEditor>());
@@ -317,6 +323,9 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
         }
         if (!current[i].script.has_value()) {
             current[i].script = m_Prefab->fileSnapshots[i].script;
+        }
+        if (!current[i].network.has_value()) {
+            current[i].network = m_Prefab->fileSnapshots[i].network;
         }
     }
     if (!current.empty()) {

@@ -86,6 +86,10 @@ GlazeSerializer::EntitySnapshot GlazeSerializer::CaptureEntity(Engine::Registry&
     if (registry.HasComponent<Engine::ScriptComponent>(entity)) {
         entitySnapshot.script = registry.GetComponent<Engine::ScriptComponent>(entity);
     }
+    if (registry.IsComponentRegistered<Engine::NetworkComponent>() &&
+        registry.HasComponent<Engine::NetworkComponent>(entity)) {
+        entitySnapshot.network = registry.GetComponent<Engine::NetworkComponent>(entity);
+    }
     // Tests and tools that never register this type must still capture a scene.
     if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
         registry.HasComponent<Engine::PrefabInstance>(entity)) {
@@ -176,6 +180,9 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
         }
         if (entitySnapshot.script.has_value()) {
             registry.AddComponent<Engine::ScriptComponent>(entity, entitySnapshot.script.value());
+        }
+        if (entitySnapshot.network.has_value()) {
+            registry.AddComponent<Engine::NetworkComponent>(entity, entitySnapshot.network.value());
         }
         if (entitySnapshot.prefab.has_value()) {
             registry.RegisterComponent<Engine::PrefabInstance>();

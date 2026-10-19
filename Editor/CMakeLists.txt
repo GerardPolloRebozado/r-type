@@ -29,6 +29,7 @@ set(SRC_FILES
         src/Plugins/PositionPluginEditor.cpp
         src/Plugins/TextPluginEditor.cpp
         src/Plugins/SpritePluginEditor.cpp
+        src/Plugins/NetworkComponentPluginEditor.cpp
         src/Plugins/ShapePluginEditor.cpp
         src/Plugins/RotationPluginEditor.cpp
         src/Plugins/OpacityPluginEditor.cpp
@@ -65,6 +66,7 @@ set(INC_FILES
         include/Plugins/PositionPluginEditor.hpp
         include/Plugins/TextPluginEditor.hpp
         include/Plugins/SpritePluginEditor.hpp
+        include/Plugins/NetworkComponentPluginEditor.hpp
         include/Plugins/ShapePluginEditor.hpp
         include/Plugins/RotationPluginEditor.hpp
         include/Plugins/OpacityPluginEditor.hpp

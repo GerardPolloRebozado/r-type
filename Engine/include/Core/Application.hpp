@@ -33,6 +33,11 @@ struct ApplicationConfig {
     std::vector<std::string> args;
     std::function<void()> onUI = nullptr;
     std::function<void(Registry&)> customRender = nullptr;
+    /**
+     * @brief When true, runs without a window or rendering. Systems and
+     * networking still tick. Used by the editor's headless-server launch.
+     */
+    bool headless = false;
 };
 
 /**

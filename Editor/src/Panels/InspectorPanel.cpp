@@ -5,6 +5,7 @@
 #include "Panels/StatePanel.hpp"
 #include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
+#include "Plugins/NetworkComponentPluginEditor.hpp"
 #include "Plugins/OpacityPluginEditor.hpp"
 #include "Plugins/PositionPluginEditor.hpp"
 #include "Plugins/RotationPluginEditor.hpp"
@@ -21,6 +22,7 @@
 namespace Editor {
 InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<NetworkComponentPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<TextPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ShapePluginEditor>());
     m_PluginEditors.push_back(std::make_unique<RotationPluginEditor>());

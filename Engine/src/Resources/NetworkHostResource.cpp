@@ -10,14 +10,35 @@
 
 #include "Compat/EnetWrapper.hpp"
 #include "ECS/Registry.hpp"
+#include "Logging/Logger.hpp"
 
-#include <iostream>
+#include <mutex>
 #include <span>
 
 namespace Engine::Multiplayer {
+
+namespace {
+
+/**
+ * ENet must be initialized exactly once before any host is created. The
+ * editor-generated game entry point never calls enet_initialize() itself, so
+ * the SDK does it lazily here, no matter who creates the first host.
+ */
+void EnsureENetInitialized() {
+    static std::once_flag initialized;
+    std::call_once(initialized, [] {
+        if (enet_initialize() != 0) {
+            throw std::runtime_error("Failed to initialize ENet.");
+        }
+    });
+}
+
+} // namespace
+
 NetworkHostResource NetworkHostResource::CreateServer(const std::uint16_t port,
                                                       const std::size_t maxClients,
                                                       const std::size_t channels) {
+    EnsureENetInitialized();
     ENetAddress address{};
     address.host = ENET_HOST_ANY;
     address.port = port;
@@ -25,6 +46,7 @@ NetworkHostResource NetworkHostResource::CreateServer(const std::uint16_t port,
 }
 
 NetworkHostResource NetworkHostResource::CreateClient(size_t channels) {
+    EnsureENetInitialized();
     return {nullptr, 1, channels, false};
 }
 
@@ -82,6 +104,8 @@ void NetworkHostResource::TrackNetworkEntity(Registry& registry, Entity entity,
     m_idToEntity[networkId] = entity;
     if (m_localNetworkId.has_value() && *m_localNetworkId == networkId) {
         m_localEntity = entity;
+        log_info("[Network] Bound local entity " + std::to_string(entity) + " to network id " +
+                 std::to_string(networkId));
     }
 }
 
@@ -104,6 +128,7 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
     while (enet_host_service(m_host, &event, timeoutMs) > 0) {
         switch (event.type) {
             case ENET_EVENT_TYPE_CONNECT: {
+                // Only the server spawns a player per connection
                 if (m_isServer) {
                     const auto playerEntity = registry.CreateEntity();
                     const std::size_t networkId = m_nextNetworkId++;
@@ -114,6 +139,7 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                     auto* packet =
                         CreatePacket(YourPlayerIdPacketID, YourPlayerId{networkId}, true);
                     Send(event.peer, packet, 0);
+                    QueueEvent(ConnectionEvent::Type::Connect, event.peer, playerEntity, networkId);
                 }
                 if (router.m_OnConnect) {
                     router.m_OnConnect(registry, event.peer);
@@ -135,6 +161,8 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                             event.packet->dataLength - sizeof(PacketTypeID)};
                         if (!glz::read_beve(assigned, payload)) {
                             m_localNetworkId = assigned.id;
+                            log_info("[Network] Assigned local network id " +
+                                     std::to_string(assigned.id));
                         }
                     }
                     router.Dispatch(registry, event.peer, event.packet->data,
@@ -149,12 +177,27 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                             }
                         }
                     }
+                    // The server may have spawned our replica before we learned
+                    // our id
+                    if (!m_isServer && m_localNetworkId.has_value() && !m_localEntity.has_value()) {
+                        if (auto it = m_idToEntity.find(*m_localNetworkId);
+                            it != m_idToEntity.end()) {
+                            m_localEntity = it->second;
+                        }
+                    }
                 }
                 enet_packet_destroy(event.packet);
                 break;
             }
             case ENET_EVENT_TYPE_DISCONNECT: {
                 const auto entity = GetEntityID(event.peer);
+                std::size_t networkId = 0;
+                if (entity.has_value() && registry.IsComponentRegistered<PlayerInformation>() &&
+                    registry.HasComponent<PlayerInformation>(*entity)) {
+                    networkId = registry.GetComponent<PlayerInformation>(*entity).id;
+                }
+                QueueEvent(ConnectionEvent::Type::Disconnect, event.peer,
+                           entity.value_or(static_cast<Entity>(-1)), networkId);
                 if (router.m_OnDisconnect) {
                     router.m_OnDisconnect(registry, event.peer);
                 }
@@ -162,7 +205,6 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                     m_entityToPeer.erase(*entity);
                     if (registry.IsComponentRegistered<PlayerInformation>() &&
                         registry.HasComponent<PlayerInformation>(*entity)) {
-                        const auto networkId = registry.GetComponent<PlayerInformation>(*entity).id;
                         m_idToEntity.erase(networkId);
                         if (m_localEntity.has_value() && *m_localEntity == *entity) {
                             m_localEntity.reset();
@@ -171,7 +213,9 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                     }
                     event.peer->data = nullptr;
                 }
-                std::cout << "New disconnection" << std::endl;
+                log_info("[Network] Peer disconnected" +
+                         (networkId != 0 ? " (network id " + std::to_string(networkId) + ")"
+                                         : std::string{}));
                 break;
             }
             default:

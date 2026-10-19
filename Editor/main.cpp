@@ -12,6 +12,7 @@
 #include "Plugins/InputPlugin.hpp"
 #include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/PositionPlugin.hpp"
+#include "Plugins/ReplicationPlugin.hpp"
 #include "Plugins/RotationPlugin.hpp"
 #include "Plugins/ShapePlugin.hpp"
 #include "Plugins/SignalPlugin.hpp"
@@ -68,6 +69,8 @@ void RunEditor(const string& scenePathString) {
     shapePlugin.Init(app.GetRegistry());
     Engine::RotationPlugin rotationPlugin;
     rotationPlugin.Init(app.GetRegistry());
+    Engine::Multiplayer::ReplicationPlugin replicationPlugin;
+    replicationPlugin.Init(app.GetRegistry());
     Engine::ColliderPlugin colliderPlugin;
     colliderPlugin.Init(app.GetRegistry());
     Engine::OpacityPlugin opacityPlugin;
