@@ -132,7 +132,8 @@ std::string Editor::Gallery::DrawGallery() {
     std::vector<ProjectData> projects = Gallery::FindProjects();
     static char searchBuffer[128] = "";
     std::string scenePath = "";
-
+    static int projectToRename = -1;
+    static char renameBuffer[128] = "";
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -339,7 +340,8 @@ std::string Editor::Gallery::DrawGallery() {
 
                     ImVec2 p = ImGui::GetCursorScreenPos();
 
-                    if (ImGui::InvisibleButton("##click", ImGui::GetContentRegionAvail())) {
+                    if (ImGui::InvisibleButton("##click", ImGui::GetContentRegionAvail(),
+                                               ImGuiButtonFlags_AllowOverlap)) {
                         scenePath = OpenProjectFolder(projects[i].path, projects[i].name);
                     }
 
@@ -396,12 +398,30 @@ std::string Editor::Gallery::DrawGallery() {
 
                     if (ImGui::BeginPopup("ProjectOptions")) {
                         if (ImGui::Selectable(ICON_FA_FOLDER_OPEN " Show in Explorer")) {
+                            pfd::select_folder("Project Directory", projects[i].path +
+                                                                        pfd::path::separator() +
+                                                                        projects[i].name)
+                                .result();
                         }
                         if (ImGui::Selectable(ICON_FA_PEN " Rename")) {
+                            projectToRename = static_cast<int>(i);
+                            strncpy(renameBuffer, projects[i].name.c_str(),
+                                    sizeof(renameBuffer) - 1);
+                            renameBuffer[sizeof(renameBuffer) - 1] = '\0';
                         }
                         ImGui::Separator();
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
                         if (ImGui::Selectable(ICON_FA_TRASH " Remove from list")) {
+                            projects.erase(projects.begin() + i);
+
+                            std::string output;
+                            if (!glz::write_json(projects, output)) {
+                                const auto settingsPath = ConfigDirectory() / "projects.json";
+                                std::ofstream outFile(settingsPath);
+                                if (outFile) {
+                                    outFile << output;
+                                }
+                            }
                         }
                         ImGui::PopStyleColor();
                         ImGui::EndPopup();
@@ -416,6 +436,38 @@ std::string Editor::Gallery::DrawGallery() {
                 if (scenePath != "") {
                     break;
                 }
+            }
+            if (projectToRename != -1) {
+                ImGui::OpenPopup("Rename Project");
+            }
+
+            if (ImGui::BeginPopupModal("Rename Project", nullptr,
+                                       ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::InputText("New Name", renameBuffer, IM_ARRAYSIZE(renameBuffer));
+
+                if (ImGui::Button("Save", ImVec2(120, 0))) {
+                    if (projectToRename >= 0 && projectToRename < projects.size()) {
+                        projects[projectToRename].name = std::string(renameBuffer);
+
+                        std::string output;
+                        if (!glz::write_json(projects, output)) {
+                            const auto settingsPath = ConfigDirectory() / "projects.json";
+                            std::ofstream outFile(settingsPath);
+                            if (outFile) {
+                                outFile << output;
+                            }
+                        }
+                    }
+                    projectToRename = -1;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                    projectToRename = -1;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
             }
         } else {
             ImGui::Spacing();
