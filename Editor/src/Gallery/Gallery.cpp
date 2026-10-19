@@ -396,10 +396,9 @@ std::string Editor::Gallery::DrawGallery() {
 
                     if (ImGui::BeginPopup("ProjectOptions")) {
                         if (ImGui::Selectable(ICON_FA_FOLDER_OPEN " Show in Explorer")) {
-                            pfd::select_folder("Project Directory", projects[i].path +
-                                                                        pfd::path::separator() +
-                                                                        projects[i].name)
-                                .result();
+                            std::filesystem::path projectDir =
+                                std::filesystem::path(projects[i].path) / projects[i].name;
+                            Editor::PickFolderDialog("Project Directory", projectDir.string());
                         }
                         if (ImGui::Selectable(ICON_FA_PEN " Rename")) {
                             projectToRename = static_cast<int>(i);
