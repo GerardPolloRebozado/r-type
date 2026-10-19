@@ -52,6 +52,14 @@ void registerPosition(sol::state_view lua, Registry& registry) {
         }
         return 0;
     };
+
+    transform["setZIndex"] = [&registry](Entity entity, int z) {
+        if (!registry.HasComponent<Position>(entity)) {
+            registry.AddComponent<Position>(entity, Position{0.0f, 0.0f, z});
+        } else {
+            registry.GetComponent<Position>(entity).z = z;
+        }
+    };
 }
 
 } // namespace Engine::LuaAPI
