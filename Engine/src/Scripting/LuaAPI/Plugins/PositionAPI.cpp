@@ -44,6 +44,14 @@ void registerPosition(sol::state_view lua, Registry& registry) {
             pos.y += dy;
         }
     };
+
+    // Draw layer: higher z is drawn on top. 0 when the entity has no Position.
+    transform["getZIndex"] = [&registry](Entity entity) -> int {
+        if (registry.HasComponent<Position>(entity)) {
+            return registry.GetComponent<Position>(entity).z;
+        }
+        return 0;
+    };
 }
 
 } // namespace Engine::LuaAPI
