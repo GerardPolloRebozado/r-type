@@ -22,7 +22,7 @@
 #include <rlImGui.h>
 
 #ifdef _WIN32
-#include <windows.h>
+#include "Compat/WindowsApi.hpp"
 #else
 #include <signal.h>
 #include <sys/types.h>
@@ -480,12 +480,12 @@ void EditorLayer::StopGames() {
                 [](HWND wnd, LPARAM param) -> BOOL {
                     DWORD pid = 0;
                     GetWindowThreadProcessId(wnd, &pid);
-                    if (pid == reinterpret_cast<DWORD>(param) && IsWindowVisible(wnd)) {
-                        PostMessage(wnd, WM_CLOSE, 0, 0);
+                    if (pid == static_cast<DWORD>(param) && IsWindowVisible(wnd)) {
+                        PostMessageA(wnd, WM_CLOSE, 0, 0);
                     }
                     return TRUE;
                 },
-                reinterpret_cast<LPARAM>(GetProcessId(h)));
+                static_cast<LPARAM>(GetProcessId(h)));
             TerminateProcess(h, 0);
             CloseHandle(h);
         }
