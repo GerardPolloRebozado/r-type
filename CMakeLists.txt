@@ -90,7 +90,7 @@ CPMAddPackage(
 CPMAddPackage(
         NAME sol2
         GITHUB_REPOSITORY ThePhD/sol2
-        GIT_TAG v3.5.0
+        VERSION 3.5.0
 )
 
 # sol2 3.3.1 optional<T&>::emplace calls construct(), which that specialization
