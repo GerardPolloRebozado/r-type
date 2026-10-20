@@ -112,6 +112,7 @@ int main() {
     multiplayerPlugin.Init(app.GetRegistry());
 
     auto& registry = app.GetRegistry();
+    registry.RegisterComponent<Engine::Multiplayer::YourPlayerId>();
     auto& host = registry.AddResource<Engine::Multiplayer::NetworkHostResource>(
         Engine::Multiplayer::NetworkHostResource::CreateClient(2));
     registry.RegisterComponent<KeyPress>();

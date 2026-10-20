@@ -10,7 +10,7 @@
 --
 -- Shooting lives in playerGun.lua (the Gun child).
 
-local Player = {}
+Player = {}
 
 Player.speed = 500.0
 
@@ -73,11 +73,21 @@ local function readInput(entity)
         end
     end
     local input = {}
-    if Controller.isActionActive("UP") then input.UP = true end
-    if Controller.isActionActive("DOWN") then input.DOWN = true end
-    if Controller.isActionActive("LEFT") then input.LEFT = true end
-    if Controller.isActionActive("RIGHT") then input.RIGHT = true end
-    if Controller.isActionActive("SHOOT") then input.SHOOT = true end
+    if Controller.isActionActive("UP") then
+        input.UP = true
+    end
+    if Controller.isActionActive("DOWN") then
+        input.DOWN = true
+    end
+    if Controller.isActionActive("LEFT") then
+        input.LEFT = true
+    end
+    if Controller.isActionActive("RIGHT") then
+        input.RIGHT = true
+    end
+    if Controller.isActionActive("SHOOT") then
+        input.SHOOT = true
+    end
     return input
 end
 
@@ -121,10 +131,18 @@ function Player:onUpdate(entity, dt)
 
     -- Movement
     local dx, dy = 0.0, 0.0
-    if left then dx = dx - 1.0 end
-    if right then dx = dx + 1.0 end
-    if up then dy = dy - 1.0 end
-    if down then dy = dy + 1.0 end
+    if left then
+        dx = dx - 1.0
+    end
+    if right then
+        dx = dx + 1.0
+    end
+    if up then
+        dy = dy - 1.0
+    end
+    if down then
+        dy = dy + 1.0
+    end
 
     if dx ~= 0.0 or dy ~= 0.0 then
         local len = math.sqrt(dx * dx + dy * dy)

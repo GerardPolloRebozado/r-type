@@ -13,7 +13,7 @@
 #include "Resources/PlayerInputState.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "Resources/PrefabSpawner.hpp"
-#include "Scripting/ScriptComponent.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -201,7 +201,6 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
     if (host.IsServer()) {
         // Scripted entities move themselves through Net.input(entity). Only
         // script-less network entities fall back to the engine default
-        ApplyDefaultMovement(registry, host, dt);
         BroadcastState(registry, host, packetRegistry);
     } else if (host.GetLocalNetworkId().has_value()) {
         SendLocalInput(registry, host, packetRegistry);
@@ -531,8 +530,8 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
     const auto packetId =
         registry.GetResource<PacketRegistryResource>().GetOrRegister("player_input");
 
-    router.On(packetId, [this, &registry](Registry& /*r*/, ENetPeer* /*peer*/,
-                                          const uint8_t* payload, std::size_t size) {
+    router.On(packetId, [this, &registry](Registry& /*r*/, ENetPeer* peer, const uint8_t* payload,
+                                          const std::size_t size) {
         if (size == 0 || payload == nullptr) {
             return;
         }
@@ -564,54 +563,6 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
         const auto parsed = ParseNetInput(inputIt->second);
         registry.GetResource<PlayerInputState>().byNetworkId[networkId] = parsed;
     });
-}
-
-void ReplicationSystem::ApplyDefaultMovement(Registry& registry, const NetworkHostResource& host,
-                                             const float dt) {
-    if (!registry.HasResource<PlayerInputState>() || dt <= 0.0f) {
-        return;
-    }
-    const bool scriptsRegistered = registry.IsComponentRegistered<ScriptComponent>();
-    auto& inputs = registry.GetResource<PlayerInputState>().byNetworkId;
-
-    for (const auto& [networkId, input] : inputs) {
-        const auto found = host.GetEntityByNetworkId(networkId);
-        if (!found.has_value() || !registry.IsEntityAlive(*found)) {
-            continue;
-        }
-        const Entity entity = *found;
-
-        // A gameplay script owns movement for this entity (R-Type's player.lua
-        // reads Net.input); moving here too would double the speed.
-        if (scriptsRegistered && registry.HasComponent<ScriptComponent>(entity)) {
-            continue;
-        }
-        if (!registry.HasComponent<Position>(entity)) {
-            continue;
-        }
-
-        float dx = 0.0f;
-        float dy = 0.0f;
-        if (input.contains("LEFT")) {
-            dx -= 1.0f;
-        }
-        if (input.contains("RIGHT")) {
-            dx += 1.0f;
-        }
-        if (input.contains("UP")) {
-            dy -= 1.0f;
-        }
-        if (input.contains("DOWN")) {
-            dy += 1.0f;
-        }
-        if (dx == 0.0f && dy == 0.0f) {
-            continue;
-        }
-        const float length = std::sqrt(dx * dx + dy * dy);
-        auto& position = registry.GetComponent<Position>(entity);
-        position.x += (dx / length) * kDefaultMoveSpeed * dt;
-        position.y += (dy / length) * kDefaultMoveSpeed * dt;
-    }
 }
 
 void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& host,

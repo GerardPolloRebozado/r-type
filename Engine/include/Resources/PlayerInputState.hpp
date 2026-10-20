@@ -18,6 +18,7 @@ namespace Engine::Multiplayer {
  */
 struct PlayerInputState {
     std::unordered_map<std::size_t, std::set<Action>> byNetworkId;
+    std::unordered_map<Action, ScriptComponent> keyHandlers;
 };
 } // namespace Engine::Multiplayer
 

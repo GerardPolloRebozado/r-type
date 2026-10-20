@@ -37,7 +37,9 @@ local function readInput(owner)
         end
     end
     local input = {}
-    if Controller.isActionActive("SHOOT") then input.SHOOT = true end
+    if Controller.isActionActive("SHOOT") then
+        input.SHOOT = true
+    end
     return input
 end
 
