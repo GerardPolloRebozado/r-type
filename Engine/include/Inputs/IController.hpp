@@ -7,12 +7,13 @@
 #ifndef G_ING_500_BAR_5_1_RTYPE_1_ICONTROLLER_HPP
 #define G_ING_500_BAR_5_1_RTYPE_1_ICONTROLLER_HPP
 #include "raylib-cpp.hpp"
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace Engine {
-
+using Action = std::string;
 /**
  * @enum DeviceType
  * @brief Input device categories.
@@ -30,6 +31,17 @@ struct Keybind {
 };
 
 /**
+ * @struct ActionBinding
+ * @brief All shortcuts bound to one action name, plus whether that action is sent to the server.
+ */
+struct ActionBinding {
+    std::vector<Keybind> keybinds;
+
+    /** @brief When true this action is sent to the server in player_input. */
+    bool networked = false;
+};
+
+/**
  * @class IController
  * @brief Abstract interface representing a player's input controller (keyboard, mouse, gamepad,
  * network).
@@ -38,8 +50,7 @@ struct Keybind {
  */
 class IController {
   public:
-    using Action = std::string;
-    using Kmap = std::unordered_map<Action, std::vector<Keybind>>;
+    using Kmap = std::unordered_map<Action, ActionBinding>;
 
     virtual ~IController() = default;
 
@@ -52,8 +63,9 @@ class IController {
      * @brief Binds a key/button to an abstract action name.
      * @param action The string identifier of the action (e.g. "JUMP", "SHOOT").
      * @param kb The Keybind descriptor.
+     * @param networked When true, marks the action as sent to the server in player_input.
      */
-    virtual void addKeybind(const Action& action, const Keybind& kb) = 0;
+    virtual void addKeybind(const Action& action, const Keybind& kb, bool networked = false) = 0;
 
     /**
      * @brief Checks if an action is currently active in this frame.
@@ -63,16 +75,24 @@ class IController {
     virtual bool isActionActive(const std::string& action) const = 0;
 
     /**
+     * @brief Returns all actions currently active in this frame that should be send to the server
+     * @return Const reference to active actions list that should be sent to the server
+     */
+    virtual const std::set<Action>& getNetworkedActiveActions() const = 0;
+
+    /**
      * @brief Returns all actions currently active in this frame.
      * @return Const reference to active actions list.
      */
-    virtual const std::vector<Action>& getActiveActions() const = 0;
+    virtual const std::set<Action>& getActiveActions() const = 0;
 
-  protected:
     /** @brief Active actions triggered during this tick/frame. */
-    std::vector<Action> _activeActions;
+    std::set<Action> _activeActions;
 
-    /** @brief Mapping of action names to one or more physical key bindings. */
+    /** @brief Subset of _activeActions whose action is marked networked. */
+    std::set<Action> _networkedActions;
+
+    /** @brief Mapping of action names to their shortcuts and network flag. */
     Kmap m_keymap;
 };
 } // namespace Engine

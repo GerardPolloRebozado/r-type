@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <glaze/glaze.hpp>
 #include <optional>
 #include <set>
@@ -28,7 +27,6 @@
 #include <string>
 
 namespace Engine::LuaAPI {
-
 using Multiplayer::NetworkHostResource;
 using Multiplayer::PacketRegistryResource;
 using Multiplayer::PacketRouterResource;
@@ -176,10 +174,11 @@ sol::object DecodePayload(sol::state_view lua, const uint8_t* payload, std::size
     return sol::make_object(lua, raw); // not JSON: deliver the raw string
 }
 
-void registerMultiplayer(sol::state_view lua, Registry& registry) {
+void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
     sol::table net = Internal::ensureNamespace(lua, "Net");
 
-    net["register"] = [&registry](sol::this_state ts, const std::string& name) -> sol::object {
+    net["register"] = [&registry](const sol::this_state ts,
+                                  const std::string& name) -> sol::object {
         sol::state_view lua(ts);
         auto* packetRegistry = GetPacketRegistry(registry);
         if (packetRegistry == nullptr) {
@@ -188,7 +187,7 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
         return sol::make_object(lua, static_cast<int>(packetRegistry->GetOrRegister(name)));
     };
 
-    net["id"] = [&registry](sol::this_state ts, const std::string& name) -> sol::object {
+    net["id"] = [&registry](const sol::this_state ts, const std::string& name) -> sol::object {
         // Lookup-only: no registration, so callers can probe safely.
         sol::state_view lua(ts);
         auto* packetRegistry = GetPacketRegistry(registry);
@@ -244,7 +243,7 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
         return netHost.Connect(host, static_cast<std::uint16_t>(port)) != nullptr;
     };
 
-    net["on"] = [lua, &registry](const std::string& name, sol::function callback) mutable {
+    net["on"] = [lua, &registry](const std::string& name, const sol::function& callback) mutable {
         auto* packetRegistry = GetPacketRegistry(registry);
         auto* router = GetPacketRouter(registry);
         if (packetRegistry == nullptr || router == nullptr || !callback.valid()) {
@@ -500,7 +499,8 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
     };
 
     /**
-     * Input for an entity, as a Lua table { up, down, left, right, shoot }.
+     * Input for an entity, as a Lua set-table { UP = true, SHOOT = true, ... }
+     * keyed by action name (same names as Controller.isActionActive).
      *
      * - Server: the last input received for that player.
      * - Client: the local controller input when the entity is the local player.
@@ -509,7 +509,7 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
      * This is what lets gameplay scripts move server-authoritative players
      * without ever touching ENet: player.lua simply reads Net.input(entity).
      */
-    net["input"] = [&registry](sol::this_state ts, Entity entity) -> sol::object {
+    net["input"] = [&registry](const sol::this_state ts, const Entity entity) -> sol::object {
         sol::state_view lua(ts);
         if (!registry.HasResource<NetworkHostResource>()) {
             return sol::object{};
@@ -520,18 +520,16 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
             return sol::object{};
         }
 
-        auto makeTable = [&lua](const Multiplayer::NetInput& input) {
+        auto makeTable = [&lua](const std::set<Action>& input) {
             sol::table table = lua.create_table();
-            table["up"] = input.up;
-            table["down"] = input.down;
-            table["left"] = input.left;
-            table["right"] = input.right;
-            table["shoot"] = input.shoot;
+            for (const auto& action : input) {
+                table[action] = true;
+            }
             return sol::make_object(lua, table);
         };
 
         if (host.IsServer()) {
-            Multiplayer::NetInput input{};
+            std::set<Action> input{};
             if (registry.HasResource<Multiplayer::PlayerInputState>()) {
                 const auto& inputs =
                     registry.GetResource<Multiplayer::PlayerInputState>().byNetworkId;
@@ -551,13 +549,7 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
         if (controller == nullptr) {
             return sol::object{};
         }
-        Multiplayer::NetInput input;
-        input.up = controller->isActionActive("UP");
-        input.down = controller->isActionActive("DOWN");
-        input.left = controller->isActionActive("LEFT");
-        input.right = controller->isActionActive("RIGHT");
-        input.shoot = controller->isActionActive("SHOOT");
-        return makeTable(input);
+        return makeTable(controller->getNetworkedActiveActions());
     };
 
     /**
@@ -748,5 +740,4 @@ void registerMultiplayer(sol::state_view lua, Registry& registry) {
         return true;
     };
 }
-
 } // namespace Engine::LuaAPI

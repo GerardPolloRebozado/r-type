@@ -5,7 +5,6 @@
 #include <raylib.h>
 
 namespace Editor {
-
 bool InputMappingPanel::s_IsOpen = false;
 
 InputMappingPanel::InputMappingPanel() : m_Name(ICON_FA_GAMEPAD " Input Map") {
@@ -16,7 +15,7 @@ const std::string& InputMappingPanel::GetName() const {
     return m_Name;
 }
 
-const char* InputMappingPanel::GetKeyName(int key, Engine::DeviceType type) const {
+const char* InputMappingPanel::GetKeyName(const int key, Engine::DeviceType type) const {
     if (key == 0 && type == Engine::KEYBOARD) {
         return "None";
     }
@@ -190,7 +189,7 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
     if (ImGui::Button(ICON_FA_PLUS " Add Action")) {
         std::string action(m_NewActionBuffer);
         if (!action.empty() && config.m_InputMap.find(action) == config.m_InputMap.end()) {
-            config.m_InputMap[action] = std::vector<Engine::Keybind>();
+            config.m_InputMap[action] = Engine::ActionBinding{};
         }
         std::memset(m_NewActionBuffer, 0, sizeof(m_NewActionBuffer));
     }
@@ -200,9 +199,12 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
     std::string actionToDelete = "";
 
     // List Actions
-    for (auto& [actionName, keybinds] : config.m_InputMap) {
+    for (auto& [actionName, binding] : config.m_InputMap) {
         ImGui::PushID(actionName.c_str());
         bool actionOpen = ImGui::TreeNodeEx(actionName.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+
+        ImGui::SameLine();
+        ImGui::Checkbox("Networked", &binding.networked);
 
         ImGui::SameLine(ImGui::GetWindowWidth() - 40);
         if (ImGui::Button(ICON_FA_TRASH)) {
@@ -222,7 +224,7 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                 ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 30.0f);
                 ImGui::TableHeadersRow();
 
-                for (auto& kb : keybinds) {
+                for (auto& kb : binding.keybinds) {
                     ImGui::TableNextRow();
                     ImGui::PushID(bindIndex);
 
@@ -284,7 +286,7 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
                         m_ListeningKeybindIndex == bindIndex && m_ListeningIsModifier) {
                         ImGui::Button("Press key...", ImVec2(-FLT_MIN, 0));
                         int pressedKey = -1;
-                        int k = GetKeyPressed();
+                        const int k = GetKeyPressed();
                         if (k != 0) {
                             pressedKey = k;
                         }
@@ -327,11 +329,11 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
             }
 
             if (bindToDelete != -1) {
-                keybinds.erase(keybinds.begin() + bindToDelete);
+                binding.keybinds.erase(binding.keybinds.begin() + bindToDelete);
             }
 
             if (ImGui::Button(ICON_FA_PLUS " Add Keybind")) {
-                keybinds.push_back({0, 0, Engine::KEYBOARD});
+                binding.keybinds.push_back({0, 0, Engine::KEYBOARD});
             }
 
             ImGui::TreePop();
@@ -350,5 +352,4 @@ void InputMappingPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& 
 
     ImGui::End();
 }
-
 } // namespace Editor
