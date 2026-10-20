@@ -1,10 +1,7 @@
-# Asset Management
+# Assets
 
-The `AssetManager` is a global resource registered in the ECS. 
+Load, cache, and resolve textures, sounds, and data files.
 
-## Loading Assets
-```cpp
-auto& assets = registry.GetResource<Engine::AssetManager>();
-assets.LoadSound("explosion", "assets/boom.wav");
-assets.LoadMusic("bgm", "assets/music.mp3", true);
-```
+!!! note "Stub"
+    This page is a placeholder. The content is being rewritten for the new
+    documentation structure.

@@ -1,29 +1,86 @@
-site_name: R-Type Engine
-site_description: Documentation for the R-Type Engine and Editor
+site_name: Lucky & Pozzo
+site_description: Lucky the Game Editor, and Pozzo the Game Engine.
+site_author: Lucky & Pozzo Contributors
+repo_url: https://github.com/GerardPolloRebozado/r-type
+repo_name: GerardPolloRebozado/r-type
+edit_uri: edit/main/Documentation/docs/
+copyright: Made with a lot of love.
+
+# Previous documentation, kept for reference while the new structure is written.
+exclude_docs: |
+  old/
+
 theme:
   name: material
+  language: en
   palette:
-    scheme: slate
-    primary: custom
-    accent: custom
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
   features:
     - navigation.tabs
-    - navigation.sections
-    - navigation.expand
-    - toc.integrate
+    - navigation.indexes
+    - navigation.top
+    - navigation.tracking
     - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tooltips
+    - toc.follow
+
+extra:
+  generator: false
 
 extra_css:
   - stylesheets/extra.css
 
 markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 plugins:
   - search
@@ -33,43 +90,76 @@ plugins:
           src-dirs: ../Engine/include
           full-doc: True
           doxy-cfg:
-            PROJECT_NAME: "R-Type Engine"
+            PROJECT_NAME: "Pozzo (Engine)"
             OPTIMIZE_OUTPUT_FOR_C: NO
             EXTRACT_ALL: YES
             EXTRACT_PRIVATE: YES
             EXTRACT_STATIC: YES
 
 nav:
-  - About:
-      - Introduction: index.md
-      - Features: about/features.md
-  - Getting Started:
-      - Step-by-Step Tutorial: getting_started/tutorial.md
-      - Your First Game: getting_started/first_game.md
-  - Concepts:
-      - Registry: concepts/registry.md
-      - Components: concepts/component.md
-      - Systems: concepts/system.md
-      - Plugins: concepts/plugin.md
-  - Engine Manual:
-      - ECS Architecture: engine/ecs.md
-      - Systems & Components: engine/systems.md
-      - Asset Management: engine/assets.md
-      - Plugins: engine/plugins.md
-      - Text Rendering: engine/text.md
-      - Input Management: engine/input.md
-      - State Management: engine/states.md
-      - Networking: engine/networking.md
+  - Home: index.md
+  - Start:
+      - start/index.md
+      - Installation: start/installation.md
+      - Core concepts: start/concepts.md
+      - Your first game in the editor: start/first-game-editor.md
+      - Your first game in C++: start/first-game-engine.md
+      - Editor tour: start/editor-tour.md
+  - Engine:
+      - engine/index.md
+      - Application: engine/application.md
+      - Building: engine/building.md
+      - ECS:
+          - Registry: engine/registry.md
+          - Components: engine/components.md
+          - Systems: engine/systems.md
+          - Resources: engine/resources.md
+      - Assets: engine/assets.md
+      - Rendering: engine/rendering.md
+      - Input: engine/input.md
+      - Audio: engine/audio.md
       - Collisions: engine/collisions.md
-      - Camera: engine/camera.md
-      - Sprites: engine/sprites.md
-  - Editor Manual:
-      - Interface Overview: editor/interface.md
-      - Using Plugins: editor/plugins.md
-      - Scene Serialization: editor/serialization.md
-      - Play Multiplayer: editor/multiplayer.md
-      - Command Line: editor/cli.md
-  - API Reference:
-      - Classes: Engine/annotated.md
-      - Files: Engine/files.md
-      - Namespaces: Engine/namespaces.md
+      - Networking: engine/networking.md
+      - Lua scripting: engine/scripting.md
+      - Headless: engine/headless.md
+  - Editor:
+      - editor/index.md
+      - Gallery: editor/gallery.md
+      - Interface: editor/interface.md
+      - Entities: editor/entities.md
+      - Prefabs: editor/prefabs.md
+      - Scenes: editor/scenes.md
+      - Input mapping: editor/input.md
+      - Play mode: editor/play.md
+      - Multiplayer: editor/multiplayer.md
+      - Command line: editor/cli.md
+      - Shipping: editor/shipping.md
+  - Plugins:
+      - plugins/index.md
+      - Lifecycle: plugins/lifecycle.md
+      - Engine plugins: plugins/engine-plugins.md
+      - Editor plugins: plugins/editor-plugins.md
+      - Lua plugins: plugins/lua.md
+      - Packaging: plugins/packaging.md
+      - Examples: plugins/examples.md
+  - Contributing:
+      - contributing/index.md
+      - Setup: contributing/setup.md
+      - Testing: contributing/testing.md
+      - Engine architecture: contributing/architecture-engine.md
+      - Editor architecture: contributing/architecture-editor.md
+      - Adding components and systems: contributing/adding-components.md
+      - Adding editor features: contributing/adding-editor-features.md
+      - Style: contributing/style.md
+  - Reference:
+      - reference/index.md
+      - Components: reference/components.md
+      - Systems: reference/systems.md
+      - Scene format: reference/scene-format.md
+      - Lua API: reference/lua-api.md
+      - C++ API:
+          - Classes: Engine/annotated.md
+          - Files: Engine/files.md
+          - Namespaces: Engine/namespaces.md
+          - Hierarchy: Engine/hierarchy.md
+          - Modules: Engine/modules.md
