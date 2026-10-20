@@ -34,3 +34,5 @@ public:
     }
 };
 ```
+
+You can also generate the files from the terminal. See [Command line](../editor/cli.md).

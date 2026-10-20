@@ -104,3 +104,4 @@ Documentation/doxygen_output/
 *.scene
 
 portable-file-dialogs.h
+*.gif

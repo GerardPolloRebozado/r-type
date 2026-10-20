@@ -14,42 +14,19 @@
 #include <unordered_map>
 #include <vector>
 // DO NOT DELETE THIS INCLUDE OR IT WILL NOT COMPILE
-#include "enet.h"
-#include <glaze/glaze.hpp>
-// Glaze reflection for Engine components, so packets embedding them
-// (e.g. Engine::Position) serialize with zero manual code.
+#include "Compat/EnetWrapper.hpp"
+#include "PacketRegistryResource.hpp"
 #include "Reflection/ComponentReflect.hpp"
-
-using PacketTypeID = uint16_t;
+#include <glaze/glaze.hpp>
 
 namespace Engine::Multiplayer {
-constexpr PacketTypeID Ping = 0;
-constexpr PacketTypeID Connect = 2;
-constexpr PacketTypeID Disconnect = 3;
-constexpr PacketTypeID UserDefinedStart = 200; // Boundary
-
-inline PacketTypeID GetNextPacketID() {
-    static PacketTypeID counter = UserDefinedStart;
-    return ++counter;
-}
-
-template <typename T> PacketTypeID GetPacketTypeID() {
-    static const PacketTypeID id = GetNextPacketID();
-    return id;
-}
-
 struct PlayerInformation {
     std::size_t id = 0;
 };
 
-const PacketTypeID PlayerInformationPacket =
-    Engine::Multiplayer::GetPacketTypeID<PlayerInformation>();
-
 struct YourPlayerId {
     std::size_t id;
 };
-
-const PacketTypeID YourPlayerIdPacket = Engine::Multiplayer::GetPacketTypeID<YourPlayerId>();
 
 /**
  * Types used for the serializer/deserializer (glaze binary payloads).
@@ -63,39 +40,28 @@ class PacketRouterResource {
     std::function<void(Registry&, ENetPeer*)> m_OnDisconnect;
 
     /**
-     * @brief This function given a struct type and it's id it will execute the callback when the
-     * type of packet arrives
-     * @tparam TData Type of data to process
-     * @param id id of the packet being send
-     * @param callback The function to call when receiving the packet
+     * @brief Subscribes a handler to a packet id: handler runs every time a
+     * packet of this type arrives
+     * @param id packet id (use PacketRegistryResource::GetOrRegister(name))
+     * @param handler callback receiving (registry, peer, payload, size)
      */
-    template <typename TData>
-    void RegisterHandler(const PacketTypeID id,
-                         std::function<void(Registry&, ENetPeer*, const TData&)> callback) {
-        m_handlers[id] = [callback = std::move(callback)](Registry& registry, ENetPeer* peer,
-                                                          const uint8_t* payload,
-                                                          const std::size_t size) {
-            TData data{};
-            const std::span<const std::byte> buffer{reinterpret_cast<const std::byte*>(payload),
-                                                    size};
-            if (!glz::read_beve(data, buffer)) {
-                callback(registry, peer, data);
-            }
-        };
+    void On(const PacketTypeID id, RawHandler handler) {
+        m_handlers[id] = std::move(handler);
     }
 
     /**
-     * @brief This function given a struct type and it's id it will execute the callback when the
-     * type of packet arrives
-     * @tparam TData Type of data to process
-     * @param id id of the packet being send
-     * @param callback The function to call when receiving the packet
+     * @brief Removes the handler for a packet id. Returns true if one existed.
      */
-    template <typename TData>
-    void RegisterHandler(const PacketTypeID id,
-                         void (*callback)(Registry&, ENetPeer*, const TData&)) {
-        RegisterHandler<TData>(id,
-                               std::function<void(Registry&, ENetPeer*, const TData&)>(callback));
+    bool Off(const PacketTypeID id) {
+        return m_handlers.erase(id) > 0;
+    }
+
+    bool HasHandler(const PacketTypeID id) const {
+        return m_handlers.contains(id);
+    }
+
+    std::size_t HandlerCount() const {
+        return m_handlers.size();
     }
 
     /**
@@ -105,7 +71,8 @@ class PacketRouterResource {
      * @param data data that the client send
      * @param size size of the data received
      */
-    void Dispatch(Registry& registry, ENetPeer* peer, const uint8_t* data, const size_t size) {
+    void Dispatch(Registry& registry, ENetPeer* peer, const uint8_t* data,
+                  const size_t size) const {
         static constexpr std::size_t kHeaderSize = sizeof(PacketTypeID);
         if (size < kHeaderSize) {
             return;
@@ -119,13 +86,19 @@ class PacketRouterResource {
         }
     }
 
-    PacketRouterResource(const std::function<void(Registry&, ENetPeer*)>& onConnect,
-                         const std::function<void(Registry&, ENetPeer*)>& onDisconnect)
+    PacketRouterResource(
+
+        const std::function<void(Registry&, ENetPeer*)>& onConnect,
+
+        const std::function<void(Registry&, ENetPeer*)>& onDisconnect)
         : m_OnConnect(onConnect), m_OnDisconnect(onDisconnect) {}
+
+    PacketRouterResource() = default;
 
   private:
     std::unordered_map<PacketTypeID, RawHandler> m_handlers;
 };
+
 } // namespace Engine::Multiplayer
 
 #endif // G_ING_500_BAR_5_1_RTYPE_1_PACKETROUTER_HPP

@@ -1,9 +1,12 @@
 #include "Gallery.hpp"
 #include "BundledAssets.hpp"
 #include "EditorLayer.hpp"
+#include "FileDialog.hpp"
+#include "GalleryReflect.hpp"
+#include "Logging/Logger.hpp"
 #include "MultiplatformUtils.hpp"
+#include "Scaffold.hpp"
 #include "imgui.h"
-#include "portable-file-dialogs.h"
 #include <algorithm>
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
@@ -48,6 +51,24 @@ void LoadGalleryFonts() {
 
 namespace Editor {
 
+std::string OpenProjectFolder(const std::string& folder, const std::string& name) {
+    ProjectRequest request;
+    request.path = folder;
+    request.name = name;
+    if (request.name.empty()) {
+        request.name = std::filesystem::path(folder).filename().string();
+    }
+    if (request.name.empty()) {
+        request.name = "Untitled";
+    }
+
+    const ScaffoldResult result = EnsureProjectScene(request);
+    if (!result.ok) {
+        return "";
+    }
+    return result.scenePath;
+}
+
 std::vector<ProjectData> Gallery::FindProjects() {
     auto configDirectory = ConfigDirectory();
     if (!std::filesystem::exists(configDirectory)) {
@@ -68,8 +89,10 @@ std::vector<ProjectData> Gallery::FindProjects() {
     const std::string content((std::istreambuf_iterator<char>(file)),
                               std::istreambuf_iterator<char>());
 
+    // GalleryReflect.hpp (included above) is required so these keys match projects.json.
     std::vector<ProjectData> projects;
     if (glz::read_json(projects, content)) {
+        log_error("Failed to parse " + settingsPath.string());
         return {};
     }
 
@@ -92,7 +115,10 @@ void Gallery::UpdateProjectList(const std::string& projectPath) {
     it->lastOpened = std::to_string(now);
 
     std::string output;
-    glz::write_json(projects, output);
+    if (glz::write_json(projects, output)) {
+        log_error("Failed to write project list");
+        return;
+    }
 
     const auto settingsPath = ConfigDirectory() / "projects.json";
     std::ofstream file(settingsPath);
@@ -103,10 +129,11 @@ void Gallery::UpdateProjectList(const std::string& projectPath) {
 }
 
 std::string Editor::Gallery::DrawGallery() {
-    static std::vector<ProjectData> projects = Gallery::FindProjects();
+    std::vector<ProjectData> projects = Gallery::FindProjects();
     static char searchBuffer[128] = "";
     std::string scenePath = "";
-
+    static int projectToRename = -1;
+    static char renameBuffer[128] = "";
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -210,8 +237,7 @@ std::string Editor::Gallery::DrawGallery() {
 
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_FOLDER_OPEN " Browse...")) {
-                    auto dir =
-                        pfd::select_folder("Select Project Directory", pfd::path::home()).result();
+                    auto dir = Editor::PickFolderDialog("Select Project Directory");
                     if (!dir.empty()) {
                         strncpy(projPath, dir.c_str(), IM_ARRAYSIZE(projPath) - 1);
                     }
@@ -251,15 +277,16 @@ std::string Editor::Gallery::DrawGallery() {
                         storedProjects.push_back(project);
 
                         std::string output;
-                        glz::write_json(storedProjects, output);
-                        std::ofstream outFile(settingsPath);
-                        if (outFile) {
-                            outFile << output;
+                        if (glz::write_json(storedProjects, output)) {
+                            log_error("Failed to write " + settingsPath.string());
+                        } else {
+                            std::ofstream outFile(settingsPath);
+                            if (outFile) {
+                                outFile << output;
+                            }
                         }
 
                         ImGui::CloseCurrentPopup();
-
-                        projects.push_back(project);
 
                         projName[0] = '\0';
                         projDesc[0] = '\0';
@@ -276,6 +303,10 @@ std::string Editor::Gallery::DrawGallery() {
 
             ImGui::SameLine();
             if (ImGui::Button("Open", ImVec2(60, 0))) {
+                const auto dir = Editor::PickFolderDialog("Select Project Directory");
+                if (!dir.empty()) {
+                    scenePath = OpenProjectFolder(dir, "");
+                }
             }
 
             ImGui::Spacing();
@@ -307,10 +338,9 @@ std::string Editor::Gallery::DrawGallery() {
 
                     ImVec2 p = ImGui::GetCursorScreenPos();
 
-                    if (ImGui::InvisibleButton("##click", ImGui::GetContentRegionAvail())) {
-                        std::filesystem::path path = projects[i].path;
-                        path /= "test.scene"; // TODO: save "lastOpenScene" in json.
-                        scenePath = path;
+                    if (ImGui::InvisibleButton("##click", ImGui::GetContentRegionAvail(),
+                                               ImGuiButtonFlags_AllowOverlap)) {
+                        scenePath = OpenProjectFolder(projects[i].path, projects[i].name);
                     }
 
                     if (ImGui::IsItemHovered()) {
@@ -366,12 +396,29 @@ std::string Editor::Gallery::DrawGallery() {
 
                     if (ImGui::BeginPopup("ProjectOptions")) {
                         if (ImGui::Selectable(ICON_FA_FOLDER_OPEN " Show in Explorer")) {
+                            std::filesystem::path projectDir =
+                                std::filesystem::path(projects[i].path) / projects[i].name;
+                            Editor::PickFolderDialog("Project Directory", projectDir.string());
                         }
                         if (ImGui::Selectable(ICON_FA_PEN " Rename")) {
+                            projectToRename = static_cast<int>(i);
+                            strncpy(renameBuffer, projects[i].name.c_str(),
+                                    sizeof(renameBuffer) - 1);
+                            renameBuffer[sizeof(renameBuffer) - 1] = '\0';
                         }
                         ImGui::Separator();
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
                         if (ImGui::Selectable(ICON_FA_TRASH " Remove from list")) {
+                            projects.erase(projects.begin() + i);
+
+                            std::string output;
+                            if (!glz::write_json(projects, output)) {
+                                const auto settingsPath = ConfigDirectory() / "projects.json";
+                                std::ofstream outFile(settingsPath);
+                                if (outFile) {
+                                    outFile << output;
+                                }
+                            }
                         }
                         ImGui::PopStyleColor();
                         ImGui::EndPopup();
@@ -386,6 +433,38 @@ std::string Editor::Gallery::DrawGallery() {
                 if (scenePath != "") {
                     break;
                 }
+            }
+            if (projectToRename != -1) {
+                ImGui::OpenPopup("Rename Project");
+            }
+
+            if (ImGui::BeginPopupModal("Rename Project", nullptr,
+                                       ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::InputText("New Name", renameBuffer, IM_ARRAYSIZE(renameBuffer));
+
+                if (ImGui::Button("Save", ImVec2(120, 0))) {
+                    if (projectToRename >= 0 && projectToRename < projects.size()) {
+                        projects[projectToRename].name = std::string(renameBuffer);
+
+                        std::string output;
+                        if (!glz::write_json(projects, output)) {
+                            const auto settingsPath = ConfigDirectory() / "projects.json";
+                            std::ofstream outFile(settingsPath);
+                            if (outFile) {
+                                outFile << output;
+                            }
+                        }
+                    }
+                    projectToRename = -1;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                    projectToRename = -1;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
             }
         } else {
             ImGui::Spacing();

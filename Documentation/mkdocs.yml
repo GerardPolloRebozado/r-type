@@ -62,10 +62,13 @@ nav:
       - Networking: engine/networking.md
       - Collisions: engine/collisions.md
       - Camera: engine/camera.md
+      - Sprites: engine/sprites.md
   - Editor Manual:
       - Interface Overview: editor/interface.md
       - Using Plugins: editor/plugins.md
       - Scene Serialization: editor/serialization.md
+      - Play Multiplayer: editor/multiplayer.md
+      - Command Line: editor/cli.md
   - API Reference:
       - Classes: Engine/annotated.md
       - Files: Engine/files.md

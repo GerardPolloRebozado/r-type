@@ -1,5 +1,7 @@
 #include "Scripting/LuaAPI/Plugins/SpriteAPI.hpp"
 #include "Assets/AssetManager.hpp"
+#include "Assets/ProjectPaths.hpp"
+#include "Components/Name.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "ECS/Entity.hpp"
 #include "ECS/Registry.hpp"
@@ -25,7 +27,7 @@ bool loadSpriteTexture(Registry& registry, const std::string& path) {
         } catch (...) {
             // Not cached yet: fall through to LoadSprite
         }
-        am.LoadSprite(path, path);
+        am.LoadSprite(path, ResolveAssetPath(registry, path).string());
         return true;
     } catch (const std::exception& e) {
         log_error(std::string("[LuaAPI] Sprite load failed for '") + path + "': " + e.what());
@@ -71,7 +73,33 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         t["offsetY"] = sc.offsetY;
         t["scaleX"] = sc.scaleX;
         t["scaleY"] = sc.scaleY;
+        t["flipX"] = sc.flipX;
+        t["flipY"] = sc.flipY;
         return sol::make_object(lua, t);
+    };
+
+    component["getSpriteFlip"] = [lua, &registry](Entity entity) mutable -> sol::object {
+        if (!registry.HasComponent<SpriteComponent>(entity)) {
+            return sol::make_object(lua, sol::lua_nil);
+        }
+        const auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        sol::table t = lua.create_table();
+        t["flipX"] = sc.flipX;
+        t["flipY"] = sc.flipY;
+        return sol::make_object(lua, t);
+    };
+
+    component["setSpriteFlip"] = [&registry](Entity entity, bool flipX,
+                                             sol::optional<bool> flipYOpt) -> bool {
+        if (!registry.HasComponent<SpriteComponent>(entity)) {
+            return false;
+        }
+        auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        sc.flipX = flipX;
+        if (flipYOpt.has_value()) {
+            sc.flipY = flipYOpt.value();
+        }
+        return true;
     };
 
     component["getSpriteScale"] = [lua, &registry](Entity entity) mutable -> sol::object {
@@ -136,6 +164,21 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         sc.sprite = am.GetSprite(path);
         sc.assetPath = path;
         return true;
+    };
+
+    // Find an entity by its Name component value
+    // not ideal though
+    component["findEntityByName"] = [&registry, lua](const std::string& name) -> sol::object {
+        for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
+            Entity entity = i;
+            if (registry.HasComponent<Engine::Name>(entity)) {
+                const auto& nameComp = registry.GetComponent<Engine::Name>(entity);
+                if (nameComp.value == name) {
+                    return sol::make_object(lua, entity);
+                }
+            }
+        }
+        return sol::object{};
     };
 }
 

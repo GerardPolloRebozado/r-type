@@ -12,12 +12,46 @@
 
 namespace Editor {
 
-void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& config) {
-    int virtualWidth =
-        Engine::VirtualResolution::ResolveAxis(config.virtualWidth, config.windowWidth);
-    int virtualHeight =
-        Engine::VirtualResolution::ResolveAxis(config.virtualHeight, config.windowHeight);
-    auto& canvas = registry.GetResource<Engine::VirtualResolution>();
+SceneRenderer::~SceneRenderer() {
+    UnloadTarget();
+}
+
+void SceneRenderer::UnloadTarget() {
+    if (m_Target.id == 0) {
+        return;
+    }
+
+    UnloadRenderTexture(m_Target);
+    m_Target = RenderTexture2D{};
+    m_Width = 0;
+    m_Height = 0;
+}
+
+void SceneRenderer::EnsureTarget(int width, int height) {
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    if (m_Target.id != 0 && m_Width == width && m_Height == height) {
+        return;
+    }
+
+    UnloadTarget();
+    m_Width = width;
+    m_Height = height;
+    m_Target = LoadRenderTexture(m_Width, m_Height);
+    SetTextureFilter(m_Target.texture, TEXTURE_FILTER_BILINEAR);
+}
+
+void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& config,
+                           Vector2 viewportSize, std::optional<Camera2D> editorCamera,
+                           std::optional<Camera2D> screenCamera) {
+    if (registry.HasResource<Engine::VirtualResolution>()) {
+        int virtualWidth =
+            Engine::VirtualResolution::ResolveAxis(config.virtualWidth, config.windowWidth);
+        int virtualHeight =
+            Engine::VirtualResolution::ResolveAxis(config.virtualHeight, config.windowHeight);
+        registry.GetResource<Engine::VirtualResolution>().EnsureSize(virtualWidth, virtualHeight);
+    }
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Engine::Entity entity = static_cast<Engine::Entity>(i);
@@ -44,22 +78,24 @@ void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& confi
         }
     }
 
-    //    m_GameTexture.BeginMode();
-    canvas.EnsureSize(virtualWidth, virtualHeight);
-    canvas.Begin();
+    EnsureTarget(static_cast<int>(viewportSize.x), static_cast<int>(viewportSize.y));
+    if (m_Target.id == 0) {
+        return;
+    }
+
+    BeginTextureMode(m_Target);
     ClearBackground(BLACK);
 
-    RenderSystems(registry);
+    RenderSystems(registry, editorCamera, screenCamera);
 
-    canvas.End();
+    EndTextureMode();
 }
 
-void SceneRenderer::RenderSystems(Engine::Registry& registry) {
-    const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
-
-    Engine::RenderScene(registry, static_cast<float>(canvas.GetWidth()),
-                        static_cast<float>(canvas.GetHeight()),
-                        [this, &registry]() { RenderColliderOverlays(registry); });
+void SceneRenderer::RenderSystems(Engine::Registry& registry, std::optional<Camera2D> editorCamera,
+                                  std::optional<Camera2D> screenCamera) {
+    Engine::RenderScene(
+        registry, static_cast<float>(m_Width), static_cast<float>(m_Height),
+        [this, &registry]() { RenderColliderOverlays(registry); }, editorCamera, screenCamera);
 }
 
 void SceneRenderer::RenderColliderOverlays(Engine::Registry& registry) {

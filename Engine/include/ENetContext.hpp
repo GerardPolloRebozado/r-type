@@ -4,9 +4,9 @@
 ** File description:
 ** MultiplayerPlugin.hpp
 */
-#ifndef G_ING_500_BAR_5_1_RTYPE_1_MULTIPLAYERPLUGIN_HPP
-#define G_ING_500_BAR_5_1_RTYPE_1_MULTIPLAYERPLUGIN_HPP
-#include "enet.h"
+#ifndef G_ING_500_BAR_5_1_RTYPE_1_ENETCONTEXT_HPP
+#define G_ING_500_BAR_5_1_RTYPE_1_ENETCONTEXT_HPP
+#include "Compat/EnetWrapper.hpp"
 
 #include <stdexcept>
 
@@ -29,4 +29,4 @@ struct ENetContext {
 };
 
 } // namespace Engine::Multiplayer
-#endif // G_ING_500_BAR_5_1_RTYPE_1_MULTIPLAYERPLUGIN_HPP
+#endif // G_ING_500_BAR_5_1_RTYPE_1_ENETCONTEXT_HPP

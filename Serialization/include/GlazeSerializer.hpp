@@ -2,9 +2,13 @@
 #define SERIALIZATION_GLAZESERIALIZER_HPP_
 
 #include "Components/CameraComponent.hpp"
+#include "Components/NetworkComponent.hpp"
 #include "Components/Opacity.hpp"
+#include "Components/PrefabInstance.hpp"
+#include "Components/SignalConnections.hpp"
 #include "ECS/Registry.hpp"
 #include "GlazeReflect.hpp"
+#include "Reflection/ComponentReflect.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <cstddef>
 #include <cstring>
@@ -34,6 +38,11 @@ class GlazeSerializer {
 
     template <typename T> bool DeserializeFromFile(const std::string& filepath, T& value);
 
+    // Same as above, but captures a human-readable parse error (empty when
+    // the file itself could not be opened).
+    template <typename T>
+    bool DeserializeFromFile(const std::string& filepath, T& value, std::string* error);
+
     SerializationFormat GetFormat() const;
     void SetFormat(SerializationFormat format);
 
@@ -47,11 +56,15 @@ class GlazeSerializer {
         std::optional<Engine::Text> text;
         std::optional<Engine::ColliderComponent> collider;
         std::optional<Engine::Opacity> opacity;
+        std::optional<Engine::SignalConnections> connections;
         std::optional<Engine::Parent> parent;
         std::optional<Engine::Input> input;
         std::optional<Engine::AudioSource> audioSource;
         std::optional<Engine::CameraComponent> camera;
         std::optional<Engine::ScriptComponent> script;
+        std::optional<Engine::NetworkComponent> network;
+        // Absent on old scenes. Present only on a subtree root tied to a .prefab.
+        std::optional<Engine::PrefabInstance> prefab;
     };
 
     struct SceneSnapshot {
@@ -61,6 +74,11 @@ class GlazeSerializer {
 
     SceneSnapshot CaptureScene(Engine::Registry& registry);
     void RestoreScene(Engine::Registry& registry, const SceneSnapshot& snapshot);
+
+    EntitySnapshot CaptureEntity(Engine::Registry& registry, Engine::Entity entity);
+    // New ids. The first snapshot becomes the returned root. Empty input returns (Entity)-1.
+    Engine::Entity SpawnEntities(Engine::Registry& registry,
+                                 const std::vector<EntitySnapshot>& entities);
 
   private:
     SerializationFormat m_Format;
@@ -129,6 +147,12 @@ bool GlazeSerializer::SerializeToFile(const std::string& filepath, const T& valu
 
 template <typename T>
 bool GlazeSerializer::DeserializeFromFile(const std::string& filepath, T& value) {
+    return DeserializeFromFile(filepath, value, nullptr);
+}
+
+template <typename T>
+bool GlazeSerializer::DeserializeFromFile(const std::string& filepath, T& value,
+                                          std::string* error) {
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         return false;
@@ -145,7 +169,14 @@ bool GlazeSerializer::DeserializeFromFile(const std::string& filepath, T& value)
 
     std::string content(size, '\0');
     file.read(content.data(), size);
-    return DeserializeFromString(content, value);
+    const glz::error_ctx err = glz::read_json(value, content);
+    if (err) {
+        if (error != nullptr) {
+            *error = glz::format_error(err, content);
+        }
+        return false;
+    }
+    return true;
 }
 
 } // namespace Serialization

@@ -10,7 +10,11 @@ class Registry;
 
 namespace Engine::LuaAPI {
 /**
- * @brief Registers the `Entity` namespace: create/destroy/find/getName/setName.
+ * @brief Registers the `Entity` namespace:
+ *        create/destroy/queueDestroy/find/getName/setName.
+ *
+ * `queueDestroy` defers destruction to FlushQueues (end of frame) and is the
+ * only safe destroy inside signal/collision callbacks.
  *
  * @param lua View of the shared Lua state (lambdas capture a copy by value).
  * @param registry ECS registry used for entity creation, lookup, and Name.

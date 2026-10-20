@@ -1,9 +1,13 @@
 #ifndef EDITOR_PLUGINS_SPRITEPLUGINEDITOR_HPP_
 #define EDITOR_PLUGINS_SPRITEPLUGINEDITOR_HPP_
 
+#include "Components/SpriteComponent.hpp"
 #include "PluginEditor.hpp"
 
 namespace Editor {
+
+void LoadSpriteForComponent(Engine::Registry& registry, Engine::SpriteComponent& spriteComp,
+                            const std::string& inputPath);
 
 class SpritePluginEditor : public IPluginEditor {
   public:

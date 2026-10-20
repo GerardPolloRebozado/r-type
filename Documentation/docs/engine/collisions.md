@@ -38,6 +38,56 @@ Attached to entities that need collision detection.
   directly to the entity.
 * `enabled`: Set to `false` to disable collision checks without removing components.
 * `isTrigger`: When `true`, designates the entity as a trigger zone.
+* `isStatic`: When `true`, the collider does not move during resolution (wall / floor).
+* `layer`: The single layer (0-31) this collider belongs to.
+* `mask`: Bitmask of the layers this collider is willing to touch.
+
+## Collision Layers & Masks
+
+Two colliders only interact when **each one's mask contains the other's layer**, so either side can
+veto a pair without touching the other entity:
+
+| `layer` | `mask` | Meaning |
+|---|---|---|
+| 0 (`Default`) | `0xFFFFFFFF` | Default: touches everything, i.e. the behaviour before layers existed. |
+| 1 (`Player`) | `0x10 \| 0x20` | Only touches `EnemyBullet` and `Wall`. |
+
+The filter runs in `CollisionSystem::Update` **before** overlap detection, so a rejected pair skips
+detection, physical resolution *and* the `onCollision*` / `onTrigger*` events. When a pair that was
+in contact gets filtered out, the system reports the separation (`onCollisionExit` /
+`onTriggerExit`) on the next frame.
+
+Layers 0-7 have conventional names — `Default`, `Player`, `Enemy`, `PlayerBullet`, `EnemyBullet`,
+`Wall`, `Pickup`, `Trigger` — and 8-31 are simply `Layer N`. The names are only a convention shared
+by the Inspector and Lua; nothing enforces them. Helpers live in
+`Engine/include/Components/CollisionLayers.hpp` (`Bit`, `Name`, `Index`, `kAllLayers`,
+`kNoLayers`, `kDefaultLayer`).
+
+In the editor, the Collider section of the Inspector shows a **Layer** combo and **Collides with**
+checkboxes; the hex field reaches layers 8-31.
+
+### Layers from Lua
+
+```lua
+Component.setColliderLayer(entity, "Player")                            -- index or name
+Component.setColliderMask(entity, Layers.bit("EnemyBullet") + Layers.bit("Wall"))
+
+-- Same predicate CollisionSystem uses: "would these two ever touch?"
+if Component.collidersCanCollide(self.entity, other) then
+    ...
+end
+
+log.info("layer " .. Component.getColliderLayerName(entity))
+```
+
+`Layers.name(i)`, `Layers.index("Enemy")`, `Layers.bit(i | "Enemy")`, `Layers.all`, `Layers.none`
+and `Layers.count` are also available.
+
+`Component.addBoxCollider(entity, w, h [, isTrigger [, isStatic]])` **reconfigures an existing
+collider in place** rather than replacing it: the shape is always replaced, but layer, mask,
+`enabled` and any flag that was not passed are left alone. Scripts typically call it from
+`onCreate`, so clobbering those fields would silently discard the layer/mask authored in the scene
+on the very first frame.
 
 ### `Engine::CollisionEvents`
 

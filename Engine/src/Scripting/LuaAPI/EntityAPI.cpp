@@ -28,6 +28,8 @@ void registerEntity(sol::state_view lua, Registry& registry) {
 
     t["destroy"] = [&registry](Entity entity) { registry.DestroyEntity(entity); };
 
+    t["queueDestroy"] = [&registry](Entity entity) { registry.QueueDestroyEntity(entity); };
+
     t["find"] = [lua, &registry](const std::string& name) mutable -> sol::object {
         for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
             Entity e{i};

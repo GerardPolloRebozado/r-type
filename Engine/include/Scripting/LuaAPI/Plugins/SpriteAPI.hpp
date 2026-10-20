@@ -18,6 +18,12 @@ namespace Engine::LuaAPI {
  * cannot be loaded). Paths are resolved like everywhere else in the engine: project-relative in
  * built games (whose working directory is the project folder), absolute otherwise.
  *
+ *   - `Component.getSpriteFlip(entity)` -> `{flipX = bool, flipY = bool}` or nil
+ *   - `Component.setSpriteFlip(entity, flipX [, flipY])` -> bool
+ *
+ * The flip flags only mirror the drawn sprite. To mirror a whole rig (sprite
+ * plus its children), use `Component.flipX`.
+ *
  * @param lua View of the shared Lua state (lambdas capture a copy by value).
  * @param registry ECS registry; also owns the AssetManager resource.
  */

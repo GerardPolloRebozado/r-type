@@ -12,6 +12,10 @@ set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS TRUE CACHE BOOL "Suppress developer warnin
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(BundleMingwRuntime)
+bundle_mingw_runtime()
+
 set(CPM_DOWNLOAD_VERSION 0.40.0)
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
@@ -38,10 +42,14 @@ CPMAddPackage(
         GIT_TAG master
 )
 
+# NOTE: pinned to a fixed docking commit (Dear ImGui 1.93.1). The floating
+# `docking` branch resolves to a different snapshot per machine/fetch date,
+# which broke the build (tab color renames in 1.92+: TabActive -> TabSelected,
+# TabUnfocused -> TabDimmed, TabUnfocusedActive -> TabDimmedSelected).
 CPMAddPackage(
         NAME imgui
         GITHUB_REPOSITORY ocornut/imgui
-        GIT_TAG docking
+        GIT_TAG d88f238d1d363ef387382b2e29ad12cf96f826ac
 )
 CPMAddPackage(
         NAME rlImGui
@@ -84,6 +92,18 @@ CPMAddPackage(
         GITHUB_REPOSITORY ThePhD/sol2
         VERSION 3.5.0
 )
+
+# sol2 3.3.1 optional<T&>::emplace calls construct(), which that specialization
+# does not define. Clang 19+ rejects the header while parsing it.
+file(READ "${sol2_SOURCE_DIR}/include/sol/optional_implementation.hpp" _sol2_optional)
+string(FIND "${_sol2_optional}" "this->construct(std::forward<Args>(args)...);\n\t\t}" _sol2_optional_bug)
+if(NOT _sol2_optional_bug EQUAL -1)
+    string(REPLACE
+            "\t\ttemplate <class... Args>\n\t\tT& emplace(Args&&... args) noexcept {\n\t\t\tstatic_assert(std::is_constructible<T, Args&&...>::value, \"T must be constructible with Args\");\n\n\t\t\t*this = nullopt;\n\t\t\tthis->construct(std::forward<Args>(args)...);\n\t\t}"
+            "\t\tT& emplace(T& arg) noexcept {\n\t\t\tm_value = std::addressof(arg);\n\t\t\treturn *m_value;\n\t\t}"
+            _sol2_optional "${_sol2_optional}")
+    file(WRITE "${sol2_SOURCE_DIR}/include/sol/optional_implementation.hpp" "${_sol2_optional}")
+endif()
 
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
 
