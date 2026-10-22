@@ -80,6 +80,7 @@ set(INC_FILES
         include/GalleryReflect.hpp
         include/ProjectSystemsBuild.hpp
         include/Scaffold.hpp
+        include/Compat/WindowsApi.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)

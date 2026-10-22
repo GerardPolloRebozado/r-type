@@ -1,0 +1,241 @@
+name: Build Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+env:
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm_cache
+  BUILD_DIR: build
+  DIST_DIR: dist
+
+jobs:
+  build-unix:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-latest
+            platform: macos-arm64
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache CPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cpm_cache
+          key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: |
+            cpm-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            liblua5.4-dev \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libasound2-dev \
+            libpulse-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake ninja pkgconf lua@5.4
+          lua_pc="$(brew --prefix lua@5.4)/lib/pkgconfig"
+          echo "PKG_CONFIG_PATH=${lua_pc}${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+          export PKG_CONFIG_PATH="${lua_pc}${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          pkg-config --modversion lua5.4
+
+      - name: Configure
+        run: |
+          set -euo pipefail
+          args=(
+            -S .
+            -B "$BUILD_DIR"
+            -G Ninja
+            -DCMAKE_BUILD_TYPE=Release
+          )
+
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            args+=("-DCMAKE_BUILD_RPATH=@executable_path/../lib")
+          else
+            args+=("-DCMAKE_BUILD_RPATH=\$ORIGIN/../lib")
+          fi
+
+          cmake "${args[@]}"
+
+      - name: Build Engine and RTypeEditor
+        run: cmake --build "$BUILD_DIR" --target Engine RTypeEditor --parallel
+
+      - name: Package
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+
+          editor_pkg="RTypeEditor-${PLATFORM}"
+          engine_pkg="Engine-${PLATFORM}"
+          rm -rf "$DIST_DIR"
+          mkdir -p "$DIST_DIR/$editor_pkg/bin" "$DIST_DIR/$editor_pkg/lib"
+          mkdir -p "$DIST_DIR/$engine_pkg/lib" "$DIST_DIR/$engine_pkg/include"
+
+          cp "$BUILD_DIR/RTypeEditor" "$DIST_DIR/$editor_pkg/bin/"
+          cp "$BUILD_DIR/Engine/libEngine.a" "$DIST_DIR/$engine_pkg/lib/"
+          cp -R Engine/include/. "$DIST_DIR/$engine_pkg/include/"
+
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            packaged_exe="$DIST_DIR/$editor_pkg/bin/RTypeEditor"
+            lua_ref="$(otool -L "$packaged_exe" | awk '/liblua.*\.dylib/ {print $1; exit}')"
+            if [ -n "$lua_ref" ]; then
+              lua_base="$(basename "$lua_ref")"
+              if [ -f "$lua_ref" ]; then
+                cp -L "$lua_ref" "$DIST_DIR/$editor_pkg/lib/$lua_base"
+              else
+                cp -L "$(pkg-config --variable=libdir lua5.4)/$lua_base" \
+                  "$DIST_DIR/$editor_pkg/lib/$lua_base"
+              fi
+              install_name_tool -change "$lua_ref" \
+                "@executable_path/../lib/$lua_base" "$packaged_exe"
+            fi
+            codesign --force --sign - "$packaged_exe"
+          else
+            lua_ref="$(ldd "$BUILD_DIR/RTypeEditor" | awk '/liblua/ {print $3; exit}')"
+            if [ -n "$lua_ref" ]; then
+              cp -L "$lua_ref" "$DIST_DIR/$editor_pkg/lib/$(basename "$lua_ref")"
+            fi
+          fi
+
+          tar -czf "$DIST_DIR/$editor_pkg.tar.gz" -C "$DIST_DIR" "$editor_pkg"
+          tar -czf "$DIST_DIR/$engine_pkg.tar.gz" -C "$DIST_DIR" "$engine_pkg"
+          ls -lh "$DIST_DIR"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+      - name: Attach archives to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: dist/*.tar.gz
+
+  build-windows:
+    name: windows-x86_64
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache CPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cpm_cache
+          key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: |
+            cpm-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-lua54
+
+      - name: Stage Lua prefix
+        run: |
+          set -euo pipefail
+          prefix="$PWD/.lua-prefix"
+          mkdir -p "$prefix/include" "$prefix/lib" "$prefix/bin"
+          cp -r /ucrt64/include/lua5.4/. "$prefix/include/"
+          cp /ucrt64/lib/liblua5.4.dll.a "$prefix/lib/liblua54.dll.a"
+          cp /ucrt64/bin/lua54.dll "$prefix/bin/"
+
+      - name: Configure
+        run: |
+          set -euo pipefail
+          cmake -S . -B "$BUILD_DIR" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLUA_PREFIX="$(cygpath -m "$PWD/.lua-prefix")"
+
+      - name: Build Engine and RTypeEditor
+        run: cmake --build "$BUILD_DIR" --target Engine RTypeEditor --parallel
+
+      - name: Package
+        env:
+          PLATFORM: windows-x86_64
+        run: |
+          set -euo pipefail
+
+          editor_pkg="RTypeEditor-${PLATFORM}"
+          engine_pkg="Engine-${PLATFORM}"
+          rm -rf "$DIST_DIR"
+          mkdir -p "$DIST_DIR/$editor_pkg/bin" "$DIST_DIR/$editor_pkg/lib"
+          mkdir -p "$DIST_DIR/$engine_pkg/lib" "$DIST_DIR/$engine_pkg/include"
+
+          cp "$BUILD_DIR/RTypeEditor.exe" "$DIST_DIR/$editor_pkg/bin/"
+          cp "$BUILD_DIR/Engine/libEngine.a" "$DIST_DIR/$engine_pkg/lib/"
+          cp -R Engine/include/. "$DIST_DIR/$engine_pkg/include/"
+          find "$BUILD_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$DIST_DIR/$editor_pkg/bin/" \;
+
+          (cd "$DIST_DIR" && cmake -E tar cf "$editor_pkg.zip" --format=zip "$editor_pkg")
+          (cd "$DIST_DIR" && cmake -E tar cf "$engine_pkg.zip" --format=zip "$engine_pkg")
+          ls -lh "$DIST_DIR"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Attach archives to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: dist/*.zip

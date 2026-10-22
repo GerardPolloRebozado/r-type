@@ -8,7 +8,6 @@
 #include <imgui.h>
 
 namespace Editor {
-
 const char* NetworkComponentPluginEditor::GetName() const {
     return "Network";
 }
@@ -17,7 +16,7 @@ const char* NetworkComponentPluginEditor::GetIcon() const {
     return ICON_FA_SITEMAP;
 }
 
-bool NetworkComponentPluginEditor::OnImGuiRender(Engine::Entity entity,
+bool NetworkComponentPluginEditor::OnImGuiRender(const Engine::Entity entity,
                                                  Engine::Registry& registry) {
     if (!registry.HasComponent<Engine::NetworkComponent>(entity)) {
         return false;
@@ -88,7 +87,7 @@ bool NetworkComponentPluginEditor::OnImGuiRender(Engine::Entity entity,
 
         // Network ID (read-only, engine-assigned)
         if (netComp.networkId != 0) {
-            ImGui::Text("Network ID: %llu", netComp.networkId);
+            ImGui::Text("Network ID: %lu", netComp.networkId);
         } else {
             ImGui::TextDisabled("Network ID: (assigned on connect)");
         }
@@ -117,5 +116,4 @@ void NetworkComponentPluginEditor::RemoveComponent(Engine::Entity entity,
                                                    Engine::Registry& registry) {
     registry.RemoveComponent<Engine::NetworkComponent>(entity);
 }
-
 } // namespace Editor

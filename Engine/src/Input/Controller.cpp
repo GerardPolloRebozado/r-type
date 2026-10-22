@@ -8,7 +8,6 @@
 #include <algorithm>
 
 namespace Engine {
-
 Controller::Controller(int gamepadId) : m_gamepadId(gamepadId) {}
 
 bool Controller::isKeybindPressed(const Keybind& kb) const {
@@ -39,26 +38,36 @@ bool Controller::isKeybindPressed(const Keybind& kb) const {
 
 void Controller::Update() {
     _activeActions.clear();
-    for (const auto& [action, keybinds] : m_keymap) {
-        for (const auto& kb : keybinds) {
-            if (isKeybindPressed(kb)) {
-                _activeActions.push_back(action);
-                break;
+    _networkedActions.clear();
+    for (const auto& [action, binding] : m_keymap) {
+        for (const auto& kb : binding.keybinds) {
+            if (!isKeybindPressed(kb)) {
+                continue;
             }
+            _activeActions.emplace(action);
+            if (binding.networked) {
+                _networkedActions.emplace(action);
+            }
+            break;
         }
     }
 }
 
-void Controller::addKeybind(const Action& action, const Keybind& kb) {
-    m_keymap[action].push_back(kb);
+void Controller::addKeybind(const Action& action, const Keybind& kb, const bool networked) {
+    ActionBinding& binding = m_keymap[action];
+    binding.keybinds.push_back(kb);
+    binding.networked = binding.networked || networked;
 }
 
 bool Controller::isActionActive(const std::string& action) const {
-    return std::find(_activeActions.begin(), _activeActions.end(), action) != _activeActions.end();
+    return std::ranges::find(_activeActions, action) != _activeActions.end();
 }
 
-const std::vector<IController::Action>& Controller::getActiveActions() const {
+const std::set<Action>& Controller::getActiveActions() const {
     return _activeActions;
 }
 
+const std::set<Action>& Controller::getNetworkedActiveActions() const {
+    return _networkedActions;
+}
 } // namespace Engine

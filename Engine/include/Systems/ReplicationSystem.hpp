@@ -72,7 +72,7 @@ class ReplicationSystem : public System {
     void RegisterSpawnHandler(Registry& registry);
     void RegisterDespawnHandler(Registry& registry);
     void RegisterInputHandler(Registry& registry);
-    void ApplyDefaultMovement(Registry& registry, NetworkHostResource& host, float dt);
+    void ApplyDefaultMovement(Registry& registry, const NetworkHostResource& host, float dt);
     void SendLocalInput(Registry& registry, NetworkHostResource& host,
                         PacketRegistryResource& packetRegistry);
     Entity SpawnFromPrefab(Registry& registry, const std::string& prefabPath);

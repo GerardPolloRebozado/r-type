@@ -94,8 +94,8 @@ static void BuildScene(Engine::Registry& reg, Serialization::SceneConfig& config
     config.m_BuildExecutableName = "SerdeGame";
     config.m_BuildWindowTitle = "SerdeGameTitle";
     config.m_InitialScenePath = "/tmp/proj/test.scene";
-    config.m_InputMap["Jump"] = {Engine::Keybind{32, 0, Engine::KEYBOARD}};
-    config.m_InputMap["Fire"] = {Engine::Keybind{1, 0, Engine::DeviceType::MOUSE}};
+    config.m_InputMap["Jump"] = {{Engine::Keybind{32, 0, Engine::KEYBOARD}}, false};
+    config.m_InputMap["Fire"] = {{Engine::Keybind{1, 0, Engine::DeviceType::MOUSE}}, true};
 }
 
 static Engine::Entity FindByName(Engine::Registry& reg, const std::string& name) {
@@ -176,10 +176,12 @@ static void VerifyScene(Engine::Registry& reg, const Serialization::SceneConfig&
     CHECK(config.m_BuildExecutableName == "SerdeGame");
     CHECK(config.m_BuildWindowTitle == "SerdeGameTitle");
     CHECK(config.m_InitialScenePath == "/local/machine/proj/local.scene");
-    CHECK(config.m_InputMap.at("Jump").size() == 1);
-    CHECK(config.m_InputMap.at("Jump")[0].key == 32);
-    CHECK(config.m_InputMap.at("Jump")[0].type == Engine::DeviceType::KEYBOARD);
-    CHECK(config.m_InputMap.at("Fire")[0].type == Engine::DeviceType::MOUSE);
+    CHECK(config.m_InputMap.at("Jump").keybinds.size() == 1);
+    CHECK(config.m_InputMap.at("Jump").keybinds[0].key == 32);
+    CHECK(config.m_InputMap.at("Jump").keybinds[0].type == Engine::DeviceType::KEYBOARD);
+    CHECK(config.m_InputMap.at("Jump").networked == false);
+    CHECK(config.m_InputMap.at("Fire").keybinds[0].type == Engine::DeviceType::MOUSE);
+    CHECK(config.m_InputMap.at("Fire").networked == true);
 }
 
 int main() {

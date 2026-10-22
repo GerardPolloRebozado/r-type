@@ -36,9 +36,11 @@ local function readInput(owner)
             return input
         end
     end
-    return {
-        shoot = Controller.isActionActive("SHOOT"),
-    }
+    local input = {}
+    if Controller.isActionActive("SHOOT") then
+        input.SHOOT = true
+    end
+    return input
 end
 
 local function isShootDown(entity)
@@ -46,7 +48,7 @@ local function isShootDown(entity)
     if owner == nil then
         return false
     end
-    return readInput(owner).shoot == true
+    return readInput(owner).SHOOT == true
 end
 
 function Script:onCreate(entity)

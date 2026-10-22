@@ -15,7 +15,8 @@ class Registry;
  * `Scripting/LuaAPI/Plugins/` — one file per Engine plugin, each owning the Lua
  * functions for that plugin:
  *
- *   - `Position`  -> `Transform` (getPosition / setPosition / translate)
+ *   - `Position`  -> `Transform` (getPosition -> {x, y, z} / setPosition(x, y [, z]) /
+ *                    translate / getZIndex / setZIndex)
  *   - `Rotation`  -> `Transform` (getRotation / setRotation / rotate)
  *   - `Sprite`    -> `Component.addSprite` / `getSprite`
  *   - `Shape`     -> `Component.addShape`

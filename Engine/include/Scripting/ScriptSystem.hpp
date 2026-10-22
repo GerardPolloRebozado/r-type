@@ -21,13 +21,12 @@ class ScriptSystem : public System {
 
     void Update(Registry& registry, float dt) override;
     void Render(Registry& registry) override {} // No rendering
+    void loadScript(Registry& registry, Entity entity);
+    void unloadScript(Registry& registry, Entity entity);
 
   private:
     sol::state lua; // Single Lua state shared by all scripts
     bool apiRegistered = false;
-
-    void loadScript(Registry& registry, Entity entity);
-    void unloadScript(Registry& registry, Entity entity);
 
     // Track which missing scripts we've already warned about
     static std::unordered_set<std::string> s_warnedMissingScripts;

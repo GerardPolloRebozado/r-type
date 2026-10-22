@@ -8,7 +8,6 @@
 #include <sol/sol.hpp>
 
 namespace Engine::LuaAPI {
-
 namespace {
 constexpr int kDefaultPlayerId = 1;
 
@@ -66,18 +65,20 @@ void registerController(sol::state_view lua, Registry& registry) {
             return out;
         }
         const auto& active = ctrl->getActiveActions();
-        for (std::size_t i = 0; i < active.size(); ++i) {
-            out[i + 1] = active[i];
+        int i = 0;
+        for (const auto& action : active) {
+            out[i + 1] = action;
+            i++;
         }
         return out;
     };
 
     controller["addKeybind"] =
         [&registry](const std::string& action, int key, sol::optional<int> deviceOpt,
-                    sol::optional<int> composeKeyOpt, sol::optional<int> playerIdOpt) -> bool {
-        const int device = deviceOpt.value_or(static_cast<int>(DeviceType::KEYBOARD));
-        if (device < static_cast<int>(DeviceType::KEYBOARD) ||
-            device > static_cast<int>(DeviceType::TOUCH)) {
+                    const sol::optional<int> composeKeyOpt, const sol::optional<int> playerIdOpt,
+                    const sol::optional<bool> networkedOpt) -> bool {
+        const int device = deviceOpt.value_or(static_cast<int>(KEYBOARD));
+        if (device < static_cast<int>(KEYBOARD) || device > static_cast<int>(TOUCH)) {
             return false;
         }
         const int playerId = playerIdOpt.value_or(kDefaultPlayerId);
@@ -89,9 +90,8 @@ void registerController(sol::state_view lua, Registry& registry) {
         kb.key = key;
         kb.composeKey = composeKeyOpt.value_or(0);
         kb.type = static_cast<DeviceType>(device);
-        ctrl->addKeybind(action, kb);
+        ctrl->addKeybind(action, kb, networkedOpt.value_or(false));
         return true;
     };
 }
-
 } // namespace Engine::LuaAPI

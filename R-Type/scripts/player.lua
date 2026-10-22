@@ -10,7 +10,7 @@
 --
 -- Shooting lives in playerGun.lua (the Gun child).
 
-local Player = {}
+Player = {}
 
 Player.speed = 500.0
 
@@ -62,7 +62,8 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
--- Prefer the replicated input (server) / local input (client). Falls back to
+-- Prefer the replicated input (server) / local input (client): a set-table
+-- keyed by action name, e.g. { UP = true, SHOOT = true }. Falls back to
 -- the controller in single-player or when Net.input has no data.
 local function readInput(entity)
     if Net ~= nil and Net.input ~= nil then
@@ -71,13 +72,23 @@ local function readInput(entity)
             return input
         end
     end
-    return {
-        up = Controller.isActionActive("UP"),
-        down = Controller.isActionActive("DOWN"),
-        left = Controller.isActionActive("LEFT"),
-        right = Controller.isActionActive("RIGHT"),
-        shoot = Controller.isActionActive("SHOOT"),
-    }
+    local input = {}
+    if Controller.isActionActive("UP") then
+        input.UP = true
+    end
+    if Controller.isActionActive("DOWN") then
+        input.DOWN = true
+    end
+    if Controller.isActionActive("LEFT") then
+        input.LEFT = true
+    end
+    if Controller.isActionActive("RIGHT") then
+        input.RIGHT = true
+    end
+    if Controller.isActionActive("SHOOT") then
+        input.SHOOT = true
+    end
+    return input
 end
 
 function Player:onCreate(entity)
@@ -113,17 +124,25 @@ function Player:onUpdate(entity, dt)
     end
 
     local input = readInput(entity)
-    local up = input.up == true
-    local down = input.down == true
-    local left = input.left == true
-    local right = input.right == true
+    local up = input.UP == true
+    local down = input.DOWN == true
+    local left = input.LEFT == true
+    local right = input.RIGHT == true
 
     -- Movement
     local dx, dy = 0.0, 0.0
-    if left then dx = dx - 1.0 end
-    if right then dx = dx + 1.0 end
-    if up then dy = dy - 1.0 end
-    if down then dy = dy + 1.0 end
+    if left then
+        dx = dx - 1.0
+    end
+    if right then
+        dx = dx + 1.0
+    end
+    if up then
+        dy = dy - 1.0
+    end
+    if down then
+        dy = dy + 1.0
+    end
 
     if dx ~= 0.0 or dy ~= 0.0 then
         local len = math.sqrt(dx * dx + dy * dy)
