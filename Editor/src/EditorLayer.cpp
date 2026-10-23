@@ -9,9 +9,11 @@
 #include "Panels/InspectorPanel.hpp"
 #include "Panels/PreviewPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
+#include "Panels/ScriptEditorPanel.hpp"
 #include "Panels/SettingsPanel.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
+#include "ScriptEditorService.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <extras/FA6FreeSolidFontData.h>
@@ -37,6 +39,7 @@
 
 namespace Editor {
 ImFont* g_IconFont = nullptr;
+ImFont* g_CodeFont = nullptr;
 
 EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<HierarchyPanel>());
@@ -49,6 +52,9 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<SettingsPanel>());
     AddPanel(std::make_unique<InputMappingPanel>());
     AddPanel(std::make_unique<StatePanel>());
+    auto scriptEditor = std::make_unique<ScriptEditorPanel>();
+    m_ScriptEditorPanel = scriptEditor.get();
+    AddPanel(std::move(scriptEditor));
 }
 
 EditorLayer::~EditorLayer() {
@@ -58,6 +64,9 @@ EditorLayer::~EditorLayer() {
 void EditorLayer::Init() {
     m_Registry->AddResource<HierarchyPanelSelectedEntity>();
     m_Registry->AddResource<StatePanelSelectedState>();
+    if (!m_Registry->HasResource<ScriptEditorService>()) {
+        m_Registry->AddResource<ScriptEditorService>();
+    }
     if (!m_Registry->HasResource<ProjectContext>()) {
         m_Registry->AddResource<ProjectContext>(m_Configuration ? m_Configuration->m_ProjectFolder
                                                                 : "");
@@ -84,6 +93,14 @@ void EditorLayer::Init() {
         io.Fonts->AddFontFromMemoryCompressedTTF(fa_solid_900_compressed_data,
                                                  fa_solid_900_compressed_size, 16.0f, &icons_config,
                                                  icons_ranges);
+
+        ImFontConfig code_config;
+        code_config.FontDataOwnedByAtlas = false;
+        code_config.OversampleH = 2;
+        code_config.OversampleV = 2;
+        g_CodeFont = io.Fonts->AddFontFromMemoryTTF(
+            const_cast<unsigned char*>(BundledAssets::fonts_NotoSansMono_Regular_ttf),
+            BundledAssets::fonts_NotoSansMono_Regular_ttf_size, 15.0f, &code_config);
 
         ImFontConfig icons_config_large;
         icons_config_large.MergeMode = false;
@@ -212,6 +229,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
         ImGui::DockBuilderDockWindow(ICON_FA_GAMEPAD " Input Map", dock_main_id);
         ImGui::DockBuilderDockWindow("Preview", dock_main_id);
+        ImGui::DockBuilderDockWindow("Script Editor", dock_main_id);
 
         ImGui::DockBuilderFinish(dockspace_id);
     }
@@ -242,6 +260,12 @@ void EditorLayer::BeginDockSpace() {
 
         if (ImGui::MenuItem("Settings")) {
             SettingsPanel::s_IsOpen = true;
+        }
+
+        if (ImGui::MenuItem("Script Editor")) {
+            if (m_ScriptEditorPanel) {
+                m_ScriptEditorPanel->Focus();
+            }
         }
 
         float button_size = 30.0f;
@@ -288,56 +312,61 @@ void EditorLayer::BeginDockSpace() {
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
 
         if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
-            if (m_Configuration && m_Registry) {
-                // Save scene first
-                if (!m_Configuration->m_InitialScenePath.empty()) {
-                    Serialization::SceneSerializer serializer;
-                    serializer.Serialize(m_Configuration->m_InitialScenePath, *m_Registry,
-                                         *m_Configuration);
-                }
-            }
-            if (m_Configuration) {
-#ifdef _WIN32
-                const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
-#else
-                const std::string exeFile = m_Configuration->m_BuildExecutableName;
-#endif
-                std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
-                if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
-                }
-                if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/build/Games/R-Type/" + exeFile;
-                }
-                // Multi-config generators (e.g. Visual Studio) place the binary
-                // in a <Config> subfolder.
-                if (!std::filesystem::exists(exePath)) {
-                    for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
-                        const std::string cand =
-                            m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
-                        if (std::filesystem::exists(cand)) {
-                            exePath = cand;
-                            break;
-                        }
-                        const std::string cand2 = m_Configuration->m_ProjectFolder +
-                                                  "/build/Games/R-Type/" + cfg + "/" + exeFile;
-                        if (std::filesystem::exists(cand2)) {
-                            exePath = cand2;
-                            break;
-                        }
+            const bool scriptsReady = m_ScriptEditorPanel == nullptr ||
+                                      !m_ScriptEditorPanel->HasDirtyDocuments() ||
+                                      m_ScriptEditorPanel->SaveAll();
+            if (scriptsReady) {
+                if (m_Configuration && m_Registry) {
+                    if (!m_Configuration->m_InitialScenePath.empty()) {
+                        Serialization::SceneSerializer serializer;
+                        serializer.Serialize(m_Configuration->m_InitialScenePath, *m_Registry,
+                                             *m_Configuration);
                     }
                 }
-                if (std::filesystem::exists(exePath)) {
+                if (m_Configuration) {
 #ifdef _WIN32
-                    // start detaches: system() returns immediately instead of
-                    // freezing the editor while the game runs.
-                    std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
-                                      "\" \"" + exePath + "\"";
+                    const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
 #else
-                    std::string cmd =
-                        "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" + exePath + "\" &";
+                    const std::string exeFile = m_Configuration->m_BuildExecutableName;
 #endif
-                    std::system(cmd.c_str());
+                    std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
+                    if (!std::filesystem::exists(exePath)) {
+                        exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
+                    }
+                    if (!std::filesystem::exists(exePath)) {
+                        exePath =
+                            m_Configuration->m_ProjectFolder + "/build/Games/R-Type/" + exeFile;
+                    }
+                    // Multi-config generators (e.g. Visual Studio) place the binary
+                    // in a <Config> subfolder
+                    if (!std::filesystem::exists(exePath)) {
+                        for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
+                            const std::string cand =
+                                m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
+                            if (std::filesystem::exists(cand)) {
+                                exePath = cand;
+                                break;
+                            }
+                            const std::string cand2 = m_Configuration->m_ProjectFolder +
+                                                      "/build/Games/R-Type/" + cfg + "/" + exeFile;
+                            if (std::filesystem::exists(cand2)) {
+                                exePath = cand2;
+                                break;
+                            }
+                        }
+                    }
+                    if (std::filesystem::exists(exePath)) {
+#ifdef _WIN32
+                        // start detaches: system() returns immediately instead of
+                        // freezing the editor while the game runs
+                        std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
+                                          "\" \"" + exePath + "\"";
+#else
+                        std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" +
+                                          exePath + "\" &";
+#endif
+                        std::system(cmd.c_str());
+                    }
                 }
             }
         }
