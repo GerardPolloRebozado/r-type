@@ -85,6 +85,8 @@ class Application {
     void PreUpdate(float dt);
     void Update(float dt);
     void PostUpdate(float dt);
+    /** @brief Applies a scene switch requested through the SceneManager resource, if any. */
+    void ApplyPendingScene();
 };
 } // namespace Engine
 

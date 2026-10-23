@@ -21,6 +21,14 @@ class System {
     virtual void Render(Registry& registry) {}
     /** @brief Screen pass: drawn after the world, in window pixels. */
     virtual void RenderScreen(Registry& registry) {}
+    /**
+     * @brief Called right before the current scene's entities are destroyed.
+     *
+     * Override it to drop state kept outside components (script instances,
+     * playing sounds, cached pairs...). Entities are still alive during this
+     * call; after it, entity IDs restart at 1.
+     */
+    virtual void OnSceneUnloaded(Registry& registry) {}
 
     std::set<Entity> m_Entities;
 };
