@@ -6,6 +6,7 @@
 #include "EditorLayer.hpp"
 #include "EntitySubtree.hpp"
 #include "Logging/Logger.hpp"
+#include "ScriptEditorService.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <algorithm>
 #include <cctype>
@@ -26,6 +27,20 @@ bool IsInsideDirectory(const std::filesystem::path& directory, const std::filesy
     }
     const std::string text = relative.generic_string();
     return !text.empty() && text != ".." && text.rfind("../", 0) != 0;
+}
+
+bool IsLuaPath(const std::filesystem::path& path) {
+    std::string extension = path.extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return extension == ".lua";
+}
+
+void RequestOpenScript(Engine::Registry& registry, const std::filesystem::path& path) {
+    if (!IsLuaPath(path) || !registry.HasResource<ScriptEditorService>()) {
+        return;
+    }
+    registry.GetResource<ScriptEditorService>().Open(path);
 }
 
 bool IsValidEntryName(const std::string& name) {
@@ -357,6 +372,10 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                     if (ImGui::IsItemClicked()) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
+                    if (ImGui::IsItemHovered() &&
+                        ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        RequestOpenScript(registry, path);
+                    }
                     ImGui::PopFont();
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
                         cfg.m_SelectedAssetPath = path.string();
@@ -377,6 +396,9 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                 ImGui::TextWrapped("%s", filenameString.c_str());
                 if (ImGui::IsItemClicked()) {
                     cfg.m_SelectedAssetPath = path.string();
+                }
+                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                    RequestOpenScript(registry, path);
                 }
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
                     m_DialogTarget = path;
@@ -431,6 +453,9 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
         }
         if (ImGui::MenuItem("Delete")) {
             openDelete = true;
+        }
+        if (IsLuaPath(m_DialogTarget) && ImGui::MenuItem("Open in Script Editor")) {
+            RequestOpenScript(registry, m_DialogTarget);
         }
         ImGui::EndPopup();
         if (openRename) {

@@ -11,7 +11,10 @@ struct ImFont;
 
 namespace Editor {
 
+class ScriptEditorPanel;
+
 extern ImFont* g_IconFont;
+extern ImFont* g_CodeFont;
 
 class EditorLayer {
   public:
@@ -44,6 +47,7 @@ class EditorLayer {
     bool m_FirstTimeLayout = true;
     Engine::Registry* m_Registry = nullptr;
     std::unique_ptr<EditorConfig> m_Configuration = nullptr;
+    ScriptEditorPanel* m_ScriptEditorPanel = nullptr;
 
 #ifdef _WIN32
     // Process handles for launched game windows.

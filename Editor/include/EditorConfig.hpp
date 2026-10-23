@@ -13,6 +13,7 @@ using Serialization::ToProjectRelativePath;
 
 struct EditorConfig : public Serialization::SceneConfig {
     std::string m_SelectedAssetPath;
+    float m_ScriptFontSize = 15.0f;
 };
 
 } // namespace Editor

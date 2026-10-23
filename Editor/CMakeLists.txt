@@ -13,6 +13,14 @@ add_custom_command(
 
 
 
+add_library(imgui_textedit STATIC
+        third_party/ImGuiColorTextEdit/TextEditor.cpp
+)
+target_include_directories(imgui_textedit PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ImGuiColorTextEdit
+)
+target_link_libraries(imgui_textedit PUBLIC imgui)
+
 set(SRC_FILES
         src/EditorLayer.cpp
         src/EditorStyle.cpp
@@ -24,6 +32,7 @@ set(SRC_FILES
         src/Panels/InspectorPanel.cpp
         src/Panels/PreviewPanel.cpp
         src/Panels/SceneViewPanel.cpp
+        src/Panels/ScriptEditorPanel.cpp
         src/Panels/SettingsPanel.cpp
         src/Panels/InputMappingPanel.cpp
         src/Panels/StatePanel.cpp
@@ -42,6 +51,8 @@ set(SRC_FILES
         src/Rendering/SceneRenderer.cpp
         src/ProjectSystemsBuild.cpp
         src/Scaffold.cpp
+        src/Scripting/LuaLanguage.cpp
+        src/Scripting/LuaSyntax.cpp
         src/Utils/FileDialog.cpp
         src/Utils/Multiplatform.cpp
 )
@@ -59,6 +70,7 @@ set(INC_FILES
         include/Panels/InspectorPanel.hpp
         include/Panels/PreviewPanel.hpp
         include/Panels/SceneViewPanel.hpp
+        include/Panels/ScriptEditorPanel.hpp
         include/Panels/SettingsPanel.hpp
         include/Panels/InputMappingPanel.hpp
         include/Panels/StatePanel.hpp
@@ -80,11 +92,15 @@ set(INC_FILES
         include/GalleryReflect.hpp
         include/ProjectSystemsBuild.hpp
         include/Scaffold.hpp
+        include/ScriptEditorService.hpp
+        include/Scripting/LuaLanguage.hpp
+        include/Scripting/LuaSyntax.hpp
         include/Compat/WindowsApi.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
-target_include_directories(RTypeEditor PRIVATE include ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(RTypeEditor PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}
+        third_party/ImGuiColorTextEdit)
 target_compile_definitions(RTypeEditor PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
 
@@ -98,7 +114,7 @@ if (NOT EXISTS "${PFD_DEST}")
 endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui glaze::glaze)
+target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui_textedit imgui glaze::glaze)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_compile_options(RTypeEditor PRIVATE -s ASYNCIFY)
