@@ -15,9 +15,9 @@
 #include "Plugins/SignalPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
-#include "SceneSerializer.hpp"
+#include "SceneFiles.hpp"
 #include "Scripting/ScriptPlugin.hpp"
-#include <optional>
+#include <string>
 #include <raylib.h>
 #include <vector>
 
@@ -84,8 +84,10 @@ int main(int argc, char* argv[]) {
     controller->addKeybind("SHOOT", {32, 0, static_cast<Engine::DeviceType>(0)}, true);
     inputManager.AddPlayer(1, std::move(controller));
 
-    Serialization::SceneSerializer serializer;
-    serializer.Deserialize("test.scene", app.GetRegistry(), std::nullopt);
+    // Startup scene: a .scene argument wins (e.g. ./Game Level2.scene),
+    // otherwise the project's startup scene.
+    const std::string startupScene = Serialization::PickStartupScene(config.args, "test.scene");
+    Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);
 
     app.Run();
     return 0;

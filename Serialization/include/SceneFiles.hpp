@@ -3,6 +3,8 @@
 
 #include "ECS/Registry.hpp"
 #include "Resources/SceneManager.hpp"
+#include <string>
+#include <vector>
 
 namespace Serialization {
 
@@ -20,6 +22,18 @@ namespace Serialization {
  * @return The scene manager, for chaining @c Load().
  */
 Engine::SceneManager& EnableSceneFiles(Engine::Registry& registry);
+
+/**
+ * @brief Picks the scene a game starts with.
+ *
+ * A command-line argument ending in @c .scene wins, so the editor (or you)
+ * can start the game on any scene: @c "./Game Level2.scene". Otherwise
+ * @p fallback is used: the project's startup scene.
+ *
+ * @param args Command-line arguments without the program name.
+ * @param fallback Scene to use when no argument names one.
+ */
+std::string PickStartupScene(const std::vector<std::string>& args, const std::string& fallback);
 
 } // namespace Serialization
 

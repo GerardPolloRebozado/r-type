@@ -163,6 +163,14 @@ int main() {
     lua2.script("Scene.load('Menu.scene')");
     CHECK(lua2.script("return Scene.current()").get<std::string>().empty());
 
+    // Startup scene: a .scene argument wins, flags are ignored.
+    using Serialization::PickStartupScene;
+    CHECK(PickStartupScene({}, "test.scene") == "test.scene");
+    CHECK(PickStartupScene({"--server", "--headless"}, "test.scene") == "test.scene");
+    CHECK(PickStartupScene({"--client", "Level2.scene"}, "test.scene") == "Level2.scene");
+    CHECK(PickStartupScene({"levels/Level1.scene"}, "test.scene") == "levels/Level1.scene");
+    CHECK(PickStartupScene({".scene"}, "test.scene") == "test.scene");
+
     fs::remove_all(project);
 
     if (failures == 0) {

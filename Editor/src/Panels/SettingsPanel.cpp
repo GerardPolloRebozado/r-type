@@ -15,6 +15,38 @@
 #include <regex>
 
 namespace Editor {
+namespace {
+// Startup scene as a path relative to the project folder, for the generated
+// main.cpp (the game runs from the project folder). Falls back to the first
+// .scene in the project folder, then to "test.scene".
+std::string StartupSceneRelativePath(const EditorConfig& config, const std::string& projFolder) {
+    namespace fs = std::filesystem;
+    std::error_code error;
+    if (!config.m_InitialScenePath.empty()) {
+        fs::path scene(config.m_InitialScenePath);
+        if (scene.is_relative()) {
+            scene = fs::path(projFolder) / scene;
+        }
+        const fs::path relative = fs::relative(scene, projFolder, error);
+        const std::string text = relative.generic_string();
+        if (!error && !text.empty() && text.rfind("..", 0) != 0 && fs::exists(scene, error)) {
+            return text;
+        }
+    }
+    std::vector<std::string> found;
+    for (const auto& entry : fs::directory_iterator(projFolder, error)) {
+        if (entry.path().extension() == ".scene") {
+            found.push_back(entry.path().filename().generic_string());
+        }
+    }
+    if (!found.empty()) {
+        std::sort(found.begin(), found.end());
+        return found.front();
+    }
+    return "test.scene";
+}
+} // namespace
+
 std::atomic<float> SettingsPanel::s_BuildProgress = 0.0f;
 std::atomic<bool> SettingsPanel::s_IsBuilding = false;
 bool SettingsPanel::s_IsOpen = false;
@@ -64,8 +96,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
-            << "#include <optional>\n"
-            << "#include \"SceneSerializer.hpp\"\n"
+            << "#include \"SceneFiles.hpp\"\n"
+            << "#include <string>\n"
             << "#include \"Plugins/AudioPlugin.hpp\"\n"
             << "#include \"Plugins/HierarchyPlugin.hpp\"\n"
             << "#include \"Plugins/InputPlugin.hpp\"\n"
@@ -146,21 +178,19 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     }
     mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";
 
-    mainOut << "    Serialization::SceneSerializer serializer;\n";
-
-    if (std::filesystem::exists(projFolder) && std::filesystem::is_directory(projFolder)) {
-        for (const auto& entry : std::filesystem::directory_iterator(projFolder)) {
-            if (entry.path().extension() == ".scene") {
-                mainOut << "    serializer.Deserialize(\"" << entry.path().filename().string()
-                        << "\", app.GetRegistry(), std::nullopt);\n";
-            }
-        }
-    }
-
     if (std::filesystem::exists(std::filesystem::path(projFolder) /
                                 Editor::kProjectRegisterHeader)) {
-        mainOut << "\n    RegisterScaffoldedSystems(app.GetRegistry());\n";
+        mainOut << "    RegisterScaffoldedSystems(app.GetRegistry());\n\n";
     }
+
+    // Only the startup scene is loaded. Other scenes are loaded later with
+    // Scene.load(...) from Lua or SceneManager::Load from C++.
+    mainOut << "    // Startup scene: a .scene argument wins (e.g. ./" << cppEscape(exeNameStr)
+            << " Level2.scene),\n"
+            << "    // otherwise the project's startup scene.\n"
+            << "    const std::string startupScene = Serialization::PickStartupScene(config.args, \""
+            << cppEscape(StartupSceneRelativePath(config, projFolder)) << "\");\n"
+            << "    Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);\n";
 
     mainOut << "\n    app.Run();\n"
             << "    return 0;\n"
