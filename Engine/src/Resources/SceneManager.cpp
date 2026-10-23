@@ -1,4 +1,5 @@
 #include "Resources/SceneManager.hpp"
+#include "Assets/ProjectPaths.hpp"
 #include "Logging/Logger.hpp"
 #include <filesystem>
 #include <utility>
@@ -49,14 +50,18 @@ bool SceneManager::ApplyPending(Registry& registry) {
     // Check the scene exists before destroying the current one.
     const auto codeScene = m_CodeScenes.find(name);
     const bool isCodeScene = codeScene != m_CodeScenes.end();
+    std::string filePath;
     if (!isCodeScene) {
         if (!m_FileLoader) {
             log_error("[Scene] Unknown scene '" + name +
                       "': not a code scene and no scene file loader is installed.");
             return false;
         }
+        // Same lookup as prefabs: relative paths are tried against the project
+        // folder (ProjectContext) first, then the working directory.
+        filePath = ResolveAssetPath(registry, name).string();
         std::error_code error;
-        if (!std::filesystem::exists(name, error) || error) {
+        if (!std::filesystem::is_regular_file(filePath, error) || error) {
             log_error("[Scene] Scene file not found: " + name);
             return false;
         }
@@ -75,8 +80,8 @@ bool SceneManager::ApplyPending(Registry& registry) {
         // Copy the builder: it may call Register() and replace itself.
         const Builder builder = codeScene->second;
         builder(registry);
-    } else if (!m_FileLoader(registry, name)) {
-        log_error("[Scene] Failed to load scene file: " + name);
+    } else if (!m_FileLoader(registry, filePath)) {
+        log_error("[Scene] Failed to load scene file: " + filePath);
         m_Current.clear();
         return true;
     }

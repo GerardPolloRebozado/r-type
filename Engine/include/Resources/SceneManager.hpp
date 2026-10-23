@@ -43,7 +43,12 @@ class SceneManager {
   public:
     /** @brief Creates the entities of a code scene. */
     using Builder = std::function<void(Registry&)>;
-    /** @brief Loads a scene file into the registry. Returns false on failure. */
+    /**
+     * @brief Loads a scene file into the registry. Returns false on failure.
+     *
+     * Receives the resolved path (see @ref ResolveAssetPath), already checked
+     * to exist. The registry is empty when it is called.
+     */
     using FileLoader = std::function<bool(Registry&, const std::string&)>;
     /** @brief Runs after a scene was built. Receives the scene name. */
     using LoadedCallback = std::function<void(Registry&, const std::string&)>;

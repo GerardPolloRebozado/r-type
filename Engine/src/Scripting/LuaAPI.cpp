@@ -51,7 +51,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerTime(lua);
     registerEntity(lua, registry);
     registerComponentQuery(lua, registry);
-    registerScene(lua);
+    registerScene(lua, registry);
 
     // --- One module per Engine plugin ---
     registerPosition(lua, registry);
