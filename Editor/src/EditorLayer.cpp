@@ -10,6 +10,7 @@
 #include "Panels/PreviewPanel.hpp"
 #include "Panels/SceneViewPanel.hpp"
 #include "Panels/SettingsPanel.hpp"
+#include "Logging/Logger.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
 #include <algorithm>
@@ -19,6 +20,7 @@
 #include <filesystem>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <rlImGui.h>
 
 #ifdef _WIN32
@@ -102,6 +104,7 @@ void EditorLayer::Init() {
 
     Serialization::SceneSerializer serializer;
     serializer.Deserialize(m_Configuration->m_ActiveScenePath, *m_Registry, *m_Configuration);
+    MarkSceneSaved();
 
     // Enable docking feature
     ImGuiIO& io = ImGui::GetIO();
@@ -119,6 +122,9 @@ void EditorLayer::AddPanel(std::unique_ptr<IEditorPanel> panel) {
 
 void EditorLayer::OnUpdate() {
     rlImGuiBegin();
+
+    // Before any panel draws: a scene switch must not happen mid-iteration.
+    HandleSceneRequests();
 
     BeginDockSpace();
 
@@ -175,6 +181,7 @@ bool EditorLayer::SaveActiveScene() {
     fs::create_directories(scenePath.parent_path(), error);
     Serialization::SceneSerializer serializer;
     serializer.Serialize(scenePath.string(), *m_Registry, *m_Configuration);
+    MarkSceneSaved();
     return true;
 }
 
@@ -193,6 +200,281 @@ std::string EditorLayer::ActiveSceneRelativePath() const {
         return scenePath.generic_string();
     }
     return text;
+}
+
+namespace {
+// Frames to wait after a load/save before recording the "saved" state, so
+// editor systems have settled derived values (prevX/prevY, child positions).
+constexpr int kSnapshotSettleFrames = 3;
+int s_SnapshotFramesLeft = 0;
+
+bool SamePath(const fs::path& a, const fs::path& b) {
+    std::error_code error;
+    return fs::weakly_canonical(a, error) == fs::weakly_canonical(b, error);
+}
+
+// Folders never scanned for scenes: build output and hidden folders.
+bool IsSkippedFolder(const fs::path& folder) {
+    const std::string name = folder.filename().string();
+    return name.empty() || name[0] == '.' || name == "build" || name.rfind("cmake-build", 0) == 0;
+}
+} // namespace
+
+std::string EditorLayer::CaptureSceneJson() {
+    if (!m_Registry) {
+        return "";
+    }
+    Serialization::GlazeSerializer serializer;
+    return serializer.SerializeToString(serializer.CaptureScene(*m_Registry));
+}
+
+void EditorLayer::MarkSceneSaved() {
+    m_SavedSceneJsonStale = true;
+    s_SnapshotFramesLeft = kSnapshotSettleFrames;
+}
+
+bool EditorLayer::HasUnsavedChanges() {
+    if (m_SavedSceneJsonStale) {
+        // Saved or loaded a moment ago: nothing can have changed yet.
+        return false;
+    }
+    return CaptureSceneJson() != m_SavedSceneJson;
+}
+
+void EditorLayer::ClearScene() {
+    m_Registry->ClearEntities();
+    if (m_Registry->HasResource<HierarchyPanelSelectedEntity>()) {
+        m_Registry->GetResource<HierarchyPanelSelectedEntity>() = HierarchyPanelSelectedEntity{};
+    }
+}
+
+void EditorLayer::OpenScene(const std::string& path) {
+    ClearScene();
+    // No config: the project settings already loaded (window, input map...)
+    // stay as they are instead of being replaced by this scene's copy.
+    Serialization::SceneSerializer serializer;
+    if (!serializer.Deserialize(path, *m_Registry, std::nullopt)) {
+        log_error("[Editor] Could not read scene " + path + ". Opened it empty.");
+    }
+    m_Configuration->m_ActiveScenePath = path;
+    MarkSceneSaved();
+    log_info("[Editor] Opened scene " + ActiveSceneRelativePath());
+}
+
+void EditorLayer::CreateScene(const std::string& path) {
+    ClearScene();
+    m_Configuration->m_ActiveScenePath = path;
+    SaveActiveScene();
+    log_info("[Editor] Created scene " + ActiveSceneRelativePath());
+}
+
+void EditorLayer::SaveSceneAs(const std::string& path) {
+    m_Configuration->m_ActiveScenePath = path;
+    SaveActiveScene();
+    log_info("[Editor] Saved scene as " + ActiveSceneRelativePath());
+}
+
+void EditorLayer::RunSceneAction(const SceneAction& action) {
+    switch (action.kind) {
+        case SceneAction::Kind::Open:
+            OpenScene(action.path);
+            break;
+        case SceneAction::Kind::Create:
+            CreateScene(action.path);
+            break;
+        case SceneAction::Kind::None:
+            break;
+    }
+}
+
+void EditorLayer::RequestSceneAction(SceneAction action) {
+    if (!m_Registry || !m_Configuration || action.kind == SceneAction::Kind::None) {
+        return;
+    }
+    if (action.kind == SceneAction::Kind::Open &&
+        SamePath(action.path, m_Configuration->m_ActiveScenePath)) {
+        return; // already open
+    }
+    if (HasUnsavedChanges()) {
+        m_PendingSceneAction = std::move(action);
+        m_OpenUnsavedPrompt = true;
+        return;
+    }
+    RunSceneAction(action);
+}
+
+std::vector<std::string> EditorLayer::ListProjectScenes() const {
+    std::vector<std::string> scenes;
+    if (!m_Configuration || m_Configuration->m_ProjectFolder.empty()) {
+        return scenes;
+    }
+    const fs::path root = m_Configuration->m_ProjectFolder;
+    std::error_code error;
+    fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, error);
+    for (const fs::recursive_directory_iterator end; !error && it != end; it.increment(error)) {
+        if (it->is_directory(error)) {
+            if (IsSkippedFolder(it->path())) {
+                it.disable_recursion_pending();
+            }
+            continue;
+        }
+        if (it->path().extension() == ".scene") {
+            scenes.push_back(fs::relative(it->path(), root, error).generic_string());
+        }
+    }
+    std::sort(scenes.begin(), scenes.end());
+    return scenes;
+}
+
+void EditorLayer::OpenSceneNameDialog(SceneNameDialog dialog, const std::string& folder) {
+    m_NameDialog = dialog;
+    m_NameDialogFolder = folder;
+    m_NameDialogError.clear();
+    if (dialog == SceneNameDialog::SaveAs && m_Configuration) {
+        m_NameDialogText = fs::path(m_Configuration->m_ActiveScenePath).stem().string() + "_copy";
+    } else {
+        m_NameDialogText = "NewScene";
+    }
+    m_OpenNameDialog = true;
+}
+
+void EditorLayer::HandleSceneRequests() {
+    if (!m_Registry || !m_Configuration) {
+        return;
+    }
+    if (m_SavedSceneJsonStale && --s_SnapshotFramesLeft <= 0) {
+        m_SavedSceneJson = CaptureSceneJson();
+        m_SavedSceneJsonStale = false;
+    }
+
+    // Requests from panels (Assets panel double-click, context menus).
+    if (!m_Configuration->m_RequestedScenePath.empty()) {
+        RequestSceneAction({SceneAction::Kind::Open, m_Configuration->m_RequestedScenePath});
+        m_Configuration->m_RequestedScenePath.clear();
+    }
+    if (!m_Configuration->m_RequestedNewSceneFolder.empty()) {
+        OpenSceneNameDialog(SceneNameDialog::NewScene,
+                            m_Configuration->m_RequestedNewSceneFolder);
+        m_Configuration->m_RequestedNewSceneFolder.clear();
+    }
+
+    // Ctrl+S (Cmd+S on macOS: ImGui swaps the keys there).
+    if (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S) && SaveActiveScene()) {
+        Gallery::UpdateProjectList(m_Configuration->m_ProjectFolder);
+    }
+}
+
+void EditorLayer::DrawSceneMenuItems() {
+    if (!m_Configuration) {
+        return;
+    }
+    if (ImGui::MenuItem("New Scene...")) {
+        OpenSceneNameDialog(SceneNameDialog::NewScene, m_Configuration->m_ProjectFolder);
+    }
+    const std::vector<std::string> scenes = ListProjectScenes();
+    if (ImGui::BeginMenu("Open Scene", !scenes.empty())) {
+        const std::string current = ActiveSceneRelativePath();
+        for (const std::string& scene : scenes) {
+            if (ImGui::MenuItem(scene.c_str(), nullptr, scene == current)) {
+                const fs::path full = fs::path(m_Configuration->m_ProjectFolder) / scene;
+                RequestSceneAction({SceneAction::Kind::Open, full.lexically_normal().string()});
+            }
+        }
+        ImGui::EndMenu();
+    }
+    ImGui::Separator();
+    if (ImGui::MenuItem("Save Scene", "Ctrl+S") && SaveActiveScene()) {
+        Gallery::UpdateProjectList(m_Configuration->m_ProjectFolder);
+    }
+    if (ImGui::MenuItem("Save Scene As...")) {
+        const fs::path active(m_Configuration->m_ActiveScenePath);
+        OpenSceneNameDialog(SceneNameDialog::SaveAs, active.parent_path().string());
+    }
+}
+
+void EditorLayer::DrawSceneDialogs() {
+    if (!m_Registry || !m_Configuration) {
+        return;
+    }
+
+    // --- Unsaved changes ---
+    if (m_OpenUnsavedPrompt) {
+        ImGui::OpenPopup("Unsaved Changes");
+        m_OpenUnsavedPrompt = false;
+    }
+    if (ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("%s has unsaved changes.", ActiveSceneRelativePath().c_str());
+        ImGui::Text("Save them before leaving this scene?");
+        ImGui::Spacing();
+        if (ImGui::Button("Save")) {
+            SaveActiveScene();
+            RunSceneAction(m_PendingSceneAction);
+            m_PendingSceneAction = {};
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Don't Save")) {
+            RunSceneAction(m_PendingSceneAction);
+            m_PendingSceneAction = {};
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            m_PendingSceneAction = {};
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // --- Scene name (New Scene / Save Scene As) ---
+    const char* title = m_NameDialog == SceneNameDialog::SaveAs ? "Save Scene As" : "New Scene";
+    if (m_OpenNameDialog) {
+        ImGui::OpenPopup(title);
+        m_OpenNameDialog = false;
+    }
+    if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        std::error_code error;
+        const fs::path folderRelative =
+            fs::relative(m_NameDialogFolder, m_Configuration->m_ProjectFolder, error);
+        const std::string folderLabel = folderRelative.generic_string();
+        ImGui::Text("Folder: %s", error || folderLabel == "." ? "project root"
+                                                               : folderLabel.c_str());
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::SetKeyboardFocusHere();
+        }
+        const bool submitted =
+            ImGui::InputText("Name", &m_NameDialogText, ImGuiInputTextFlags_EnterReturnsTrue);
+        if (!m_NameDialogError.empty()) {
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", m_NameDialogError.c_str());
+        }
+        if (ImGui::Button("OK") || submitted) {
+            std::string name = m_NameDialogText;
+            if (!name.ends_with(".scene")) {
+                name += ".scene";
+            }
+            const fs::path path = (fs::path(m_NameDialogFolder) / name).lexically_normal();
+            if (m_NameDialogText.empty() ||
+                m_NameDialogText.find_first_of("/\\") != std::string::npos) {
+                m_NameDialogError = "Enter a name without slashes.";
+            } else if (fs::exists(path, error)) {
+                m_NameDialogError = name + " already exists.";
+            } else {
+                if (m_NameDialog == SceneNameDialog::SaveAs) {
+                    SaveSceneAs(path.string());
+                } else {
+                    RequestSceneAction({SceneAction::Kind::Create, path.string()});
+                }
+                m_NameDialog = SceneNameDialog::None;
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            m_NameDialog = SceneNameDialog::None;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 void EditorLayer::BeginDockSpace() {
@@ -250,14 +532,7 @@ void EditorLayer::BeginDockSpace() {
 
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
-                if (SaveActiveScene()) {
-                    Gallery::UpdateProjectList(m_Configuration->m_ProjectFolder);
-                }
-            }
-            // if (ImGui::MenuItem("Load Scene", "Ctrl+O"))
-            // TODO: either pop up a list of projects/folders? or go back to the project gallery
-
+            DrawSceneMenuItems();
             ImGui::EndMenu();
         }
 
@@ -432,6 +707,10 @@ void EditorLayer::BeginDockSpace() {
 
         ImGui::EndMenuBar();
     }
+
+    // Same window as the menu bar, but outside the menu: popups opened from a
+    // menu item would otherwise live in the menu's ID stack and never show.
+    DrawSceneDialogs();
 }
 
 void EditorLayer::EndDockSpace() {

@@ -226,6 +226,9 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
             m_DialogText.clear();
             m_OpenNewFolder = true;
         }
+        if (ImGui::MenuItem("New Scene...")) {
+            cfg.m_RequestedNewSceneFolder = m_CurrentDirectory.string();
+        }
         if (ImGui::Button("Refresh Folder")) {
             /*
              * The folder contents are enumerated directly below every
@@ -350,14 +353,24 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                         }
                     }
                 } else {
+                    const bool isScene = path.extension() == ".scene";
                     ImGui::PushFont(g_IconFont);
-                    if (ImGui::Button(ICON_FA_FILE, ImVec2(thumbnailSize, thumbnailSize))) {
+                    if (ImGui::Button(isScene ? ICON_FA_MAP : ICON_FA_FILE,
+                                      ImVec2(thumbnailSize, thumbnailSize))) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
                     if (ImGui::IsItemClicked()) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
                     ImGui::PopFont();
+                    // Double-click a scene to open it (EditorLayer asks to save first).
+                    if (isScene && ImGui::IsItemHovered() &&
+                        ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        cfg.m_RequestedScenePath = path.string();
+                    }
+                    if (isScene && ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Double-click to open this scene");
+                    }
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
                         cfg.m_SelectedAssetPath = path.string();
                         std::string relativePath =
@@ -425,6 +438,9 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
     if (ImGui::BeginPopup("AssetItemMenu")) {
         bool openRename = false;
         bool openDelete = false;
+        if (m_DialogTarget.extension() == ".scene" && ImGui::MenuItem("Open Scene")) {
+            config.m_RequestedScenePath = m_DialogTarget.string();
+        }
         if (ImGui::MenuItem("Rename")) {
             m_DialogText = m_DialogTarget.filename().string();
             openRename = true;
@@ -567,6 +583,20 @@ bool AssetsPanel::Relocate(Engine::Registry& registry, EditorConfig& config,
     FollowMovedPath(selected, source, destination);
     config.m_SelectedAssetPath = selected.string();
     FollowMovedPath(m_CurrentDirectory, source, destination);
+    // Keep the open scene and the startup scene pointing at their files.
+    // Canonical paths, so /tmp vs /private/tmp style aliases still match.
+    for (std::string* scenePath : {&config.m_ActiveScenePath, &config.m_InitialScenePath}) {
+        if (scenePath->empty()) {
+            continue;
+        }
+        std::filesystem::path followed = std::filesystem::weakly_canonical(*scenePath, error);
+        error.clear();
+        const std::filesystem::path before = followed;
+        FollowMovedPath(followed, source, destination);
+        if (followed != before) {
+            *scenePath = followed.string();
+        }
+    }
     log_info("Assets: moved " + from + " to " + to);
     return true;
 }

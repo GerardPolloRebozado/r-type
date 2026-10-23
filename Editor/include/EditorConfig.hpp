@@ -22,6 +22,20 @@ struct EditorConfig : public Serialization::SceneConfig {
      * same as m_InitialScenePath, the scene the game starts with.
      */
     std::string m_ActiveScenePath;
+
+    /**
+     * @brief Scene a panel asked to open (absolute path), or empty.
+     *
+     * Panels only set it. EditorLayer handles it at the start of the next
+     * frame (asking to save unsaved changes first) and clears it.
+     */
+    std::string m_RequestedScenePath;
+
+    /**
+     * @brief Folder a panel asked to create a new scene in, or empty.
+     * EditorLayer asks for the name, then clears it.
+     */
+    std::string m_RequestedNewSceneFolder;
 };
 
 } // namespace Editor
