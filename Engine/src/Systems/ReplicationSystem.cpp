@@ -218,6 +218,15 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
     }
 }
 
+void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
+    if (!m_initialized) {
+        return;
+    }
+    log_error("[Replication] Scene switched during a network session. Scene changes are not "
+              "synced between server and clients yet, so machines may now show different "
+              "scenes.");
+}
+
 void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host) {
     if (!registry.HasResource<PlayerInputState>()) {
         registry.AddResource<PlayerInputState>();

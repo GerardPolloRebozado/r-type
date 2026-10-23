@@ -54,6 +54,12 @@ class ReplicationSystem : public System {
 
     void Update(Registry& registry, float dt) override;
 
+    /**
+     * @brief Scene switches during a network session are not synced yet:
+     * logs an error so the desync is visible. Does nothing in single-player.
+     */
+    void OnSceneUnloaded(Registry& registry) override;
+
   private:
     void Initialize(Registry& registry, NetworkHostResource& host);
     void ProcessConnect(Registry& registry, NetworkHostResource& host, ENetPeer* peer,

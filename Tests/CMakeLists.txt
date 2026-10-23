@@ -17,6 +17,9 @@ target_link_libraries(SceneManagerTest PRIVATE Engine)
 add_executable(SceneFilesTest SceneFilesTest.cpp)
 target_link_libraries(SceneFilesTest PRIVATE Engine Serialization)
 
+add_executable(SceneSystemsTest SceneSystemsTest.cpp)
+target_link_libraries(SceneSystemsTest PRIVATE Engine)
+
 add_executable(ScaffoldRoundTrip ScaffoldRoundTrip.cpp ../Editor/src/ProjectSystemsBuild.cpp
         ../Editor/src/Scaffold.cpp ../Editor/src/Utils/Multiplatform.cpp)
 target_include_directories(ScaffoldRoundTrip PRIVATE ${CMAKE_SOURCE_DIR}/Editor/include)

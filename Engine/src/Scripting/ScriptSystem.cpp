@@ -6,6 +6,7 @@
 #include "Scripting/LuaAPI.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <filesystem>
+#include <vector>
 
 namespace Engine {
 
@@ -107,7 +108,9 @@ void ScriptSystem::unloadScript(Registry& registry, Entity entity) {
     if (script.loaded && script.scriptTable.valid()) {
         sol::optional<sol::function> destroy = script.scriptTable["onDestroy"];
         if (destroy && destroy->valid()) {
-            auto result = destroy->call(entity);
+            // Pass the module table as self, like onCreate/onUpdate, so
+            // function Script:onDestroy(entity) receives the entity.
+            auto result = destroy->call(script.scriptTable, entity);
             if (!result.valid()) {
                 sol::error err = result;
                 log_error(std::string("[ScriptSystem] onDestroy error (entity ") +
@@ -116,6 +119,24 @@ void ScriptSystem::unloadScript(Registry& registry, Entity entity) {
         }
         script.scriptTable = sol::lua_nil;
         script.loaded = false;
+    }
+}
+
+void ScriptSystem::OnSceneUnloaded(Registry& registry) {
+    if (!registry.IsComponentRegistered<ScriptComponent>()) {
+        return;
+    }
+    // Collect first: onDestroy may add or remove components.
+    std::vector<Entity> scripted;
+    for (const auto& [entity, script] : *registry.GetComponentArray<ScriptComponent>()) {
+        if (script.loaded) {
+            scripted.push_back(entity);
+        }
+    }
+    for (const Entity entity : scripted) {
+        if (registry.HasComponent<ScriptComponent>(entity)) {
+            unloadScript(registry, entity);
+        }
     }
 }
 
