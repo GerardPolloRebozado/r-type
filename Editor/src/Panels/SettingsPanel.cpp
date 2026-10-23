@@ -1,6 +1,7 @@
 #include "Panels/SettingsPanel.hpp"
 #include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
+#include "ProjectFile.hpp"
 #include "ProjectSystemsBuild.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
@@ -17,11 +18,17 @@
 namespace Editor {
 namespace {
 // Startup scene as a path relative to the project folder, for the generated
-// main.cpp (the game runs from the project folder). Falls back to the first
-// .scene in the project folder, then to "test.scene".
+// main.cpp (the game runs from the project folder). Uses project.json, then the
+// editor's startup path, then the first .scene in the project folder, then
+// "test.scene".
 std::string StartupSceneRelativePath(const EditorConfig& config, const std::string& projFolder) {
     namespace fs = std::filesystem;
     std::error_code error;
+    Serialization::ProjectFile project;
+    if (Serialization::LoadProjectFile(projFolder, project) &&
+        fs::is_regular_file(fs::path(projFolder) / project.startupScene, error)) {
+        return project.startupScene;
+    }
     if (!config.m_InitialScenePath.empty()) {
         fs::path scene(config.m_InitialScenePath);
         if (scene.is_relative()) {

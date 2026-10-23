@@ -19,7 +19,8 @@ struct EditorConfig : public Serialization::SceneConfig {
      *
      * Save, Build and Play write to this file. Editor-only: the serializer
      * takes a SceneConfig, so it is never stored in a scene file. Not the
-     * same as m_InitialScenePath, the scene the game starts with.
+     * same as m_InitialScenePath, the scene the game starts with (absolute,
+     * mirrors "startupScene" in the project's project.json).
      */
     std::string m_ActiveScenePath;
 
@@ -36,6 +37,12 @@ struct EditorConfig : public Serialization::SceneConfig {
      * EditorLayer asks for the name, then clears it.
      */
     std::string m_RequestedNewSceneFolder;
+
+    /**
+     * @brief Scene a panel asked to make the startup scene (absolute path), or
+     * empty. EditorLayer writes project.json and updates m_InitialScenePath.
+     */
+    std::string m_RequestedStartupScene;
 };
 
 } // namespace Editor

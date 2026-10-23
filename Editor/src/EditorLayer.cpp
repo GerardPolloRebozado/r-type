@@ -11,6 +11,7 @@
 #include "Panels/SceneViewPanel.hpp"
 #include "Panels/SettingsPanel.hpp"
 #include "Logging/Logger.hpp"
+#include "ProjectFile.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
 #include <algorithm>
@@ -274,6 +275,31 @@ void EditorLayer::SaveSceneAs(const std::string& path) {
     log_info("[Editor] Saved scene as " + ActiveSceneRelativePath());
 }
 
+bool EditorLayer::IsStartupScene(const std::string& path) const {
+    return m_Configuration && !m_Configuration->m_InitialScenePath.empty() &&
+           SamePath(path, m_Configuration->m_InitialScenePath);
+}
+
+void EditorLayer::SetStartupScene(const std::string& path) {
+    const fs::path project = m_Configuration->m_ProjectFolder;
+    std::error_code error;
+    const fs::path relative =
+        fs::relative(fs::weakly_canonical(path, error), fs::weakly_canonical(project, error), error);
+    const std::string text = relative.generic_string();
+    if (error || text.empty() || text.rfind("..", 0) == 0) {
+        log_error("[Editor] The startup scene must be inside the project folder: " + path);
+        return;
+    }
+    Serialization::ProjectFile file;
+    Serialization::LoadProjectFile(project, file); // keep any other settings
+    file.startupScene = text;
+    if (!Serialization::SaveProjectFile(project, file)) {
+        return;
+    }
+    m_Configuration->m_InitialScenePath = (project / relative).lexically_normal().string();
+    log_info("[Editor] Startup scene set to " + text);
+}
+
 void EditorLayer::RunSceneAction(const SceneAction& action) {
     switch (action.kind) {
         case SceneAction::Kind::Open:
@@ -352,6 +378,10 @@ void EditorLayer::HandleSceneRequests() {
         RequestSceneAction({SceneAction::Kind::Open, m_Configuration->m_RequestedScenePath});
         m_Configuration->m_RequestedScenePath.clear();
     }
+    if (!m_Configuration->m_RequestedStartupScene.empty()) {
+        SetStartupScene(m_Configuration->m_RequestedStartupScene);
+        m_Configuration->m_RequestedStartupScene.clear();
+    }
     if (!m_Configuration->m_RequestedNewSceneFolder.empty()) {
         OpenSceneNameDialog(SceneNameDialog::NewScene,
                             m_Configuration->m_RequestedNewSceneFolder);
@@ -375,9 +405,12 @@ void EditorLayer::DrawSceneMenuItems() {
     if (ImGui::BeginMenu("Open Scene", !scenes.empty())) {
         const std::string current = ActiveSceneRelativePath();
         for (const std::string& scene : scenes) {
-            if (ImGui::MenuItem(scene.c_str(), nullptr, scene == current)) {
-                const fs::path full = fs::path(m_Configuration->m_ProjectFolder) / scene;
-                RequestSceneAction({SceneAction::Kind::Open, full.lexically_normal().string()});
+            const fs::path full =
+                (fs::path(m_Configuration->m_ProjectFolder) / scene).lexically_normal();
+            const std::string label =
+                IsStartupScene(full.string()) ? scene + "  " ICON_FA_FLAG " startup" : scene;
+            if (ImGui::MenuItem(label.c_str(), nullptr, scene == current)) {
+                RequestSceneAction({SceneAction::Kind::Open, full.string()});
             }
         }
         ImGui::EndMenu();
@@ -389,6 +422,17 @@ void EditorLayer::DrawSceneMenuItems() {
     if (ImGui::MenuItem("Save Scene As...")) {
         const fs::path active(m_Configuration->m_ActiveScenePath);
         OpenSceneNameDialog(SceneNameDialog::SaveAs, active.parent_path().string());
+    }
+    ImGui::Separator();
+    const bool activeIsStartup = IsStartupScene(m_Configuration->m_ActiveScenePath);
+    if (ImGui::MenuItem("Set as Startup Scene", nullptr, activeIsStartup, !activeIsStartup)) {
+        // Save first so the game finds the file with its current content.
+        SaveActiveScene();
+        SetStartupScene(m_Configuration->m_ActiveScenePath);
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip(activeIsStartup ? "The game starts with this scene"
+                                          : "Make the game start with this scene");
     }
 }
 
@@ -692,7 +736,10 @@ void EditorLayer::BeginDockSpace() {
         // Open scene, right-aligned so it doesn't move the centered buttons.
         const std::string sceneLabel = ActiveSceneRelativePath();
         if (!sceneLabel.empty()) {
-            const std::string text = std::string(ICON_FA_FILE " ") + sceneLabel;
+            const bool isStartup =
+                m_Configuration && IsStartupScene(m_Configuration->m_ActiveScenePath);
+            const std::string text = std::string(ICON_FA_FILE " ") + sceneLabel +
+                                     (isStartup ? "  " ICON_FA_FLAG " startup" : "");
             const float textWidth = ImGui::CalcTextSize(text.c_str()).x;
             const float right =
                 ImGui::GetWindowWidth() - textWidth - ImGui::GetStyle().ItemSpacing.x * 2.0f;

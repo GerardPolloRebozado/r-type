@@ -66,6 +66,9 @@ class EditorLayer {
     void SaveSceneAs(const std::string& path);
     // Destroys every entity and resets the selection.
     void ClearScene();
+    // Makes path the game's startup scene: writes project.json.
+    void SetStartupScene(const std::string& path);
+    bool IsStartupScene(const std::string& path) const;
 
     // Unsaved-changes tracking: JSON of the entities as last loaded/saved.
     std::string CaptureSceneJson();
