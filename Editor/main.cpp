@@ -39,6 +39,8 @@ void RunEditor(const string& scenePathString) {
     config.windowTitle = "Engine Editor";
     config.m_ProjectFolder = projectFolder.string();
     config.m_InitialScenePath = scenePathString;
+    config.m_ActiveScenePath =
+        std::filesystem::absolute(scenePathString).lexically_normal().string();
     config.windowWidth = 1280;
     config.windowHeight = 720;
     config.maximized = true;

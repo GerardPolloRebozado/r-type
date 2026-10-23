@@ -37,6 +37,13 @@ class EditorLayer {
     void StopGames();
 
   private:
+    // Writes the registry to the active scene file. Returns false if there is
+    // nothing to save to.
+    bool SaveActiveScene();
+    // Active scene path relative to the project folder (the game's working
+    // directory), e.g. "test.scene" or "levels/Level1.scene".
+    std::string ActiveSceneRelativePath() const;
+
     void BeginDockSpace();
     void EndDockSpace();
 

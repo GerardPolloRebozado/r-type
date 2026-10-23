@@ -101,7 +101,7 @@ void EditorLayer::Init() {
     rlImGuiEndInitImGui();
 
     Serialization::SceneSerializer serializer;
-    serializer.Deserialize(m_Configuration->m_InitialScenePath, *m_Registry, *m_Configuration);
+    serializer.Deserialize(m_Configuration->m_ActiveScenePath, *m_Registry, *m_Configuration);
 
     // Enable docking feature
     ImGuiIO& io = ImGui::GetIO();
@@ -165,6 +165,36 @@ static fs::path ResolveProjectPath(const fs::path& projectFolder, const fs::path
     return (projectFolder / filePath).lexically_normal();
 }
 
+bool EditorLayer::SaveActiveScene() {
+    if (!m_Registry || !m_Configuration || m_Configuration->m_ActiveScenePath.empty()) {
+        return false;
+    }
+    const fs::path scenePath = ResolveProjectPath(m_Configuration->m_ProjectFolder,
+                                                  m_Configuration->m_ActiveScenePath);
+    std::error_code error;
+    fs::create_directories(scenePath.parent_path(), error);
+    Serialization::SceneSerializer serializer;
+    serializer.Serialize(scenePath.string(), *m_Registry, *m_Configuration);
+    return true;
+}
+
+std::string EditorLayer::ActiveSceneRelativePath() const {
+    if (!m_Configuration || m_Configuration->m_ActiveScenePath.empty()) {
+        return "";
+    }
+    const fs::path scenePath = ResolveProjectPath(m_Configuration->m_ProjectFolder,
+                                                  m_Configuration->m_ActiveScenePath);
+    std::error_code error;
+    const fs::path relative =
+        fs::relative(scenePath, fs::absolute(m_Configuration->m_ProjectFolder, error), error);
+    const std::string text = relative.generic_string();
+    if (error || text.empty() || text.rfind("..", 0) == 0) {
+        // Outside the project folder: the game gets the absolute path.
+        return scenePath.generic_string();
+    }
+    return text;
+}
+
 void EditorLayer::BeginDockSpace() {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -221,12 +251,7 @@ void EditorLayer::BeginDockSpace() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
-                if (m_Registry && m_Configuration) {
-                    Serialization::SceneSerializer serializer;
-                    fs::path scenePath =
-                        ResolveProjectPath(m_Configuration->m_ProjectFolder, "test.scene");
-                    fs::create_directories(scenePath.parent_path());
-                    serializer.Serialize(scenePath.string(), *m_Registry, *m_Configuration);
+                if (SaveActiveScene()) {
                     Gallery::UpdateProjectList(m_Configuration->m_ProjectFolder);
                 }
             }
@@ -288,14 +313,8 @@ void EditorLayer::BeginDockSpace() {
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
 
         if (ImGui::Button(ICON_FA_PLAY, ImVec2(button_size, 0))) {
-            if (m_Configuration && m_Registry) {
-                // Save scene first
-                if (!m_Configuration->m_InitialScenePath.empty()) {
-                    Serialization::SceneSerializer serializer;
-                    serializer.Serialize(m_Configuration->m_InitialScenePath, *m_Registry,
-                                         *m_Configuration);
-                }
-            }
+            // Save first: the game reads the scene file, not the editor's memory.
+            SaveActiveScene();
             if (m_Configuration) {
 #ifdef _WIN32
                 const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
@@ -328,14 +347,17 @@ void EditorLayer::BeginDockSpace() {
                     }
                 }
                 if (std::filesystem::exists(exePath)) {
+                    // The game starts on the scene being edited (see
+                    // Serialization::PickStartupScene in the generated main.cpp).
+                    const std::string sceneArg = ActiveSceneRelativePath();
 #ifdef _WIN32
                     // start detaches: system() returns immediately instead of
                     // freezing the editor while the game runs.
                     std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
-                                      "\" \"" + exePath + "\"";
+                                      "\" \"" + exePath + "\" \"" + sceneArg + "\"";
 #else
-                    std::string cmd =
-                        "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" + exePath + "\" &";
+                    std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" +
+                                      exePath + "\" \"" + sceneArg + "\" &";
 #endif
                     std::system(cmd.c_str());
                 }
@@ -363,12 +385,9 @@ void EditorLayer::BeginDockSpace() {
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverBg);
             ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
             if (ImGui::Button(ICON_FA_USER_GROUP, ImVec2(button_size, 0))) {
-                if (m_Configuration && m_Registry && !m_Configuration->m_InitialScenePath.empty()) {
+                if (m_Configuration && m_Registry && SaveActiveScene()) {
                     // Scene path relative to the project folder (the game's CWD).
-                    const std::string sceneName =
-                        std::filesystem::path(m_Configuration->m_InitialScenePath)
-                            .filename()
-                            .string();
+                    const std::string sceneName = ActiveSceneRelativePath();
                     std::vector<std::string> serverArgs{"--server", sceneName};
                     if (m_Configuration->m_MultiplayerServerHeadless) {
                         serverArgs.push_back("--headless");
@@ -394,6 +413,23 @@ void EditorLayer::BeginDockSpace() {
         }
 
         ImGui::PopStyleVar(2);
+
+        // Open scene, right-aligned so it doesn't move the centered buttons.
+        const std::string sceneLabel = ActiveSceneRelativePath();
+        if (!sceneLabel.empty()) {
+            const std::string text = std::string(ICON_FA_FILE " ") + sceneLabel;
+            const float textWidth = ImGui::CalcTextSize(text.c_str()).x;
+            const float right =
+                ImGui::GetWindowWidth() - textWidth - ImGui::GetStyle().ItemSpacing.x * 2.0f;
+            if (ImGui::GetCursorPosX() < right) {
+                ImGui::SetCursorPosX(right);
+            }
+            ImGui::TextDisabled("%s", text.c_str());
+            if (ImGui::IsItemHovered() && m_Configuration) {
+                ImGui::SetTooltip("Open scene: %s", m_Configuration->m_ActiveScenePath.c_str());
+            }
+        }
+
         ImGui::EndMenuBar();
     }
 }

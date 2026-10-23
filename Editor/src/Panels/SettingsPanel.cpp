@@ -63,9 +63,11 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     s_BuildProgress = 0.0f;
 
     std::string projFolder = std::filesystem::absolute(config.m_ProjectFolder).generic_string();
-    std::string scenePathStr = projFolder + "/test.scene";
-    Serialization::SceneSerializer serializer;
-    serializer.Serialize(scenePathStr, registry, config);
+    // Save the open scene so the build uses what's on screen.
+    if (!config.m_ActiveScenePath.empty()) {
+        Serialization::SceneSerializer serializer;
+        serializer.Serialize(config.m_ActiveScenePath, registry, config);
+    }
 
     // Escape a string for embedding in a C++ string literal.
     auto cppEscape = [](const std::string& in) {
