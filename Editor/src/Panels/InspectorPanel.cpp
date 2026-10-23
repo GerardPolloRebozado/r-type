@@ -3,6 +3,7 @@
 #include "Core/Application.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/StatePanel.hpp"
+#include "Plugins/AudioPluginEditor.hpp"
 #include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
 #include "Plugins/NetworkComponentPluginEditor.hpp"
@@ -31,6 +32,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ScriptPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<AudioPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
