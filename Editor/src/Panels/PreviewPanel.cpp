@@ -15,6 +15,7 @@
 #include "EntitySubtree.hpp"
 #include "GlazeSerializer.hpp"
 #include "Logging/Logger.hpp"
+#include "Plugins/AudioPluginEditor.hpp"
 #include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
 #include "Plugins/NetworkComponentPluginEditor.hpp"
@@ -208,6 +209,14 @@ void ApplySnapshot(Engine::Registry& scene, Engine::Entity entity, const Snapsho
     if (source.network.has_value()) {
         scene.AddComponent(entity, *source.network);
     }
+    if (source.audioSource.has_value()) {
+        scene.RegisterComponent<Engine::AudioSource>();
+        if (scene.HasComponent<Engine::AudioSource>(entity)) {
+            scene.GetComponent<Engine::AudioSource>(entity) = *source.audioSource;
+        } else {
+            scene.AddComponent(entity, *source.audioSource);
+        }
+    }
 }
 } // namespace
 
@@ -231,6 +240,7 @@ PreviewPanel::PreviewPanel() {
     m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ScriptPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<AudioPluginEditor>());
 }
 
 PreviewPanel::~PreviewPanel() = default;
@@ -326,6 +336,9 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
         }
         if (!current[i].network.has_value()) {
             current[i].network = m_Prefab->fileSnapshots[i].network;
+        }
+        if (!current[i].audioSource.has_value()) {
+            current[i].audioSource = m_Prefab->fileSnapshots[i].audioSource;
         }
     }
     if (!current.empty()) {

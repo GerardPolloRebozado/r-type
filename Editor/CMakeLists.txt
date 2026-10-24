@@ -48,6 +48,7 @@ set(SRC_FILES
         src/Plugins/ConnectionsPluginEditor.cpp
         src/Plugins/ScriptPluginEditor.cpp
         src/Plugins/CameraPluginEditor.cpp
+        src/Plugins/AudioPluginEditor.cpp
         src/Rendering/SceneRenderer.cpp
         src/ProjectSystemsBuild.cpp
         src/Scaffold.cpp
@@ -88,6 +89,7 @@ set(INC_FILES
         include/Plugins/ColliderPluginEditor.hpp
         include/Plugins/ConnectionsPluginEditor.hpp
         include/Plugins/CameraPluginEditor.hpp
+        include/Plugins/AudioPluginEditor.hpp
         include/Rendering/SceneRenderer.hpp
         include/GalleryReflect.hpp
         include/ProjectSystemsBuild.hpp

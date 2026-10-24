@@ -94,6 +94,10 @@ class AssetManager {
         return m_Musics;
     }
 
+    std::unordered_map<std::string, std::shared_ptr<Sound>>& GetAllSounds() {
+        return m_Sounds;
+    }
+
   private:
     std::unordered_map<std::string, std::shared_ptr<Sound>> m_Sounds;
     std::unordered_map<std::string, std::shared_ptr<Sprite>> m_Sprites;
