@@ -26,6 +26,8 @@ class PreviewPanel : public IEditorPanel {
     void EnsurePrefabLoaded(Engine::Registry& scene, EditorConfig& config,
                             const std::string& absolutePath);
     void DrawPrefabControls();
+    void DrawPrefabEntityEditors(Engine::Entity entity);
+    void DrawPrefabChildren(Engine::Entity parent, int level);
     void SyncPrefabEdits(Engine::Registry& scene);
 
     std::string m_Name = "Preview";

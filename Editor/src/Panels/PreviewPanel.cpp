@@ -4,9 +4,11 @@
 #include "Components/ColliderComponent.hpp"
 #include "Components/Input.hpp"
 #include "Components/Name.hpp"
+#include "Components/NetworkComponent.hpp"
 #include "Components/Opacity.hpp"
 #include "Components/Parent.hpp"
 #include "Components/PrefabInstance.hpp"
+#include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
 #include "Components/SignalConnections.hpp"
 #include "Components/SpriteComponent.hpp"
@@ -28,8 +30,11 @@
 #include "Scripting/ScriptComponent.hpp"
 #include "Systems/HierarchySystem.hpp"
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <imgui.h>
+#include <memory>
+#include <optional>
 #include <rlImGui.h>
 #include <unordered_set>
 
@@ -141,21 +146,27 @@ void ApplySprite(Engine::Registry& scene, Engine::Entity entity,
     sprite.offsetY = source.offsetY;
     sprite.scaleX = source.scaleX;
     sprite.scaleY = source.scaleY;
+    sprite.flipX = source.flipX;
+    sprite.flipY = source.flipY;
     if (sprite.sprite) {
         sprite.sprite->SetScale({sprite.scaleX, sprite.scaleY});
     }
 }
 
-void ApplyShape(Engine::Registry& scene, Engine::Entity entity,
-                const Engine::ShapeComponent& source) {
-    scene.RegisterComponent<Engine::ShapeComponent>();
-    if (!scene.HasComponent<Engine::ShapeComponent>(entity)) {
-        scene.AddComponent<Engine::ShapeComponent>(entity, Engine::ShapeComponent{});
+template <typename T> void KeepIfMissing(std::optional<T>& dest, const std::optional<T>& fallback) {
+    if (!dest.has_value()) {
+        dest = fallback;
     }
-    auto& shape = scene.GetComponent<Engine::ShapeComponent>(entity);
-    shape.width = source.width;
-    shape.height = source.height;
-    shape.radius = source.radius;
+}
+
+template <typename T>
+void ApplyCopy(Engine::Registry& scene, Engine::Entity entity, const T& source) {
+    scene.RegisterComponent<T>();
+    if (!scene.HasComponent<T>(entity)) {
+        scene.AddComponent<T>(entity, source);
+        return;
+    }
+    scene.GetComponent<T>(entity) = source;
 }
 
 void ApplyScript(Engine::Registry& scene, Engine::Entity entity,
@@ -174,6 +185,112 @@ void ApplyScript(Engine::Registry& scene, Engine::Entity entity,
     script.autoReload = source.autoReload;
     script.loaded = false;
     script.scriptTable = sol::lua_nil;
+}
+
+void ApplyText(Engine::Registry& scene, Engine::Entity entity, const Engine::Text& source) {
+    scene.RegisterComponent<Engine::Text>();
+    if (!scene.HasComponent<Engine::Text>(entity)) {
+        scene.AddComponent<Engine::Text>(entity,
+                                         Engine::Text(source.text, source.fontsize, source.color));
+        auto& text = scene.GetComponent<Engine::Text>(entity);
+        text.spacing = source.spacing;
+        return;
+    }
+    auto& text = scene.GetComponent<Engine::Text>(entity);
+    text.text = source.text;
+    text.fontsize = source.fontsize;
+    text.spacing = source.spacing;
+    text.color = source.color;
+}
+
+void ApplyNetwork(Engine::Registry& scene, Engine::Entity entity,
+                  const Engine::NetworkComponent& source) {
+    scene.RegisterComponent<Engine::NetworkComponent>();
+    if (!scene.HasComponent<Engine::NetworkComponent>(entity)) {
+        scene.AddComponent<Engine::NetworkComponent>(entity, source);
+        return;
+    }
+    auto& network = scene.GetComponent<Engine::NetworkComponent>(entity);
+    const std::uint64_t networkId = network.networkId;
+    network = source;
+    network.networkId = networkId;
+}
+
+void ApplyCamera(Engine::Registry& scene, Engine::Entity entity,
+                 const Engine::CameraComponent& source) {
+    scene.RegisterComponent<Engine::CameraComponent>();
+    if (!scene.HasComponent<Engine::CameraComponent>(entity)) {
+        Engine::CameraComponent copy = source;
+        copy.followTarget.reset();
+        scene.AddComponent<Engine::CameraComponent>(entity, copy);
+        return;
+    }
+    auto& camera = scene.GetComponent<Engine::CameraComponent>(entity);
+    camera.zoom = source.zoom;
+    camera.primary = source.primary;
+    camera.followSpeed = source.followSpeed;
+    camera.clampToBounds = source.clampToBounds;
+    camera.bounds = source.bounds;
+    camera.shakeMagnitude = source.shakeMagnitude;
+    camera.shakeDecay = source.shakeDecay;
+}
+
+void ApplyChildPosition(Engine::Registry& scene, Engine::Entity entity,
+                        const std::vector<Snapshot>& snapshots, std::size_t index) {
+    const Snapshot& source = snapshots[index];
+    if (!source.position.has_value() || !source.parent.has_value()) {
+        return;
+    }
+    std::size_t parentIndex = snapshots.size();
+    for (std::size_t i = 0; i < snapshots.size(); ++i) {
+        if (snapshots[i].entityId == source.parent->parent) {
+            parentIndex = i;
+            break;
+        }
+    }
+    if (parentIndex >= snapshots.size() || !snapshots[parentIndex].position.has_value()) {
+        return;
+    }
+    scene.RegisterComponent<Engine::Position>();
+    if (!scene.HasComponent<Engine::Position>(entity) ||
+        !scene.HasComponent<Engine::Parent>(entity)) {
+        return;
+    }
+    const Engine::Entity sceneParent = scene.GetComponent<Engine::Parent>(entity).parent;
+    if (!scene.IsEntityAlive(sceneParent) || !scene.HasComponent<Engine::Position>(sceneParent)) {
+        return;
+    }
+
+    const Engine::Position& prefabParent = *snapshots[parentIndex].position;
+    const Engine::Position& prefabChild = *source.position;
+    auto& dest = scene.GetComponent<Engine::Position>(entity);
+    const auto& instanceParent = scene.GetComponent<Engine::Position>(sceneParent);
+    dest.x = instanceParent.x + (prefabChild.x - prefabParent.x);
+    dest.y = instanceParent.y + (prefabChild.y - prefabParent.y);
+    dest.z = prefabChild.z;
+    dest.relative = prefabChild.relative;
+    dest.prevX = dest.x;
+    dest.prevY = dest.y;
+    dest.prevZ = dest.z;
+    dest.moved = false;
+}
+
+void DrawAddComponentMenu(std::vector<std::unique_ptr<IPluginEditor>>& editors,
+                          Engine::Entity entity, Engine::Registry& registry) {
+    bool anyAvailable = false;
+    for (auto& editor : editors) {
+        if (!editor->HasComponent(entity, registry)) {
+            anyAvailable = true;
+            const std::string menuItem =
+                std::string(editor->GetIcon()) + " Add " + editor->GetName();
+            if (ImGui::MenuItem(menuItem.c_str())) {
+                editor->AddComponent(entity, registry);
+            }
+        }
+    }
+    if (!anyAvailable) {
+        ImGui::TextDisabled("All plugins added");
+    }
 }
 
 void LoadPrefabSprites(Engine::Registry& registry, Engine::Entity entity,
@@ -200,13 +317,28 @@ void ApplySnapshot(Engine::Registry& scene, Engine::Entity entity, const Snapsho
         ApplySprite(scene, entity, *source.sprite);
     }
     if (source.shape.has_value()) {
-        ApplyShape(scene, entity, *source.shape);
+        ApplyCopy(scene, entity, *source.shape);
     }
     if (source.script.has_value()) {
         ApplyScript(scene, entity, *source.script);
     }
     if (source.network.has_value()) {
-        scene.AddComponent(entity, *source.network);
+        ApplyNetwork(scene, entity, *source.network);
+    }
+    if (source.collider.has_value()) {
+        ApplyCopy(scene, entity, *source.collider);
+    }
+    if (source.text.has_value()) {
+        ApplyText(scene, entity, *source.text);
+    }
+    if (source.opacity.has_value()) {
+        ApplyCopy(scene, entity, *source.opacity);
+    }
+    if (source.rotation.has_value()) {
+        ApplyCopy(scene, entity, *source.rotation);
+    }
+    if (source.camera.has_value()) {
+        ApplyCamera(scene, entity, *source.camera);
     }
 }
 } // namespace
@@ -268,6 +400,51 @@ void PreviewPanel::EnsurePrefabLoaded(Engine::Registry& scene, EditorConfig& con
     }
 }
 
+void PreviewPanel::DrawPrefabEntityEditors(Engine::Entity entity) {
+    Engine::Registry& registry = *m_Prefab->registry;
+    ImGui::PushID(static_cast<int>(entity));
+    for (auto& editor : m_PluginEditors) {
+        editor->OnImGuiRender(entity, registry);
+    }
+    ImGui::PopID();
+}
+
+void PreviewPanel::DrawPrefabChildren(Engine::Entity parent, int level) {
+    Engine::Registry& registry = *m_Prefab->registry;
+    std::vector<Engine::Entity> children =
+        Engine::HierarchySystem::FindDirectChildren(registry, parent);
+    std::sort(children.begin(), children.end());
+    if (children.empty()) {
+        return;
+    }
+
+    const std::string parentName = Engine::GetEntityName(registry, parent);
+    ImGui::Spacing();
+    ImGui::TextDisabled("Children of %s  (level %d)", parentName.c_str(), level);
+    ImGui::Separator();
+
+    for (Engine::Entity child : children) {
+        ImGui::PushID(static_cast<int>(child));
+        const std::string name = Engine::GetEntityName(registry, child);
+        // Unframed tree node, not a CollapsingHeader, so a nested entity is not
+        // mistaken for a component of its parent (Shape, Text, ...).
+        const ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen |
+                                         ImGuiTreeNodeFlags_OpenOnArrow |
+                                         ImGuiTreeNodeFlags_SpanAvailWidth;
+        const bool open = ImGui::TreeNodeEx(name.c_str(), flags);
+        if (ImGui::BeginPopupContextItem("PrefabChildContext")) {
+            DrawAddComponentMenu(m_PluginEditors, child, registry);
+            ImGui::EndPopup();
+        }
+        if (open) {
+            DrawPrefabEntityEditors(child);
+            DrawPrefabChildren(child, level + 1);
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+}
+
 void PreviewPanel::DrawPrefabControls() {
     if (!m_Prefab || !m_Prefab->registry || m_Prefab->root == static_cast<Engine::Entity>(-1)) {
         return;
@@ -278,29 +455,16 @@ void PreviewPanel::DrawPrefabControls() {
     ImGui::TextUnformatted(Engine::GetEntityName(registry, root).c_str());
     ImGui::Separator();
 
-    for (auto& editor : m_PluginEditors) {
-        editor->OnImGuiRender(root, registry);
-    }
+    DrawPrefabEntityEditors(root);
 
     if (ImGui::BeginPopupContextWindow("PrefabPreviewContext",
                                        ImGuiPopupFlags_MouseButtonRight |
                                            ImGuiPopupFlags_NoOpenOverItems)) {
-        bool anyAvailable = false;
-        for (auto& editor : m_PluginEditors) {
-            if (!editor->HasComponent(root, registry)) {
-                anyAvailable = true;
-                const std::string menuItem =
-                    std::string(editor->GetIcon()) + " Add " + editor->GetName();
-                if (ImGui::MenuItem(menuItem.c_str())) {
-                    editor->AddComponent(root, registry);
-                }
-            }
-        }
-        if (!anyAvailable) {
-            ImGui::TextDisabled("All plugins added");
-        }
+        DrawAddComponentMenu(m_PluginEditors, root, registry);
         ImGui::EndPopup();
     }
+
+    DrawPrefabChildren(root, 1);
 }
 
 void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
@@ -311,22 +475,24 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
 
     std::vector<Snapshot> current = CaptureSubtree(*m_Prefab->registry, m_Prefab->root);
 
-    // Positions stay in the file so placed instances do not jump. A component
-    // removed in the preview is put back here, so instances keep it too.
+    // Root position stays in the file so placed instances do not jump. Child
+    // positions are kept so offsets edited in the preview are saved. A
+    // component removed in the preview is put back here, so instances keep it.
     for (std::size_t i = 0; i < current.size() && i < m_Prefab->fileSnapshots.size(); ++i) {
-        current[i].position = m_Prefab->fileSnapshots[i].position;
-        if (!current[i].sprite.has_value()) {
-            current[i].sprite = m_Prefab->fileSnapshots[i].sprite;
+        if (i == 0) {
+            current[i].position = m_Prefab->fileSnapshots[i].position;
+        } else {
+            KeepIfMissing(current[i].position, m_Prefab->fileSnapshots[i].position);
         }
-        if (!current[i].shape.has_value()) {
-            current[i].shape = m_Prefab->fileSnapshots[i].shape;
-        }
-        if (!current[i].script.has_value()) {
-            current[i].script = m_Prefab->fileSnapshots[i].script;
-        }
-        if (!current[i].network.has_value()) {
-            current[i].network = m_Prefab->fileSnapshots[i].network;
-        }
+        KeepIfMissing(current[i].sprite, m_Prefab->fileSnapshots[i].sprite);
+        KeepIfMissing(current[i].shape, m_Prefab->fileSnapshots[i].shape);
+        KeepIfMissing(current[i].script, m_Prefab->fileSnapshots[i].script);
+        KeepIfMissing(current[i].network, m_Prefab->fileSnapshots[i].network);
+        KeepIfMissing(current[i].collider, m_Prefab->fileSnapshots[i].collider);
+        KeepIfMissing(current[i].text, m_Prefab->fileSnapshots[i].text);
+        KeepIfMissing(current[i].opacity, m_Prefab->fileSnapshots[i].opacity);
+        KeepIfMissing(current[i].rotation, m_Prefab->fileSnapshots[i].rotation);
+        KeepIfMissing(current[i].camera, m_Prefab->fileSnapshots[i].camera);
     }
     if (!current.empty()) {
         current.front().prefab.reset();
@@ -357,6 +523,9 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
             const std::size_t count = std::min(instanceEntities.size(), current.size());
             for (std::size_t i = 0; i < count; ++i) {
                 ApplySnapshot(scene, instanceEntities[i], current[i]);
+                if (i > 0) {
+                    ApplyChildPosition(scene, instanceEntities[i], current, i);
+                }
             }
             ++updated;
         }
@@ -375,19 +544,36 @@ void PreviewPanel::RenderPrefab(Engine::Registry& scene, EditorConfig& config,
     }
 
     EnsurePrefabLoaded(scene, config, absolutePath);
-    ImGui::Text("Previewing: %s", std::filesystem::path(absolutePath).filename().string().c_str());
+    const std::string fileName = std::filesystem::path(absolutePath).filename().string();
+    const bool canEdit = m_Prefab && !m_Prefab->loadFailed && m_Prefab->registry;
+
+    // Stays outside the scrolling child, so Save remains on screen.
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Previewing: %s", fileName.c_str());
+    ImGui::SameLine();
+    const float saveWidth = 72.0f;
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - saveWidth);
+    bool save = false;
+    if (!canEdit) {
+        ImGui::BeginDisabled();
+    }
+    if (ImGui::Button("Save", ImVec2(saveWidth, 0.0f))) {
+        save = true;
+    }
+    if (!canEdit) {
+        ImGui::EndDisabled();
+    }
     ImGui::Separator();
-    if (!m_Prefab || m_Prefab->loadFailed || !m_Prefab->registry) {
+
+    if (!canEdit) {
         ImGui::TextDisabled("Could not read this prefab.");
         return;
     }
     std::unordered_set<Engine::Entity> seen;
     LoadPrefabSprites(*m_Prefab->registry, m_Prefab->root, seen, 0);
-    bool save = false;
-    if (ImGui::Button("Save")) {
-        save = true;
-    }
+    ImGui::BeginChild("##PrefabEditorScroll", ImVec2(0.0f, 0.0f), false);
     DrawPrefabControls();
+    ImGui::EndChild();
     if (save) {
         SyncPrefabEdits(scene);
     }
