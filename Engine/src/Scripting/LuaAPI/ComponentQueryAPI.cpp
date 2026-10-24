@@ -1,4 +1,5 @@
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
+#include "Components/AudioSource.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/Name.hpp"
 #include "Components/Opacity.hpp"
@@ -34,6 +35,7 @@ void registerComponentQuery(sol::state_view lua, Registry& registry) {
         {"Collider", std::type_index(typeid(ColliderComponent))},
         {"Opacity", std::type_index(typeid(Opacity))},
         {"Parent", std::type_index(typeid(Parent))},
+        {"AudioSource", std::type_index(typeid(AudioSource))},
     };
 
     component["has"] = [&registry](Entity entity, const std::string& typeName) -> bool {

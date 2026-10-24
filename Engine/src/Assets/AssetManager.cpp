@@ -102,7 +102,11 @@ void AssetManager::LoadMusic(const std::string& alias, const std::string& filePa
     if (m_Musics.contains(alias)) {
         return;
     }
-    m_Musics[alias] = std::make_unique<Music>(filePath, isLoop);
+    try {
+        m_Musics[alias] = std::make_unique<Music>(filePath, isLoop);
+    } catch (...) {
+        throw ErrorAsset("The file: " + filePath + " was not found");
+    }
 }
 
 void AssetManager::LoadMusicFromMemory(const std::string& alias, const char* fileType,
@@ -110,7 +114,11 @@ void AssetManager::LoadMusicFromMemory(const std::string& alias, const char* fil
     if (m_Musics.contains(alias)) {
         return;
     }
-    m_Musics[alias] = std::make_unique<Music>(fileType, data, dataSize, isLoop);
+    try {
+        m_Musics[alias] = std::make_unique<Music>(fileType, data, dataSize, isLoop);
+    } catch (...) {
+        throw ErrorAsset("Failed to load music from memory: " + alias);
+    }
 }
 
 std::shared_ptr<Music> AssetManager::GetMusic(const std::string& alias) {
