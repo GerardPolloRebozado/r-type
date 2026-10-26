@@ -15,6 +15,8 @@ namespace Engine::LuaAPI {
  *
  * Both go through the registry's @ref SceneManager resource. `load` takes a
  * code scene name or a scene file path and switches at the end of the frame.
+ * In multiplayer only the server's `load` counts: clients ignore their own
+ * calls and follow the server.
  *
  * @param lua View of the shared Lua state (lambdas capture a copy by value).
  * @param registry Registry holding the SceneManager resource.

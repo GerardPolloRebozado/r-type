@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "Compat/EnetWrapper.hpp"
@@ -34,6 +35,12 @@ class NetworkHostResource;
  *     receive those instances through replication_spawn.
  *   - "Shared": ignored, built from the same scene on every machine.
  *
+ * Scene switches (SceneManager): only the server switches. Its new scene is
+ * sent to every client in a reliable "scene_load" message; clients load the
+ * same scene, then receive the players again (same network ids and color
+ * slots). A client that connects is told the server's current scene too, so
+ * it never plays a different scene than the server.
+ *
  * Runtime entities (bullets, effects): a script calls Net.replicate(entity,
  * ...) and the server assigns an id, broadcasts a spawn, then syncs state.
  * Clients instantiate a bare entity (or a prefab when prefabPath is set) and
@@ -55,8 +62,9 @@ class ReplicationSystem : public System {
     void Update(Registry& registry, float dt) override;
 
     /**
-     * @brief Scene switches during a network session are not synced yet:
-     * logs an error so the desync is visible. Does nothing in single-player.
+     * @brief Prepares for the next scene: forgets entity bindings (IDs restart
+     * at 1) and, on the server, remembers the connected players so they are
+     * respawned and clients are told about the switch on the next update.
      */
     void OnSceneUnloaded(Registry& registry) override;
 
@@ -64,6 +72,16 @@ class ReplicationSystem : public System {
     void Initialize(Registry& registry, NetworkHostResource& host);
     void ProcessConnect(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
                         Entity placeholder, std::size_t networkId);
+    /** Spawns (or respawns) the player entity of a connected peer and announces it. */
+    void SpawnPlayer(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
+                     Entity placeholder, std::size_t networkId, std::uint8_t slot);
+    /**
+     * Tells clients which scene the server is running. @p peer null means all
+     * clients. With @p reload, clients reload even if already on that scene.
+     */
+    void SendSceneLoad(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
+                       bool reload);
+    void RegisterSceneLoadHandler(Registry& registry);
     void ProcessDisconnect(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
                            Entity entity, std::size_t networkId);
     void BroadcastState(Registry& registry, NetworkHostResource& host,
@@ -85,6 +103,10 @@ class ReplicationSystem : public System {
 
     bool m_initialized = false;
     bool m_handlersRegistered = false;
+    /** Server: the scene just changed; announce it and respawn players. */
+    bool m_sceneChanged = false;
+    /** Server: players to respawn in the new scene (peer + network id). */
+    std::vector<std::pair<ENetPeer*, std::size_t>> m_playersToRespawn;
     /** Player prefab captured from the scene's Client template before it is removed. */
     std::string m_playerPrefabPath;
     /**

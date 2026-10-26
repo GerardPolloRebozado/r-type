@@ -25,3 +25,6 @@ add_executable(ScaffoldRoundTrip ScaffoldRoundTrip.cpp ../Editor/src/ProjectSyst
 target_include_directories(ScaffoldRoundTrip PRIVATE ${CMAKE_SOURCE_DIR}/Editor/include)
 target_compile_definitions(ScaffoldRoundTrip PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 target_link_libraries(ScaffoldRoundTrip PRIVATE Engine Serialization glaze::glaze)
+
+add_executable(MultiplayerScenesTest MultiplayerScenesTest.cpp)
+target_link_libraries(MultiplayerScenesTest PRIVATE Engine)

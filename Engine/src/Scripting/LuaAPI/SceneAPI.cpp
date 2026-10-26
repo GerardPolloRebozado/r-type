@@ -1,6 +1,7 @@
 #include "Scripting/LuaAPI/SceneAPI.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
+#include "Resources/NetworkHostResource.hpp"
 #include "Resources/SceneManager.hpp"
 #include "Scripting/LuaAPI/Internal/Helpers.hpp"
 #include <sol/sol.hpp>
@@ -18,6 +19,15 @@ void registerScene(sol::state_view lua, Registry& registry) {
             log_error("[Lua] Scene.load('" + name +
                       "'): this game has no SceneManager. Add one in main.cpp "
                       "(Serialization::EnableSceneFiles or AddResource<Engine::SceneManager>).");
+            return;
+        }
+        // In multiplayer the server decides the scene and clients follow it
+        // (ReplicationSystem). Scripts often run on every machine, so a client
+        // request is ignored instead of making that client leave the session.
+        if (registry.HasResource<Multiplayer::NetworkHostResource>() &&
+            !registry.GetResource<Multiplayer::NetworkHostResource>().IsServer()) {
+            log_debug("[Lua] Scene.load('" + name + "') ignored on a client: the server " +
+                      "switches scenes for everyone.");
             return;
         }
         registry.GetResource<SceneManager>().Load(name);
