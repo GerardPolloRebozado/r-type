@@ -55,6 +55,23 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         return true;
     };
 
+    component["setSpriteRect"] = [&registry](Entity entity, float x, float y, float width,
+                                             float height) -> bool {
+        if (!registry.HasComponent<SpriteComponent>(entity)) {
+            return false;
+        }
+        auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        if (sc.sprite) {
+            try {
+                sc.sprite->SetSourceRect(raylib::Rectangle(x, y, width, height));
+                return true;
+            } catch (...) {
+                return false;
+            }
+        }
+        return false;
+    };
+
     component["getSprite"] = [lua, &registry](Entity entity) mutable -> sol::object {
         if (registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, "sprite");
