@@ -220,7 +220,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         file(GLOB LUA_WASM_SOURCES "${lua_SOURCE_DIR}/*.c")
         list(REMOVE_ITEM LUA_WASM_SOURCES
                 "${lua_SOURCE_DIR}/lua.c"
-                "${lua_SOURCE_DIR}/luac.c")
+                "${lua_SOURCE_DIR}/luac.c"
+                "${lua_SOURCE_DIR}/onelua.c")
         add_library(lua STATIC ${LUA_WASM_SOURCES})
         target_include_directories(lua PUBLIC "${lua_SOURCE_DIR}")
         target_link_libraries(Engine PUBLIC lua)
