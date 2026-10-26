@@ -65,7 +65,40 @@ function(provide_lua)
     endif()
 
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LUA REQUIRED IMPORTED_TARGET lua5.4)
+    if(APPLE)
+        # Homebrew's `lua` formula is Lua 5.5 now; 5.4 is the keg-only
+        # `lua@5.4`, whose lua5.4.pc is not on pkg-config's default path.
+        # Look in its prefix so no -DCMAKE_PREFIX_PATH is needed (editor game
+        # builds don't pass one). pkg-config searches CMAKE_PREFIX_PATH.
+        set(_brew_lua_prefixes "/opt/homebrew/opt/lua@5.4" "/usr/local/opt/lua@5.4")
+        find_program(_brew_executable brew)
+        if(_brew_executable)
+            execute_process(COMMAND "${_brew_executable}" --prefix lua@5.4
+                OUTPUT_VARIABLE _brew_lua_prefix
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET)
+            if(_brew_lua_prefix)
+                list(PREPEND _brew_lua_prefixes "${_brew_lua_prefix}")
+            endif()
+        endif()
+        foreach(_brew_lua IN LISTS _brew_lua_prefixes)
+            if(EXISTS "${_brew_lua}/lib/pkgconfig/lua5.4.pc")
+                list(APPEND CMAKE_PREFIX_PATH "${_brew_lua}")
+                break()
+            endif()
+        endforeach()
+    endif()
+    pkg_check_modules(LUA IMPORTED_TARGET lua5.4)
+    if(NOT LUA_FOUND)
+        if(APPLE)
+            message(FATAL_ERROR
+                "Lua 5.4 not found. Install it with: brew install lua@5.4")
+        else()
+            message(FATAL_ERROR
+                "Lua 5.4 not found (pkg-config module lua5.4). Install it, e.g. "
+                "sudo apt install liblua5.4-dev")
+        endif()
+    endif()
     # Safety net: never export an include dir that does not exist.
     set(_lua_include_dirs "")
     foreach(_lua_dir IN LISTS LUA_INCLUDE_DIRS)

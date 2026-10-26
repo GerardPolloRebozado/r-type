@@ -1,6 +1,7 @@
 #include "Panels/SettingsPanel.hpp"
 #include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
+#include "Logging/Logger.hpp"
 #include "ProjectFile.hpp"
 #include "ProjectSystemsBuild.hpp"
 #include "Resources/PlayerSlotState.hpp"
@@ -13,6 +14,8 @@
 #include <imgui.h>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <regex>
 
 namespace Editor {
@@ -56,12 +59,33 @@ std::string StartupSceneRelativePath(const EditorConfig& config, const std::stri
 
 std::atomic<float> SettingsPanel::s_BuildProgress = 0.0f;
 std::atomic<bool> SettingsPanel::s_IsBuilding = false;
+std::mutex SettingsPanel::s_BuildMutex;
+std::optional<SettingsPanel::BuildReport> SettingsPanel::s_BuildReport;
 bool SettingsPanel::s_IsOpen = false;
 std::thread SettingsPanel::s_BuildThread;
 
 SettingsPanel::~SettingsPanel() {
     if (s_BuildThread.joinable()) {
         s_BuildThread.detach(); // Allow it to finish in background if editor closes
+    }
+}
+
+void SettingsPanel::ReportBuildResult() {
+    std::optional<BuildReport> report;
+    {
+        std::lock_guard<std::mutex> lock(s_BuildMutex);
+        report.swap(s_BuildReport);
+    }
+    if (!report.has_value()) {
+        return;
+    }
+    if (report->succeeded) {
+        log_info("[Build] Game built: " + report->exePath);
+        return;
+    }
+    log_error("[Build] Build failed. Last lines of the build output:");
+    for (const std::string& line : report->output) {
+        log_error("[Build]   " + line);
     }
 }
 
@@ -206,9 +230,18 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "}\n";
     mainOut.close();
 
+    // Engine sources: the folder the editor was built from (baked in at
+    // compile time), so the build works whatever folder the editor was
+    // started from (Finder, an IDE, a terminal). Falls back to the old
+    // working-directory guess if that folder moved.
     std::string rootPath = ".";
-    if (!std::filesystem::exists("CMakeLists.txt") &&
-        std::filesystem::exists("../CMakeLists.txt")) {
+#ifdef RTYPE_SOURCE_DIR
+    if (std::filesystem::exists(std::filesystem::path(RTYPE_SOURCE_DIR) / "CMakeLists.txt")) {
+        rootPath = RTYPE_SOURCE_DIR;
+    } else
+#endif
+        if (!std::filesystem::exists("CMakeLists.txt") &&
+            std::filesystem::exists("../CMakeLists.txt")) {
         rootPath = "..";
     }
     // Absolute forward-slash path: the build shell may run with any CWD, and
@@ -268,6 +301,15 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         toolchainArgs += " -DCMAKE_MAKE_PROGRAM=\"" + std::string(EDITOR_CMAKE_MAKE_PROGRAM) + "\"";
     }
 #endif
+#ifdef EDITOR_CMAKE_PREFIX_PATH
+    // Same dependency locations as the editor's own build (e.g. a Lua
+    // installed outside the default paths). Baked with '|' between entries.
+    if (!std::string(EDITOR_CMAKE_PREFIX_PATH).empty()) {
+        std::string prefixPath = EDITOR_CMAKE_PREFIX_PATH;
+        std::replace(prefixPath.begin(), prefixPath.end(), '|', ';');
+        toolchainArgs += " -DCMAKE_PREFIX_PATH=\"" + prefixPath + "\"";
+    }
+#endif
     // Portable parallel build: `cmake --build --parallel` works with every
     // generator (make, ninja, MSVC...), unlike `make -C ... -j`.
     unsigned int jobs = std::thread::hardware_concurrency();
@@ -275,15 +317,17 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         jobs = 1;
     }
     const std::string parallelArgs = " --parallel " + std::to_string(jobs);
+    // Configure and build are grouped so both outputs (including configure
+    // errors such as a missing library) reach the pipe and the Console.
 #ifdef _WIN32
-    std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
+    std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
                       " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
                       exeNameStr + "\" --config Release" + parallelArgs +
-                      " 2>&1 & cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
+                      ") 2>&1 & cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
 #else
-    std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
+    std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
                       " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
-                      exeNameStr + "\"" + parallelArgs + " 2>&1; cmake -E rm -f \"" + rootPath +
+                      exeNameStr + "\"" + parallelArgs + ") 2>&1; cmake -E rm -f \"" + rootPath +
                       "/.editor_build.cmake\"";
 #endif
 
@@ -291,8 +335,15 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         s_BuildThread.join();
     }
 
+    {
+        std::lock_guard<std::mutex> lock(s_BuildMutex);
+        s_BuildReport.reset();
+    }
     s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr]() {
         s_BuildProgress = 0.01f; // Show at least 1% so the user knows it started
+        const auto startTime = std::filesystem::file_time_type::clock::now();
+        BuildReport report;
+        report.exePath = projFolder + "/" + exeFileStr;
         struct PipeDeleter {
             void operator()(FILE* p) const {
 #ifdef _WIN32
@@ -308,6 +359,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         std::unique_ptr<FILE, PipeDeleter> pipe(popen(cmd.c_str(), "r"));
 #endif
         if (!pipe) {
+            report.output.push_back("Could not start the build command.");
+            std::lock_guard<std::mutex> lock(s_BuildMutex);
+            s_BuildReport = std::move(report);
             s_IsBuilding = false;
             return;
         }
@@ -315,8 +369,19 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         std::array<char, 256> buffer;
         std::regex progressRegex("\\[\\s*(\\d+)%\\]");
 
+        std::string pending;
         while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
             std::string line(buffer.data());
+            // Keep the last lines for the Console (fgets may split long lines).
+            pending += line;
+            if (!pending.empty() && pending.back() == '\n') {
+                pending.pop_back();
+                report.output.push_back(std::move(pending));
+                pending.clear();
+                if (report.output.size() > kBuildOutputLines) {
+                    report.output.erase(report.output.begin());
+                }
+            }
             std::smatch match;
             if (std::regex_search(line, match, progressRegex)) {
                 if (match.size() > 1) {
@@ -352,7 +417,17 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             copyDll(mingwBin + "/libgcc_s_seh-1.dll");
         }
 #endif
-        (void)exeFileStr;
+        pipe.reset(); // wait for the command to finish
+
+        // Success = the game was copied to the project folder by this build.
+        // (The shell's exit code is not portable across sh and cmd.exe.)
+        std::error_code ec;
+        report.succeeded = std::filesystem::exists(report.exePath, ec) &&
+                           std::filesystem::last_write_time(report.exePath, ec) >= startTime;
+        {
+            std::lock_guard<std::mutex> lock(s_BuildMutex);
+            s_BuildReport = std::move(report);
+        }
 
         s_IsBuilding = false;
         s_BuildProgress = 1.0f;

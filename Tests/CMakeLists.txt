@@ -7,6 +7,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_executable(SerializationRoundTrip SerializationRoundTrip.cpp)
 target_link_libraries(SerializationRoundTrip PRIVATE Engine Serialization)
+target_compile_definitions(SerializationRoundTrip PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
 add_executable(PacketRoundTrip PacketRoundTrip.cpp)
 target_link_libraries(PacketRoundTrip PRIVATE Engine)

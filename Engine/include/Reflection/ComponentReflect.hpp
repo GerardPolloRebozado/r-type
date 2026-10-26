@@ -5,8 +5,12 @@
 // cover: structs with non-serializable members (excluded here), structs with
 // callbacks, and enums with string names.
 // Every other Engine component is an aggregate and serializes with zero
-// declarations (Position, Rotation, ShapeComponent, ColliderComponent,
-// Parent, Name, Input, AudioSource, Keybind, Vector2, Color, ...).
+// declarations (Position, Rotation, ColliderComponent, Parent, Name, Input,
+// AudioSource, Keybind, Vector2, Color, ...).
+//
+// Automatic reflection reads member names from compiler-generated text, which
+// can differ between compilers. Give a component explicit names (like
+// ShapeComponent below) whenever an automatic name comes out wrong.
 
 #include "Components/AudioSource.hpp"
 #include "Components/CameraComponent.hpp"
@@ -54,6 +58,18 @@ template <> struct glz::meta<Engine::Text> {
     static constexpr auto value =
         glz::object("text", &Engine::Text::text, "fontsize", &Engine::Text::fontsize, "spacing",
                     &Engine::Text::spacing, "color", &Engine::Text::color);
+};
+
+template <> struct glz::meta<Engine::ShapeComponent> {
+    // Explicit names: with automatic reflection, `color = WHITE` (a raylib
+    // macro) was saved as "color)" by some compilers and "color" by others,
+    // so scenes saved on one OS failed to load on another.
+    static constexpr auto value = glz::object(
+        "type", &Engine::ShapeComponent::type, "width", &Engine::ShapeComponent::width, "height",
+        &Engine::ShapeComponent::height, "radius", &Engine::ShapeComponent::radius, "sides",
+        &Engine::ShapeComponent::sides, "endOffset", &Engine::ShapeComponent::endOffset,
+        "thickness", &Engine::ShapeComponent::thickness, "filled", &Engine::ShapeComponent::filled,
+        "color", &Engine::ShapeComponent::color);
 };
 
 template <> struct glz::meta<Engine::ApplicationConfig> {

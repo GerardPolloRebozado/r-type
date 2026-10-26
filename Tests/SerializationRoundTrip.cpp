@@ -5,15 +5,19 @@
 #include "Components/CollisionEvents.hpp"
 #include "Components/Input.hpp"
 #include "Components/Name.hpp"
+#include "Components/NetworkComponent.hpp"
 #include "Components/Opacity.hpp"
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
+#include "Components/PrefabInstance.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
 #include "Components/SignalConnections.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "Components/Text.hpp"
 #include "ECS/Registry.hpp"
+#include "GlazeSerializer.hpp"
+#include "RuntimePrefab.hpp"
 #include "SceneConfig.hpp"
 #include "SceneSerializer.hpp"
 #include "Scripting/ScriptComponent.hpp"
@@ -22,6 +26,8 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
+#include <string>
 
 static int failures = 0;
 #define CHECK(cond)                                                                                \
@@ -105,6 +111,104 @@ static Engine::Entity FindByName(Engine::Registry& reg, const std::string& name)
         }
     }
     return static_cast<Engine::Entity>(-1);
+}
+
+static std::string ReadText(const std::filesystem::path& path) {
+    std::ifstream file(path);
+    return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+}
+
+static void WriteText(const std::filesystem::path& path, const std::string& text) {
+    std::ofstream(path, std::ios::trunc) << text;
+}
+
+static std::string ReplaceAll(std::string text, const std::string& from, const std::string& to) {
+    for (std::size_t pos = 0; (pos = text.find(from, pos)) != std::string::npos;
+         pos += to.size()) {
+        text.replace(pos, from.size(), to);
+    }
+    return text;
+}
+
+static bool SameColor(const Color& a, const Color& b) {
+    return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+}
+
+// Shape colors must be saved as "color" on every compiler, and files saved
+// with the old "color)" key (some compilers did that) must still load.
+static void TestShapeColorKey() {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "rtype_color_key_test";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    const Color expected{10, 20, 30, 40};
+
+    Engine::Registry reg;
+    RegisterAll(reg);
+    const Engine::Entity box = reg.CreateEntity();
+    reg.AddComponent(box, Engine::Name::Create("Box"));
+    Engine::ShapeComponent shape;
+    shape.color = expected;
+    reg.AddComponent(box, shape);
+    Engine::ColliderComponent collider;
+    collider.shape = shape;
+    reg.AddComponent(box, collider);
+
+    Serialization::SceneConfig config;
+    Serialization::SceneSerializer writer;
+    writer.Serialize((dir / "new.scene").string(), reg, config);
+    const std::string saved = ReadText(dir / "new.scene");
+    CHECK(saved.find("\"color\":") != std::string::npos);
+    CHECK(saved.find("\"color)\"") == std::string::npos);
+
+    // Old scene file: same content with the legacy key.
+    WriteText(dir / "legacy.scene", ReplaceAll(saved, "\"color\":", "\"color)\":"));
+    Engine::Registry legacy;
+    RegisterAll(legacy);
+    Serialization::SceneSerializer reader;
+    CHECK(reader.Deserialize((dir / "legacy.scene").string(), legacy, std::nullopt));
+    const Engine::Entity loaded = FindByName(legacy, "Box");
+    CHECK(loaded != static_cast<Engine::Entity>(-1));
+    if (loaded != static_cast<Engine::Entity>(-1)) {
+        CHECK(SameColor(legacy.GetComponent<Engine::ShapeComponent>(loaded).color, expected));
+        CHECK(SameColor(legacy.GetComponent<Engine::ColliderComponent>(loaded).shape->color,
+                        expected));
+    }
+
+    // Old prefab file: prefabs are read through the same serializer.
+    Serialization::GlazeSerializer glaze;
+    const std::string prefab = glaze.SerializeToString(glaze.CaptureScene(reg));
+    WriteText(dir / "legacy.prefab", ReplaceAll(prefab, "\"color\":", "\"color)\":"));
+    Engine::Registry spawned;
+    RegisterAll(spawned);
+    const Engine::Entity root =
+        Serialization::SpawnPrefabRuntime(spawned, (dir / "legacy.prefab").string());
+    CHECK(root != static_cast<Engine::Entity>(-1));
+    if (root != static_cast<Engine::Entity>(-1)) {
+        CHECK(SameColor(spawned.GetComponent<Engine::ShapeComponent>(root).color, expected));
+    }
+
+    fs::remove_all(dir);
+}
+
+// The scene and prefabs shipped with R-Type load on this OS.
+static void TestRTypeFilesLoad() {
+#ifdef RTYPE_SOURCE_DIR
+    namespace fs = std::filesystem;
+    const fs::path project = fs::path(RTYPE_SOURCE_DIR) / "R-Type";
+    Engine::Registry reg;
+    RegisterAll(reg);
+    reg.RegisterComponent<Engine::NetworkComponent>();
+    reg.RegisterComponent<Engine::PrefabInstance>();
+    Serialization::SceneSerializer reader;
+    CHECK(reader.Deserialize((project / "test.scene").string(), reg, std::nullopt));
+    CHECK(FindByName(reg, "Player") != static_cast<Engine::Entity>(-1));
+    for (const char* prefab : {"Prefabs/Player.prefab", "Prefabs/Bink.prefab",
+                               "Prefabs/Pata-Pata.prefab"}) {
+        CHECK(Serialization::SpawnPrefabRuntime(reg, (project / prefab).string()) !=
+              static_cast<Engine::Entity>(-1));
+    }
+#endif
 }
 
 static void VerifyScene(Engine::Registry& reg, const Serialization::SceneConfig& config) {
@@ -241,6 +345,9 @@ int main() {
 
         std::filesystem::remove_all(projDir);
     }
+
+    TestShapeColorKey();
+    TestRTypeFilesLoad();
 
     if (failures == 0) {
         std::cout << "ALL CHECKS PASSED\n";

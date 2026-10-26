@@ -81,8 +81,24 @@ class GlazeSerializer {
                                  const std::vector<EntitySnapshot>& entities);
 
   private:
+    // Files saved before ShapeComponent had explicit key names may use
+    // "color)" instead of "color": automatic reflection read the name from
+    // compiler-generated text, which differs between compilers. Rewrites the
+    // old key so those files load on every OS.
+    static void NormalizeLegacyKeys(std::string& json);
+
     SerializationFormat m_Format;
 };
+
+inline void GlazeSerializer::NormalizeLegacyKeys(std::string& json) {
+    static const std::string from = "\"color)\":";
+    static const std::string to = "\"color\":";
+    std::size_t pos = 0;
+    while ((pos = json.find(from, pos)) != std::string::npos) {
+        json.replace(pos, from.size(), to);
+        pos += to.size();
+    }
+}
 
 template <typename T> std::string GlazeSerializer::SerializeToString(const T& value) {
     if (m_Format == SerializationFormat::Binary) {
@@ -111,7 +127,9 @@ bool GlazeSerializer::DeserializeFromString(const std::string& data, T& value) {
         std::memcpy(binary.data(), data.data(), data.size());
         return DeserializeFromBinary(binary, value);
     }
-    return !glz::read_json(value, data);
+    std::string json = data;
+    NormalizeLegacyKeys(json);
+    return !glz::read_json(value, json);
 }
 
 template <typename T>
@@ -169,6 +187,7 @@ bool GlazeSerializer::DeserializeFromFile(const std::string& filepath, T& value,
 
     std::string content(size, '\0');
     file.read(content.data(), size);
+    NormalizeLegacyKeys(content);
     const glz::error_ctx err = glz::read_json(value, content);
     if (err) {
         if (error != nullptr) {

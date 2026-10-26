@@ -126,6 +126,8 @@ void EditorLayer::OnUpdate() {
 
     // Before any panel draws: a scene switch must not happen mid-iteration.
     HandleSceneRequests();
+    // Build output is collected on the build thread; log it here.
+    SettingsPanel::ReportBuildResult();
 
     BeginDockSpace();
 
