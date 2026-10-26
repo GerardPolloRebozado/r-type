@@ -159,8 +159,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         }
     }
 
-    if (std::filesystem::exists(std::filesystem::path(projFolder) /
-                                Editor::kProjectRegisterHeader)) {
+    if (std::filesystem::exists(std::filesystem::path(projFolder) / kProjectRegisterHeader)) {
         mainOut << "\n    RegisterScaffoldedSystems(app.GetRegistry());\n";
     }
 
