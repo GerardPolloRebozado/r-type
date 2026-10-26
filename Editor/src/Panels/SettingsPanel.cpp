@@ -6,6 +6,7 @@
 #include "ProjectSystemsBuild.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
+#include "ScriptEditorService.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -440,6 +441,27 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
     }
 
     if (ImGui::Begin(m_Name.c_str(), &s_IsOpen)) {
+        ImGui::Text("IDE Settings");
+        ImGui::Separator();
+
+        ImGui::Text("Script Editor");
+        ImGui::Separator();
+
+        static float scriptFontSize = 15.0f;
+        if (ImGui::SliderFloat("Font Size", &scriptFontSize, 8.0f, 32.0f, "%.0f")) {
+            config.m_ScriptFontSize = scriptFontSize;
+            if (registry.HasResource<ScriptEditorService>()) {
+                auto& service = registry.GetResource<ScriptEditorService>();
+                service.RequestFontSizeChange(scriptFontSize);
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Changes apply to all open script editors");
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
         ImGui::Text("Build Configuration");
         ImGui::Separator();
 

@@ -97,15 +97,30 @@ CPMAddPackage(
 # does not define. Clang 19+ rejects the header while parsing it.
 file(READ "${sol2_SOURCE_DIR}/include/sol/optional_implementation.hpp" _sol2_optional)
 string(FIND "${_sol2_optional}" "this->construct(std::forward<Args>(args)...);\n\t\t}" _sol2_optional_bug)
-if(NOT _sol2_optional_bug EQUAL -1)
+if (NOT _sol2_optional_bug EQUAL -1)
     string(REPLACE
             "\t\ttemplate <class... Args>\n\t\tT& emplace(Args&&... args) noexcept {\n\t\t\tstatic_assert(std::is_constructible<T, Args&&...>::value, \"T must be constructible with Args\");\n\n\t\t\t*this = nullopt;\n\t\t\tthis->construct(std::forward<Args>(args)...);\n\t\t}"
             "\t\tT& emplace(T& arg) noexcept {\n\t\t\tm_value = std::addressof(arg);\n\t\t\treturn *m_value;\n\t\t}"
             _sol2_optional "${_sol2_optional}")
     file(WRITE "${sol2_SOURCE_DIR}/include/sol/optional_implementation.hpp" "${_sol2_optional}")
-endif()
+endif ()
 
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
+if (CMAKE_CROSSCOMPILING)
+    set(ASSET_BUNDLER_EXECUTABLE "${CMAKE_BINARY_DIR}/AssetBundler")
+else ()
+    set(ASSET_BUNDLER_EXECUTABLE "$<TARGET_FILE:AssetBundler>")
+endif ()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sASYNCIFY")
+    set(ASSET_BUNDLER_EXECUTABLE "${CMAKE_BINARY_DIR}/AssetBundler")
+
+    add_compile_options(-fexceptions)
+    add_link_options(-fexceptions)
+else ()
+    set(ASSET_BUNDLER_EXECUTABLE "$<TARGET_FILE:AssetBundler>")
+endif ()
 
 add_subdirectory(Engine)
 add_subdirectory(Serialization)
@@ -120,4 +135,4 @@ endif ()
 
 if (EDITOR_BUILD)
     include(.editor_build.cmake OPTIONAL)
-endif()
+endif ()

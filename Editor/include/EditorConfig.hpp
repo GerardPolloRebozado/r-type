@@ -43,6 +43,7 @@ struct EditorConfig : public Serialization::SceneConfig {
      * empty. EditorLayer writes project.json and updates m_InitialScenePath.
      */
     std::string m_RequestedStartupScene;
+    float m_ScriptFontSize = 15.0f;
 };
 
 } // namespace Editor

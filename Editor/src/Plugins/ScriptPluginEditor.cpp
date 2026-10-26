@@ -2,6 +2,7 @@
 #include "Components/Name.hpp"
 #include "Components/Position.hpp"
 #include "EditorConfig.hpp"
+#include "ScriptEditorService.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include "Scripting/ScriptPlugin.hpp"
 #include <cstring>
@@ -63,7 +64,8 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
                     if (fileName.find(".lua") == std::string::npos) {
                         fileName += ".lua";
                     }
-                    std::filesystem::path fullPath = scriptsDir / fileName;
+                    std::filesystem::path fullPath =
+                        std::filesystem::absolute(scriptsDir / fileName);
 
                     // Write template if file doesn't exist
                     if (!std::filesystem::exists(fullPath)) {
@@ -99,6 +101,9 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
                     script.scriptPath = relPath;
                     script.loaded = false;
                     script.scriptTable = sol::lua_nil;
+                    if (registry.HasResource<ScriptEditorService>()) {
+                        registry.GetResource<ScriptEditorService>().Open(fullPath);
+                    }
                     scriptName[0] = '\0';
                     ImGui::CloseCurrentPopup();
                 }
@@ -127,6 +132,20 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
             script.scriptTable = sol::lua_nil;
         }
         ImGui::PopItemWidth();
+
+        if (!script.scriptPath.empty()) {
+            ImGui::SameLine();
+            const bool fileExists =
+                std::filesystem::exists(ResolveAssetPath(registry, script.scriptPath));
+            ImGui::BeginDisabled(!fileExists);
+            if (ImGui::Button(ICON_FA_CODE " Open")) {
+                if (registry.HasResource<ScriptEditorService>()) {
+                    registry.GetResource<ScriptEditorService>().Open(
+                        ResolveAssetPath(registry, script.scriptPath));
+                }
+            }
+            ImGui::EndDisabled();
+        }
 
         // Drag & drop a .lua file from the Assets panel.
         if (ImGui::BeginDragDropTarget()) {
