@@ -194,6 +194,27 @@ void AudioSystem::ProcessSource(Entity entity, Registry& registry, AssetManager&
     RefreshSourceState(entity, source, assetManager);
 }
 
+void AudioSystem::OnSceneUnloaded(Registry& registry) {
+    for (auto& active : m_ActiveSounds) {
+        active.sound.Stop();
+    }
+    m_ActiveSounds.clear();
+    if (!registry.HasResource<AssetManager>()) {
+        return;
+    }
+    auto& assetManager = registry.GetResource<AssetManager>();
+    for (const auto& music : assetManager.GetAllMusic() | std::views::values) {
+        if (music && music->IsPlaying()) {
+            music->Stop();
+        }
+    }
+    for (const auto& sound : assetManager.GetAllSounds() | std::views::values) {
+        if (sound && sound->IsPlaying()) {
+            sound->Stop();
+        }
+    }
+}
+
 void AudioSystem::Update(Registry& registry, float dt) {
     (void)dt;
     if (!registry.HasResource<AssetManager>()) {
