@@ -1,9 +1,26 @@
 #include "Plugins/PositionPluginEditor.hpp"
+#include "Components/Parent.hpp"
+#include "Components/Position.hpp"
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 #include <string>
 
 namespace Editor {
+namespace {
+// True when the entity follows a live parent that has a Position, so its
+// inspector values should be shown relative to that parent.
+bool HasRelativeParent(Engine::Entity entity, Engine::Registry& registry) {
+    if (!registry.IsComponentRegistered<Engine::Parent>() ||
+        !registry.HasComponent<Engine::Parent>(entity)) {
+        return false;
+    }
+    if (!registry.GetComponent<Engine::Position>(entity).relative) {
+        return false;
+    }
+    Engine::Entity const parent = registry.GetComponent<Engine::Parent>(entity).parent;
+    return registry.IsEntityAlive(parent) && registry.HasComponent<Engine::Position>(parent);
+}
+} // namespace
 
 const char* PositionPluginEditor::GetName() const {
     return "Position";
@@ -24,10 +41,25 @@ bool PositionPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
     bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 
     if (isOpen) {
-        float pos[2] = {position.x, position.y};
-        if (ImGui::DragFloat2("Position", pos, 0.1f)) {
-            position.x = pos[0];
-            position.y = pos[1];
+        // Position stores world coordinates. For a child that follows its parent,
+        // show and edit it as an offset from the parent instead.
+        float originX = 0.0f;
+        float originY = 0.0f;
+        bool const hasParent = HasRelativeParent(entity, registry);
+        if (hasParent) {
+            Engine::Entity const parent = registry.GetComponent<Engine::Parent>(entity).parent;
+            auto const& parentPosition = registry.GetComponent<Engine::Position>(parent);
+            originX = parentPosition.x;
+            originY = parentPosition.y;
+        }
+
+        float pos[2] = {position.x - originX, position.y - originY};
+        if (ImGui::DragFloat2(hasParent ? "Local Position" : "Position", pos, 0.1f)) {
+            position.x = pos[0] + originX;
+            position.y = pos[1] + originY;
+        }
+        if (hasParent) {
+            ImGui::TextDisabled("World: (%.1f, %.1f)", position.x, position.y);
         }
         ImGui::DragInt("Z Index", &position.z);
     }
