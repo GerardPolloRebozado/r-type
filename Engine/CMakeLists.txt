@@ -33,6 +33,7 @@ set(SRC_FILES
         src/Plugins/RotationPlugin.cpp
         src/Plugins/ShapePlugin.cpp
         src/Plugins/SpritePlugin.cpp
+        src/Plugins/AnimationPlugin.cpp
         src/Plugins/TextPlugin.cpp
         src/Scripting/ScriptPlugin.cpp
         src/Scripting/ScriptSystem.cpp
@@ -63,6 +64,7 @@ set(SRC_FILES
         src/Systems/PositionSystem.cpp
         src/Systems/ShapeSystem.cpp
         src/Systems/SpriteSystem.cpp
+        src/Systems/AnimationSystem.cpp
         src/Systems/SystemExample.cpp
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
