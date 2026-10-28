@@ -13,6 +13,9 @@ void OpacityPlugin::AttachToEntity(Registry& registry, Entity entity, float alph
 }
 
 float OpacityPlugin::GetEffectiveAlpha(Registry& registry, Entity entity) {
+    if (!registry.IsComponentRegistered<Opacity>()) {
+        return 1.0f;
+    }
     float result = 1.0f;
     if (registry.HasComponent<Opacity>(entity)) {
         result = registry.GetComponent<Opacity>(entity).alpha;
