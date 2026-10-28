@@ -39,6 +39,11 @@ class IComponentArray {
      * @param entity The ID of the destroyed entity.
      */
     virtual void EntityDestroyed(Entity entity) = 0;
+
+    /**
+     * @brief Removes the components of every entity from this array.
+     */
+    virtual void Clear() = 0;
 };
 
 /**
@@ -94,6 +99,10 @@ template <typename T> class ComponentArray : public IComponentArray {
         if (m_ComponentMap.find(entity) != m_ComponentMap.end()) {
             RemoveData(entity);
         }
+    }
+
+    void Clear() override {
+        m_ComponentMap.clear();
     }
 
     auto begin() {
@@ -231,8 +240,9 @@ class Registry {
     /**
      * @brief Checks if an entity is alive (holds at least one component).
      *
-     * Entity IDs are never reused, so destroyed entities keep their ID but
-     * own no components. Editor panels use this to skip dead rows.
+     * Entity IDs are not reused while a scene is running, so destroyed entities
+     * keep their ID but own no components. Editor panels use this to skip dead
+     * rows. Only @ref ClearEntities restarts IDs at 1.
      * @param entity The entity ID.
      * @return True if any component is attached to the entity.
      */
@@ -274,6 +284,25 @@ class Registry {
             DestroyEntity(e);
         }
         m_EntitiesToDestroy.clear();
+    }
+
+    /**
+     * @brief Destroys every entity and restarts entity IDs at 1.
+     *
+     * Used when switching scenes. Component types, systems and resources stay
+     * registered: only entity data is removed. Each system's @c m_Entities set
+     * and the deferred destroy queue are emptied too, so nothing points at an
+     * old entity once IDs start being reused.
+     */
+    void ClearEntities() {
+        for (auto const& pair : m_ComponentArrays) {
+            pair.second->Clear();
+        }
+        for (auto const& pair : m_Systems) {
+            pair.second->m_Entities.clear();
+        }
+        m_EntitiesToDestroy.clear();
+        m_NextEntityId = 1;
     }
 
     /**

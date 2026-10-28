@@ -21,6 +21,13 @@ class ScriptSystem : public System {
 
     void Update(Registry& registry, float dt) override;
     void Render(Registry& registry) override {} // No rendering
+    /**
+     * @brief Calls onDestroy on every loaded script before the scene's entities go away.
+     *
+     * The Lua state itself is kept: globals set by scripts survive a scene
+     * switch, while each script's own table is dropped with its entity.
+     */
+    void OnSceneUnloaded(Registry& registry) override;
     void loadScript(Registry& registry, Entity entity);
     void unloadScript(Registry& registry, Entity entity);
 

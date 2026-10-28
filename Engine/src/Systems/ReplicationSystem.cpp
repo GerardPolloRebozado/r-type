@@ -13,6 +13,7 @@
 #include "Resources/PlayerInputState.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "Resources/PrefabSpawner.hpp"
+#include "Resources/SceneManager.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -180,6 +181,31 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
         m_initialized = true;
     }
 
+    // First update after a scene switch on the server: tell clients first,
+    // then respawn the players. Both are reliable and ordered on channel 0,
+    // so clients switch before they receive the new player spawns.
+    if (m_sceneChanged && host.IsServer()) {
+        m_sceneChanged = false;
+        SendSceneLoad(registry, host, nullptr, true);
+        if (!registry.HasResource<PlayerSlotState>()) {
+            registry.AddResource<PlayerSlotState>();
+        }
+        auto& slots = registry.GetResource<PlayerSlotState>();
+        for (const auto& [peer, networkId] : m_playersToRespawn) {
+            if (peer == nullptr || peer->state != ENET_PEER_STATE_CONNECTED) {
+                continue;
+            }
+            auto slot = slots.Get(networkId);
+            if (!slot.has_value()) {
+                slot = slots.Assign(networkId);
+            }
+            if (slot.has_value()) {
+                SpawnPlayer(registry, host, peer, kInvalidEntity, networkId, *slot);
+            }
+        }
+        m_playersToRespawn.clear();
+    }
+
     // Register handlers before the first poll so a very fast client cannot send
     // input or receive a spawn message that nobody is listening for yet
     if (!m_handlersRegistered && registry.HasResource<PacketRouterResource>()) {
@@ -187,6 +213,7 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
         RegisterSpawnHandler(registry);
         RegisterDespawnHandler(registry);
         RegisterInputHandler(registry);
+        RegisterSceneLoadHandler(registry);
         m_handlersRegistered = true;
     }
 
@@ -218,10 +245,35 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
     }
 }
 
+void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
+    if (!m_initialized || !registry.HasResource<NetworkHostResource>()) {
+        return; // single-player, or no session yet: nothing to sync
+    }
+    auto& host = registry.GetResource<NetworkHostResource>();
+    if (host.IsServer()) {
+        // Players are destroyed with the scene. Remember who to respawn.
+        m_playersToRespawn.clear();
+        for (const auto& player : host.ConnectedPlayers(registry)) {
+            m_playersToRespawn.emplace_back(player.peer, player.networkId);
+        }
+        m_sceneChanged = true;
+    }
+    // Entity IDs restart at 1 in the next scene: drop every binding to the old
+    // entities. Initialize runs again on the next update for the new scene.
+    host.ResetEntityBindings();
+    host.InvalidateQueuedEventEntities();
+    m_announcedIds.clear();
+    m_initialized = false;
+}
+
 void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host) {
     if (!registry.HasResource<PlayerInputState>()) {
         registry.AddResource<PlayerInputState>();
     }
+    // Each scene may define its own player template. Keep the previous one
+    // when the new scene has none (e.g. a level reusing the lobby's player).
+    const std::string previousPlayerPrefab = m_playerPrefabPath;
+    m_playerPrefabPath.clear();
 
     // Client-authority entities in the scene are per-player templates.
     // Remember the first prefab path, then remove the templates: the server
@@ -247,6 +299,9 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
             registry.DestroyEntity(entity);
         }
     }
+    if (m_playerPrefabPath.empty()) {
+        m_playerPrefabPath = previousPlayerPrefab;
+    }
 
     // Server-authority scene entities exist on every machine. Reusing the
     // scene entity id as the network id lets clients match their local copy
@@ -268,8 +323,10 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
         }
     }
 
-    // Runtime spawns live above the scene id range.
-    if (host.IsServer()) {
+    // Runtime spawns live above the scene id range. Never move the counter
+    // back: after a scene switch, players and runtime entities from earlier
+    // scenes still own ids in that range.
+    if (host.IsServer() && host.PeekNextNetworkId() < 1'000'000) {
         host.SetNextNetworkId(1'000'000);
     }
 
@@ -307,6 +364,15 @@ void ReplicationSystem::ProcessConnect(Registry& registry, NetworkHostResource& 
         return;
     }
 
+    // The client may have started on another scene: move it to ours before
+    // it receives any spawn.
+    SendSceneLoad(registry, host, peer, false);
+    SpawnPlayer(registry, host, peer, placeholder, networkId, *slot);
+}
+
+void ReplicationSystem::SpawnPlayer(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
+                                    Entity placeholder, std::size_t networkId,
+                                    std::uint8_t slot) {
     Entity entity = SpawnFromPrefab(registry, m_playerPrefabPath);
     if (entity == kInvalidEntity) {
         entity = (placeholder != kInvalidEntity && registry.IsEntityAlive(placeholder))
@@ -332,13 +398,85 @@ void ReplicationSystem::ProcessConnect(Registry& registry, NetworkHostResource& 
     registry.AddComponent<NetworkComponent>(entity, network);
 
     host.TrackNetworkEntity(registry, entity, networkId);
-    host.SetPeerEntity(peer, entity);
+    host.BindPeer(entity, peer);
 
     auto& packetRegistry = registry.GetResource<PacketRegistryResource>();
     SendSpawn(registry, host, packetRegistry, entity, network, slot);
 
     log_info("[Replication] Spawned player entity " + std::to_string(entity) + " (network id " +
-             std::to_string(networkId) + ", slot " + std::to_string(*slot) + ")");
+             std::to_string(networkId) + ", slot " + std::to_string(slot) + ")");
+}
+
+void ReplicationSystem::SendSceneLoad(Registry& registry, NetworkHostResource& host,
+                                      ENetPeer* peer, bool reload) {
+    if (!host.IsServer() || !registry.HasResource<SceneManager>()) {
+        return;
+    }
+    const std::string& scene = registry.GetResource<SceneManager>().Current();
+    if (scene.empty()) {
+        return;
+    }
+    glz::generic message = glz::generic::object_t{};
+    auto& obj = message.get_object();
+    obj["scene"] = scene;
+    obj["reload"] = reload;
+    std::string json;
+    if (glz::write_json(message, json)) {
+        return;
+    }
+    const auto packetId =
+        registry.GetResource<PacketRegistryResource>().GetOrRegister("scene_load");
+    auto* packet = NetworkHostResource::CreateRawPacket(
+        static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
+        json.size(), true);
+    if (packet == nullptr) {
+        return;
+    }
+    if (peer != nullptr) {
+        NetworkHostResource::Send(peer, packet, 0);
+    } else {
+        host.SendAllHost(packet, 0);
+        log_info("[Replication] Told clients to load scene " + scene);
+    }
+}
+
+void ReplicationSystem::RegisterSceneLoadHandler(Registry& registry) {
+    auto& router = registry.GetResource<PacketRouterResource>();
+    const auto packetId =
+        registry.GetResource<PacketRegistryResource>().GetOrRegister("scene_load");
+
+    router.On(packetId, [&registry](Registry& /*r*/, ENetPeer* /*peer*/, const uint8_t* payload,
+                                    std::size_t size) {
+        if (size == 0 || payload == nullptr) {
+            return;
+        }
+        if (registry.GetResource<NetworkHostResource>().IsServer()) {
+            return; // only clients follow the server's scene
+        }
+        const std::string raw{reinterpret_cast<const char*>(payload), size};
+        glz::generic message{};
+        if (glz::read_json(message, raw) || !message.is_object()) {
+            return;
+        }
+        const auto& obj = message.get_object();
+        const std::string scene = GenericString(obj, "scene");
+        if (scene.empty()) {
+            return;
+        }
+        if (!registry.HasResource<SceneManager>()) {
+            log_error("[Replication] Server switched to scene " + scene +
+                      " but this game has no SceneManager to follow it.");
+            return;
+        }
+        auto& scenes = registry.GetResource<SceneManager>();
+        if (!GenericBool(obj, "reload") && scenes.Current() == scene) {
+            return; // already on the server's scene (normal connect)
+        }
+        log_info("[Replication] Server switched to scene " + scene);
+        // Applied at the end of the frame. Until then Poll leaves the next
+        // packets (the new scene's spawns) queued.
+        scenes.Load(scene);
+    });
 }
 
 void ReplicationSystem::ProcessDisconnect(Registry& registry, NetworkHostResource& host,

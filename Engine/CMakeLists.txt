@@ -66,6 +66,7 @@ set(SRC_FILES
         src/Systems/SystemExample.cpp
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
+        src/Resources/SceneManager.cpp
         src/Systems/MultiplayerSystem.cpp
         src/Systems/ReplicationSystem.cpp
         src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
