@@ -36,7 +36,7 @@ void registerParent(sol::state_view lua, Registry& registry) {
             HierarchyPlugin::AttachChild(registry, child, parent, relativeOpt.value_or(true));
             return true;
         } catch (const std::exception& e) {
-            log_error(std::string("[LuaAPI] setParent failed: ") + e.what());
+            log_user_error(std::string("[LuaAPI] setParent failed: ") + e.what());
             return false;
         }
     };

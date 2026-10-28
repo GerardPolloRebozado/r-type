@@ -24,7 +24,8 @@ const ShapeComponent* FootprintShape(Registry& registry, Entity entity) {
             return &collider.shape.value();
         }
     }
-    if (registry.HasComponent<ShapeComponent>(entity)) {
+    if (registry.IsComponentRegistered<ShapeComponent>() &&
+        registry.HasComponent<ShapeComponent>(entity)) {
         const auto& shape = registry.GetComponent<ShapeComponent>(entity);
         if (shape.width > 0.0f) {
             return &shape;

@@ -17,7 +17,7 @@ Engine::Entity SpawnPrefabRuntime(Engine::Registry& registry, const std::string&
 
     const std::filesystem::path resolved = Engine::ResolveAssetPath(registry, prefabPath);
     if (!std::filesystem::exists(resolved)) {
-        log_error("[Prefab] Prefab not found: " + resolved.string());
+        log_user_error("[Prefab] Prefab not found: " + resolved.string());
         return kInvalid;
     }
 
@@ -25,12 +25,12 @@ Engine::Entity SpawnPrefabRuntime(Engine::Registry& registry, const std::string&
     GlazeSerializer::SceneSnapshot snapshot;
     std::string error;
     if (!serializer.DeserializeFromFile(resolved.string(), snapshot, &error)) {
-        log_error("[Prefab] Failed to read " + resolved.string() +
+        log_user_error("[Prefab] Failed to read " + resolved.string() +
                   (error.empty() ? "" : " (" + error + ")"));
         return kInvalid;
     }
     if (snapshot.entities.empty()) {
-        log_error("[Prefab] Prefab has no entities: " + resolved.string());
+        log_user_error("[Prefab] Prefab has no entities: " + resolved.string());
         return kInvalid;
     }
 

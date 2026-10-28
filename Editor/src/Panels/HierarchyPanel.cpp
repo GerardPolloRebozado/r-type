@@ -295,7 +295,7 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
                 try {
                     Engine::HierarchyPlugin::AttachChild(registry, dragged, entity);
                 } catch (const std::exception& e) {
-                    log_error(std::string("[Hierarchy] attach failed: ") + e.what());
+                    log_user_error(std::string("[Hierarchy] attach failed: ") + e.what());
                 }
             }
         }
@@ -401,7 +401,7 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
             try {
                 Engine::HierarchyPlugin::AttachChild(registry, entity, selected.entity);
             } catch (const std::exception& e) {
-                log_error(std::string("[Hierarchy] attach failed: ") + e.what());
+                log_user_error(std::string("[Hierarchy] attach failed: ") + e.what());
             }
         }
         if (!canReparent) {

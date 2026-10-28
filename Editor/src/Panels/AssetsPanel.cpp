@@ -511,14 +511,14 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
         ImGui::InputText("Name", &m_DialogText);
         if (ImGui::Button("Create")) {
             if (!IsValidEntryName(m_DialogText)) {
-                log_error("Assets: invalid folder name");
+                log_user_error("Assets: invalid folder name");
             } else {
                 const std::filesystem::path folder = m_CurrentDirectory / m_DialogText;
                 if (!IsInsideDirectory(m_StartingDirectory, folder) &&
                     folder != m_StartingDirectory) {
-                    log_error("Assets: folder must stay inside the project");
+                    log_user_error("Assets: folder must stay inside the project");
                 } else if (std::filesystem::exists(folder)) {
-                    log_error("Assets: " + folder.string() + " already exists");
+                    log_user_error("Assets: " + folder.string() + " already exists");
                 } else {
                     std::error_code error;
                     std::filesystem::create_directory(folder, error);
@@ -541,7 +541,7 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
         ImGui::InputText("Name", &m_DialogText);
         if (ImGui::Button("Rename")) {
             if (!IsValidEntryName(m_DialogText)) {
-                log_error("Assets: invalid name");
+                log_user_error("Assets: invalid name");
             } else if (Relocate(registry, config, m_DialogTarget,
                                 m_DialogTarget.parent_path() / m_DialogText)) {
                 ImGui::CloseCurrentPopup();
@@ -558,9 +558,9 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
         ImGui::Text("Delete %s?", m_DialogTarget.filename().string().c_str());
         if (ImGui::Button("Delete")) {
             if (m_DialogTarget == m_StartingDirectory) {
-                log_error("Assets: the project folder cannot be deleted");
+                log_user_error("Assets: the project folder cannot be deleted");
             } else if (!IsInsideDirectory(m_StartingDirectory, m_DialogTarget)) {
-                log_error("Assets: cannot delete a path outside the project");
+                log_user_error("Assets: cannot delete a path outside the project");
             } else {
                 std::error_code error;
                 std::filesystem::remove_all(m_DialogTarget, error);
@@ -594,21 +594,21 @@ bool AssetsPanel::Relocate(Engine::Registry& registry, EditorConfig& config,
         return true;
     }
     if (source == m_StartingDirectory || !IsInsideDirectory(m_StartingDirectory, source)) {
-        log_error("Assets: cannot move the project root");
+        log_user_error("Assets: cannot move the project root");
         return false;
     }
     if (!IsInsideDirectory(m_StartingDirectory, destination) &&
         destination != m_StartingDirectory) {
-        log_error("Assets: destination must stay inside the project");
+        log_user_error("Assets: destination must stay inside the project");
         return false;
     }
     if (std::filesystem::is_directory(source) &&
         (destination == source || IsInsideDirectory(source, destination))) {
-        log_error("Assets: cannot move a folder into itself");
+        log_user_error("Assets: cannot move a folder into itself");
         return false;
     }
     if (std::filesystem::exists(destination)) {
-        log_error("Assets: " + destination.string() + " already exists");
+        log_user_error("Assets: " + destination.string() + " already exists");
         return false;
     }
 

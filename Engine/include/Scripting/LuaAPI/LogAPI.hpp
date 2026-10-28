@@ -8,6 +8,9 @@ class state_view;
 namespace Engine::LuaAPI {
 /**
  * @brief Registers the `log` namespace and the global `print`.
+ * `log.error` is a user error: the editor Console shows it and the terminal worker writes it.
+ * `print`, `log.info`, and `log.debug` go to the terminal only.
+ *
  * Corresponds to the Engine logging subsystem (Logging/Logger.hpp).
  *
  * @param lua View of the shared Lua state.

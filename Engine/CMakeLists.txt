@@ -21,6 +21,7 @@ set(SRC_FILES
         src/Input/IController.cpp
         src/Input/InputManager.cpp
         src/Logging/LogBuffer.cpp
+        src/Logging/LogWriter.cpp
         src/Plugins/AudioPlugin.cpp
         src/Plugins/CameraPlugin.cpp
         src/Plugins/ColliderPlugin.cpp
@@ -116,6 +117,7 @@ set(INC_FILES
         include/Logging/LogBuffer.hpp
         include/Logging/LogConfig.hpp
         include/Logging/Logger.hpp
+        include/Logging/LogWriter.hpp
         include/Plugins/AudioPlugin.hpp
         include/Plugins/CameraPlugin.hpp
         include/Plugins/ColliderPlugin.hpp
@@ -187,6 +189,10 @@ set(INC_FILES
 
 add_library(Engine STATIC ${SRC_FILES} ${INC_FILES})
 target_link_libraries(Engine PUBLIC EngineHeaders)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    find_package(Threads REQUIRED)
+    target_link_libraries(Engine PUBLIC Threads::Threads)
+endif()
 
 set(ENGINE_LOG_LEVEL "ENGINE_LOG_INFO" CACHE STRING
         "Minimum Engine log level (ENGINE_LOG_ERROR, ENGINE_LOG_DEBUG, ENGINE_LOG_INFO)")

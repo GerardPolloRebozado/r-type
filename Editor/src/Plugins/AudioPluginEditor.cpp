@@ -61,10 +61,10 @@ void LoadAudioForSource(Engine::Registry& registry, Engine::AudioSource& audio,
             }
         }
     } catch (const std::exception& error) {
-        log_error("[AudioPluginEditor] Failed to load " + resolvedPath.string() + ": " +
+        log_user_error("[AudioPluginEditor] Failed to load " + resolvedPath.string() + ": " +
                   error.what());
     } catch (...) {
-        log_error("[AudioPluginEditor] Failed to load " + resolvedPath.string());
+        log_user_error("[AudioPluginEditor] Failed to load " + resolvedPath.string());
     }
 }
 

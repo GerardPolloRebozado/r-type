@@ -122,7 +122,7 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
         bool hasCustomShape = collider.shape.has_value();
         if (ImGui::Checkbox("Custom Shape Override", &hasCustomShape)) {
             if (hasCustomShape) {
-                if (registry.HasComponent<Engine::ShapeComponent>(entity)) {
+                if (Engine::ColliderPlugin::EntityHasShape(registry, entity)) {
                     collider.shape = registry.GetComponent<Engine::ShapeComponent>(entity);
                 } else {
                     collider.shape = Engine::ShapeComponent{};
@@ -140,7 +140,7 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
             }
             ImGui::Unindent();
         } else {
-            if (registry.HasComponent<Engine::ShapeComponent>(entity)) {
+            if (Engine::ColliderPlugin::EntityHasShape(registry, entity)) {
                 const auto& entShape = registry.GetComponent<Engine::ShapeComponent>(entity);
                 const char* typeNames[] = {"Rectangle", "Circle", "Polygon", "Line"};
                 int t = static_cast<int>(entShape.type);
@@ -149,6 +149,8 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
             } else {
                 ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.0f, 1.0f),
                                    "Warning: No ShapeComponent on Entity!");
+                // Reports once. The Console shows the same missing-shape error.
+                Engine::ColliderPlugin::ResolveShape(registry, entity, collider);
                 if (ImGui::Button("Create Custom Shape")) {
                     collider.shape = Engine::ShapeComponent{};
                 }

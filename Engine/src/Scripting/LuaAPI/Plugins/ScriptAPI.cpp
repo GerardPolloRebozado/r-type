@@ -17,11 +17,11 @@ void registerScript(const sol::state_view& lua, Registry& registry) {
     component["addScript"] = [&registry](Entity entity, const std::string& path,
                                          sol::optional<bool> autoReloadOpt) -> bool {
         if (!registry.IsEntityAlive(entity)) {
-            log_error("[LuaAPI] addScript: dead entity");
+            log_user_error("[LuaAPI] addScript: dead entity");
             return false;
         }
         if (path.empty()) {
-            log_error("[LuaAPI] addScript: empty script path");
+            log_user_error("[LuaAPI] addScript: empty script path");
             return false;
         }
         const bool autoReload = autoReloadOpt.value_or(true);

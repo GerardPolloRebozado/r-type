@@ -212,7 +212,7 @@ void registerCollider(sol::state_view lua, Registry& registry) {
                       [](const std::string& name) {
                           const int layer = CollisionLayers::Index(name);
                           if (layer < 0) {
-                              log_error("[Layers.bit] Unknown layer '" + name + "', using no bits");
+                              log_user_error("[Layers.bit] Unknown layer '" + name + "', using no bits");
                               return CollisionLayers::kNoLayers;
                           }
                           return CollisionLayers::Bit(layer);
