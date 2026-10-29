@@ -32,7 +32,7 @@ void ScriptSystem::Update(Registry& registry, float dt) {
             continue;
         }
 
-        auto& script = registry.GetComponent<ScriptComponent>(entity);
+        auto& script = registry.RequireComponent<ScriptComponent>(entity);
 
         // Load script on first encounter.
         if (!script.loaded && !script.scriptPath.empty()) {
@@ -56,7 +56,7 @@ void ScriptSystem::Update(Registry& registry, float dt) {
 }
 
 void ScriptSystem::loadScript(Registry& registry, Entity entity) {
-    auto& script = registry.GetComponent<ScriptComponent>(entity);
+    auto& script = registry.RequireComponent<ScriptComponent>(entity);
     if (script.scriptPath.empty()) {
         return;
     }
@@ -104,7 +104,7 @@ void ScriptSystem::loadScript(Registry& registry, Entity entity) {
 }
 
 void ScriptSystem::unloadScript(Registry& registry, Entity entity) {
-    auto& script = registry.GetComponent<ScriptComponent>(entity);
+    auto& script = registry.RequireComponent<ScriptComponent>(entity);
     if (script.loaded && script.scriptTable.valid()) {
         sol::optional<sol::function> destroy = script.scriptTable["onDestroy"];
         if (destroy && destroy->valid()) {

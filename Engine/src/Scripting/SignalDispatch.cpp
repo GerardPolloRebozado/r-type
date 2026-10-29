@@ -42,7 +42,7 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
         return;
     }
     const std::vector<SignalConnection> connections =
-        registry.GetComponent<SignalConnections>(emitter).connections;
+        registry.RequireComponent<SignalConnections>(emitter).connections;
     for (const auto& connection : connections) {
         if (connection.signal != signal) {
             continue;
@@ -56,7 +56,7 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
                          " has no script; skipping '" + connection.method + "'");
             continue;
         }
-        auto& script = registry.GetComponent<ScriptComponent>(connection.target);
+        auto& script = registry.RequireComponent<ScriptComponent>(connection.target);
         if (!script.loaded || !script.scriptTable.valid()) {
             continue;
         }

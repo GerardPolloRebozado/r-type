@@ -22,7 +22,7 @@ bool NetworkComponentPluginEditor::OnImGuiRender(const Engine::Entity entity,
         return false;
     }
 
-    auto& netComp = registry.GetComponent<Engine::NetworkComponent>(entity);
+    auto& netComp = registry.RequireComponent<Engine::NetworkComponent>(entity);
 
     std::string header = std::string(GetIcon()) + " " + GetName();
     bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

@@ -22,7 +22,7 @@ namespace {
 
 std::string EntityLabel(Engine::Registry& registry, Engine::Entity entity) {
     if (registry.HasComponent<Engine::Name>(entity)) {
-        const std::string& name = registry.GetComponent<Engine::Name>(entity).value;
+        const std::string& name = registry.RequireComponent<Engine::Name>(entity).value;
         if (!name.empty()) {
             return name + " (" + std::to_string(entity) + ")";
         }
@@ -117,7 +117,7 @@ bool ConnectionsPluginEditor::RenderTabs(Engine::Entity entity, Engine::Registry
     if (!registry.HasComponent<Engine::SignalConnections>(entity)) {
         return false;
     }
-    auto& stored = registry.GetComponent<Engine::SignalConnections>(entity);
+    auto& stored = registry.RequireComponent<Engine::SignalConnections>(entity);
 
     const std::vector<Engine::Signals::SignalProvider> providers =
         Engine::Signals::GetSignalProviders();

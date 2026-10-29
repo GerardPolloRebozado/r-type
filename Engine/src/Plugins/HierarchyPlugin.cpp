@@ -16,7 +16,7 @@ void HierarchyPlugin::AttachChild(Registry& registry, Entity child, Entity paren
     Entity ancestor = parent;
 
     while (registry.HasComponent<Parent>(ancestor)) {
-        ancestor = registry.GetComponent<Parent>(ancestor).parent;
+        ancestor = registry.RequireComponent<Parent>(ancestor).parent;
         if (ancestor == child) {
             throw ErrorEcs("AttachChild: would create a parent cycle");
         }
@@ -28,7 +28,7 @@ void HierarchyPlugin::AttachChild(Registry& registry, Entity child, Entity paren
         if (!registry.HasComponent<Position>(child)) {
             throw ErrorEcs("AttachChild: relative child requires a Position component");
         }
-        registry.GetComponent<Position>(child).relative = true;
+        registry.RequireComponent<Position>(child).relative = true;
     }
 }
 } // namespace Engine

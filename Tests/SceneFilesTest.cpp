@@ -72,7 +72,7 @@ std::set<std::string> AliveNames(Engine::Registry& registry) {
     std::set<std::string> names;
     for (std::size_t i = 1; i < registry.GetEntityCount(); ++i) {
         if (registry.IsEntityAlive(i) && registry.HasComponent<Engine::Name>(i)) {
-            names.insert(registry.GetComponent<Engine::Name>(i).value);
+            names.insert(registry.RequireComponent<Engine::Name>(i).value);
         }
     }
     return names;

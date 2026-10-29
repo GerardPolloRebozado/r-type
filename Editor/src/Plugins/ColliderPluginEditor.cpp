@@ -30,7 +30,7 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
     if (!registry.HasComponent<Engine::ColliderComponent>(entity)) {
         return false;
     }
-    auto& collider = registry.GetComponent<Engine::ColliderComponent>(entity);
+    auto& collider = registry.RequireComponent<Engine::ColliderComponent>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
@@ -123,7 +123,7 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
         if (ImGui::Checkbox("Custom Shape Override", &hasCustomShape)) {
             if (hasCustomShape) {
                 if (registry.HasComponent<Engine::ShapeComponent>(entity)) {
-                    collider.shape = registry.GetComponent<Engine::ShapeComponent>(entity);
+                    collider.shape = registry.RequireComponent<Engine::ShapeComponent>(entity);
                 } else {
                     collider.shape = Engine::ShapeComponent{};
                 }
@@ -141,7 +141,7 @@ bool ColliderPluginEditor::OnImGuiRender(const Engine::Entity entity, Engine::Re
             ImGui::Unindent();
         } else {
             if (registry.HasComponent<Engine::ShapeComponent>(entity)) {
-                const auto& entShape = registry.GetComponent<Engine::ShapeComponent>(entity);
+                const auto& entShape = registry.RequireComponent<Engine::ShapeComponent>(entity);
                 const char* typeNames[] = {"Rectangle", "Circle", "Polygon", "Line"};
                 int t = static_cast<int>(entShape.type);
                 const char* tName = (t >= 0 && t < 4) ? typeNames[t] : "Unknown";

@@ -19,7 +19,7 @@ constexpr float WORLD_HEIGHT = 2000.0f;
 Engine::Entity SpawnShape(Engine::Registry& registry, float x, float y,
                           const Engine::ShapeComponent& shape) {
     Engine::Entity entity = registry.CreateEntity();
-    registry.GetComponent<Engine::Position>(entity) = Engine::Position{x, y};
+    registry.RequireComponent<Engine::Position>(entity) = Engine::Position{x, y};
     Engine::ShapePlugin::AttachToEntity(registry, entity, shape);
     return entity;
 }
@@ -28,7 +28,7 @@ Engine::Entity SpawnText(Engine::Registry& registry, float x, float y, const std
                          float fontSize) {
     Engine::Entity entity = registry.CreateEntity();
     Engine::TextPlugin::AttachToEntity(registry, entity, text, fontSize);
-    registry.GetComponent<Engine::Position>(entity) = Engine::Position{x, y};
+    registry.RequireComponent<Engine::Position>(entity) = Engine::Position{x, y};
     return entity;
 }
 } // namespace
@@ -41,7 +41,7 @@ class CameraDemoSystem : public Engine::System {
     Engine::Entity camera = 0;
 
     void Update(Engine::Registry& registry, float dt) override {
-        auto& position = registry.GetComponent<Engine::Position>(player);
+        auto& position = registry.RequireComponent<Engine::Position>(player);
         const float speed = 500.0f * dt;
         if (IsKeyDown(KEY_RIGHT)) {
             position.x += speed;
@@ -58,7 +58,7 @@ class CameraDemoSystem : public Engine::System {
         position.x = std::clamp(position.x, 0.0f, WORLD_WIDTH);
         position.y = std::clamp(position.y, 0.0f, WORLD_HEIGHT);
 
-        auto& cam = registry.GetComponent<Engine::CameraComponent>(camera);
+        auto& cam = registry.RequireComponent<Engine::CameraComponent>(camera);
         // Zoom with typed '+'/'-' characters (works on any keyboard layout, unlike key codes)
         // and with the mouse wheel. Holding a key repeats the character.
         float zoomSteps = GetMouseWheelMove();
@@ -73,7 +73,7 @@ class CameraDemoSystem : public Engine::System {
             cam.zoom = std::clamp(cam.zoom * std::pow(1.1f, zoomSteps), 0.25f, 4.0f);
         }
         // The camera rotation is the Rotation of its entity
-        auto& rotation = registry.GetComponent<Engine::Rotation>(camera);
+        auto& rotation = registry.RequireComponent<Engine::Rotation>(camera);
         if (IsKeyDown(KEY_Q)) {
             rotation.angle -= 45.0f * dt;
         }

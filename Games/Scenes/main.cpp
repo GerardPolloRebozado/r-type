@@ -42,7 +42,7 @@ void AddText(Engine::Registry& registry, const std::string& text, float size, fl
 
 void AddShape(Engine::Registry& registry, Engine::Entity entity, Engine::ShapeType type,
               Color color, float x, float y) {
-    registry.GetComponent<Engine::Position>(entity) = Engine::Position(x, y);
+    registry.RequireComponent<Engine::Position>(entity) = Engine::Position(x, y);
     Engine::ShapeComponent shape;
     shape.type = type;
     shape.width = 50.0f;
@@ -110,13 +110,13 @@ class SceneFlowSystem : public Engine::System {
         const Engine::Entity player = players->begin()->first;
         const Engine::Entity goal = goals->begin()->first;
 
-        auto& position = registry.GetComponent<Engine::Position>(player);
+        auto& position = registry.RequireComponent<Engine::Position>(player);
         const float dx = static_cast<float>(IsKeyDown(KEY_RIGHT) - IsKeyDown(KEY_LEFT));
         const float dy = static_cast<float>(IsKeyDown(KEY_DOWN) - IsKeyDown(KEY_UP));
         position.x += dx * kPlayerSpeed * dt;
         position.y += dy * kPlayerSpeed * dt;
 
-        const auto& target = registry.GetComponent<Engine::Position>(goal);
+        const auto& target = registry.RequireComponent<Engine::Position>(goal);
         if (std::hypot(position.x - target.x, position.y - target.y) < kGoalReach) {
             registry.GetResource<Progress>().wins += 1;
             scenes.Load("win");
