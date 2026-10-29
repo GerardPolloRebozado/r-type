@@ -25,7 +25,7 @@ void DetachEntity(Engine::Registry& registry, Engine::Entity entity) {
         registry.RemoveComponent<Engine::Parent>(entity);
     }
     if (registry.HasComponent<Engine::Position>(entity)) {
-        registry.GetComponent<Engine::Position>(entity).relative = false;
+        registry.RequireComponent<Engine::Position>(entity).relative = false;
     }
 }
 
@@ -129,7 +129,7 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 }
                 const bool hasLiveParent =
                     registry.HasComponent<Engine::Parent>(entity) &&
-                    registry.IsEntityAlive(registry.GetComponent<Engine::Parent>(entity).parent);
+                    registry.IsEntityAlive(registry.RequireComponent<Engine::Parent>(entity).parent);
                 if (!hasLiveParent) {
                     RenderEntityNode(registry, entity, selected, visited, 0);
                 }
@@ -336,7 +336,7 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
                                                                 Engine::Rotation::Create(0.0f));
                     }
                     if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
-                        auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
+                        auto& sc = registry.RequireComponent<Engine::SpriteComponent>(entity);
                         sc.sprite = spr;
                         sc.assetPath = relPath;
                     } else {
@@ -354,19 +354,19 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
     // offset and follow state show up here instead.
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) &&
         registry.HasComponent<Engine::Parent>(entity)) {
-        const Engine::Entity parent = registry.GetComponent<Engine::Parent>(entity).parent;
+        const Engine::Entity parent = registry.RequireComponent<Engine::Parent>(entity).parent;
         ImGui::BeginTooltip();
         ImGui::TextUnformatted(("Parent: " + Engine::GetEntityName(registry, parent)).c_str());
         if (registry.HasComponent<Engine::Position>(entity) &&
             registry.HasComponent<Engine::Position>(parent)) {
-            const auto& cp = registry.GetComponent<Engine::Position>(entity);
-            const auto& pp = registry.GetComponent<Engine::Position>(parent);
+            const auto& cp = registry.RequireComponent<Engine::Position>(entity);
+            const auto& pp = registry.RequireComponent<Engine::Position>(parent);
             ImGui::Text("Offset: (%+d, %+d)", static_cast<int>(std::lround(cp.x - pp.x)),
                         static_cast<int>(std::lround(cp.y - pp.y)));
         }
         if (registry.HasComponent<Engine::Position>(entity)) {
             ImGui::Text("Follow parent: %s",
-                        registry.GetComponent<Engine::Position>(entity).relative ? "on" : "off");
+                        registry.RequireComponent<Engine::Position>(entity).relative ? "on" : "off");
         }
         ImGui::EndTooltip();
     }
@@ -421,14 +421,14 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
         // (offset zero). Useful after the pre-fix fly-away corrupted offsets.
         const bool canSnap = hasParent && registry.HasComponent<Engine::Position>(entity) &&
                              registry.HasComponent<Engine::Position>(
-                                 registry.GetComponent<Engine::Parent>(entity).parent);
+                                 registry.RequireComponent<Engine::Parent>(entity).parent);
         if (!canSnap) {
             ImGui::BeginDisabled();
         }
         if (ImGui::MenuItem("Snap To Parent")) {
-            const Engine::Entity parent = registry.GetComponent<Engine::Parent>(entity).parent;
-            auto& cp = registry.GetComponent<Engine::Position>(entity);
-            const auto& pp = registry.GetComponent<Engine::Position>(parent);
+            const Engine::Entity parent = registry.RequireComponent<Engine::Parent>(entity).parent;
+            auto& cp = registry.RequireComponent<Engine::Position>(entity);
+            const auto& pp = registry.RequireComponent<Engine::Position>(parent);
             cp.x = pp.x;
             cp.y = pp.y;
         }

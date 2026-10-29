@@ -69,7 +69,7 @@ std::set<Action> ParseNetInput(const glz::generic_json<>& value) {
 /** Adds/replaces NetworkComponent fields while keeping anything the prefab set. */
 NetworkComponent ReadNetworkComponent(Registry& registry, Entity entity) {
     if (registry.HasComponent<NetworkComponent>(entity)) {
-        return registry.GetComponent<NetworkComponent>(entity);
+        return registry.RequireComponent<NetworkComponent>(entity);
     }
     return NetworkComponent{};
 }
@@ -82,7 +82,7 @@ void ApplySpriteState(Registry& registry, Entity entity, const glz::generic& val
     if (!registry.HasComponent<SpriteComponent>(entity)) {
         registry.AddComponent<SpriteComponent>(entity, SpriteComponent{});
     }
-    auto& sprite = registry.GetComponent<SpriteComponent>(entity);
+    auto& sprite = registry.RequireComponent<SpriteComponent>(entity);
 
     const std::string path = GenericString(obj, "path", sprite.assetPath);
     if (path != sprite.assetPath) {
@@ -118,7 +118,7 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
     const auto& obj = state.get_object();
 
     if (registry.HasComponent<Position>(entity)) {
-        auto& position = registry.GetComponent<Position>(entity);
+        auto& position = registry.RequireComponent<Position>(entity);
         if (obj.find("x") != obj.end()) {
             position.x = static_cast<float>(GenericNumber(obj, "x", position.x));
         }
@@ -130,7 +130,7 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
         }
     }
     if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
-        auto& rotation = registry.GetComponent<Rotation>(entity);
+        auto& rotation = registry.RequireComponent<Rotation>(entity);
         rotation.angle = static_cast<float>(GenericNumber(obj, "angle", rotation.angle));
     }
     if (const auto it = obj.find("sprite"); it != obj.end()) {
@@ -154,7 +154,7 @@ void ApplyReplicatedSlot(Registry& registry, std::size_t networkId,
 
 glz::generic SerializeSpriteState(Registry& registry, Entity entity) {
     glz::generic out = glz::generic::object_t{};
-    const auto& sprite = registry.GetComponent<SpriteComponent>(entity);
+    const auto& sprite = registry.RequireComponent<SpriteComponent>(entity);
     auto& obj = out.get_object();
     obj["path"] = sprite.assetPath;
     obj["offsetX"] = sprite.offsetX;
@@ -237,7 +237,7 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
             if (m_debugTicks % 60 == 0 && localEntity.has_value() &&
                 registry.IsEntityAlive(*localEntity) &&
                 registry.HasComponent<Position>(*localEntity)) {
-                const auto& position = registry.GetComponent<Position>(*localEntity);
+                const auto& position = registry.RequireComponent<Position>(*localEntity);
                 log_info("[NetDebug] client local entity=" + std::to_string(*localEntity) +
                          " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y));
             }
@@ -286,7 +286,7 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
         if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
             continue;
         }
-        const auto& network = registry.GetComponent<NetworkComponent>(entity);
+        const auto& network = registry.RequireComponent<NetworkComponent>(entity);
         if (network.authority == "Client") {
             if (m_playerPrefabPath.empty() && !network.prefabPath.empty()) {
                 m_playerPrefabPath = network.prefabPath;
@@ -311,7 +311,7 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
         if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
             continue;
         }
-        auto& network = registry.GetComponent<NetworkComponent>(entity);
+        auto& network = registry.RequireComponent<NetworkComponent>(entity);
         if (network.authority == "Server" && network.networkId == 0) {
             network.networkId = static_cast<std::uint64_t>(entity);
             host.TrackNetworkEntity(registry, entity, entity);
@@ -718,7 +718,7 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
             continue;
         }
-        auto& network = registry.GetComponent<NetworkComponent>(entity);
+        auto& network = registry.RequireComponent<NetworkComponent>(entity);
         if (network.authority == "Shared") {
             continue;
         }
@@ -753,20 +753,20 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         }
 
         if (network.syncTransform && registry.HasComponent<Position>(entity)) {
-            const auto& position = registry.GetComponent<Position>(entity);
+            const auto& position = registry.RequireComponent<Position>(entity);
             obj["x"] = position.x;
             obj["y"] = position.y;
             obj["z"] = static_cast<double>(position.z);
         }
         if (network.syncTransform && registry.HasComponent<Rotation>(entity)) {
-            obj["angle"] = registry.GetComponent<Rotation>(entity).angle;
+            obj["angle"] = registry.RequireComponent<Rotation>(entity).angle;
         }
         if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity)) {
             obj["sprite"] = SerializeSpriteState(registry, entity);
         }
         if (logThisTick && network.authority == "Client" &&
             registry.HasComponent<Position>(entity)) {
-            const auto& position = registry.GetComponent<Position>(entity);
+            const auto& position = registry.RequireComponent<Position>(entity);
             log_info("[NetDebug] server player id=" + std::to_string(network.networkId) +
                      " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y));
         }

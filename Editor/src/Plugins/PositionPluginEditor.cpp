@@ -14,10 +14,10 @@ bool HasRelativeParent(Engine::Entity entity, Engine::Registry& registry) {
         !registry.HasComponent<Engine::Parent>(entity)) {
         return false;
     }
-    if (!registry.GetComponent<Engine::Position>(entity).relative) {
+    if (!registry.RequireComponent<Engine::Position>(entity).relative) {
         return false;
     }
-    Engine::Entity const parent = registry.GetComponent<Engine::Parent>(entity).parent;
+    Engine::Entity const parent = registry.RequireComponent<Engine::Parent>(entity).parent;
     return registry.IsEntityAlive(parent) && registry.HasComponent<Engine::Position>(parent);
 }
 } // namespace
@@ -35,7 +35,7 @@ bool PositionPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
         return false;
     }
 
-    auto& position = registry.GetComponent<Engine::Position>(entity);
+    auto& position = registry.RequireComponent<Engine::Position>(entity);
 
     std::string header = std::string(GetIcon()) + " " + GetName();
     bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
@@ -47,8 +47,8 @@ bool PositionPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
         float originY = 0.0f;
         bool const hasParent = HasRelativeParent(entity, registry);
         if (hasParent) {
-            Engine::Entity const parent = registry.GetComponent<Engine::Parent>(entity).parent;
-            auto const& parentPosition = registry.GetComponent<Engine::Position>(parent);
+            Engine::Entity const parent = registry.RequireComponent<Engine::Parent>(entity).parent;
+            auto const& parentPosition = registry.RequireComponent<Engine::Position>(parent);
             originX = parentPosition.x;
             originY = parentPosition.y;
         }

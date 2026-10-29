@@ -115,7 +115,7 @@ std::multiset<std::string> Networked(Registry& r, const std::string& authority) 
             continue;
         }
         names.insert(r.HasComponent<Engine::Name>(entity)
-                         ? r.GetComponent<Engine::Name>(entity).value
+                         ? r.RequireComponent<Engine::Name>(entity).value
                          : std::string("player"));
     }
     return names;

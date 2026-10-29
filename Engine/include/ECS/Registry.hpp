@@ -8,7 +8,9 @@
 #include "Errors/EcsErrors.hpp"
 #include "System.hpp"
 #include <algorithm>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
@@ -86,9 +88,15 @@ template <typename T> class ComponentArray : public IComponentArray {
      * @brief Retrieves the component for a given entity.
      * @param entity The entity ID.
      * @return Reference to the component data.
+     * @throws ErrorEcs if the entity has no component of this type.
      */
     T& GetData(Entity entity) {
-        return m_ComponentMap.at(entity);
+        const auto found = m_ComponentMap.find(entity);
+        if (found == m_ComponentMap.end()) {
+            throw ErrorEcs("GetData: entity " + std::to_string(entity) + " has no component " +
+                           std::string(typeid(T).name()));
+        }
+        return found->second;
     }
 
     /**
@@ -208,12 +216,35 @@ class Registry {
 
     /**
      * @brief Retrieves a component for a specific entity.
+     *
+     * Missing components are empty results. Callers that require the component
+     * use @ref RequireComponent.
+     * @tparam T The component type.
+     * @param entity The entity ID.
+     * @return The component when the entity has it, otherwise std::nullopt.
+     *         Also empty when @c T was never registered.
+     */
+    template <typename T> std::optional<std::reference_wrapper<T>> GetComponent(Entity entity) {
+        if (!IsComponentRegistered<T>() || !HasComponent<T>(entity)) {
+            return std::nullopt;
+        }
+        return std::ref(GetComponentArray<T>()->GetData(entity));
+    }
+
+    /**
+     * @brief Retrieves a component that must already be on the entity.
      * @tparam T The component type.
      * @param entity The entity ID.
      * @return Reference to the requested component.
+     * @throws ErrorEcs if @c T is not registered or the entity does not have it.
      */
-    template <typename T> T& GetComponent(Entity entity) {
-        return GetComponentArray<T>()->GetData(entity);
+    template <typename T> T& RequireComponent(Entity entity) {
+        const auto component = GetComponent<T>(entity);
+        if (!component.has_value()) {
+            throw ErrorEcs("RequireComponent: entity " + std::to_string(entity) +
+                           " has no component " + std::string(typeid(T).name()));
+        }
+        return component->get();
     }
 
     /**

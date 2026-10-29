@@ -23,7 +23,7 @@ bool TextPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& re
         return false;
     }
 
-    auto& text = registry.GetComponent<Engine::Text>(entity);
+    auto& text = registry.RequireComponent<Engine::Text>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

@@ -78,7 +78,7 @@ std::filesystem::path UniquePrefabPath(const std::filesystem::path& directory,
 void SetPrefabLink(Engine::Registry& registry, Engine::Entity entity, const std::string& path) {
     registry.RegisterComponent<Engine::PrefabInstance>();
     if (registry.HasComponent<Engine::PrefabInstance>(entity)) {
-        registry.GetComponent<Engine::PrefabInstance>(entity).prefabPath = path;
+        registry.RequireComponent<Engine::PrefabInstance>(entity).prefabPath = path;
     } else {
         registry.AddComponent<Engine::PrefabInstance>(entity, Engine::PrefabInstance::Create(path));
     }
@@ -111,7 +111,7 @@ void AssignUniqueNames(Engine::Registry& registry,
     for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
         const Engine::Entity entity = i;
         if (registry.IsEntityAlive(entity) && registry.HasComponent<Engine::Name>(entity)) {
-            used.insert(registry.GetComponent<Engine::Name>(entity).value);
+            used.insert(registry.RequireComponent<Engine::Name>(entity).value);
         }
     }
     for (auto& snapshot : snapshots) {

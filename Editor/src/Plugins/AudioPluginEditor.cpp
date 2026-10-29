@@ -83,7 +83,7 @@ bool AudioPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& r
         return false;
     }
 
-    auto& audio = registry.GetComponent<Engine::AudioSource>(entity);
+    auto& audio = registry.RequireComponent<Engine::AudioSource>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

@@ -139,7 +139,7 @@ void ApplySprite(Engine::Registry& scene, Engine::Entity entity,
         scene.AddComponent<Engine::SpriteComponent>(
             entity, Engine::SpriteComponent(nullptr, "", 0.0f, 0.0f, source.scaleX, source.scaleY));
     }
-    auto& sprite = scene.GetComponent<Engine::SpriteComponent>(entity);
+    auto& sprite = scene.RequireComponent<Engine::SpriteComponent>(entity);
     if (sprite.assetPath != source.assetPath || sprite.sprite == nullptr) {
         LoadSpriteForComponent(scene, sprite, source.assetPath);
     }
@@ -167,7 +167,7 @@ void ApplyCopy(Engine::Registry& scene, Engine::Entity entity, const T& source) 
         scene.AddComponent<T>(entity, source);
         return;
     }
-    scene.GetComponent<T>(entity) = source;
+    scene.RequireComponent<T>(entity) = source;
 }
 
 void ApplyScript(Engine::Registry& scene, Engine::Entity entity,
@@ -178,7 +178,7 @@ void ApplyScript(Engine::Registry& scene, Engine::Entity entity,
             entity, Engine::ScriptComponent(source.scriptPath, source.autoReload));
         return;
     }
-    auto& script = scene.GetComponent<Engine::ScriptComponent>(entity);
+    auto& script = scene.RequireComponent<Engine::ScriptComponent>(entity);
     if (script.scriptPath == source.scriptPath) {
         return;
     }
@@ -193,11 +193,11 @@ void ApplyText(Engine::Registry& scene, Engine::Entity entity, const Engine::Tex
     if (!scene.HasComponent<Engine::Text>(entity)) {
         scene.AddComponent<Engine::Text>(entity,
                                          Engine::Text(source.text, source.fontsize, source.color));
-        auto& text = scene.GetComponent<Engine::Text>(entity);
+        auto& text = scene.RequireComponent<Engine::Text>(entity);
         text.spacing = source.spacing;
         return;
     }
-    auto& text = scene.GetComponent<Engine::Text>(entity);
+    auto& text = scene.RequireComponent<Engine::Text>(entity);
     text.text = source.text;
     text.fontsize = source.fontsize;
     text.spacing = source.spacing;
@@ -211,7 +211,7 @@ void ApplyNetwork(Engine::Registry& scene, Engine::Entity entity,
         scene.AddComponent<Engine::NetworkComponent>(entity, source);
         return;
     }
-    auto& network = scene.GetComponent<Engine::NetworkComponent>(entity);
+    auto& network = scene.RequireComponent<Engine::NetworkComponent>(entity);
     const std::uint64_t networkId = network.networkId;
     network = source;
     network.networkId = networkId;
@@ -226,7 +226,7 @@ void ApplyCamera(Engine::Registry& scene, Engine::Entity entity,
         scene.AddComponent<Engine::CameraComponent>(entity, copy);
         return;
     }
-    auto& camera = scene.GetComponent<Engine::CameraComponent>(entity);
+    auto& camera = scene.RequireComponent<Engine::CameraComponent>(entity);
     camera.zoom = source.zoom;
     camera.primary = source.primary;
     camera.followSpeed = source.followSpeed;
@@ -257,15 +257,15 @@ void ApplyChildPosition(Engine::Registry& scene, Engine::Entity entity,
         !scene.HasComponent<Engine::Parent>(entity)) {
         return;
     }
-    const Engine::Entity sceneParent = scene.GetComponent<Engine::Parent>(entity).parent;
+    const Engine::Entity sceneParent = scene.RequireComponent<Engine::Parent>(entity).parent;
     if (!scene.IsEntityAlive(sceneParent) || !scene.HasComponent<Engine::Position>(sceneParent)) {
         return;
     }
 
     const Engine::Position& prefabParent = *snapshots[parentIndex].position;
     const Engine::Position& prefabChild = *source.position;
-    auto& dest = scene.GetComponent<Engine::Position>(entity);
-    const auto& instanceParent = scene.GetComponent<Engine::Position>(sceneParent);
+    auto& dest = scene.RequireComponent<Engine::Position>(entity);
+    const auto& instanceParent = scene.RequireComponent<Engine::Position>(sceneParent);
     dest.x = instanceParent.x + (prefabChild.x - prefabParent.x);
     dest.y = instanceParent.y + (prefabChild.y - prefabParent.y);
     dest.z = prefabChild.z;
@@ -300,7 +300,7 @@ void LoadPrefabSprites(Engine::Registry& registry, Engine::Entity entity,
         return;
     }
     if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
-        auto& sprite = registry.GetComponent<Engine::SpriteComponent>(entity);
+        auto& sprite = registry.RequireComponent<Engine::SpriteComponent>(entity);
         if (sprite.sprite == nullptr && !sprite.assetPath.empty()) {
             LoadSpriteForComponent(registry, sprite, sprite.assetPath);
         }
@@ -344,7 +344,7 @@ void ApplySnapshot(Engine::Registry& scene, Engine::Entity entity, const Snapsho
     if (source.audioSource.has_value()) {
         scene.RegisterComponent<Engine::AudioSource>();
         if (scene.HasComponent<Engine::AudioSource>(entity)) {
-            scene.GetComponent<Engine::AudioSource>(entity) = *source.audioSource;
+            scene.RequireComponent<Engine::AudioSource>(entity) = *source.audioSource;
         } else {
             scene.AddComponent(entity, *source.audioSource);
         }
@@ -522,7 +522,7 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
                 !scene.HasComponent<Engine::PrefabInstance>(instanceRoot)) {
                 continue;
             }
-            auto& link = scene.GetComponent<Engine::PrefabInstance>(instanceRoot);
+            auto& link = scene.RequireComponent<Engine::PrefabInstance>(instanceRoot);
             if (!SamePrefab(scene, link.prefabPath, m_Prefab->relativePath,
                             m_Prefab->absolutePath)) {
                 continue;

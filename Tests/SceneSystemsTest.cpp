@@ -59,7 +59,7 @@ bool Contains(const std::vector<std::string>& lines, const std::string& line) {
 
 void AddBox(Engine::Registry& registry, float x) {
     const Engine::Entity box = registry.CreateEntity();
-    registry.GetComponent<Engine::Position>(box) = Engine::Position(x, 0.0f);
+    registry.RequireComponent<Engine::Position>(box) = Engine::Position(x, 0.0f);
     Engine::ShapeComponent shape;
     shape.type = Engine::ShapeType::RECTANGLE;
     shape.width = 50.0f;

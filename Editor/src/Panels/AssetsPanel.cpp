@@ -95,12 +95,12 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::SpriteComponent>() &&
             registry.HasComponent<Engine::SpriteComponent>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::SpriteComponent>(entity).assetPath,
+            RetargetStoredPath(registry.RequireComponent<Engine::SpriteComponent>(entity).assetPath,
                                from, to);
         }
         if (registry.IsComponentRegistered<Engine::ScriptComponent>() &&
             registry.HasComponent<Engine::ScriptComponent>(entity)) {
-            auto& script = registry.GetComponent<Engine::ScriptComponent>(entity);
+            auto& script = registry.RequireComponent<Engine::ScriptComponent>(entity);
             if (RetargetStoredPath(script.scriptPath, from, to)) {
                 script.loaded = false;
                 script.scriptTable = sol::lua_nil;
@@ -108,12 +108,12 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
             registry.HasComponent<Engine::PrefabInstance>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::PrefabInstance>(entity).prefabPath,
+            RetargetStoredPath(registry.RequireComponent<Engine::PrefabInstance>(entity).prefabPath,
                                from, to);
         }
         if (registry.IsComponentRegistered<Engine::AudioSource>() &&
             registry.HasComponent<Engine::AudioSource>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::AudioSource>(entity).assetId, from,
+            RetargetStoredPath(registry.RequireComponent<Engine::AudioSource>(entity).assetId, from,
                                to);
         }
     }
