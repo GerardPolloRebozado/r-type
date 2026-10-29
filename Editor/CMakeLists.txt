@@ -56,6 +56,7 @@ set(SRC_FILES
         src/Scripting/LuaSyntax.cpp
         src/Utils/FileDialog.cpp
         src/Utils/Multiplatform.cpp
+        src/Plugins/AnimationPluginEditor.cpp
 )
 
 set(INC_FILES
@@ -98,6 +99,7 @@ set(INC_FILES
         include/Scripting/LuaLanguage.hpp
         include/Scripting/LuaSyntax.hpp
         include/Compat/WindowsApi.hpp
+        include/Plugins/AnimationPluginEditor.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)

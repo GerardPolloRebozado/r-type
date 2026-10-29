@@ -38,6 +38,8 @@ struct Animation {
      * spritesheet. */
     std::vector<std::string> assetPaths;
 
+    std::vector<std::string> names;
+
     /** @brief Cached sprite instances loaded from assetPaths. */
     std::vector<std::shared_ptr<Sprite>> sprites;
 
@@ -93,27 +95,33 @@ struct Animation {
     /** @brief Constructor for multi-file frame animation. */
     Animation(std::vector<std::string> paths, float frameDuration = 0.1f, bool loop = true,
               float offsetX = 0.0f, float offsetY = 0.0f, float scaleX = 1.0f, float scaleY = 1.0f,
-              bool flipX = false, bool flipY = false)
+              bool flipX = false, bool flipY = false, std::string name = "Animator")
         : assetPaths(std::move(paths)), frameDuration(frameDuration), loop(loop), offsetX(offsetX),
-          offsetY(offsetY), scaleX(scaleX), scaleY(scaleY), flipX(flipX), flipY(flipY) {}
+          offsetY(offsetY), scaleX(scaleX), scaleY(scaleY), flipX(flipX), flipY(flipY) {
+        names.push_back(name);
+    }
 
     /** @brief Constructor for fixed-size spritesheet animation. */
     Animation(const std::string& sheetPath, float frameWidth, float frameHeight,
               std::size_t totalFrames = 0, float frameDuration = 0.1f, bool loop = true,
               float offsetX = 0.0f, float offsetY = 0.0f, float scaleX = 1.0f, float scaleY = 1.0f,
-              bool flipX = false, bool flipY = false)
+              bool flipX = false, bool flipY = false, std::string name = "Animator")
         : assetPaths({sheetPath}), frameWidth(frameWidth), frameHeight(frameHeight),
           totalFrames(totalFrames), frameDuration(frameDuration), loop(loop), offsetX(offsetX),
-          offsetY(offsetY), scaleX(scaleX), scaleY(scaleY), flipX(flipX), flipY(flipY) {}
+          offsetY(offsetY), scaleX(scaleX), scaleY(scaleY), flipX(flipX), flipY(flipY) {
+        names.push_back(name);
+    }
 
     /** @brief Constructor for custom FrameData spritesheet animation. */
     Animation(const std::string& sheetPath, std::vector<FrameData> frames,
               float frameDuration = 0.1f, bool loop = true, float offsetX = 0.0f,
               float offsetY = 0.0f, float scaleX = 1.0f, float scaleY = 1.0f, bool flipX = false,
-              bool flipY = false)
+              bool flipY = false, std::string name = "Animator")
         : assetPaths({sheetPath}), frameData(std::move(frames)), frameDuration(frameDuration),
           loop(loop), offsetX(offsetX), offsetY(offsetY), scaleX(scaleX), scaleY(scaleY),
-          flipX(flipX), flipY(flipY) {}
+          flipX(flipX), flipY(flipY) {
+        names.push_back(name);
+    }
 };
 
 } // namespace Engine
