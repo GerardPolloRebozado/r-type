@@ -6,11 +6,11 @@
 */
 #include "../../include/Plugins/AnimationPluginEditor.hpp"
 
-#include <iostream>
-
-#include "../../../.cpm_cache/imgui/095be9d03563deb24f9ec06d03c806c7f0ada846/imgui.h"
-#include "../../../cmake-build-debug/CPM_Cache/rlimgui/7253b7b7a0bf1636d7899c7500d4ef4d5018c37d/extras/IconsFontAwesome6.h"
 #include "Plugins/AnimationPlugin.hpp"
+#include "misc/cpp/imgui_stdlib.h"
+#include <extras/IconsFontAwesome6.h>
+#include <imgui.h>
+#include <iostream>
 
 namespace Editor {
 bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) {
@@ -23,8 +23,78 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
                                           ImGuiTreeNodeFlags_DefaultOpen);
 
     if (isOpen) {
-        for (auto name : animation.names) {
+        for (auto& name : animation.names) {
             ImGui::Text("Animation: %s", name.c_str());
+        }
+        ImGui::Separator();
+        static std::string newAnimBuffer;
+
+        ImGui::SetNextItemWidth(-40.0f);
+
+        bool isEnterPressed =
+            ImGui::InputText("##NewAnim", &newAnimBuffer, ImGuiInputTextFlags_EnterReturnsTrue);
+
+        ImGui::SameLine();
+        bool isButtonPressed = ImGui::Button("+", ImVec2(32.0f, 0));
+
+        if ((isEnterPressed || isButtonPressed) && !newAnimBuffer.empty()) {
+            animation.names.push_back(newAnimBuffer);
+            newAnimBuffer.clear();
+        }
+
+        ImGui::Separator();
+
+        static bool showAnimatorWindow = false;
+        if (ImGui::Button("Animator")) {
+            showAnimatorWindow = true;
+        }
+
+        if (showAnimatorWindow) {
+            ImGui::SetNextWindowSize(ImVec2(800, 700), ImGuiCond_Once);
+
+            if (ImGui::Begin("Animator", &showAnimatorWindow)) {
+
+                int currentFrame = static_cast<int>(animation.currentFrame);
+                if (ImGui::InputInt("Current Frame", &currentFrame)) {
+                    if (currentFrame >= 0) {
+                        animation.currentFrame = static_cast<std::size_t>(currentFrame);
+                    }
+                }
+
+                int totalFrames = static_cast<int>(animation.totalFrames);
+                if (ImGui::InputInt("Total Frames", &totalFrames)) {
+                    if (totalFrames >= 0) {
+                        animation.totalFrames = static_cast<std::size_t>(totalFrames);
+                    }
+                }
+
+                ImGui::InputFloat("Frame Width", &animation.frameWidth);
+                ImGui::InputFloat("Frame Height", &animation.frameHeight);
+
+                ImGui::Separator();
+
+                ImGui::InputFloat("Frame Duration", &animation.frameDuration);
+                ImGui::InputFloat("Timer", &animation.timer);
+
+                ImGui::Separator();
+
+                ImGui::InputFloat("Offset X", &animation.offsetX);
+                ImGui::InputFloat("Offset Y", &animation.offsetY);
+                ImGui::InputFloat("Scale X", &animation.scaleX);
+                ImGui::InputFloat("Scale Y", &animation.scaleY);
+
+                ImGui::Separator();
+
+                ImGui::Checkbox("Loop", &animation.loop);
+                ImGui::Checkbox("Is Playing", &animation.isPlaying);
+                ImGui::Checkbox("Flip X", &animation.flipX);
+                ImGui::Checkbox("Flip Y", &animation.flipY);
+
+                ImGui::Separator();
+
+                ImGui::Button("Animate");
+            }
+            ImGui::End();
         }
     }
     return true;
