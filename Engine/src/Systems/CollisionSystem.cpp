@@ -23,14 +23,14 @@ void CollisionSystem::Update(Registry& registry, float) {
             continue;
         }
 
-        const auto& colA = registry.GetComponent<ColliderComponent>(a);
-        auto& posA = registry.GetComponent<Position>(a);
+        const auto& colA = registry.RequireComponent<ColliderComponent>(a);
+        auto& posA = registry.RequireComponent<Position>(a);
         static const Rotation defaultRot{0.0f};
         const auto& rotA =
-            registry.HasComponent<Rotation>(a) ? registry.GetComponent<Rotation>(a) : defaultRot;
+            registry.HasComponent<Rotation>(a) ? registry.RequireComponent<Rotation>(a) : defaultRot;
         std::optional<ShapeComponent> shapeA = colA.shape;
         if (!shapeA.has_value() && registry.HasComponent<ShapeComponent>(a)) {
-            shapeA = registry.GetComponent<ShapeComponent>(a);
+            shapeA = registry.RequireComponent<ShapeComponent>(a);
         }
         if (!shapeA.has_value()) {
             continue;
@@ -42,7 +42,7 @@ void CollisionSystem::Update(Registry& registry, float) {
             if (!IsCollidable(registry, b)) {
                 continue;
             }
-            const auto& colB = registry.GetComponent<ColliderComponent>(b);
+            const auto& colB = registry.RequireComponent<ColliderComponent>(b);
 
             // both colliders must accept each other's layer, so
             // either side can opt out of the whole pair (see CollisionLayers).
@@ -50,13 +50,13 @@ void CollisionSystem::Update(Registry& registry, float) {
                 continue;
             }
 
-            auto& posB = registry.GetComponent<Position>(b);
+            auto& posB = registry.RequireComponent<Position>(b);
             const auto& rotB = registry.HasComponent<Rotation>(b)
-                                   ? registry.GetComponent<Rotation>(b)
+                                   ? registry.RequireComponent<Rotation>(b)
                                    : defaultRot;
             std::optional<ShapeComponent> shapeB = colB.shape;
             if (!shapeB.has_value() && registry.HasComponent<ShapeComponent>(b)) {
-                shapeB = registry.GetComponent<ShapeComponent>(b);
+                shapeB = registry.RequireComponent<ShapeComponent>(b);
             }
             if (!shapeB.has_value()) {
                 continue;
@@ -140,11 +140,11 @@ void CollisionSystem::Update(Registry& registry, float) {
             bool isTrigger = false;
             if (registry.HasComponent<ColliderComponent>(pair.first)) {
                 isTrigger =
-                    isTrigger || registry.GetComponent<ColliderComponent>(pair.first).isTrigger;
+                    isTrigger || registry.RequireComponent<ColliderComponent>(pair.first).isTrigger;
             }
             if (registry.HasComponent<ColliderComponent>(pair.second)) {
                 isTrigger =
-                    isTrigger || registry.GetComponent<ColliderComponent>(pair.second).isTrigger;
+                    isTrigger || registry.RequireComponent<ColliderComponent>(pair.second).isTrigger;
             }
             ExitContact(registry, pair.first, pair.second, isTrigger);
         }
@@ -192,13 +192,13 @@ bool CollisionSystem::IsCollidable(Registry& registry, Entity entity) {
         !registry.HasComponent<ColliderComponent>(entity)) {
         return false;
     }
-    const auto& col = registry.GetComponent<ColliderComponent>(entity);
+    const auto& col = registry.RequireComponent<ColliderComponent>(entity);
     return col.enabled && (col.shape.has_value() || registry.HasComponent<ShapeComponent>(entity));
 }
 
 void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool isTrigger) {
     if (registry.HasComponent<CollisionEvents>(a)) {
-        auto events = registry.GetComponent<CollisionEvents>(a);
+        auto events = registry.RequireComponent<CollisionEvents>(a);
         for (const auto& hook : events.onCollisionEnter) {
             if (hook) {
                 hook(a, b);
@@ -218,7 +218,7 @@ void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool 
     }
 
     if (registry.HasComponent<CollisionEvents>(b)) {
-        auto events = registry.GetComponent<CollisionEvents>(b);
+        auto events = registry.RequireComponent<CollisionEvents>(b);
         for (const auto& hook : events.onCollisionEnter) {
             if (hook) {
                 hook(b, a);
@@ -241,7 +241,7 @@ void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool 
 void CollisionSystem::StayContact(Registry& registry, const Entity a, const Entity b,
                                   const bool isTrigger) {
     if (registry.HasComponent<CollisionEvents>(a)) {
-        auto events = registry.GetComponent<CollisionEvents>(a);
+        auto events = registry.RequireComponent<CollisionEvents>(a);
         for (const auto& hook : events.onCollisionStay) {
             if (hook) {
                 hook(a, b);
@@ -261,7 +261,7 @@ void CollisionSystem::StayContact(Registry& registry, const Entity a, const Enti
     }
 
     if (registry.HasComponent<CollisionEvents>(b)) {
-        auto events = registry.GetComponent<CollisionEvents>(b);
+        auto events = registry.RequireComponent<CollisionEvents>(b);
         for (const auto& hook : events.onCollisionStay) {
             if (hook) {
                 hook(b, a);
@@ -284,7 +284,7 @@ void CollisionSystem::StayContact(Registry& registry, const Entity a, const Enti
 void CollisionSystem::ExitContact(Registry& registry, const Entity a, const Entity b,
                                   const bool isTrigger) {
     if (registry.HasComponent<CollisionEvents>(a)) {
-        auto events = registry.GetComponent<CollisionEvents>(a);
+        auto events = registry.RequireComponent<CollisionEvents>(a);
         for (const auto& hook : events.onCollisionExit) {
             if (hook) {
                 hook(a, b);
@@ -304,7 +304,7 @@ void CollisionSystem::ExitContact(Registry& registry, const Entity a, const Enti
     }
 
     if (registry.HasComponent<CollisionEvents>(b)) {
-        auto events = registry.GetComponent<CollisionEvents>(b);
+        auto events = registry.RequireComponent<CollisionEvents>(b);
         for (const auto& hook : events.onCollisionExit) {
             if (hook) {
                 hook(b, a);

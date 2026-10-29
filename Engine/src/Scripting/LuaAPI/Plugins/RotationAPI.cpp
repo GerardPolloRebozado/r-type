@@ -12,7 +12,7 @@ void registerRotation(sol::state_view lua, Registry& registry) {
 
     transform["getRotation"] = [&registry](Entity entity) -> float {
         if (registry.HasComponent<Rotation>(entity)) {
-            return registry.GetComponent<Rotation>(entity).angle;
+            return registry.RequireComponent<Rotation>(entity).angle;
         }
         return 0.0f;
     };
@@ -21,7 +21,7 @@ void registerRotation(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<Rotation>(entity)) {
             registry.AddComponent<Rotation>(entity, Rotation{angle});
         } else {
-            registry.GetComponent<Rotation>(entity).angle = angle;
+            registry.RequireComponent<Rotation>(entity).angle = angle;
         }
     };
 
@@ -29,7 +29,7 @@ void registerRotation(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<Rotation>(entity)) {
             registry.AddComponent<Rotation>(entity, Rotation{deltaAngle});
         } else {
-            registry.GetComponent<Rotation>(entity).angle += deltaAngle;
+            registry.RequireComponent<Rotation>(entity).angle += deltaAngle;
         }
     };
 }

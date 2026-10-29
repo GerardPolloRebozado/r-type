@@ -34,7 +34,8 @@ class Gallery {
   public:
     /**
      * @brief Draws the Gallery and returns the scene to open.
-     * @return Path of @c test.scene when a project is chosen, otherwise empty.
+     * @return Path of the project's startup scene when a project is chosen,
+     *         otherwise empty.
      */
     std::string DrawGallery();
 

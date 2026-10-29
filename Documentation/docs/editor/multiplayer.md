@@ -445,6 +445,40 @@ end)
 | Categorical state without a packet | encode it in the sprite path + Sync Sprite |
 | A per-player identity / color | `Net.playerSlot` / `Net.localEntity` |
 
+### 7.7 Several scenes — lobby → level → results
+
+The server decides which scene everyone plays. Call `Scene.load` on the server only; every client
+follows automatically.
+
+```lua
+-- lobby.lua (on any entity of Lobby.scene)
+function Script:onUpdate(entity, dt)
+    if Net.isServer() and everyoneReady() then
+        Scene.load("levels/Level1.scene")
+    end
+end
+```
+
+What happens:
+
+1. At the end of that frame the **server** switches scenes and sends a reliable `scene_load`
+   message to every client.
+2. Each **client** loads the same scene. Packets that arrive after `scene_load` wait until the
+   client has switched, so nothing from the new scene lands in the old one.
+3. The server **respawns every connected player** in the new scene with the **same network id and
+   color slot** (`Net.playerSlot`, `Net.localEntity` keep working).
+4. A client that joins later, or that was started on another scene, is moved to the server's
+   current scene when it connects.
+
+Rules of thumb:
+
+- `Scene.load` on a client is ignored (scripts often run on every machine).
+- Every machine needs the scene files: they ship in the same project folder.
+- Data that must survive a switch (scores, who is ready) lives in Lua **globals** on the server,
+  then is sent again with `Net.broadcast` once the new scene starts. Handlers registered with
+  `Net.on` stay registered; register them again in the new scene's `onCreate` if they use `self`.
+- Reloading the current scene (`Scene.load(Scene.current())`) works too: everyone reloads it.
+
 ---
 
 ## 8. Missing steps (not available yet)
@@ -454,14 +488,8 @@ still missing. This list is the honest "what you cannot do yet".
 
 ### Playtest workflow
 
-- **Play Multiplayer does not save the scene first.** The single-player **▶ Play** button serialises
-  the current scene before launching; Play Multiplayer does not. Save (or hit Play once) before
-  playtesting, or you will run an older scene.
 - **Play Multiplayer does not build.** If the game executable is missing or stale, the button does
   nothing (the processes fail to launch silently). Click **🔨 Build** first.
-- **The scene argument is passed but ignored.** The editor sends the scene name, but the generated
-  game entry currently deserialises **every `.scene` in the project folder**. Single-scene projects
-  work; multi-scene projects will load them all.
 - **Port and host are not in the UI.** Clients always connect to `127.0.0.1:3000`; changing that
   means editing `main.cpp` or launching from a terminal with `--host` / `--port`.
 - **No per-client configuration.** Every client gets identical arguments.
@@ -476,7 +504,6 @@ still missing. This list is the honest "what you cannot do yet".
 - **No reconnect / session resume.** A dropped client is simply gone (its color slot is freed).
 - **Hard cap of 5 players**, baked into both the slot resource and the transport (a
   [TODO](../engine/networking.md#14-todos-and-planned-work) to make it configurable).
-- **One scene per process.**
 
 ### Tooling
 
@@ -491,10 +518,12 @@ still missing. This list is the honest "what you cannot do yet".
 
 These are not bugs — they are the current shape of the system, and a game has to fit them.
 
-- **One player prefab per game.** The engine keeps a *single* player prefab path (the first
-  `Client`-authority template's **Prefab Path**) and destroys every `Client` template at startup, so
-  every connection spawns that same prefab. Two different player classes are not expressible today —
-  give everyone the same prefab and vary look/behaviour per color slot (`Net.playerSlot`).
+- **One player prefab per scene.** The engine keeps a *single* player prefab path (the first
+  `Client`-authority template's **Prefab Path** in the current scene) and destroys every `Client`
+  template when the scene loads, so every connection spawns that same prefab. A scene without a
+  template keeps the previous scene's prefab. Two different player classes in one scene are not
+  expressible today — give everyone the same prefab and vary look/behaviour per color slot
+  (`Net.playerSlot`).
 - **No private messages from Lua.** `Net.broadcast` reaches everyone, and Lua cannot turn a player
   entity into its peer to `Net.send` to a single client. Anything a player must not see (a hidden
   hand, fog of war) cannot be withheld through the API — only by not sending it.

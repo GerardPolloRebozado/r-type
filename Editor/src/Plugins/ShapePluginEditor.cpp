@@ -22,7 +22,7 @@ bool ShapePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& r
         return false;
     }
 
-    auto& shape = registry.GetComponent<Engine::ShapeComponent>(entity);
+    auto& shape = registry.RequireComponent<Engine::ShapeComponent>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

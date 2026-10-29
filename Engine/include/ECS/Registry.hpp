@@ -8,7 +8,9 @@
 #include "Errors/EcsErrors.hpp"
 #include "System.hpp"
 #include <algorithm>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
@@ -39,6 +41,11 @@ class IComponentArray {
      * @param entity The ID of the destroyed entity.
      */
     virtual void EntityDestroyed(Entity entity) = 0;
+
+    /**
+     * @brief Removes the components of every entity from this array.
+     */
+    virtual void Clear() = 0;
 };
 
 /**
@@ -81,9 +88,15 @@ template <typename T> class ComponentArray : public IComponentArray {
      * @brief Retrieves the component for a given entity.
      * @param entity The entity ID.
      * @return Reference to the component data.
+     * @throws ErrorEcs if the entity has no component of this type.
      */
     T& GetData(Entity entity) {
-        return m_ComponentMap.at(entity);
+        const auto found = m_ComponentMap.find(entity);
+        if (found == m_ComponentMap.end()) {
+            throw ErrorEcs("GetData: entity " + std::to_string(entity) + " has no component " +
+                           std::string(typeid(T).name()));
+        }
+        return found->second;
     }
 
     /**
@@ -94,6 +107,10 @@ template <typename T> class ComponentArray : public IComponentArray {
         if (m_ComponentMap.find(entity) != m_ComponentMap.end()) {
             RemoveData(entity);
         }
+    }
+
+    void Clear() override {
+        m_ComponentMap.clear();
     }
 
     auto begin() {
@@ -199,12 +216,35 @@ class Registry {
 
     /**
      * @brief Retrieves a component for a specific entity.
+     *
+     * Missing components are empty results. Callers that require the component
+     * use @ref RequireComponent.
+     * @tparam T The component type.
+     * @param entity The entity ID.
+     * @return The component when the entity has it, otherwise std::nullopt.
+     *         Also empty when @c T was never registered.
+     */
+    template <typename T> std::optional<std::reference_wrapper<T>> GetComponent(Entity entity) {
+        if (!IsComponentRegistered<T>() || !HasComponent<T>(entity)) {
+            return std::nullopt;
+        }
+        return std::ref(GetComponentArray<T>()->GetData(entity));
+    }
+
+    /**
+     * @brief Retrieves a component that must already be on the entity.
      * @tparam T The component type.
      * @param entity The entity ID.
      * @return Reference to the requested component.
+     * @throws ErrorEcs if @c T is not registered or the entity does not have it.
      */
-    template <typename T> T& GetComponent(Entity entity) {
-        return GetComponentArray<T>()->GetData(entity);
+    template <typename T> T& RequireComponent(Entity entity) {
+        const auto component = GetComponent<T>(entity);
+        if (!component.has_value()) {
+            throw ErrorEcs("RequireComponent: entity " + std::to_string(entity) +
+                           " has no component " + std::string(typeid(T).name()));
+        }
+        return component->get();
     }
 
     /**
@@ -231,8 +271,9 @@ class Registry {
     /**
      * @brief Checks if an entity is alive (holds at least one component).
      *
-     * Entity IDs are never reused, so destroyed entities keep their ID but
-     * own no components. Editor panels use this to skip dead rows.
+     * Entity IDs are not reused while a scene is running, so destroyed entities
+     * keep their ID but own no components. Editor panels use this to skip dead
+     * rows. Only @ref ClearEntities restarts IDs at 1.
      * @param entity The entity ID.
      * @return True if any component is attached to the entity.
      */
@@ -274,6 +315,25 @@ class Registry {
             DestroyEntity(e);
         }
         m_EntitiesToDestroy.clear();
+    }
+
+    /**
+     * @brief Destroys every entity and restarts entity IDs at 1.
+     *
+     * Used when switching scenes. Component types, systems and resources stay
+     * registered: only entity data is removed. Each system's @c m_Entities set
+     * and the deferred destroy queue are emptied too, so nothing points at an
+     * old entity once IDs start being reused.
+     */
+    void ClearEntities() {
+        for (auto const& pair : m_ComponentArrays) {
+            pair.second->Clear();
+        }
+        for (auto const& pair : m_Systems) {
+            pair.second->m_Entities.clear();
+        }
+        m_EntitiesToDestroy.clear();
+        m_NextEntityId = 1;
     }
 
     /**

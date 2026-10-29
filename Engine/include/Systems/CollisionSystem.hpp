@@ -37,6 +37,15 @@ class CollisionSystem : public System {
         return m_ActiveContacts;
     }
 
+    /**
+     * @brief Forgets all contacts. Entity IDs restart after a switch, so an old
+     * pair would otherwise send stay/exit events to unrelated new entities.
+     * No exit events are fired: the entities are being destroyed anyway.
+     */
+    void OnSceneUnloaded(Registry& registry) override {
+        m_ActiveContacts.clear();
+    }
+
   private:
     std::set<EntityPair> m_ActiveContacts;
 

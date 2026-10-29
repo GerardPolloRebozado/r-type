@@ -55,6 +55,8 @@ set(SRC_FILES
         src/Scripting/LuaAPI/Plugins/ParentAPI.cpp
         src/Scripting/LuaAPI/Plugins/ScriptAPI.cpp
         src/Scripting/LuaAPI/Plugins/InputAPI.cpp
+        src/Scripting/LuaAPI/Plugins/AudioAPI.cpp
+        src/Systems/AudioSystem.cpp
         src/Systems/CameraSystem.cpp
         src/Systems/CollisionSystem.cpp
         src/Systems/HierarchySystem.cpp
@@ -64,6 +66,7 @@ set(SRC_FILES
         src/Systems/SystemExample.cpp
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
+        src/Resources/SceneManager.cpp
         src/Systems/MultiplayerSystem.cpp
         src/Systems/ReplicationSystem.cpp
         src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
@@ -155,6 +158,7 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/ParentAPI.hpp
         include/Scripting/LuaAPI/Plugins/ScriptAPI.hpp
         include/Scripting/LuaAPI/Plugins/InputAPI.hpp
+        include/Scripting/LuaAPI/Plugins/AudioAPI.hpp
         include/Scripting/LuaAPI/Internal/Helpers.hpp
         include/Systems/AudioSystem.hpp
         include/Systems/CameraSystem.hpp
@@ -217,7 +221,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         file(GLOB LUA_WASM_SOURCES "${lua_SOURCE_DIR}/*.c")
         list(REMOVE_ITEM LUA_WASM_SOURCES
                 "${lua_SOURCE_DIR}/lua.c"
-                "${lua_SOURCE_DIR}/luac.c")
+                "${lua_SOURCE_DIR}/luac.c"
+                "${lua_SOURCE_DIR}/onelua.c")
         add_library(lua STATIC ${LUA_WASM_SOURCES})
         target_include_directories(lua PUBLIC "${lua_SOURCE_DIR}")
         target_link_libraries(Engine PUBLIC lua)

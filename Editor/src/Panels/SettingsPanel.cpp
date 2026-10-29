@@ -1,9 +1,12 @@
 #include "Panels/SettingsPanel.hpp"
 #include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
+#include "Logging/Logger.hpp"
+#include "ProjectFile.hpp"
 #include "ProjectSystemsBuild.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
+#include "ScriptEditorService.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -12,11 +15,53 @@
 #include <imgui.h>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <regex>
 
 namespace Editor {
+namespace {
+// Startup scene as a path relative to the project folder, for the generated
+// main.cpp (the game runs from the project folder). Uses project.json, then the
+// editor's startup path, then the first .scene in the project folder, then
+// "test.scene".
+std::string StartupSceneRelativePath(const EditorConfig& config, const std::string& projFolder) {
+    namespace fs = std::filesystem;
+    std::error_code error;
+    Serialization::ProjectFile project;
+    if (Serialization::LoadProjectFile(projFolder, project) &&
+        fs::is_regular_file(fs::path(projFolder) / project.startupScene, error)) {
+        return project.startupScene;
+    }
+    if (!config.m_InitialScenePath.empty()) {
+        fs::path scene(config.m_InitialScenePath);
+        if (scene.is_relative()) {
+            scene = fs::path(projFolder) / scene;
+        }
+        const fs::path relative = fs::relative(scene, projFolder, error);
+        const std::string text = relative.generic_string();
+        if (!error && !text.empty() && text.rfind("..", 0) != 0 && fs::exists(scene, error)) {
+            return text;
+        }
+    }
+    std::vector<std::string> found;
+    for (const auto& entry : fs::directory_iterator(projFolder, error)) {
+        if (entry.path().extension() == ".scene") {
+            found.push_back(entry.path().filename().generic_string());
+        }
+    }
+    if (!found.empty()) {
+        std::sort(found.begin(), found.end());
+        return found.front();
+    }
+    return "test.scene";
+}
+} // namespace
+
 std::atomic<float> SettingsPanel::s_BuildProgress = 0.0f;
 std::atomic<bool> SettingsPanel::s_IsBuilding = false;
+std::mutex SettingsPanel::s_BuildMutex;
+std::optional<SettingsPanel::BuildReport> SettingsPanel::s_BuildReport;
 bool SettingsPanel::s_IsOpen = false;
 std::thread SettingsPanel::s_BuildThread;
 
@@ -26,14 +71,35 @@ SettingsPanel::~SettingsPanel() {
     }
 }
 
+void SettingsPanel::ReportBuildResult() {
+    std::optional<BuildReport> report;
+    {
+        std::lock_guard<std::mutex> lock(s_BuildMutex);
+        report.swap(s_BuildReport);
+    }
+    if (!report.has_value()) {
+        return;
+    }
+    if (report->succeeded) {
+        log_info("[Build] Game built: " + report->exePath);
+        return;
+    }
+    log_error("[Build] Build failed. Last lines of the build output:");
+    for (const std::string& line : report->output) {
+        log_error("[Build]   " + line);
+    }
+}
+
 void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry) {
     s_IsBuilding = true;
     s_BuildProgress = 0.0f;
 
     std::string projFolder = std::filesystem::absolute(config.m_ProjectFolder).generic_string();
-    std::string scenePathStr = projFolder + "/test.scene";
-    Serialization::SceneSerializer serializer;
-    serializer.Serialize(scenePathStr, registry, config);
+    // Save the open scene so the build uses what's on screen.
+    if (!config.m_ActiveScenePath.empty()) {
+        Serialization::SceneSerializer serializer;
+        serializer.Serialize(config.m_ActiveScenePath, registry, config);
+    }
 
     // Escape a string for embedding in a C++ string literal.
     auto cppEscape = [](const std::string& in) {
@@ -64,8 +130,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 
     std::ofstream mainOut(mainCppPath);
     mainOut << "#include \"Core/Application.hpp\"\n"
-            << "#include <optional>\n"
-            << "#include \"SceneSerializer.hpp\"\n"
+            << "#include \"SceneFiles.hpp\"\n"
+            << "#include <string>\n"
             << "#include \"Plugins/AudioPlugin.hpp\"\n"
             << "#include \"Plugins/HierarchyPlugin.hpp\"\n"
             << "#include \"Plugins/InputPlugin.hpp\"\n"
@@ -146,30 +212,37 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     }
     mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";
 
-    mainOut << "    Serialization::SceneSerializer serializer;\n";
-
-    if (std::filesystem::exists(projFolder) && std::filesystem::is_directory(projFolder)) {
-        for (const auto& entry : std::filesystem::directory_iterator(projFolder)) {
-            if (entry.path().extension() == ".scene") {
-                mainOut << "    serializer.Deserialize(\"" << entry.path().filename().string()
-                        << "\", app.GetRegistry(), std::nullopt);\n";
-            }
-        }
-    }
-
     if (std::filesystem::exists(std::filesystem::path(projFolder) /
                                 Editor::kProjectRegisterHeader)) {
-        mainOut << "\n    RegisterScaffoldedSystems(app.GetRegistry());\n";
+        mainOut << "    RegisterScaffoldedSystems(app.GetRegistry());\n\n";
     }
+
+    // Only the startup scene is loaded. Other scenes are loaded later with
+    // Scene.load(...) from Lua or SceneManager::Load from C++.
+    mainOut << "    // Startup scene: a .scene argument wins (e.g. ./" << cppEscape(exeNameStr)
+            << " Level2.scene),\n"
+            << "    // otherwise the project's startup scene.\n"
+            << "    const std::string startupScene = Serialization::PickStartupScene(config.args, \""
+            << cppEscape(StartupSceneRelativePath(config, projFolder)) << "\");\n"
+            << "    Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);\n";
 
     mainOut << "\n    app.Run();\n"
             << "    return 0;\n"
             << "}\n";
     mainOut.close();
 
+    // Engine sources: the folder the editor was built from (baked in at
+    // compile time), so the build works whatever folder the editor was
+    // started from (Finder, an IDE, a terminal). Falls back to the old
+    // working-directory guess if that folder moved.
     std::string rootPath = ".";
-    if (!std::filesystem::exists("CMakeLists.txt") &&
-        std::filesystem::exists("../CMakeLists.txt")) {
+#ifdef RTYPE_SOURCE_DIR
+    if (std::filesystem::exists(std::filesystem::path(RTYPE_SOURCE_DIR) / "CMakeLists.txt")) {
+        rootPath = RTYPE_SOURCE_DIR;
+    } else
+#endif
+        if (!std::filesystem::exists("CMakeLists.txt") &&
+            std::filesystem::exists("../CMakeLists.txt")) {
         rootPath = "..";
     }
     // Absolute forward-slash path: the build shell may run with any CWD, and
@@ -229,6 +302,15 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         toolchainArgs += " -DCMAKE_MAKE_PROGRAM=\"" + std::string(EDITOR_CMAKE_MAKE_PROGRAM) + "\"";
     }
 #endif
+#ifdef EDITOR_CMAKE_PREFIX_PATH
+    // Same dependency locations as the editor's own build (e.g. a Lua
+    // installed outside the default paths). Baked with '|' between entries.
+    if (!std::string(EDITOR_CMAKE_PREFIX_PATH).empty()) {
+        std::string prefixPath = EDITOR_CMAKE_PREFIX_PATH;
+        std::replace(prefixPath.begin(), prefixPath.end(), '|', ';');
+        toolchainArgs += " -DCMAKE_PREFIX_PATH=\"" + prefixPath + "\"";
+    }
+#endif
     // Portable parallel build: `cmake --build --parallel` works with every
     // generator (make, ninja, MSVC...), unlike `make -C ... -j`.
     unsigned int jobs = std::thread::hardware_concurrency();
@@ -236,15 +318,17 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         jobs = 1;
     }
     const std::string parallelArgs = " --parallel " + std::to_string(jobs);
+    // Configure and build are grouped so both outputs (including configure
+    // errors such as a missing library) reach the pipe and the Console.
 #ifdef _WIN32
-    std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
+    std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
                       " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
                       exeNameStr + "\" --config Release" + parallelArgs +
-                      " 2>&1 & cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
+                      ") 2>&1 & cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
 #else
-    std::string cmd = "cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
+    std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
                       " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
-                      exeNameStr + "\"" + parallelArgs + " 2>&1; cmake -E rm -f \"" + rootPath +
+                      exeNameStr + "\"" + parallelArgs + ") 2>&1; cmake -E rm -f \"" + rootPath +
                       "/.editor_build.cmake\"";
 #endif
 
@@ -252,8 +336,15 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         s_BuildThread.join();
     }
 
+    {
+        std::lock_guard<std::mutex> lock(s_BuildMutex);
+        s_BuildReport.reset();
+    }
     s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr]() {
         s_BuildProgress = 0.01f; // Show at least 1% so the user knows it started
+        const auto startTime = std::filesystem::file_time_type::clock::now();
+        BuildReport report;
+        report.exePath = projFolder + "/" + exeFileStr;
         struct PipeDeleter {
             void operator()(FILE* p) const {
 #ifdef _WIN32
@@ -269,6 +360,9 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         std::unique_ptr<FILE, PipeDeleter> pipe(popen(cmd.c_str(), "r"));
 #endif
         if (!pipe) {
+            report.output.push_back("Could not start the build command.");
+            std::lock_guard<std::mutex> lock(s_BuildMutex);
+            s_BuildReport = std::move(report);
             s_IsBuilding = false;
             return;
         }
@@ -276,8 +370,19 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         std::array<char, 256> buffer;
         std::regex progressRegex("\\[\\s*(\\d+)%\\]");
 
+        std::string pending;
         while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
             std::string line(buffer.data());
+            // Keep the last lines for the Console (fgets may split long lines).
+            pending += line;
+            if (!pending.empty() && pending.back() == '\n') {
+                pending.pop_back();
+                report.output.push_back(std::move(pending));
+                pending.clear();
+                if (report.output.size() > kBuildOutputLines) {
+                    report.output.erase(report.output.begin());
+                }
+            }
             std::smatch match;
             if (std::regex_search(line, match, progressRegex)) {
                 if (match.size() > 1) {
@@ -313,7 +418,17 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             copyDll(mingwBin + "/libgcc_s_seh-1.dll");
         }
 #endif
-        (void)exeFileStr;
+        pipe.reset(); // wait for the command to finish
+
+        // Success = the game was copied to the project folder by this build.
+        // (The shell's exit code is not portable across sh and cmd.exe.)
+        std::error_code ec;
+        report.succeeded = std::filesystem::exists(report.exePath, ec) &&
+                           std::filesystem::last_write_time(report.exePath, ec) >= startTime;
+        {
+            std::lock_guard<std::mutex> lock(s_BuildMutex);
+            s_BuildReport = std::move(report);
+        }
 
         s_IsBuilding = false;
         s_BuildProgress = 1.0f;
@@ -326,6 +441,27 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
     }
 
     if (ImGui::Begin(m_Name.c_str(), &s_IsOpen)) {
+        ImGui::Text("IDE Settings");
+        ImGui::Separator();
+
+        ImGui::Text("Script Editor");
+        ImGui::Separator();
+
+        static float scriptFontSize = 15.0f;
+        if (ImGui::SliderFloat("Font Size", &scriptFontSize, 8.0f, 32.0f, "%.0f")) {
+            config.m_ScriptFontSize = scriptFontSize;
+            if (registry.HasResource<ScriptEditorService>()) {
+                auto& service = registry.GetResource<ScriptEditorService>();
+                service.RequestFontSizeChange(scriptFontSize);
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Changes apply to all open script editors");
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
         ImGui::Text("Build Configuration");
         ImGui::Separator();
 

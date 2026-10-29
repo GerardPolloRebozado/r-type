@@ -11,6 +11,8 @@ namespace Editor {
  *
  * This class provides the UI logic to display, edit, add, and remove
  * the Position component within the Editor's Inspector Panel.
+ * For an entity with a relative @ref Engine::Parent, x/y are shown and edited as an
+ * offset from the parent (0, 0 = on the parent); the stored value stays in world space.
  * It also handles JSON serialization and deserialization for the component.
  */
 class PositionPluginEditor : public IPluginEditor {

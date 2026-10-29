@@ -4,6 +4,7 @@
 #include "GalleryReflect.hpp"
 #include "Logging/Logger.hpp"
 #include "MultiplatformUtils.hpp"
+#include "ProjectFile.hpp"
 #include "ProjectSystemsBuild.hpp"
 #include "SceneSerializer.hpp"
 
@@ -513,6 +514,10 @@ ScaffoldResult CreateProjectImpl(const ProjectRequest& request) {
     if (!WriteEmptyScene(createdScene, folder, request.name, exeName, writeError)) {
         return Fail(writeError);
     }
+    if (!std::filesystem::exists(folder / Serialization::kProjectFileName) &&
+        !Serialization::SaveProjectFile(folder, Serialization::ProjectFile{})) {
+        return Fail("Failed to write " + (folder / Serialization::kProjectFileName).string());
+    }
 
     const std::filesystem::path inputPath = folder / "input.json";
     if (!std::filesystem::exists(inputPath)) {
@@ -754,13 +759,25 @@ ScaffoldResult EnsureProjectSceneImpl(const ProjectRequest& request) {
         folder = canonical;
     }
 
-    const std::filesystem::path scenePath = folder / "test.scene";
+    // Open the project's startup scene (project.json). Falls back to
+    // test.scene, which is created if the project has no scene to open.
+    const std::filesystem::path scenePath = Serialization::StartupScenePath(folder);
     if (!std::filesystem::exists(scenePath)) {
         std::string writeError;
         if (!WriteEmptyScene(scenePath, folder, request.name, exeName, writeError)) {
             return Fail(writeError);
         }
         log_info("Created scene " + scenePath.string());
+    }
+    // Older projects have no project.json: write one pointing at that scene.
+    if (!std::filesystem::exists(folder / Serialization::kProjectFileName)) {
+        Serialization::ProjectFile project;
+        project.startupScene =
+            std::filesystem::relative(scenePath, folder, error).generic_string();
+        if (error || project.startupScene.empty()) {
+            project.startupScene = Serialization::kDefaultStartupScene;
+        }
+        Serialization::SaveProjectFile(folder, project);
     }
 
     const std::filesystem::path inputPath = folder / "input.json";

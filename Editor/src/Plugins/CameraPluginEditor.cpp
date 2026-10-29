@@ -21,7 +21,7 @@ bool CameraPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         return false;
     }
 
-    auto& camera = registry.GetComponent<Engine::CameraComponent>(entity);
+    auto& camera = registry.RequireComponent<Engine::CameraComponent>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

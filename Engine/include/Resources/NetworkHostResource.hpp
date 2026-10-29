@@ -55,6 +55,10 @@ class NetworkHostResource {
 
     /**
      * @brief Checks any new packets and sends the pending ones
+     *
+     * Stops early while a scene switch is pending (SceneManager), leaving the
+     * rest of the packets queued: they belong to the next scene and are read
+     * on the first poll after the switch.
      * @param timeoutMs time to wait till an event happens 0 to return inmediately
      * @param router router to use when a new packet is received
      * @param registry of the game
@@ -74,6 +78,15 @@ class NetworkHostResource {
      * @param entity The entity to save in the peer
      */
     static void SetPeerEntity(ENetPeer* peer, Entity entity);
+
+    /**
+     * @brief Server-side: binds a player entity to its peer in both directions
+     * (GetPeer(entity) and the entity stored on the peer).
+     */
+    void BindPeer(Entity entity, ENetPeer* peer) {
+        m_entityToPeer[entity] = peer;
+        SetPeerEntity(peer, entity);
+    }
 
     bool IsServer() const {
         return m_isServer;
@@ -95,6 +108,11 @@ class NetworkHostResource {
      */
     void SetNextNetworkId(std::size_t id) {
         m_nextNetworkId = id;
+    }
+
+    /** @brief The next id GetNextNetworkId() will assign, without assigning it. */
+    std::size_t PeekNextNetworkId() const {
+        return m_nextNetworkId;
     }
 
     /**
@@ -168,6 +186,39 @@ class NetworkHostResource {
      * @param entity entity to unbind
      */
     void UntrackNetworkEntity(Registry& registry, Entity entity);
+
+    /** @brief A connected player on the server: its peer and network id. */
+    struct ConnectedPlayer {
+        ENetPeer* peer;
+        std::size_t networkId;
+    };
+
+    /**
+     * @brief Server-side: players with a spawned player entity whose peer is
+     * still connected. Peers still waiting for their spawn (queued connect
+     * event) are not included.
+     */
+    std::vector<ConnectedPlayer> ConnectedPlayers(Registry& registry) const;
+
+    /**
+     * @brief Forgets every entity binding (network id -> entity, entity ->
+     * peer, local entity, and the entity stored on each peer).
+     *
+     * Called on a scene switch: entity ids restart at 1, so old bindings would
+     * point at unrelated entities of the new scene. Network ids, the local
+     * network id and connections are kept.
+     */
+    void ResetEntityBindings();
+
+    /**
+     * @brief Marks the entity of every queued connect/disconnect event as
+     * invalid (the scene switch destroyed it). The network ids are kept.
+     */
+    void InvalidateQueuedEventEntities() {
+        for (auto& event : m_eventQueue) {
+            event.entity = static_cast<Entity>(-1);
+        }
+    }
 
     /**
      * @brief Sends a packet to all users

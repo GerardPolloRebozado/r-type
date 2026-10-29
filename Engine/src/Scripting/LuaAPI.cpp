@@ -15,6 +15,7 @@
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
 #include "Scripting/LuaAPI/EntityAPI.hpp"
 #include "Scripting/LuaAPI/LogAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/AudioAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ColliderAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ConnectionsAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ControllerAPI.hpp"
@@ -51,7 +52,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerTime(lua);
     registerEntity(lua, registry);
     registerComponentQuery(lua, registry);
-    registerScene(lua);
+    registerScene(lua, registry);
 
     // --- One module per Engine plugin ---
     registerPosition(lua, registry);
@@ -67,6 +68,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerInput(lua);
     registerMultiplayer(lua, registry);
     registerScript(lua, registry);
+    registerAudio(lua, registry);
 
     // Command-line arguments, published as the Lua global `arg` (1-indexed) so
     // scripts can pick a run mode without any game logic in C++.

@@ -217,7 +217,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
             auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
             if (selected.entity != -1 && registry.HasComponent<Engine::Position>(selected.entity)) {
-                auto& pos = registry.GetComponent<Engine::Position>(selected.entity);
+                auto& pos = registry.RequireComponent<Engine::Position>(selected.entity);
 
                 // Map game coordinates to screen coordinates inside the Scene view
                 ImVec2 entityScreenPos = worldToView(camera, pos.x, pos.y);
@@ -269,7 +269,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                             // Calculate initial angle to mouse
                             float dx = mousePos.x - entityScreenPos.x;
                             float dy = mousePos.y - entityScreenPos.y;
-                            auto& rot = registry.GetComponent<Engine::Rotation>(selected.entity);
+                            auto& rot = registry.RequireComponent<Engine::Rotation>(selected.entity);
                             m_InitialDragAngle = std::atan2(dy, dx) * (180.0f / 3.1415926535f);
                             m_InitialEntityAngle = rot.angle;
                         } else if (hoveringCenter) {
@@ -306,7 +306,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                     float dy = mousePos.y - entityScreenPos.y;
                     float currentMouseAngle = std::atan2(dy, dx) * (180.0f / 3.1415926535f);
                     float deltaAngle = currentMouseAngle - m_InitialDragAngle;
-                    auto& rot = registry.GetComponent<Engine::Rotation>(selected.entity);
+                    auto& rot = registry.RequireComponent<Engine::Rotation>(selected.entity);
                     rot.angle = m_InitialEntityAngle + deltaAngle;
                     // Normalize to 0-360
                     while (rot.angle < 0.0f) {
@@ -357,7 +357,7 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                                         rotRingThickness);
 
                     // Draw a notch to indicate current angle, as seen through the camera
-                    auto& rot = registry.GetComponent<Engine::Rotation>(selected.entity);
+                    auto& rot = registry.RequireComponent<Engine::Rotation>(selected.entity);
                     float angleRad = (rot.angle + camera.rotation) * (3.1415926535f / 180.0f);
                     ImVec2 notchStart = ImVec2(
                         entityScreenPos.x + std::cos(angleRad) * (rotRingRadius - rotRingThickness),

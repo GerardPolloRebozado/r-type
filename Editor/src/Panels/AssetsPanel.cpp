@@ -6,6 +6,7 @@
 #include "EditorLayer.hpp"
 #include "EntitySubtree.hpp"
 #include "Logging/Logger.hpp"
+#include "ScriptEditorService.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <algorithm>
 #include <cctype>
@@ -26,6 +27,20 @@ bool IsInsideDirectory(const std::filesystem::path& directory, const std::filesy
     }
     const std::string text = relative.generic_string();
     return !text.empty() && text != ".." && text.rfind("../", 0) != 0;
+}
+
+bool IsLuaPath(const std::filesystem::path& path) {
+    std::string extension = path.extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return extension == ".lua";
+}
+
+void RequestOpenScript(Engine::Registry& registry, const std::filesystem::path& path) {
+    if (!IsLuaPath(path) || !registry.HasResource<ScriptEditorService>()) {
+        return;
+    }
+    registry.GetResource<ScriptEditorService>().Open(path);
 }
 
 bool IsValidEntryName(const std::string& name) {
@@ -80,12 +95,12 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::SpriteComponent>() &&
             registry.HasComponent<Engine::SpriteComponent>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::SpriteComponent>(entity).assetPath,
+            RetargetStoredPath(registry.RequireComponent<Engine::SpriteComponent>(entity).assetPath,
                                from, to);
         }
         if (registry.IsComponentRegistered<Engine::ScriptComponent>() &&
             registry.HasComponent<Engine::ScriptComponent>(entity)) {
-            auto& script = registry.GetComponent<Engine::ScriptComponent>(entity);
+            auto& script = registry.RequireComponent<Engine::ScriptComponent>(entity);
             if (RetargetStoredPath(script.scriptPath, from, to)) {
                 script.loaded = false;
                 script.scriptTable = sol::lua_nil;
@@ -93,12 +108,12 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
             registry.HasComponent<Engine::PrefabInstance>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::PrefabInstance>(entity).prefabPath,
+            RetargetStoredPath(registry.RequireComponent<Engine::PrefabInstance>(entity).prefabPath,
                                from, to);
         }
         if (registry.IsComponentRegistered<Engine::AudioSource>() &&
             registry.HasComponent<Engine::AudioSource>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::AudioSource>(entity).assetId, from,
+            RetargetStoredPath(registry.RequireComponent<Engine::AudioSource>(entity).assetId, from,
                                to);
         }
     }
@@ -147,6 +162,15 @@ void RetargetSavedFiles(const std::filesystem::path& project, const std::string&
         }
         output << text;
     }
+}
+
+bool IsSameFile(const std::filesystem::path& a, const std::string& b) {
+    if (b.empty()) {
+        return false;
+    }
+    std::error_code error;
+    return std::filesystem::weakly_canonical(a, error) ==
+           std::filesystem::weakly_canonical(std::filesystem::path(b), error);
 }
 
 void FollowMovedPath(std::filesystem::path& path, const std::filesystem::path& from,
@@ -225,6 +249,9 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
         if (ImGui::MenuItem("New Folder")) {
             m_DialogText.clear();
             m_OpenNewFolder = true;
+        }
+        if (ImGui::MenuItem("New Scene...")) {
+            cfg.m_RequestedNewSceneFolder = m_CurrentDirectory.string();
         }
         if (ImGui::Button("Refresh Folder")) {
             /*
@@ -350,14 +377,31 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                         }
                     }
                 } else {
+                    const bool isScene = path.extension() == ".scene";
                     ImGui::PushFont(g_IconFont);
-                    if (ImGui::Button(ICON_FA_FILE, ImVec2(thumbnailSize, thumbnailSize))) {
+                    if (ImGui::Button(isScene ? ICON_FA_MAP : ICON_FA_FILE,
+                                      ImVec2(thumbnailSize, thumbnailSize))) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
                     if (ImGui::IsItemClicked()) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
+                    if (ImGui::IsItemHovered() &&
+                        ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        RequestOpenScript(registry, path);
+                    }
                     ImGui::PopFont();
+                    // Double-click a scene to open it (EditorLayer asks to save first).
+                    if (isScene && ImGui::IsItemHovered() &&
+                        ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        cfg.m_RequestedScenePath = path.string();
+                    }
+                    if (isScene && ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip(IsSameFile(path, cfg.m_InitialScenePath)
+                                              ? "Startup scene: the game starts here.\n"
+                                                "Double-click to open it."
+                                              : "Double-click to open this scene");
+                    }
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
                         cfg.m_SelectedAssetPath = path.string();
                         std::string relativePath =
@@ -374,9 +418,18 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                     ImGui::OpenPopup("AssetItemMenu");
                 }
 
-                ImGui::TextWrapped("%s", filenameString.c_str());
+                const bool isStartupScene = !directoryEntry.is_directory() &&
+                                            IsSameFile(path, cfg.m_InitialScenePath);
+                if (isStartupScene) {
+                    ImGui::TextWrapped(ICON_FA_FLAG " %s", filenameString.c_str());
+                } else {
+                    ImGui::TextWrapped("%s", filenameString.c_str());
+                }
                 if (ImGui::IsItemClicked()) {
                     cfg.m_SelectedAssetPath = path.string();
+                }
+                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                    RequestOpenScript(registry, path);
                 }
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
                     m_DialogTarget = path;
@@ -425,12 +478,25 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
     if (ImGui::BeginPopup("AssetItemMenu")) {
         bool openRename = false;
         bool openDelete = false;
+        if (m_DialogTarget.extension() == ".scene") {
+            if (ImGui::MenuItem("Open Scene")) {
+                config.m_RequestedScenePath = m_DialogTarget.string();
+            }
+            const bool isStartup = IsSameFile(m_DialogTarget, config.m_InitialScenePath);
+            if (ImGui::MenuItem("Set as Startup Scene", nullptr, isStartup, !isStartup)) {
+                config.m_RequestedStartupScene = m_DialogTarget.string();
+            }
+            ImGui::Separator();
+        }
         if (ImGui::MenuItem("Rename")) {
             m_DialogText = m_DialogTarget.filename().string();
             openRename = true;
         }
         if (ImGui::MenuItem("Delete")) {
             openDelete = true;
+        }
+        if (IsLuaPath(m_DialogTarget) && ImGui::MenuItem("Open in Script Editor")) {
+            RequestOpenScript(registry, m_DialogTarget);
         }
         ImGui::EndPopup();
         if (openRename) {
@@ -567,6 +633,24 @@ bool AssetsPanel::Relocate(Engine::Registry& registry, EditorConfig& config,
     FollowMovedPath(selected, source, destination);
     config.m_SelectedAssetPath = selected.string();
     FollowMovedPath(m_CurrentDirectory, source, destination);
+    // Keep the open scene and the startup scene pointing at their files.
+    // Canonical paths, so /tmp vs /private/tmp style aliases still match.
+    for (std::string* scenePath : {&config.m_ActiveScenePath, &config.m_InitialScenePath}) {
+        if (scenePath->empty()) {
+            continue;
+        }
+        std::filesystem::path followed = std::filesystem::weakly_canonical(*scenePath, error);
+        error.clear();
+        const std::filesystem::path before = followed;
+        FollowMovedPath(followed, source, destination);
+        if (followed != before) {
+            *scenePath = followed.string();
+            if (scenePath == &config.m_InitialScenePath) {
+                // EditorLayer rewrites project.json with the new location.
+                config.m_RequestedStartupScene = followed.string();
+            }
+        }
+    }
     log_info("Assets: moved " + from + " to " + to);
     return true;
 }

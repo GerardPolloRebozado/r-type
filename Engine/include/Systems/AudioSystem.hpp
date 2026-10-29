@@ -1,66 +1,76 @@
 #ifndef ENGINE_SYSTEMS_AUDIOSYSTEM_HPP_
 #define ENGINE_SYSTEMS_AUDIOSYSTEM_HPP_
 
-#include "Assets/AssetManager.hpp"
-#include "Components/AudioSource.hpp"
-#include "ECS/Registry.hpp"
+#include "Assets/Sound.hpp"
 #include "ECS/System.hpp"
-#include <ranges>
+#include <memory>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace Engine {
+class AssetManager;
+class Music;
+struct AudioSource;
+
 /**
  * @class AudioSystem
  * @brief A pure ECS System that processes AudioSource data components and maintains audio streams.
  */
 class AudioSystem : public System {
-    // names of currently playing sounds
-    std::vector<Sound> m_ActiveSounds;
+    struct ActiveSound {
+        Entity owner;
+        Sound sound;
+    };
+
+    std::vector<ActiveSound> m_ActiveSounds;
+    std::unordered_set<std::string> m_WarnedMissing;
+
+    void WarnMissing(const std::string& assetId, const std::string& reason);
+
+    std::shared_ptr<Music> GetOrLoadMusic(Registry& registry, AssetManager& assetManager,
+                                          const std::string& assetId, bool loop);
+
+    std::shared_ptr<Sound> GetOrLoadSound(Registry& registry, AssetManager& assetManager,
+                                          const std::string& assetId, bool loop);
+
+    void UpdateAssetAudio(AssetManager& assetManager);
+
+    void UpdateSoundInstances();
+
+    void StopMusicStream(AssetManager& assetManager, const std::string& assetId);
+
+    void StopOwnedSoundInstances(Entity owner);
+
+    void StopSource(Entity entity, AudioSource& source, AssetManager& assetManager);
+
+    void StartMusicSource(Registry& registry, AudioSource& source, AssetManager& assetManager);
+
+    void StartSoundSource(Entity entity, Registry& registry, AudioSource& source,
+                          AssetManager& assetManager);
+
+    void StartSource(Entity entity, Registry& registry, AudioSource& source,
+                     AssetManager& assetManager);
+
+    void RefreshMusicSource(AudioSource& source, AssetManager& assetManager);
+
+    void RefreshSoundSource(Entity entity, AudioSource& source);
+
+    void RefreshSourceState(Entity entity, AudioSource& source, AssetManager& assetManager);
+
+    void ProcessSource(Entity entity, Registry& registry, AssetManager& assetManager);
 
   public:
-    void Update(Registry& registry, float dt) override {
-        if (!registry.HasResource<AssetManager>()) {
-            return;
-        }
-        auto& assetManager = registry.GetResource<AssetManager>();
+    /**
+     * @brief Stops every sound and music track when the scene changes.
+     *
+     * Audio belongs to the scene that started it. The new scene starts its
+     * own music through its AudioSource components. Loaded audio assets stay
+     * in the AssetManager, so replaying them doesn't reload files.
+     */
+    void OnSceneUnloaded(Registry& registry) override;
 
-        // update each sound stream playing
-        for (const auto& music : assetManager.GetAllMusic() | std::views::values) {
-            if (music->IsPlaying()) {
-                music->Update();
-            }
-        }
-
-        // unload them after playing them
-        std::erase_if(m_ActiveSounds, [](const Engine::Sound& s) { return !s.IsPlaying(); });
-
-        for (auto entity : m_Entities) {
-            auto& audio = registry.GetComponent<AudioSource>(entity);
-
-            if (audio.shouldPlay) {
-                if (audio.isMusic) {
-                    auto music = assetManager.GetMusic(audio.assetId);
-                    music->Play();
-                } else {
-                    auto alias = assetManager.GetSound(audio.assetId);
-                    alias->Play();
-                    m_ActiveSounds.push_back(*alias);
-                }
-
-                audio.shouldPlay = false;
-                audio.isPlaying = true;
-            }
-
-            if (audio.shouldStop) {
-                if (audio.isMusic) {
-                    assetManager.GetMusic(audio.assetId)->Stop();
-                }
-
-                audio.shouldStop = false;
-                audio.isPlaying = false;
-            }
-        }
-    }
+    void Update(Registry& registry, float dt) override;
 };
 } // namespace Engine
 

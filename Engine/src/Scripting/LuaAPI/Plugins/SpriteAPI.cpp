@@ -55,6 +55,23 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         return true;
     };
 
+    component["setSpriteRect"] = [&registry](Entity entity, float x, float y, float width,
+                                             float height) -> bool {
+        if (!registry.HasComponent<SpriteComponent>(entity)) {
+            return false;
+        }
+        auto& sc = registry.RequireComponent<SpriteComponent>(entity);
+        if (sc.sprite) {
+            try {
+                sc.sprite->SetSourceRect(raylib::Rectangle(x, y, width, height));
+                return true;
+            } catch (...) {
+                return false;
+            }
+        }
+        return false;
+    };
+
     component["getSprite"] = [lua, &registry](Entity entity) mutable -> sol::object {
         if (registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, "sprite");
@@ -66,7 +83,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
-        const auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        const auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sol::table t = lua.create_table();
         t["path"] = sc.assetPath;
         t["offsetX"] = sc.offsetX;
@@ -82,7 +99,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
-        const auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        const auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sol::table t = lua.create_table();
         t["flipX"] = sc.flipX;
         t["flipY"] = sc.flipY;
@@ -94,7 +111,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return false;
         }
-        auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sc.flipX = flipX;
         if (flipYOpt.has_value()) {
             sc.flipY = flipYOpt.value();
@@ -106,7 +123,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
-        const auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        const auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sol::table t = lua.create_table();
         t["x"] = sc.scaleX;
         t["y"] = sc.scaleY;
@@ -117,7 +134,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
-        const auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        const auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sol::table t = lua.create_table();
         t["x"] = sc.offsetX;
         t["y"] = sc.offsetY;
@@ -128,14 +145,14 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
-        return sol::make_object(lua, registry.GetComponent<SpriteComponent>(entity).assetPath);
+        return sol::make_object(lua, registry.RequireComponent<SpriteComponent>(entity).assetPath);
     };
 
     component["setSpriteScale"] = [&registry](Entity entity, float scaleX, float scaleY) -> bool {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return false;
         }
-        auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sc.scaleX = scaleX;
         sc.scaleY = scaleY;
         return true;
@@ -146,7 +163,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return false;
         }
-        auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sc.offsetX = offsetX;
         sc.offsetY = offsetY;
         return true;
@@ -160,7 +177,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
             return false;
         }
         auto& am = registry.GetResource<AssetManager>();
-        auto& sc = registry.GetComponent<SpriteComponent>(entity);
+        auto& sc = registry.RequireComponent<SpriteComponent>(entity);
         sc.sprite = am.GetSprite(path);
         sc.assetPath = path;
         return true;
@@ -172,7 +189,7 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
             Entity entity = i;
             if (registry.HasComponent<Engine::Name>(entity)) {
-                const auto& nameComp = registry.GetComponent<Engine::Name>(entity);
+                const auto& nameComp = registry.RequireComponent<Engine::Name>(entity);
                 if (nameComp.value == name) {
                     return sol::make_object(lua, entity);
                 }

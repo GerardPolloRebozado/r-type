@@ -30,7 +30,7 @@ class PlayerMovementSystem : public Engine::System {
 
             int playerIdx = 1;
             if (registry.HasComponent<Engine::Input>(entity)) {
-                const auto& input = registry.GetComponent<Engine::Input>(entity);
+                const auto& input = registry.RequireComponent<Engine::Input>(entity);
                 if (!input.isActive) {
                     continue;
                 }
@@ -42,7 +42,7 @@ class PlayerMovementSystem : public Engine::System {
                 continue;
             }
 
-            auto& pos = registry.GetComponent<Engine::Position>(entity);
+            auto& pos = registry.RequireComponent<Engine::Position>(entity);
             constexpr float speed = 300.0f;
 
             if (ctrl->isActionActive("MOVE_RIGHT")) {
@@ -89,7 +89,7 @@ class ColliderBorderRenderSystem : public Engine::System {
                     continue;
                 }
 
-                const auto& shape = registry.GetComponent<Engine::ShapeComponent>(entity);
+                const auto& shape = registry.RequireComponent<Engine::ShapeComponent>(entity);
 
                 bool isColliding = false;
                 for (const auto& pair : activeContacts) {

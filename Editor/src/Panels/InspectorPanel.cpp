@@ -3,6 +3,7 @@
 #include "Core/Application.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/StatePanel.hpp"
+#include "Plugins/AudioPluginEditor.hpp"
 #include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
 #include "Plugins/NetworkComponentPluginEditor.hpp"
@@ -31,6 +32,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ScriptPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<AudioPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
@@ -164,14 +166,14 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         } else if (selectedEntity.entity != -1) {
             const bool hasName = registry.HasComponent<Engine::Name>(selectedEntity.entity);
             std::string name =
-                hasName ? registry.GetComponent<Engine::Name>(selectedEntity.entity).value : "";
+                hasName ? registry.RequireComponent<Engine::Name>(selectedEntity.entity).value : "";
             const std::string hint = "Entity " + std::to_string(selectedEntity.entity);
             ImGui::PushID(static_cast<int>(selectedEntity.entity));
             if (ImGui::InputTextWithHint("Name", hint.c_str(), &name)) {
                 if (name.empty()) {
                     registry.RemoveComponent<Engine::Name>(selectedEntity.entity);
                 } else if (hasName) {
-                    registry.GetComponent<Engine::Name>(selectedEntity.entity).value = name;
+                    registry.RequireComponent<Engine::Name>(selectedEntity.entity).value = name;
                 } else {
                     registry.AddComponent<Engine::Name>(selectedEntity.entity,
                                                         Engine::Name::Create(name));

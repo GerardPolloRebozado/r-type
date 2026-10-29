@@ -1,5 +1,6 @@
 #include "GalleryReflect.hpp"
 #include "MultiplatformUtils.hpp"
+#include "ProjectFile.hpp"
 #include "ProjectSystemsBuild.hpp"
 #include "Scaffold.hpp"
 #include "SceneSerializer.hpp"
@@ -84,6 +85,9 @@ static void TestCreateProject(const std::filesystem::path& home) {
     CHECK(std::filesystem::exists(projectDir / "assets"));
     CHECK(std::filesystem::exists(projectDir / "input.json"));
     CHECK(!created.scenePath.empty());
+    Serialization::ProjectFile projectFile;
+    CHECK(Serialization::LoadProjectFile(projectDir, projectFile));
+    CHECK(projectFile.startupScene == "test.scene");
 
     Engine::Registry registry;
     Serialization::SceneConfig config;
@@ -140,6 +144,55 @@ static void TestEnsureProjectScene(const std::filesystem::path& home) {
     Editor::ScaffoldResult again = Editor::EnsureProjectScene(request);
     CHECK(again.ok);
     CHECK(again.scenePath == created.scenePath);
+}
+
+// Opening a project opens its startup scene from project.json.
+static void TestStartupScene(const std::filesystem::path& home) {
+    namespace fs = std::filesystem;
+    const fs::path folder = home / "StartupProject";
+    fs::create_directories(folder);
+    Editor::ProjectRequest request;
+    request.name = "Startup";
+    request.path = folder.string();
+
+    // Older project without project.json: one is written for test.scene.
+    Editor::ScaffoldResult first = Editor::EnsureProjectScene(request);
+    CHECK(first.ok);
+    Serialization::ProjectFile project;
+    CHECK(Serialization::LoadProjectFile(folder, project));
+    CHECK(project.startupScene == "test.scene");
+
+    // Startup scene in a subfolder: that's the scene that opens.
+    fs::create_directories(folder / "levels");
+    fs::copy_file(folder / "test.scene", folder / "levels" / "Menu.scene");
+    project.startupScene = "levels/Menu.scene";
+    CHECK(Serialization::SaveProjectFile(folder, project));
+    Editor::ScaffoldResult menu = Editor::EnsureProjectScene(request);
+    CHECK(menu.ok);
+    CHECK(fs::weakly_canonical(menu.scenePath) ==
+          fs::weakly_canonical(folder / "levels" / "Menu.scene"));
+    CHECK(Serialization::StartupScenePath(folder).filename() == "Menu.scene");
+
+    // test.scene is not recreated while the startup scene exists.
+    fs::remove(folder / "test.scene");
+    CHECK(Editor::EnsureProjectScene(request).ok);
+    CHECK(!fs::exists(folder / "test.scene"));
+
+    // Startup scene deleted: falls back to (a new) test.scene.
+    fs::remove(folder / "levels" / "Menu.scene");
+    Editor::ScaffoldResult fallback = Editor::EnsureProjectScene(request);
+    CHECK(fallback.ok);
+    CHECK(fs::path(fallback.scenePath).filename() == "test.scene");
+    CHECK(fs::exists(folder / "test.scene"));
+
+    // Unknown keys (from a newer editor) are ignored, not an error.
+    {
+        std::ofstream(folder / "project.json")
+            << R"({"startupScene": "test.scene", "futureSetting": 42})";
+    }
+    Serialization::ProjectFile future;
+    CHECK(Serialization::LoadProjectFile(folder, future));
+    CHECK(future.startupScene == "test.scene");
 }
 
 static void TestCreateSystem(const std::filesystem::path& sourceRoot) {
@@ -237,6 +290,7 @@ int main() {
     TestProjectListJson();
     TestCreateProject(home);
     TestEnsureProjectScene(home);
+    TestStartupScene(home);
     TestCreateSystem(systemRoot);
     TestCreateProjectSystem(projectSystemRoot);
     TestCreatePlugin(pluginRoot);

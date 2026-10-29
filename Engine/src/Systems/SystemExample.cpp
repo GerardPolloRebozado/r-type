@@ -5,7 +5,7 @@
 namespace Engine {
 void SystemExample::Update(Registry& registry, float dt) {
     for (auto const& entity : m_Entities) {
-        auto& data = registry.GetComponent<ComponentExample>(entity);
+        auto& data = registry.RequireComponent<ComponentExample>(entity);
 
         // Example Logic: Increment data over time
         data.someData += dt;
@@ -17,7 +17,7 @@ void SystemExample::Update(Registry& registry, float dt) {
 
             // If this entity has user-defined hooks, fire them safely
             if (registry.HasComponent<PluginExampleEvents>(entity)) {
-                auto& events = registry.GetComponent<PluginExampleEvents>(entity);
+                auto& events = registry.RequireComponent<PluginExampleEvents>(entity);
 
                 // Trigger all connected callbacks
                 for (auto& hook : events.onStateChanged) {
