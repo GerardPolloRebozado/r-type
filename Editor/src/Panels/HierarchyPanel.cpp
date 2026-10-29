@@ -419,7 +419,10 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
         }
         // Recovery/layout helper: place the child exactly on its parent
         // (offset zero). Useful after the pre-fix fly-away corrupted offsets.
-        const bool canSnap = hasParent && registry.HasComponent<Engine::Position>(entity) &&
+        // Re-check Parent: Detach above removes it, and the earlier hasParent
+        // flag would still be true, so GetComponent would throw out_of_range.
+        const bool canSnap = registry.HasComponent<Engine::Parent>(entity) &&
+                             registry.HasComponent<Engine::Position>(entity) &&
                              registry.HasComponent<Engine::Position>(
                                  registry.RequireComponent<Engine::Parent>(entity).parent);
         if (!canSnap) {
