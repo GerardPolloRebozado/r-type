@@ -95,12 +95,12 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::SpriteComponent>() &&
             registry.HasComponent<Engine::SpriteComponent>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::SpriteComponent>(entity).assetPath,
+            RetargetStoredPath(registry.RequireComponent<Engine::SpriteComponent>(entity).assetPath,
                                from, to);
         }
         if (registry.IsComponentRegistered<Engine::ScriptComponent>() &&
             registry.HasComponent<Engine::ScriptComponent>(entity)) {
-            auto& script = registry.GetComponent<Engine::ScriptComponent>(entity);
+            auto& script = registry.RequireComponent<Engine::ScriptComponent>(entity);
             if (RetargetStoredPath(script.scriptPath, from, to)) {
                 script.loaded = false;
                 script.scriptTable = sol::lua_nil;
@@ -108,12 +108,12 @@ void RetargetRegistry(Engine::Registry& registry, const std::string& from, const
         }
         if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
             registry.HasComponent<Engine::PrefabInstance>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::PrefabInstance>(entity).prefabPath,
+            RetargetStoredPath(registry.RequireComponent<Engine::PrefabInstance>(entity).prefabPath,
                                from, to);
         }
         if (registry.IsComponentRegistered<Engine::AudioSource>() &&
             registry.HasComponent<Engine::AudioSource>(entity)) {
-            RetargetStoredPath(registry.GetComponent<Engine::AudioSource>(entity).assetId, from,
+            RetargetStoredPath(registry.RequireComponent<Engine::AudioSource>(entity).assetId, from,
                                to);
         }
     }
@@ -162,6 +162,15 @@ void RetargetSavedFiles(const std::filesystem::path& project, const std::string&
         }
         output << text;
     }
+}
+
+bool IsSameFile(const std::filesystem::path& a, const std::string& b) {
+    if (b.empty()) {
+        return false;
+    }
+    std::error_code error;
+    return std::filesystem::weakly_canonical(a, error) ==
+           std::filesystem::weakly_canonical(std::filesystem::path(b), error);
 }
 
 void FollowMovedPath(std::filesystem::path& path, const std::filesystem::path& from,
@@ -240,6 +249,9 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
         if (ImGui::MenuItem("New Folder")) {
             m_DialogText.clear();
             m_OpenNewFolder = true;
+        }
+        if (ImGui::MenuItem("New Scene...")) {
+            cfg.m_RequestedNewSceneFolder = m_CurrentDirectory.string();
         }
         if (ImGui::Button("Refresh Folder")) {
             /*
@@ -365,8 +377,10 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                         }
                     }
                 } else {
+                    const bool isScene = path.extension() == ".scene";
                     ImGui::PushFont(g_IconFont);
-                    if (ImGui::Button(ICON_FA_FILE, ImVec2(thumbnailSize, thumbnailSize))) {
+                    if (ImGui::Button(isScene ? ICON_FA_MAP : ICON_FA_FILE,
+                                      ImVec2(thumbnailSize, thumbnailSize))) {
                         cfg.m_SelectedAssetPath = path.string();
                     }
                     if (ImGui::IsItemClicked()) {
@@ -377,6 +391,17 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                         RequestOpenScript(registry, path);
                     }
                     ImGui::PopFont();
+                    // Double-click a scene to open it (EditorLayer asks to save first).
+                    if (isScene && ImGui::IsItemHovered() &&
+                        ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        cfg.m_RequestedScenePath = path.string();
+                    }
+                    if (isScene && ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip(IsSameFile(path, cfg.m_InitialScenePath)
+                                              ? "Startup scene: the game starts here.\n"
+                                                "Double-click to open it."
+                                              : "Double-click to open this scene");
+                    }
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
                         cfg.m_SelectedAssetPath = path.string();
                         std::string relativePath =
@@ -393,7 +418,13 @@ void AssetsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& cfg) {
                     ImGui::OpenPopup("AssetItemMenu");
                 }
 
-                ImGui::TextWrapped("%s", filenameString.c_str());
+                const bool isStartupScene = !directoryEntry.is_directory() &&
+                                            IsSameFile(path, cfg.m_InitialScenePath);
+                if (isStartupScene) {
+                    ImGui::TextWrapped(ICON_FA_FLAG " %s", filenameString.c_str());
+                } else {
+                    ImGui::TextWrapped("%s", filenameString.c_str());
+                }
                 if (ImGui::IsItemClicked()) {
                     cfg.m_SelectedAssetPath = path.string();
                 }
@@ -447,6 +478,16 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
     if (ImGui::BeginPopup("AssetItemMenu")) {
         bool openRename = false;
         bool openDelete = false;
+        if (m_DialogTarget.extension() == ".scene") {
+            if (ImGui::MenuItem("Open Scene")) {
+                config.m_RequestedScenePath = m_DialogTarget.string();
+            }
+            const bool isStartup = IsSameFile(m_DialogTarget, config.m_InitialScenePath);
+            if (ImGui::MenuItem("Set as Startup Scene", nullptr, isStartup, !isStartup)) {
+                config.m_RequestedStartupScene = m_DialogTarget.string();
+            }
+            ImGui::Separator();
+        }
         if (ImGui::MenuItem("Rename")) {
             m_DialogText = m_DialogTarget.filename().string();
             openRename = true;
@@ -470,14 +511,14 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
         ImGui::InputText("Name", &m_DialogText);
         if (ImGui::Button("Create")) {
             if (!IsValidEntryName(m_DialogText)) {
-                log_error("Assets: invalid folder name");
+                log_user_error("Assets: invalid folder name");
             } else {
                 const std::filesystem::path folder = m_CurrentDirectory / m_DialogText;
                 if (!IsInsideDirectory(m_StartingDirectory, folder) &&
                     folder != m_StartingDirectory) {
-                    log_error("Assets: folder must stay inside the project");
+                    log_user_error("Assets: folder must stay inside the project");
                 } else if (std::filesystem::exists(folder)) {
-                    log_error("Assets: " + folder.string() + " already exists");
+                    log_user_error("Assets: " + folder.string() + " already exists");
                 } else {
                     std::error_code error;
                     std::filesystem::create_directory(folder, error);
@@ -500,7 +541,7 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
         ImGui::InputText("Name", &m_DialogText);
         if (ImGui::Button("Rename")) {
             if (!IsValidEntryName(m_DialogText)) {
-                log_error("Assets: invalid name");
+                log_user_error("Assets: invalid name");
             } else if (Relocate(registry, config, m_DialogTarget,
                                 m_DialogTarget.parent_path() / m_DialogText)) {
                 ImGui::CloseCurrentPopup();
@@ -517,9 +558,9 @@ void AssetsPanel::DrawDialogs(Engine::Registry& registry, EditorConfig& config) 
         ImGui::Text("Delete %s?", m_DialogTarget.filename().string().c_str());
         if (ImGui::Button("Delete")) {
             if (m_DialogTarget == m_StartingDirectory) {
-                log_error("Assets: the project folder cannot be deleted");
+                log_user_error("Assets: the project folder cannot be deleted");
             } else if (!IsInsideDirectory(m_StartingDirectory, m_DialogTarget)) {
-                log_error("Assets: cannot delete a path outside the project");
+                log_user_error("Assets: cannot delete a path outside the project");
             } else {
                 std::error_code error;
                 std::filesystem::remove_all(m_DialogTarget, error);
@@ -553,21 +594,21 @@ bool AssetsPanel::Relocate(Engine::Registry& registry, EditorConfig& config,
         return true;
     }
     if (source == m_StartingDirectory || !IsInsideDirectory(m_StartingDirectory, source)) {
-        log_error("Assets: cannot move the project root");
+        log_user_error("Assets: cannot move the project root");
         return false;
     }
     if (!IsInsideDirectory(m_StartingDirectory, destination) &&
         destination != m_StartingDirectory) {
-        log_error("Assets: destination must stay inside the project");
+        log_user_error("Assets: destination must stay inside the project");
         return false;
     }
     if (std::filesystem::is_directory(source) &&
         (destination == source || IsInsideDirectory(source, destination))) {
-        log_error("Assets: cannot move a folder into itself");
+        log_user_error("Assets: cannot move a folder into itself");
         return false;
     }
     if (std::filesystem::exists(destination)) {
-        log_error("Assets: " + destination.string() + " already exists");
+        log_user_error("Assets: " + destination.string() + " already exists");
         return false;
     }
 
@@ -592,6 +633,24 @@ bool AssetsPanel::Relocate(Engine::Registry& registry, EditorConfig& config,
     FollowMovedPath(selected, source, destination);
     config.m_SelectedAssetPath = selected.string();
     FollowMovedPath(m_CurrentDirectory, source, destination);
+    // Keep the open scene and the startup scene pointing at their files.
+    // Canonical paths, so /tmp vs /private/tmp style aliases still match.
+    for (std::string* scenePath : {&config.m_ActiveScenePath, &config.m_InitialScenePath}) {
+        if (scenePath->empty()) {
+            continue;
+        }
+        std::filesystem::path followed = std::filesystem::weakly_canonical(*scenePath, error);
+        error.clear();
+        const std::filesystem::path before = followed;
+        FollowMovedPath(followed, source, destination);
+        if (followed != before) {
+            *scenePath = followed.string();
+            if (scenePath == &config.m_InitialScenePath) {
+                // EditorLayer rewrites project.json with the new location.
+                config.m_RequestedStartupScene = followed.string();
+            }
+        }
+    }
     log_info("Assets: moved " + from + " to " + to);
     return true;
 }

@@ -19,7 +19,7 @@ std::unordered_set<std::string>& WarnedKeys() {
 
 void WarnOnce(const std::string& key, const std::string& message) {
     if (WarnedKeys().insert(key).second) {
-        log_error(message);
+        log_user_error(message);
     }
 }
 
@@ -42,7 +42,7 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
         return;
     }
     const std::vector<SignalConnection> connections =
-        registry.GetComponent<SignalConnections>(emitter).connections;
+        registry.RequireComponent<SignalConnections>(emitter).connections;
     for (const auto& connection : connections) {
         if (connection.signal != signal) {
             continue;
@@ -56,7 +56,7 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
                          " has no script; skipping '" + connection.method + "'");
             continue;
         }
-        auto& script = registry.GetComponent<ScriptComponent>(connection.target);
+        auto& script = registry.RequireComponent<ScriptComponent>(connection.target);
         if (!script.loaded || !script.scriptTable.valid()) {
             continue;
         }
@@ -70,7 +70,7 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
         auto result = fn->call(script.scriptTable, emitter, other);
         if (!result.valid()) {
             sol::error err = result;
-            log_error("[Signals] '" + signal + "' handler '" + connection.method +
+            log_user_error("[Signals] '" + signal + "' handler '" + connection.method +
                       "' error (target " + std::to_string(connection.target) + "): " + err.what());
         }
     }

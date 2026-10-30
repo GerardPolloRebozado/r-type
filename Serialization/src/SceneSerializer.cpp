@@ -74,7 +74,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     SceneData sceneData;
     std::string error;
     if (!m_Serializer.DeserializeFromFile(filepath, sceneData, &error)) {
-        log_error("Failed to deserialize scene from file: " + filepath +
+        log_user_error("Failed to deserialize scene from file: " + filepath +
                   (error.empty() ? "" : " (" + error + ")"));
         registerContext(fallbackFolder);
         return false;

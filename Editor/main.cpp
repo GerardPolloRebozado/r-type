@@ -26,6 +26,7 @@
 
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
+#include "ProjectFile.hpp"
 #include <filesystem>
 
 #include "Plugins/AnimationPlugin.hpp"
@@ -40,7 +41,10 @@ void RunEditor(const string& scenePathString) {
 
     config.windowTitle = "Engine Editor";
     config.m_ProjectFolder = projectFolder.string();
-    config.m_InitialScenePath = scenePathString;
+    // The game's startup scene comes from project.json, whatever scene is opened.
+    config.m_InitialScenePath = Serialization::StartupScenePath(projectFolder).string();
+    config.m_ActiveScenePath =
+        std::filesystem::absolute(scenePathString).lexically_normal().string();
     config.windowWidth = 1280;
     config.windowHeight = 720;
     config.maximized = true;

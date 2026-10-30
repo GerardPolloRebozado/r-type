@@ -19,7 +19,7 @@ void registerPosition(sol::state_view lua, Registry& registry) {
         t["y"] = 0.0f;
         t["z"] = 0;
         if (registry.HasComponent<Position>(entity)) {
-            auto& p = registry.GetComponent<Position>(entity);
+            auto& p = registry.RequireComponent<Position>(entity);
             t["x"] = p.x;
             t["y"] = p.y;
             t["z"] = p.z;
@@ -33,7 +33,7 @@ void registerPosition(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<Position>(entity)) {
             registry.AddComponent<Position>(entity, Position{x, y, z.value_or(0)});
         } else {
-            auto& pos = registry.GetComponent<Position>(entity);
+            auto& pos = registry.RequireComponent<Position>(entity);
             pos.x = x;
             pos.y = y;
             if (z) {
@@ -47,7 +47,7 @@ void registerPosition(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<Position>(entity)) {
             registry.AddComponent<Position>(entity, Position{dx, dy});
         } else {
-            auto& pos = registry.GetComponent<Position>(entity);
+            auto& pos = registry.RequireComponent<Position>(entity);
             pos.x += dx;
             pos.y += dy;
         }
@@ -56,7 +56,7 @@ void registerPosition(sol::state_view lua, Registry& registry) {
     // Draw layer: higher z is drawn on top. 0 when the entity has no Position.
     transform["getZIndex"] = [&registry](Entity entity) -> int {
         if (registry.HasComponent<Position>(entity)) {
-            return registry.GetComponent<Position>(entity).z;
+            return registry.RequireComponent<Position>(entity).z;
         }
         return 0;
     };
@@ -65,7 +65,7 @@ void registerPosition(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<Position>(entity)) {
             registry.AddComponent<Position>(entity, Position{0.0f, 0.0f, z});
         } else {
-            registry.GetComponent<Position>(entity).z = z;
+            registry.RequireComponent<Position>(entity).z = z;
         }
     };
 }

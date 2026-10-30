@@ -54,8 +54,8 @@ void CameraSystem::Update(Registry& registry, float dt) {
     for (auto& [entity, camera] : *registry.GetComponentArray<CameraComponent>()) {
         if (camera.followTarget && registry.HasComponent<Position>(entity) &&
             registry.HasComponent<Position>(*camera.followTarget)) {
-            auto& position = registry.GetComponent<Position>(entity);
-            const auto& target = registry.GetComponent<Position>(*camera.followTarget);
+            auto& position = registry.RequireComponent<Position>(entity);
+            const auto& target = registry.RequireComponent<Position>(*camera.followTarget);
             const float t =
                 camera.followSpeed <= 0.0f ? 1.0f : std::min(1.0f, camera.followSpeed * dt);
             position.x += (target.x - position.x) * t;
@@ -78,8 +78,8 @@ Camera2D CameraSystem::GetActiveCamera(Registry& registry, float viewportWidth,
         return result;
     }
 
-    const auto& camera = registry.GetComponent<CameraComponent>(*active);
-    const auto& position = registry.GetComponent<Position>(*active);
+    const auto& camera = registry.RequireComponent<CameraComponent>(*active);
+    const auto& position = registry.RequireComponent<Position>(*active);
     const float zoom = camera.zoom > 0.0f ? camera.zoom : 1.0f;
 
     Vector2 center{position.x, position.y};
@@ -93,7 +93,7 @@ Camera2D CameraSystem::GetActiveCamera(Registry& registry, float viewportWidth,
     result.offset = {viewportWidth * 0.5f, viewportHeight * 0.5f};
     result.target = {center.x + camera.shakeOffsetX, center.y + camera.shakeOffsetY};
     result.rotation = registry.HasComponent<Rotation>(*active)
-                          ? registry.GetComponent<Rotation>(*active).angle
+                          ? registry.RequireComponent<Rotation>(*active).angle
                           : 0.0f;
     result.zoom = zoom;
     return result;

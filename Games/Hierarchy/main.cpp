@@ -28,13 +28,13 @@ bool RunHierarchySmokeTest() {
 
     registry.GetSystem<Engine::PositionSystem>()->Update(registry, 0.0f);
 
-    Engine::Position& parentPos = registry.GetComponent<Engine::Position>(parent);
+    Engine::Position& parentPos = registry.RequireComponent<Engine::Position>(parent);
     parentPos.x = 150.0f;
 
     registry.GetSystem<Engine::HierarchySystem>()->Update(registry, 0.0f);
     registry.GetSystem<Engine::PositionSystem>()->Update(registry, 0.0f);
 
-    Engine::Position const& childPos = registry.GetComponent<Engine::Position>(child);
+    Engine::Position const& childPos = registry.RequireComponent<Engine::Position>(child);
     if (!NearlyEqual(childPos.x, 160.0f) || !NearlyEqual(childPos.y, 220.0f)) {
         std::cerr << "[FAIL] relative child did not follow parent delta (got " << childPos.x << ", "
                   << childPos.y << ")\n";

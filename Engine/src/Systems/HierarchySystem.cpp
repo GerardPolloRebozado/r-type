@@ -62,7 +62,7 @@ void HierarchySystem::WalkSubtree(Registry& registry, Entity node) {
         return;
     }
 
-    Position& nodePosition = registry.GetComponent<Position>(node);
+    Position& nodePosition = registry.RequireComponent<Position>(node);
     // x/y/z are world space; delta comes from PositionSystem's prev snapshot on the prior frame.
     float const dx = nodePosition.x - nodePosition.prevX;
     float const dy = nodePosition.y - nodePosition.prevY;
@@ -72,7 +72,7 @@ void HierarchySystem::WalkSubtree(Registry& registry, Entity node) {
 
     for (Entity const child : children) {
         if (registry.HasComponent<Position>(child)) {
-            Position& childPosition = registry.GetComponent<Position>(child);
+            Position& childPosition = registry.RequireComponent<Position>(child);
 
             if (childPosition.relative) {
                 childPosition.x += dx;

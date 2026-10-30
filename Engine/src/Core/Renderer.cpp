@@ -36,7 +36,7 @@ void DrawLayered(Registry& registry, bool screenSpace) {
         if (!registry.HasComponent<Position>(entity)) {
             continue;
         }
-        int const z = registry.GetComponent<Position>(entity).z;
+        int const z = registry.RequireComponent<Position>(entity).z;
         for (size_t order = 0; order < layeredSystems.size(); ++order) {
             if (layeredSystems[order]->CanDraw(registry, entity, screenSpace)) {
                 draws.push_back({z, order, entity, layeredSystems[order]});

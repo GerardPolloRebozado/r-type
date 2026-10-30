@@ -61,10 +61,10 @@ void LoadAudioForSource(Engine::Registry& registry, Engine::AudioSource& audio,
             }
         }
     } catch (const std::exception& error) {
-        log_error("[AudioPluginEditor] Failed to load " + resolvedPath.string() + ": " +
+        log_user_error("[AudioPluginEditor] Failed to load " + resolvedPath.string() + ": " +
                   error.what());
     } catch (...) {
-        log_error("[AudioPluginEditor] Failed to load " + resolvedPath.string());
+        log_user_error("[AudioPluginEditor] Failed to load " + resolvedPath.string());
     }
 }
 
@@ -83,7 +83,7 @@ bool AudioPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& r
         return false;
     }
 
-    auto& audio = registry.GetComponent<Engine::AudioSource>(entity);
+    auto& audio = registry.RequireComponent<Engine::AudioSource>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

@@ -13,7 +13,7 @@ void registerLog(sol::state_view lua) {
     sol::table logTable = Internal::ensureNamespace(lua, "log");
 
     logTable["info"] = [](const std::string& msg) { log_info(msg); };
-    logTable["error"] = [](const std::string& msg) { log_error(msg); };
+    logTable["error"] = [](const std::string& msg) { log_user_error(msg); };
     logTable["debug"] = [](const std::string& msg) { log_debug(msg); };
 
     lua["print"] = [](sol::variadic_args va) {

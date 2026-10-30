@@ -12,11 +12,22 @@ function(bake_editor_toolchain target)
     file(TO_CMAKE_PATH "${CMAKE_C_COMPILER}" _baked_c)
     file(TO_CMAKE_PATH "${CMAKE_CXX_COMPILER}" _baked_cxx)
     file(TO_CMAKE_PATH "${CMAKE_MAKE_PROGRAM}" _baked_make)
+    # Where the editor's own configure found dependencies (e.g. Lua). Game
+    # builds get the same list so they find what the editor found. Entries
+    # are joined with '|' (never in a path) because ';' would split the
+    # compile definition; SettingsPanel turns it back into a CMake list.
+    set(_baked_prefix "")
+    foreach(_prefix IN LISTS CMAKE_PREFIX_PATH)
+        file(TO_CMAKE_PATH "${_prefix}" _prefix)
+        list(APPEND _baked_prefix "${_prefix}")
+    endforeach()
+    list(JOIN _baked_prefix "|" _baked_prefix)
     target_compile_definitions(${target} PRIVATE
         EDITOR_CMAKE_GENERATOR="${CMAKE_GENERATOR}"
         EDITOR_CMAKE_C_COMPILER="${_baked_c}"
         EDITOR_CMAKE_CXX_COMPILER="${_baked_cxx}"
         EDITOR_CMAKE_MAKE_PROGRAM="${_baked_make}"
+        EDITOR_CMAKE_PREFIX_PATH="${_baked_prefix}"
     )
     if(MINGW)
         get_filename_component(_mingw_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)

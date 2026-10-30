@@ -78,7 +78,7 @@ std::filesystem::path UniquePrefabPath(const std::filesystem::path& directory,
 void SetPrefabLink(Engine::Registry& registry, Engine::Entity entity, const std::string& path) {
     registry.RegisterComponent<Engine::PrefabInstance>();
     if (registry.HasComponent<Engine::PrefabInstance>(entity)) {
-        registry.GetComponent<Engine::PrefabInstance>(entity).prefabPath = path;
+        registry.RequireComponent<Engine::PrefabInstance>(entity).prefabPath = path;
     } else {
         registry.AddComponent<Engine::PrefabInstance>(entity, Engine::PrefabInstance::Create(path));
     }
@@ -111,7 +111,7 @@ void AssignUniqueNames(Engine::Registry& registry,
     for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
         const Engine::Entity entity = i;
         if (registry.IsEntityAlive(entity) && registry.HasComponent<Engine::Name>(entity)) {
-            used.insert(registry.GetComponent<Engine::Name>(entity).value);
+            used.insert(registry.RequireComponent<Engine::Name>(entity).value);
         }
     }
     for (auto& snapshot : snapshots) {
@@ -160,7 +160,7 @@ Engine::Entity EntitySubtree::Paste(Engine::Registry& registry) {
 std::string EntitySubtree::SavePrefab(Engine::Registry& registry, Engine::Entity root,
                                       const std::filesystem::path& directory) {
     if (!registry.IsEntityAlive(root) || !std::filesystem::is_directory(directory)) {
-        log_error("Failed to save prefab: no entity or folder");
+        log_user_error("Failed to save prefab: no entity or folder");
         return "";
     }
 
@@ -182,7 +182,7 @@ std::string EntitySubtree::SavePrefab(Engine::Registry& registry, Engine::Entity
     const std::filesystem::path file =
         UniquePrefabPath(directory, SanitizePrefabBase(Engine::GetEntityName(registry, root)));
     if (file.empty()) {
-        log_error("Failed to save prefab: no free file name in " + directory.string());
+        log_user_error("Failed to save prefab: no free file name in " + directory.string());
         return "";
     }
 
@@ -207,7 +207,7 @@ Engine::Entity EntitySubtree::SpawnPrefab(Engine::Registry& registry,
     PrefabDocument document;
     Serialization::GlazeSerializer serializer;
     if (!serializer.DeserializeFromFile(resolved.string(), document) || document.entities.empty()) {
-        log_error("Failed to read prefab: " + prefabPath);
+        log_user_error("Failed to read prefab: " + prefabPath);
         return static_cast<Engine::Entity>(-1);
     }
 

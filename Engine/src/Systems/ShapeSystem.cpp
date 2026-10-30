@@ -17,8 +17,8 @@ bool ShapeSystem::CanDraw(Registry& registry, Entity entity, bool screenSpace) {
 }
 
 void ShapeSystem::DrawEntity(Registry& registry, Entity entity) {
-    auto& pos = registry.GetComponent<Position>(entity);
-    auto& shape = registry.GetComponent<ShapeComponent>(entity);
+    auto& pos = registry.RequireComponent<Position>(entity);
+    auto& shape = registry.RequireComponent<ShapeComponent>(entity);
 
     // Opacity multiplies the shape's own alpha; a copy avoids
     // mutating the stored component.
@@ -30,7 +30,7 @@ void ShapeSystem::DrawEntity(Registry& registry, Entity entity) {
 
     float rotation = 0.0f;
     if (registry.HasComponent<Rotation>(entity)) {
-        rotation = registry.GetComponent<Rotation>(entity).angle;
+        rotation = registry.RequireComponent<Rotation>(entity).angle;
     }
 
     bool useRlgl =

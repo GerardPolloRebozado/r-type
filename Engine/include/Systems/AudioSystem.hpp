@@ -61,6 +61,15 @@ class AudioSystem : public System {
     void ProcessSource(Entity entity, Registry& registry, AssetManager& assetManager);
 
   public:
+    /**
+     * @brief Stops every sound and music track when the scene changes.
+     *
+     * Audio belongs to the scene that started it. The new scene starts its
+     * own music through its AudioSource components. Loaded audio assets stay
+     * in the AssetManager, so replaying them doesn't reload files.
+     */
+    void OnSceneUnloaded(Registry& registry) override;
+
     void Update(Registry& registry, float dt) override;
 };
 } // namespace Engine

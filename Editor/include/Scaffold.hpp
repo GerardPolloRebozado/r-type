@@ -40,20 +40,23 @@ struct ScaffoldResult {
 /**
  * @brief Creates an editor project folder and registers it in the Gallery list.
  *
- * Writes @c test.scene, @c assets/, and @c input.json. Does not write @c main.cpp
- * and does not open a window. Refuses to overwrite an existing @c test.scene.
+ * Writes @c test.scene, @c project.json (startup scene: @c test.scene),
+ * @c assets/, and @c input.json. Does not write @c main.cpp and does not open
+ * a window. Refuses to overwrite an existing @c test.scene.
  * @param request Name, directory, and description.
  * @return Result with @c scenePath set when the project was created.
  */
 ScaffoldResult CreateProject(const ProjectRequest& request);
 
 /**
- * @brief Makes sure a project folder has a @c test.scene the editor can open.
+ * @brief Finds the scene the editor opens for a project folder.
  *
- * Writes an empty scene when the file is missing. Leaves an existing scene unchanged
- * and does not add the folder to the Gallery list.
+ * That is the startup scene named in @c project.json. If it is missing, falls
+ * back to @c test.scene, writing an empty one when needed. Projects without a
+ * @c project.json get one. Leaves existing scenes unchanged and does not add
+ * the folder to the Gallery list.
  * @param request Name and directory of the project. Description is ignored.
- * @return Result with @c scenePath set to @c test.scene.
+ * @return Result with @c scenePath set to the scene to open.
  */
 ScaffoldResult EnsureProjectScene(const ProjectRequest& request);
 

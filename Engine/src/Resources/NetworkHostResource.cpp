@@ -9,8 +9,10 @@
 #include "Resources/PacketRouterResource.hpp"
 
 #include "Compat/EnetWrapper.hpp"
+#include "Components/NetworkComponent.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
+#include "Resources/SceneManager.hpp"
 
 #include <mutex>
 #include <span>
@@ -75,7 +77,7 @@ std::optional<std::size_t> NetworkHostResource::GetNetworkId(Registry& registry,
     if (!registry.HasComponent<PlayerInformation>(entity)) {
         return std::nullopt;
     }
-    return registry.GetComponent<PlayerInformation>(entity).id;
+    return registry.RequireComponent<PlayerInformation>(entity).id;
 }
 
 std::optional<Entity> NetworkHostResource::GetEntityByNetworkId(std::size_t networkId) const {
@@ -97,7 +99,7 @@ std::optional<ENetPeer*> NetworkHostResource::GetPeer(Entity entity) const {
 void NetworkHostResource::TrackNetworkEntity(Registry& registry, Entity entity,
                                              std::size_t networkId) {
     if (registry.HasComponent<PlayerInformation>(entity)) {
-        registry.GetComponent<PlayerInformation>(entity).id = networkId;
+        registry.RequireComponent<PlayerInformation>(entity).id = networkId;
     } else {
         registry.AddComponent<PlayerInformation>(entity, PlayerInformation{networkId});
     }
@@ -112,7 +114,7 @@ void NetworkHostResource::TrackNetworkEntity(Registry& registry, Entity entity,
 void NetworkHostResource::UntrackNetworkEntity(Registry& registry, Entity entity) {
     if (registry.IsComponentRegistered<PlayerInformation>() &&
         registry.HasComponent<PlayerInformation>(entity)) {
-        m_idToEntity.erase(registry.GetComponent<PlayerInformation>(entity).id);
+        m_idToEntity.erase(registry.RequireComponent<PlayerInformation>(entity).id);
     }
     m_entityToPeer.erase(entity);
     if (m_localEntity.has_value() && *m_localEntity == entity) {
@@ -120,12 +122,44 @@ void NetworkHostResource::UntrackNetworkEntity(Registry& registry, Entity entity
     }
 }
 
+std::vector<NetworkHostResource::ConnectedPlayer>
+NetworkHostResource::ConnectedPlayers(Registry& registry) const {
+    std::vector<ConnectedPlayer> players;
+    for (const auto& [entity, peer] : m_entityToPeer) {
+        if (peer == nullptr || peer->state != ENET_PEER_STATE_CONNECTED ||
+            !registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
+            continue; // placeholder still waiting for its spawn, or gone
+        }
+        if (const auto id = GetNetworkId(registry, entity); id.has_value()) {
+            players.push_back(ConnectedPlayer{peer, *id});
+        }
+    }
+    return players;
+}
+
+void NetworkHostResource::ResetEntityBindings() {
+    for (const auto& [entity, peer] : m_entityToPeer) {
+        if (peer != nullptr) {
+            peer->data = nullptr;
+        }
+    }
+    m_idToEntity.clear();
+    m_entityToPeer.clear();
+    m_localEntity.reset();
+}
+
 void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& router,
                                Registry& registry) {
     ENetEvent event;
     auto& packetRegistry = registry.GetResource<PacketRegistryResource>();
     const auto YourPlayerIdPacketID = packetRegistry.GetOrRegister("your_player_id");
-    while (enet_host_service(m_host, &event, timeoutMs) > 0) {
+    // A packet (e.g. scene_load) may request a scene switch. Everything after
+    // it is for the next scene, so leave it queued until the switch is done.
+    const auto sceneSwitchPending = [&registry]() {
+        return registry.HasResource<SceneManager>() &&
+               registry.GetResource<SceneManager>().HasPendingLoad();
+    };
+    while (!sceneSwitchPending() && enet_host_service(m_host, &event, timeoutMs) > 0) {
         switch (event.type) {
             case ENET_EVENT_TYPE_CONNECT: {
                 // Only the server spawns a player per connection
@@ -194,7 +228,7 @@ void NetworkHostResource::Poll(uint32_t timeoutMs, const PacketRouterResource& r
                 std::size_t networkId = 0;
                 if (entity.has_value() && registry.IsComponentRegistered<PlayerInformation>() &&
                     registry.HasComponent<PlayerInformation>(*entity)) {
-                    networkId = registry.GetComponent<PlayerInformation>(*entity).id;
+                    networkId = registry.RequireComponent<PlayerInformation>(*entity).id;
                 }
                 QueueEvent(ConnectionEvent::Type::Disconnect, event.peer,
                            entity.value_or(static_cast<Entity>(-1)), networkId);

@@ -33,7 +33,7 @@ void registerEntity(sol::state_view lua, Registry& registry) {
     t["find"] = [lua, &registry](const std::string& name) mutable -> sol::object {
         for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
             Entity e{i};
-            if (registry.HasComponent<Name>(e) && registry.GetComponent<Name>(e).value == name) {
+            if (registry.HasComponent<Name>(e) && registry.RequireComponent<Name>(e).value == name) {
                 return sol::make_object(lua, e);
             }
         }
@@ -42,7 +42,7 @@ void registerEntity(sol::state_view lua, Registry& registry) {
 
     t["getName"] = [&registry](Entity entity) -> std::string {
         if (registry.HasComponent<Name>(entity)) {
-            return registry.GetComponent<Name>(entity).value;
+            return registry.RequireComponent<Name>(entity).value;
         }
         return "";
     };
@@ -51,7 +51,7 @@ void registerEntity(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<Name>(entity)) {
             registry.AddComponent<Name>(entity, Name{name});
         } else {
-            registry.GetComponent<Name>(entity).value = name;
+            registry.RequireComponent<Name>(entity).value = name;
         }
     };
 }

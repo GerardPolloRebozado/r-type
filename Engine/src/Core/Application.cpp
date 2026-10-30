@@ -4,6 +4,7 @@
 #include "Core/LaunchOptions.hpp"
 #include "Core/Renderer.hpp"
 #include "Logging/Logger.hpp"
+#include "Resources/SceneManager.hpp"
 #include <chrono>
 #include <raylib.h>
 #include <string>
@@ -52,6 +53,7 @@ Application::~Application() {
     if (!m_Config.headless) {
         CloseWindow();
     }
+    ShutdownLogging();
 }
 
 void Application::Run() {
@@ -62,6 +64,10 @@ void Application::Run() {
     const double MS_PER_UPDATE = 1.0 / m_Config.targetFPS;
 
     log_info("[Engine] Entering main game loop.");
+
+    // A scene requested before Run() is built now, so the first frame
+    // already shows it.
+    ApplyPendingScene();
 
     while (m_IsRunning && (m_Config.headless || !WindowShouldClose())) {
         auto currentTime = std::chrono::high_resolution_clock::now();
@@ -79,6 +85,14 @@ void Application::Run() {
         PostUpdate(elapsedTime.count());
 
         m_Registry.FlushQueues();
+        // After FlushQueues: switch scenes only once the frame is fully done.
+        ApplyPendingScene();
+    }
+}
+
+void Application::ApplyPendingScene() {
+    if (m_Registry.HasResource<SceneManager>()) {
+        m_Registry.GetResource<SceneManager>().ApplyPending(m_Registry);
     }
 }
 

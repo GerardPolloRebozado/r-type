@@ -72,7 +72,7 @@ std::string OpenProjectFolder(const std::string& folder, const std::string& name
 std::vector<ProjectData> Gallery::FindProjects() {
     auto configDirectory = ConfigDirectory();
     if (!std::filesystem::exists(configDirectory)) {
-        std::filesystem::create_directory(configDirectory);
+        std::filesystem::create_directories(configDirectory);
     }
     const auto settingsPath =
         configDirectory / "projects.json"; // the / operator is overloaded to concatenate

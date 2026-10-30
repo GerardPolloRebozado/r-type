@@ -18,7 +18,7 @@ float OpacityPlugin::GetEffectiveAlpha(Registry& registry, Entity entity) {
     }
     float result = 1.0f;
     if (registry.HasComponent<Opacity>(entity)) {
-        result = registry.GetComponent<Opacity>(entity).alpha;
+        result = registry.RequireComponent<Opacity>(entity).alpha;
     }
     if (!registry.IsComponentRegistered<Parent>()) {
         return result;
@@ -31,14 +31,14 @@ float OpacityPlugin::GetEffectiveAlpha(Registry& registry, Entity entity) {
         if (!registry.HasComponent<Parent>(current)) {
             break;
         }
-        current = registry.GetComponent<Parent>(current).parent;
+        current = registry.RequireComponent<Parent>(current).parent;
         if (!registry.IsEntityAlive(current) || !registry.HasComponent<Opacity>(current)) {
             if (!registry.IsEntityAlive(current)) {
                 break;
             }
             continue;
         }
-        const auto& parentOpacity = registry.GetComponent<Opacity>(current);
+        const auto& parentOpacity = registry.RequireComponent<Opacity>(current);
         if (parentOpacity.inheritToChildren) {
             result *= parentOpacity.alpha;
         }

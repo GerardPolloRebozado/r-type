@@ -29,7 +29,7 @@ std::shared_ptr<Sound> getOrLoadSound(Registry& registry, const std::string& pat
         assetManager.LoadSound(path, ResolveAssetPath(registry, path).string(), loop);
         return assetManager.GetSound(path);
     } catch (const std::exception& error) {
-        log_error(std::string("[LuaAPI] Sound load failed for '") + path + "': " + error.what());
+        log_user_error(std::string("[LuaAPI] Sound load failed for '") + path + "': " + error.what());
         return nullptr;
     }
 }
@@ -47,7 +47,7 @@ std::shared_ptr<Music> getOrLoadMusic(Registry& registry, const std::string& pat
         assetManager.LoadMusic(path, ResolveAssetPath(registry, path).string(), loop);
         return assetManager.GetMusic(path);
     } catch (const std::exception& error) {
-        log_error(std::string("[LuaAPI] Music load failed for '") + path + "': " + error.what());
+        log_user_error(std::string("[LuaAPI] Music load failed for '") + path + "': " + error.what());
         return nullptr;
     }
 }
@@ -181,7 +181,7 @@ void registerAudio(sol::state_view lua, Registry& registry) {
             !registry.HasComponent<AudioSource>(entity)) {
             return sol::make_object(view, sol::lua_nil);
         }
-        const auto& source = registry.GetComponent<AudioSource>(entity);
+        const auto& source = registry.RequireComponent<AudioSource>(entity);
         sol::table t = view.create_table();
         t["path"] = source.assetId;
         t["isMusic"] = source.isMusic;
@@ -198,7 +198,7 @@ void registerAudio(sol::state_view lua, Registry& registry) {
             !registry.HasComponent<AudioSource>(entity)) {
             return false;
         }
-        auto& source = registry.GetComponent<AudioSource>(entity);
+        auto& source = registry.RequireComponent<AudioSource>(entity);
 
         if (!source.assetId.empty() && source.isMusic && registry.HasResource<AssetManager>()) {
             try {
@@ -228,7 +228,7 @@ void registerAudio(sol::state_view lua, Registry& registry) {
             !registry.HasComponent<AudioSource>(entity)) {
             return false;
         }
-        auto& source = registry.GetComponent<AudioSource>(entity);
+        auto& source = registry.RequireComponent<AudioSource>(entity);
         source.shouldPlay = true;
         source.shouldStop = false;
         return true;
@@ -239,7 +239,7 @@ void registerAudio(sol::state_view lua, Registry& registry) {
             !registry.HasComponent<AudioSource>(entity)) {
             return false;
         }
-        auto& source = registry.GetComponent<AudioSource>(entity);
+        auto& source = registry.RequireComponent<AudioSource>(entity);
         source.shouldPlay = false;
         source.shouldStop = true;
         return true;
@@ -250,7 +250,7 @@ void registerAudio(sol::state_view lua, Registry& registry) {
             !registry.HasComponent<AudioSource>(entity)) {
             return false;
         }
-        registry.GetComponent<AudioSource>(entity).volume = std::clamp(volume, 0.0f, 1.0f);
+        registry.RequireComponent<AudioSource>(entity).volume = std::clamp(volume, 0.0f, 1.0f);
         return true;
     };
 
@@ -259,7 +259,7 @@ void registerAudio(sol::state_view lua, Registry& registry) {
             !registry.HasComponent<AudioSource>(entity)) {
             return false;
         }
-        registry.GetComponent<AudioSource>(entity).loop = loop;
+        registry.RequireComponent<AudioSource>(entity).loop = loop;
         return true;
     };
 }

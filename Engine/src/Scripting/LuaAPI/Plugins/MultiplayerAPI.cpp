@@ -216,11 +216,11 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
 
     net["startServer"] = [&registry](int port, sol::optional<int> maxClients) -> bool {
         if (registry.HasResource<NetworkHostResource>()) {
-            log_error("[Net] startServer: host already started");
+            log_user_error("[Net] startServer: host already started");
             return false;
         }
         if (port <= 0 || port > 65535) {
-            log_error("[Net] startServer: invalid port");
+            log_user_error("[Net] startServer: invalid port");
             return false;
         }
         const auto clients = static_cast<std::size_t>(std::max(1, maxClients.value_or(32)));
@@ -231,11 +231,11 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
 
     net["startClient"] = [&registry](const std::string& host, int port) -> bool {
         if (registry.HasResource<NetworkHostResource>()) {
-            log_error("[Net] startClient: host already started");
+            log_user_error("[Net] startClient: host already started");
             return false;
         }
         if (port <= 0 || port > 65535) {
-            log_error("[Net] startClient: invalid port");
+            log_user_error("[Net] startClient: invalid port");
             return false;
         }
         auto& netHost =
@@ -256,7 +256,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
             auto result = callback(static_cast<void*>(peer), data);
             if (!result.valid()) {
                 sol::error err = result;
-                log_error(std::string("[Net] on() handler error: ") + err.what());
+                log_user_error(std::string("[Net] on() handler error: ") + err.what());
             }
         });
         return true;
@@ -342,7 +342,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
             auto result = fn(static_cast<void*>(peer));
             if (!result.valid()) {
                 sol::error err = result;
-                log_error(std::string("[Net] onConnect error: ") + err.what());
+                log_user_error(std::string("[Net] onConnect error: ") + err.what());
             }
         };
     };
@@ -364,7 +364,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
             auto result = fn(static_cast<void*>(peer));
             if (!result.valid()) {
                 sol::error err = result;
-                log_error(std::string("[Net] onDisconnect error: ") + err.what());
+                log_user_error(std::string("[Net] onDisconnect error: ") + err.what());
             }
         };
     };
@@ -570,7 +570,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         }
         NetworkComponent network;
         if (registry.HasComponent<NetworkComponent>(entity)) {
-            network = registry.GetComponent<NetworkComponent>(entity);
+            network = registry.RequireComponent<NetworkComponent>(entity);
         }
         network.authority = authority.value_or("Server");
         network.syncTransform = syncTransform.value_or(true);
@@ -601,7 +601,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!registry.HasComponent<NetworkComponent>(entity)) {
             return false;
         }
-        const auto& netComp = registry.GetComponent<NetworkComponent>(entity);
+        const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
         if (netComp.networkId == 0) {
             return false;
         }
@@ -650,7 +650,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!registry.HasComponent<NetworkComponent>(entity)) {
             return false;
         }
-        const auto& netComp = registry.GetComponent<NetworkComponent>(entity);
+        const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
         if (netComp.networkId == 0) {
             return false;
         }
@@ -733,7 +733,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
                 auto result = handler(entity, data);
                 if (!result.valid()) {
                     sol::error err = result;
-                    log_error("[Net] entity:rpc '" + method + "' handler error: " + err.what());
+                    log_user_error("[Net] entity:rpc '" + method + "' handler error: " + err.what());
                 }
             }
         });

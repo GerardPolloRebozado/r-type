@@ -27,8 +27,7 @@ void TextPlugin::AttachToEntity(Registry& registry, const Entity entity, const s
                                 const float fontSize, const Position& position) {
     registry.AddComponent(entity, Text{txt, fontSize, WHITE});
     registry.GetSystem<TextSystem>()->m_Entities.insert(entity);
-    if (!registry.HasComponent<Position>(entity)) {
-        registry.AddComponent(entity, Position());
-    }
+    // Replaces any existing Position: CreateEntity already adds one at (0, 0).
+    registry.AddComponent(entity, position);
 }
 } // namespace Engine

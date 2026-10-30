@@ -36,6 +36,21 @@ class ColliderPlugin : public IPlugin {
 
     static void AttachToEntity(Registry& registry, Entity entity,
                                const ColliderComponent& collider);
+
+    /**
+     * @brief True when the entity has a ShapeComponent and that type is registered.
+     * An unregistered ShapeComponent is not an error here. It means the entity has no shape.
+     */
+    static bool EntityHasShape(Registry& registry, Entity entity);
+
+    /**
+     * @brief Shape used for this collider.
+     *
+     * The collider's own shape wins. Otherwise the entity's ShapeComponent is used.
+     * When neither exists, the collider is skipped and one user error is reported.
+     */
+    static std::optional<ShapeComponent> ResolveShape(Registry& registry, Entity entity,
+                                                      const ColliderComponent& collider);
 };
 } // namespace Engine
 

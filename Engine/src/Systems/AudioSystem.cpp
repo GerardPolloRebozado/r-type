@@ -12,7 +12,7 @@ namespace Engine {
 
 void AudioSystem::WarnMissing(const std::string& assetId, const std::string& reason) {
     if (m_WarnedMissing.insert(assetId).second) {
-        log_error("[AudioSystem] Cannot play '" + assetId + "': " + reason);
+        log_user_error("[AudioSystem] Cannot play '" + assetId + "': " + reason);
     }
 }
 
@@ -183,7 +183,7 @@ void AudioSystem::RefreshSourceState(Entity entity, AudioSource& source,
 }
 
 void AudioSystem::ProcessSource(Entity entity, Registry& registry, AssetManager& assetManager) {
-    auto& source = registry.GetComponent<AudioSource>(entity);
+    auto& source = registry.RequireComponent<AudioSource>(entity);
 
     if (source.shouldStop) {
         StopSource(entity, source, assetManager);
@@ -192,6 +192,27 @@ void AudioSystem::ProcessSource(Entity entity, Registry& registry, AssetManager&
         StartSource(entity, registry, source, assetManager);
     }
     RefreshSourceState(entity, source, assetManager);
+}
+
+void AudioSystem::OnSceneUnloaded(Registry& registry) {
+    for (auto& active : m_ActiveSounds) {
+        active.sound.Stop();
+    }
+    m_ActiveSounds.clear();
+    if (!registry.HasResource<AssetManager>()) {
+        return;
+    }
+    auto& assetManager = registry.GetResource<AssetManager>();
+    for (const auto& music : assetManager.GetAllMusic() | std::views::values) {
+        if (music && music->IsPlaying()) {
+            music->Stop();
+        }
+    }
+    for (const auto& sound : assetManager.GetAllSounds() | std::views::values) {
+        if (sound && sound->IsPlaying()) {
+            sound->Stop();
+        }
+    }
 }
 
 void AudioSystem::Update(Registry& registry, float dt) {

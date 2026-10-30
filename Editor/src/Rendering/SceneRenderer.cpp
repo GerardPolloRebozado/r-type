@@ -4,6 +4,7 @@
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Plugins/ColliderPlugin.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "Core/Renderer.hpp"
 #include "Panels/HierarchyPanel.hpp"
@@ -58,7 +59,7 @@ void SceneRenderer::Render(Engine::Registry& registry, const EditorConfig& confi
         if (!registry.HasComponent<Engine::SpriteComponent>(entity)) {
             continue;
         }
-        auto& sc = registry.GetComponent<Engine::SpriteComponent>(entity);
+        auto& sc = registry.RequireComponent<Engine::SpriteComponent>(entity);
         if (sc.sprite || sc.assetPath.empty()) {
             continue;
         }
@@ -112,15 +113,13 @@ void SceneRenderer::RenderColliderOverlays(Engine::Registry& registry) {
             if (!col.enabled || !registry.HasComponent<Engine::Position>(entity)) {
                 continue;
             }
-            const auto& pos = registry.GetComponent<Engine::Position>(entity);
+            const auto& pos = registry.RequireComponent<Engine::Position>(entity);
             const auto& rot = registry.HasComponent<Engine::Rotation>(entity)
-                                  ? registry.GetComponent<Engine::Rotation>(entity)
+                                  ? registry.RequireComponent<Engine::Rotation>(entity)
                                   : defaultRot;
 
-            std::optional<Engine::ShapeComponent> shape = col.shape;
-            if (!shape.has_value() && registry.HasComponent<Engine::ShapeComponent>(entity)) {
-                shape = registry.GetComponent<Engine::ShapeComponent>(entity);
-            }
+            std::optional<Engine::ShapeComponent> shape =
+                Engine::ColliderPlugin::ResolveShape(registry, entity, col);
             if (!shape.has_value()) {
                 continue;
             }
