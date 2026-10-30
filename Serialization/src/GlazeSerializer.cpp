@@ -45,55 +45,55 @@ GlazeSerializer::EntitySnapshot GlazeSerializer::CaptureEntity(Engine::Registry&
     entitySnapshot.entityId = entity;
 
     if (registry.HasComponent<Engine::Name>(entity)) {
-        entitySnapshot.name = registry.GetComponent<Engine::Name>(entity);
+        entitySnapshot.name = registry.RequireComponent<Engine::Name>(entity);
     }
     if (registry.HasComponent<Engine::Position>(entity)) {
-        entitySnapshot.position = registry.GetComponent<Engine::Position>(entity);
+        entitySnapshot.position = registry.RequireComponent<Engine::Position>(entity);
     }
     if (registry.HasComponent<Engine::Rotation>(entity)) {
-        entitySnapshot.rotation = registry.GetComponent<Engine::Rotation>(entity);
+        entitySnapshot.rotation = registry.RequireComponent<Engine::Rotation>(entity);
     }
     if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
-        entitySnapshot.sprite = registry.GetComponent<Engine::SpriteComponent>(entity);
+        entitySnapshot.sprite = registry.RequireComponent<Engine::SpriteComponent>(entity);
     }
     if (registry.HasComponent<Engine::ShapeComponent>(entity)) {
-        entitySnapshot.shape = registry.GetComponent<Engine::ShapeComponent>(entity);
+        entitySnapshot.shape = registry.RequireComponent<Engine::ShapeComponent>(entity);
     }
     if (registry.HasComponent<Engine::Text>(entity)) {
-        entitySnapshot.text = registry.GetComponent<Engine::Text>(entity);
+        entitySnapshot.text = registry.RequireComponent<Engine::Text>(entity);
     }
     if (registry.HasComponent<Engine::ColliderComponent>(entity)) {
-        entitySnapshot.collider = registry.GetComponent<Engine::ColliderComponent>(entity);
+        entitySnapshot.collider = registry.RequireComponent<Engine::ColliderComponent>(entity);
     }
     if (registry.HasComponent<Engine::Opacity>(entity)) {
-        entitySnapshot.opacity = registry.GetComponent<Engine::Opacity>(entity);
+        entitySnapshot.opacity = registry.RequireComponent<Engine::Opacity>(entity);
     }
     if (registry.HasComponent<Engine::SignalConnections>(entity)) {
-        entitySnapshot.connections = registry.GetComponent<Engine::SignalConnections>(entity);
+        entitySnapshot.connections = registry.RequireComponent<Engine::SignalConnections>(entity);
     }
     if (registry.HasComponent<Engine::Parent>(entity)) {
-        entitySnapshot.parent = registry.GetComponent<Engine::Parent>(entity);
+        entitySnapshot.parent = registry.RequireComponent<Engine::Parent>(entity);
     }
     if (registry.HasComponent<Engine::Input>(entity)) {
-        entitySnapshot.input = registry.GetComponent<Engine::Input>(entity);
+        entitySnapshot.input = registry.RequireComponent<Engine::Input>(entity);
     }
     if (registry.HasComponent<Engine::AudioSource>(entity)) {
-        entitySnapshot.audioSource = registry.GetComponent<Engine::AudioSource>(entity);
+        entitySnapshot.audioSource = registry.RequireComponent<Engine::AudioSource>(entity);
     }
     if (registry.HasComponent<Engine::CameraComponent>(entity)) {
-        entitySnapshot.camera = registry.GetComponent<Engine::CameraComponent>(entity);
+        entitySnapshot.camera = registry.RequireComponent<Engine::CameraComponent>(entity);
     }
     if (registry.HasComponent<Engine::ScriptComponent>(entity)) {
-        entitySnapshot.script = registry.GetComponent<Engine::ScriptComponent>(entity);
+        entitySnapshot.script = registry.RequireComponent<Engine::ScriptComponent>(entity);
     }
     if (registry.IsComponentRegistered<Engine::NetworkComponent>() &&
         registry.HasComponent<Engine::NetworkComponent>(entity)) {
-        entitySnapshot.network = registry.GetComponent<Engine::NetworkComponent>(entity);
+        entitySnapshot.network = registry.RequireComponent<Engine::NetworkComponent>(entity);
     }
     // Tests and tools that never register this type must still capture a scene.
     if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
         registry.HasComponent<Engine::PrefabInstance>(entity)) {
-        entitySnapshot.prefab = registry.GetComponent<Engine::PrefabInstance>(entity);
+        entitySnapshot.prefab = registry.RequireComponent<Engine::PrefabInstance>(entity);
     }
 
     return entitySnapshot;
@@ -209,7 +209,7 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
         if (entitySnapshot.connections.has_value() &&
             registry.HasComponent<Engine::SignalConnections>(entity)) {
             auto& connections =
-                registry.GetComponent<Engine::SignalConnections>(entity).connections;
+                registry.RequireComponent<Engine::SignalConnections>(entity).connections;
             for (auto& connection : connections) {
                 const auto it = idRemap.find(connection.target);
                 if (it != idRemap.end()) {
@@ -220,7 +220,7 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
         if (remapCamera && registry.HasComponent<Engine::CameraComponent>(entity)) {
             const auto it = idRemap.find(*entitySnapshot.camera->followTarget);
             if (it != idRemap.end()) {
-                registry.GetComponent<Engine::CameraComponent>(entity).followTarget = it->second;
+                registry.RequireComponent<Engine::CameraComponent>(entity).followTarget = it->second;
             }
         }
     }

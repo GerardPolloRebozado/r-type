@@ -183,7 +183,7 @@ void AudioSystem::RefreshSourceState(Entity entity, AudioSource& source,
 }
 
 void AudioSystem::ProcessSource(Entity entity, Registry& registry, AssetManager& assetManager) {
-    auto& source = registry.GetComponent<AudioSource>(entity);
+    auto& source = registry.RequireComponent<AudioSource>(entity);
 
     if (source.shouldStop) {
         StopSource(entity, source, assetManager);

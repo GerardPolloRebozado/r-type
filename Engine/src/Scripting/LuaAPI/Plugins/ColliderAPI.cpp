@@ -28,7 +28,7 @@ bool addBoxColliderImpl(Registry& registry, Entity entity, float width, float he
     Internal::ensureTransform(registry, entity, false);
     ColliderComponent cc;
     if (registry.HasComponent<ColliderComponent>(entity)) {
-        cc = registry.GetComponent<ColliderComponent>(entity);
+        cc = registry.RequireComponent<ColliderComponent>(entity);
     }
     if (isTrigger.has_value()) {
         cc.isTrigger = isTrigger.value();
@@ -70,7 +70,7 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
-        const auto& cc = registry.GetComponent<ColliderComponent>(entity);
+        const auto& cc = registry.RequireComponent<ColliderComponent>(entity);
         if (!cc.shape.has_value()) {
             return sol::make_object(lua, sol::lua_nil);
         }
@@ -87,7 +87,7 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return false;
         }
-        auto& cc = registry.GetComponent<ColliderComponent>(entity);
+        auto& cc = registry.RequireComponent<ColliderComponent>(entity);
         if (!cc.shape.has_value()) {
             ShapeComponent shape;
             shape.type = ShapeType::RECTANGLE;
@@ -103,14 +103,14 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return std::nullopt;
         }
-        return registry.GetComponent<ColliderComponent>(entity).enabled;
+        return registry.RequireComponent<ColliderComponent>(entity).enabled;
     };
 
     component["setColliderEnabled"] = [&registry](Entity entity, bool enabled) -> bool {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return false;
         }
-        registry.GetComponent<ColliderComponent>(entity).enabled = enabled;
+        registry.RequireComponent<ColliderComponent>(entity).enabled = enabled;
         return true;
     };
 
@@ -118,14 +118,14 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return std::nullopt;
         }
-        return registry.GetComponent<ColliderComponent>(entity).isTrigger;
+        return registry.RequireComponent<ColliderComponent>(entity).isTrigger;
     };
 
     component["setColliderTrigger"] = [&registry](Entity entity, bool isTrigger) -> bool {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return false;
         }
-        registry.GetComponent<ColliderComponent>(entity).isTrigger = isTrigger;
+        registry.RequireComponent<ColliderComponent>(entity).isTrigger = isTrigger;
         return true;
     };
 
@@ -133,14 +133,14 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return std::nullopt;
         }
-        return registry.GetComponent<ColliderComponent>(entity).isStatic;
+        return registry.RequireComponent<ColliderComponent>(entity).isStatic;
     };
 
     component["setColliderStatic"] = [&registry](Entity entity, bool isStatic) -> bool {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return false;
         }
-        registry.GetComponent<ColliderComponent>(entity).isStatic = isStatic;
+        registry.RequireComponent<ColliderComponent>(entity).isStatic = isStatic;
         return true;
     };
 
@@ -148,7 +148,7 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return std::nullopt;
         }
-        return registry.GetComponent<ColliderComponent>(entity).layer;
+        return registry.RequireComponent<ColliderComponent>(entity).layer;
     };
 
     // Accepts a layer index or one of the CollisionLayers names ("Enemy", ...)
@@ -158,7 +158,7 @@ void registerCollider(sol::state_view lua, Registry& registry) {
                 layer >= CollisionLayers::kLayerCount) {
                 return false;
             }
-            registry.GetComponent<ColliderComponent>(entity).layer = layer;
+            registry.RequireComponent<ColliderComponent>(entity).layer = layer;
             return true;
         },
         [&registry](Entity entity, const std::string& layerName) -> bool {
@@ -166,7 +166,7 @@ void registerCollider(sol::state_view lua, Registry& registry) {
             if (!registry.HasComponent<ColliderComponent>(entity) || layer < 0) {
                 return false;
             }
-            registry.GetComponent<ColliderComponent>(entity).layer = layer;
+            registry.RequireComponent<ColliderComponent>(entity).layer = layer;
             return true;
         });
 
@@ -174,21 +174,21 @@ void registerCollider(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return std::nullopt;
         }
-        return CollisionLayers::Name(registry.GetComponent<ColliderComponent>(entity).layer);
+        return CollisionLayers::Name(registry.RequireComponent<ColliderComponent>(entity).layer);
     };
 
     component["getColliderMask"] = [&registry](Entity entity) -> sol::optional<std::uint32_t> {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return std::nullopt;
         }
-        return registry.GetComponent<ColliderComponent>(entity).mask;
+        return registry.RequireComponent<ColliderComponent>(entity).mask;
     };
 
     component["setColliderMask"] = [&registry](Entity entity, std::uint32_t mask) -> bool {
         if (!registry.HasComponent<ColliderComponent>(entity)) {
             return false;
         }
-        registry.GetComponent<ColliderComponent>(entity).mask = mask;
+        registry.RequireComponent<ColliderComponent>(entity).mask = mask;
         return true;
     };
 
@@ -199,8 +199,8 @@ void registerCollider(sol::state_view lua, Registry& registry) {
             !registry.HasComponent<ColliderComponent>(b)) {
             return false;
         }
-        return ColliderComponent::CanCollide(registry.GetComponent<ColliderComponent>(a),
-                                             registry.GetComponent<ColliderComponent>(b));
+        return ColliderComponent::CanCollide(registry.RequireComponent<ColliderComponent>(a),
+                                             registry.RequireComponent<ColliderComponent>(b));
     };
 
     sol::table layers = Internal::ensureNamespace(lua, "Layers");

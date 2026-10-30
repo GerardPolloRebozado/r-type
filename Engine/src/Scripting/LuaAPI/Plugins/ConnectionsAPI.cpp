@@ -30,7 +30,7 @@ void registerConnections(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SignalConnections>(emitter)) {
             registry.AddComponent<SignalConnections>(emitter, SignalConnections{});
         }
-        auto& connections = registry.GetComponent<SignalConnections>(emitter).connections;
+        auto& connections = registry.RequireComponent<SignalConnections>(emitter).connections;
         for (const auto& c : connections) {
             if (c.signal == signal && c.target == target && c.method == method) {
                 return true;
@@ -46,7 +46,7 @@ void registerConnections(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SignalConnections>(emitter)) {
             return false;
         }
-        auto& connections = registry.GetComponent<SignalConnections>(emitter).connections;
+        auto& connections = registry.RequireComponent<SignalConnections>(emitter).connections;
         const size_t before = connections.size();
         connections.erase(
             std::remove_if(connections.begin(), connections.end(),
@@ -72,7 +72,7 @@ void registerConnections(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<SignalConnections>(entity)) {
             return out;
         }
-        const auto& connections = registry.GetComponent<SignalConnections>(entity).connections;
+        const auto& connections = registry.RequireComponent<SignalConnections>(entity).connections;
         int i = 1;
         for (const auto& c : connections) {
             sol::table t = lua.create_table();

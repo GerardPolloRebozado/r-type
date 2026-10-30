@@ -106,7 +106,7 @@ static void BuildScene(Engine::Registry& reg, Serialization::SceneConfig& config
 
 static Engine::Entity FindByName(Engine::Registry& reg, const std::string& name) {
     for (std::size_t i = 0; i < reg.GetEntityCount(); ++i) {
-        if (reg.HasComponent<Engine::Name>(i) && reg.GetComponent<Engine::Name>(i).value == name) {
+        if (reg.HasComponent<Engine::Name>(i) && reg.RequireComponent<Engine::Name>(i).value == name) {
             return i;
         }
     }
@@ -170,8 +170,8 @@ static void TestShapeColorKey() {
     const Engine::Entity loaded = FindByName(legacy, "Box");
     CHECK(loaded != static_cast<Engine::Entity>(-1));
     if (loaded != static_cast<Engine::Entity>(-1)) {
-        CHECK(SameColor(legacy.GetComponent<Engine::ShapeComponent>(loaded).color, expected));
-        CHECK(SameColor(legacy.GetComponent<Engine::ColliderComponent>(loaded).shape->color,
+        CHECK(SameColor(legacy.RequireComponent<Engine::ShapeComponent>(loaded).color, expected));
+        CHECK(SameColor(legacy.RequireComponent<Engine::ColliderComponent>(loaded).shape->color,
                         expected));
     }
 
@@ -185,7 +185,7 @@ static void TestShapeColorKey() {
         Serialization::SpawnPrefabRuntime(spawned, (dir / "legacy.prefab").string());
     CHECK(root != static_cast<Engine::Entity>(-1));
     if (root != static_cast<Engine::Entity>(-1)) {
-        CHECK(SameColor(spawned.GetComponent<Engine::ShapeComponent>(root).color, expected));
+        CHECK(SameColor(spawned.RequireComponent<Engine::ShapeComponent>(root).color, expected));
     }
 
     fs::remove_all(dir);
@@ -219,12 +219,12 @@ static void VerifyScene(Engine::Registry& reg, const Serialization::SceneConfig&
     CHECK(player != static_cast<Engine::Entity>(-1));
     CHECK(enemy != static_cast<Engine::Entity>(-1));
 
-    const auto& pos = reg.GetComponent<Engine::Position>(player);
+    const auto& pos = reg.RequireComponent<Engine::Position>(player);
     CHECK(pos.x == 10.0f);
     CHECK(pos.y == 20.0f);
-    CHECK(reg.GetComponent<Engine::Rotation>(player).angle == 45.0f);
+    CHECK(reg.RequireComponent<Engine::Rotation>(player).angle == 45.0f);
 
-    const auto& shape = reg.GetComponent<Engine::ShapeComponent>(player);
+    const auto& shape = reg.RequireComponent<Engine::ShapeComponent>(player);
     CHECK(shape.type == Engine::ShapeType::RECTANGLE);
     CHECK(shape.width == 100.0f);
     CHECK(shape.height == 50.0f);
@@ -233,40 +233,40 @@ static void VerifyScene(Engine::Registry& reg, const Serialization::SceneConfig&
     CHECK(shape.color.b == 30);
     CHECK(shape.color.a == 40);
 
-    const auto& text = reg.GetComponent<Engine::Text>(player);
+    const auto& text = reg.RequireComponent<Engine::Text>(player);
     CHECK(text.text == "hello");
     CHECK(text.fontsize == 12.0f);
     CHECK(text.color.r == 1);
     CHECK(text.color.a == 4);
 
-    const auto& input = reg.GetComponent<Engine::Input>(player);
+    const auto& input = reg.RequireComponent<Engine::Input>(player);
     CHECK(input.playerIdx == 2);
     CHECK(input.isActive == false);
 
-    const auto& audio = reg.GetComponent<Engine::AudioSource>(player);
+    const auto& audio = reg.RequireComponent<Engine::AudioSource>(player);
     CHECK(audio.assetId == "sfx/laser.wav");
     CHECK(audio.volume == 0.5f);
     CHECK(audio.loop == true);
 
-    const auto& ecol = reg.GetComponent<Engine::ColliderComponent>(enemy);
+    const auto& ecol = reg.RequireComponent<Engine::ColliderComponent>(enemy);
     CHECK(ecol.enabled == true);
     CHECK(ecol.isTrigger == true);
     CHECK(ecol.shape.has_value());
     CHECK(ecol.shape->type == Engine::ShapeType::CIRCLE);
     CHECK(ecol.shape->radius == 10.0f);
-    CHECK(reg.GetComponent<Engine::Parent>(enemy).parent == player);
+    CHECK(reg.RequireComponent<Engine::Parent>(enemy).parent == player);
 
     // Unnamed sprite entity: no Name component
     bool foundSprite = false;
     for (std::size_t i = 0; i < reg.GetEntityCount(); ++i) {
         if (!reg.HasComponent<Engine::Name>(i) && reg.HasComponent<Engine::SpriteComponent>(i)) {
-            const auto& spr = reg.GetComponent<Engine::SpriteComponent>(i);
+            const auto& spr = reg.RequireComponent<Engine::SpriteComponent>(i);
             CHECK(spr.assetPath == "assets/ship.png");
             CHECK(spr.offsetX == 5.0f);
             CHECK(spr.offsetY == 6.0f);
             CHECK(spr.scaleX == 2.0f);
             CHECK(spr.scaleY == 3.0f);
-            CHECK(reg.GetComponent<Engine::Rotation>(i).angle == 90.0f);
+            CHECK(reg.RequireComponent<Engine::Rotation>(i).angle == 90.0f);
             foundSprite = true;
         }
     }

@@ -21,7 +21,7 @@ bool RotationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry
         return false;
     }
 
-    auto& rot = registry.GetComponent<Engine::Rotation>(entity);
+    auto& rot = registry.RequireComponent<Engine::Rotation>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

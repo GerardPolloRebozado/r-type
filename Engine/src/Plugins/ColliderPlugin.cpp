@@ -18,7 +18,7 @@ void ReportMissingShape(Registry& registry, Entity entity) {
     }
     label = "entity " + std::to_string(entity);
     if (registry.IsComponentRegistered<Name>() && registry.HasComponent<Name>(entity)) {
-        const std::string& value = registry.GetComponent<Name>(entity).value;
+        const std::string& value = registry.RequireComponent<Name>(entity).value;
         if (!value.empty()) {
             label = value;
         }
@@ -80,7 +80,7 @@ std::optional<ShapeComponent> ColliderPlugin::ResolveShape(Registry& registry, E
         return collider.shape;
     }
     if (EntityHasShape(registry, entity)) {
-        return registry.GetComponent<ShapeComponent>(entity);
+        return registry.RequireComponent<ShapeComponent>(entity);
     }
     ReportMissingShape(registry, entity);
     return std::nullopt;

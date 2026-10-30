@@ -70,7 +70,7 @@ bool SpritePluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         return false;
     }
 
-    auto& spriteComp = registry.GetComponent<Engine::SpriteComponent>(entity);
+    auto& spriteComp = registry.RequireComponent<Engine::SpriteComponent>(entity);
 
     std::string header = std::string(GetIcon()) + " " + GetName();
     bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

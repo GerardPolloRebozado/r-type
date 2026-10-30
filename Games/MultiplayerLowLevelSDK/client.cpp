@@ -67,7 +67,7 @@ static void UpdatePlayerPosition(Engine::Registry& registry, const ENetPeer*,
         playerEntity = entity;
     }
 
-    auto& pos = registry.GetComponent<Engine::Position>(*playerEntity);
+    auto& pos = registry.RequireComponent<Engine::Position>(*playerEntity);
     pos = newPos.pos;
 }
 

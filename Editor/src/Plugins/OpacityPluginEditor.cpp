@@ -20,7 +20,7 @@ bool OpacityPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry&
         return false;
     }
 
-    auto& opacity = registry.GetComponent<Engine::Opacity>(entity);
+    auto& opacity = registry.RequireComponent<Engine::Opacity>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);

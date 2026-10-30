@@ -35,7 +35,7 @@ struct Name {
  */
 inline std::string GetEntityName(Registry& registry, Entity entity) {
     if (registry.HasComponent<Name>(entity)) {
-        return registry.GetComponent<Name>(entity).value;
+        return registry.RequireComponent<Name>(entity).value;
     }
     return "Entity " + std::to_string(entity);
 }

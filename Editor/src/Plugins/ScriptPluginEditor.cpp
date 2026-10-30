@@ -26,7 +26,7 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
         return false;
     }
 
-    auto& script = registry.GetComponent<Engine::ScriptComponent>(entity);
+    auto& script = registry.RequireComponent<Engine::ScriptComponent>(entity);
 
     const std::string header = std::string(GetIcon()) + " " + GetName();
     const bool isOpen = ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
@@ -71,7 +71,7 @@ bool ScriptPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& 
                     if (!std::filesystem::exists(fullPath)) {
                         std::string entityName = "Entity";
                         if (registry.HasComponent<Engine::Name>(entity)) {
-                            entityName = registry.GetComponent<Engine::Name>(entity).value;
+                            entityName = registry.RequireComponent<Engine::Name>(entity).value;
                         }
                         std::string templateContent =
                             "-- " + fileName +

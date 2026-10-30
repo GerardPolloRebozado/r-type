@@ -570,7 +570,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         }
         NetworkComponent network;
         if (registry.HasComponent<NetworkComponent>(entity)) {
-            network = registry.GetComponent<NetworkComponent>(entity);
+            network = registry.RequireComponent<NetworkComponent>(entity);
         }
         network.authority = authority.value_or("Server");
         network.syncTransform = syncTransform.value_or(true);
@@ -601,7 +601,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!registry.HasComponent<NetworkComponent>(entity)) {
             return false;
         }
-        const auto& netComp = registry.GetComponent<NetworkComponent>(entity);
+        const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
         if (netComp.networkId == 0) {
             return false;
         }
@@ -650,7 +650,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!registry.HasComponent<NetworkComponent>(entity)) {
             return false;
         }
-        const auto& netComp = registry.GetComponent<NetworkComponent>(entity);
+        const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
         if (netComp.networkId == 0) {
             return false;
         }

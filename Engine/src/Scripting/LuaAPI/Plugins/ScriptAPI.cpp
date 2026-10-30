@@ -26,7 +26,7 @@ void registerScript(const sol::state_view& lua, Registry& registry) {
         }
         const bool autoReload = autoReloadOpt.value_or(true);
         if (registry.HasComponent<ScriptComponent>(entity)) {
-            auto& script = registry.GetComponent<ScriptComponent>(entity);
+            auto& script = registry.RequireComponent<ScriptComponent>(entity);
             if (script.scriptPath == path) {
                 return true;
             }
@@ -39,7 +39,7 @@ void registerScript(const sol::state_view& lua, Registry& registry) {
 
     component["getScriptPath"] = [lua, &registry](Entity entity) mutable -> sol::object {
         if (registry.HasComponent<ScriptComponent>(entity)) {
-            const std::string& path = registry.GetComponent<ScriptComponent>(entity).scriptPath;
+            const std::string& path = registry.RequireComponent<ScriptComponent>(entity).scriptPath;
             if (!path.empty()) {
                 return sol::make_object(lua, path);
             }

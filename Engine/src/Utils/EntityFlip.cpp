@@ -19,14 +19,14 @@ namespace {
  */
 const ShapeComponent* FootprintShape(Registry& registry, Entity entity) {
     if (registry.HasComponent<ColliderComponent>(entity)) {
-        const auto& collider = registry.GetComponent<ColliderComponent>(entity);
+        const auto& collider = registry.RequireComponent<ColliderComponent>(entity);
         if (collider.shape.has_value() && collider.shape->width > 0.0f) {
             return &collider.shape.value();
         }
     }
     if (registry.IsComponentRegistered<ShapeComponent>() &&
         registry.HasComponent<ShapeComponent>(entity)) {
-        const auto& shape = registry.GetComponent<ShapeComponent>(entity);
+        const auto& shape = registry.RequireComponent<ShapeComponent>(entity);
         if (shape.width > 0.0f) {
             return &shape;
         }
@@ -44,7 +44,7 @@ float FootprintWidth(Registry& registry, Entity entity) {
         return shape->width;
     }
     if (registry.HasComponent<SpriteComponent>(entity)) {
-        const auto& sprite = registry.GetComponent<SpriteComponent>(entity);
+        const auto& sprite = registry.RequireComponent<SpriteComponent>(entity);
         if (sprite.sprite) {
             return std::fabs(sprite.sprite->GetSourceRect().width) * sprite.scaleX;
         }
@@ -58,12 +58,12 @@ float FootprintWidth(Registry& registry, Entity entity) {
  *        drawn at the entity position plus their offset.
  */
 float FootprintLeft(Registry& registry, Entity entity) {
-    const auto& position = registry.GetComponent<Position>(entity);
+    const auto& position = registry.RequireComponent<Position>(entity);
     if (FootprintShape(registry, entity) != nullptr) {
         return position.x;
     }
     if (registry.HasComponent<SpriteComponent>(entity)) {
-        const auto& sprite = registry.GetComponent<SpriteComponent>(entity);
+        const auto& sprite = registry.RequireComponent<SpriteComponent>(entity);
         if (sprite.sprite) {
             return position.x + sprite.offsetX;
         }
@@ -85,7 +85,7 @@ void MirrorSubtree(Registry& registry, Entity node, float axis) {
         const float width = FootprintWidth(registry, child);
         const float centre = FootprintLeft(registry, child) + width / 2.0f;
 
-        Position& position = registry.GetComponent<Position>(child);
+        Position& position = registry.RequireComponent<Position>(child);
         position.x = (2.0f * axis - centre) - width / 2.0f;
 
         MirrorSubtree(registry, child, axis);
@@ -100,7 +100,7 @@ bool FlipEntityX(Registry& registry, Entity entity) {
     }
 
     if (registry.HasComponent<SpriteComponent>(entity)) {
-        SpriteComponent& sprite = registry.GetComponent<SpriteComponent>(entity);
+        SpriteComponent& sprite = registry.RequireComponent<SpriteComponent>(entity);
         sprite.flipX = !sprite.flipX;
     }
 

@@ -18,8 +18,8 @@ bool SpriteSystem::CanDraw(Registry& registry, Entity entity, bool screenSpace) 
 }
 
 void SpriteSystem::DrawEntity(Registry& registry, Entity entity) {
-    auto& position = registry.GetComponent<Position>(entity);
-    auto& spriteComp = registry.GetComponent<SpriteComponent>(entity);
+    auto& position = registry.RequireComponent<Position>(entity);
+    auto& spriteComp = registry.RequireComponent<SpriteComponent>(entity);
 
     if (!spriteComp.sprite && !spriteComp.assetPath.empty()) {
         if (registry.HasResource<AssetManager>()) {
@@ -42,7 +42,7 @@ void SpriteSystem::DrawEntity(Registry& registry, Entity entity) {
             spriteComp.sprite->SetScale({spriteComp.scaleX, spriteComp.scaleY});
         }
         if (registry.HasComponent<Rotation>(entity)) {
-            spriteComp.sprite->SetRotation(registry.GetComponent<Rotation>(entity).angle);
+            spriteComp.sprite->SetRotation(registry.RequireComponent<Rotation>(entity).angle);
         }
         raylib::Color tint = raylib::Color::White();
         // children without their own Opacity still

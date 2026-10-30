@@ -25,7 +25,7 @@ void registerOpacity(sol::state_view lua, Registry& registry) {
             registry.AddComponent<Opacity>(entity, Opacity::Create(clamped, inheritOpt.value()));
         } else if (registry.HasComponent<Opacity>(entity)) {
             // Preserve the existing inherit flag when only alpha is set.
-            registry.GetComponent<Opacity>(entity).alpha = clamped;
+            registry.RequireComponent<Opacity>(entity).alpha = clamped;
         } else {
             registry.AddComponent<Opacity>(entity, Opacity::Create(clamped));
         }
@@ -36,20 +36,20 @@ void registerOpacity(sol::state_view lua, Registry& registry) {
         if (!registry.HasComponent<Opacity>(entity)) {
             return false;
         }
-        registry.GetComponent<Opacity>(entity).inheritToChildren = inherit;
+        registry.RequireComponent<Opacity>(entity).inheritToChildren = inherit;
         return true;
     };
 
     component["getOpacityInherit"] = [lua, &registry](Entity entity) mutable -> sol::object {
         if (registry.HasComponent<Opacity>(entity)) {
-            return sol::make_object(lua, registry.GetComponent<Opacity>(entity).inheritToChildren);
+            return sol::make_object(lua, registry.RequireComponent<Opacity>(entity).inheritToChildren);
         }
         return sol::make_object(lua, sol::lua_nil);
     };
 
     component["getOpacity"] = [lua, &registry](Entity entity) mutable -> sol::object {
         if (registry.HasComponent<Opacity>(entity)) {
-            return sol::make_object(lua, registry.GetComponent<Opacity>(entity).alpha);
+            return sol::make_object(lua, registry.RequireComponent<Opacity>(entity).alpha);
         }
         return sol::make_object(lua, sol::lua_nil);
     };

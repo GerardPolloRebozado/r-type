@@ -91,7 +91,7 @@ void TestCodeSceneSwitch() {
     CHECK(!scenes.HasPendingLoad());
     CHECK(scenes.Current() == "menu");
     CHECK(CountAlive(registry) == 1);
-    CHECK(registry.GetComponent<Marker>(Engine::Entity{1}).value == 1);
+    CHECK(registry.RequireComponent<Marker>(Engine::Entity{1}).value == 1);
 
     // Switch back and forth: old entities go, IDs don't keep growing.
     for (int i = 0; i < 20; ++i) {

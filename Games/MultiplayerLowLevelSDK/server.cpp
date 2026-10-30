@@ -28,7 +28,7 @@ static void KeyPressed(Engine::Registry& registry, ENetPeer* peer, const KeyPres
     if (!networkId.has_value()) {
         return;
     }
-    auto& position = registry.GetComponent<Engine::Position>(entity.value());
+    auto& position = registry.RequireComponent<Engine::Position>(entity.value());
     switch (keyPress.key) {
         case 'w':
             position.moved = true;
@@ -71,7 +71,7 @@ static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
         return;
     }
 
-    const auto& newPlayerPos = registry.GetComponent<Engine::Position>(*playerEntity);
+    const auto& newPlayerPos = registry.RequireComponent<Engine::Position>(*playerEntity);
     auto playerArray = registry.GetComponentArray<Engine::Multiplayer::PlayerInformation>();
     for (const auto& [existingEntity, existingPlayer] : *playerArray) {
         if (existingPlayer.id == *newPlayerId) {
@@ -85,7 +85,7 @@ static void OnConnect(Engine::Registry& registry, ENetPeer* peer) {
         auto* catchUp = Engine::Multiplayer::NetworkHostResource::CreatePacket(
             packetResgitry.GetOrRegister("new_player_pos"),
             NewPlayerPos{existingPlayer.id,
-                         registry.GetComponent<Engine::Position>(existingEntity)},
+                         registry.RequireComponent<Engine::Position>(existingEntity)},
             true);
         Engine::Multiplayer::NetworkHostResource::Send(peer, catchUp, 0);
         // tell existing players about the new player
