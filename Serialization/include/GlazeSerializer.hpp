@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 
+#include "Components/Animation.hpp"
+
 namespace Serialization {
 
 enum class SerializationFormat { JSON, Binary };
@@ -63,6 +65,7 @@ class GlazeSerializer {
         std::optional<Engine::CameraComponent> camera;
         std::optional<Engine::ScriptComponent> script;
         std::optional<Engine::NetworkComponent> network;
+        std::optional<Engine::Animation> animation;
         // Absent on old scenes. Present only on a subtree root tied to a .prefab.
         std::optional<Engine::PrefabInstance> prefab;
     };

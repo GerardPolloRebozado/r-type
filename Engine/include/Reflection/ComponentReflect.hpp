@@ -8,6 +8,7 @@
 // declarations (Position, Rotation, ShapeComponent, ColliderComponent,
 // Parent, Name, Input, AudioSource, Keybind, Vector2, Color, ...).
 
+#include "Components/Animation.hpp"
 #include "Components/AudioSource.hpp"
 #include "Components/CameraComponent.hpp"
 #include "Components/ColliderComponent.hpp"
@@ -103,6 +104,36 @@ template <> struct glz::meta<Engine::NetworkComponent> {
         "authority", &Engine::NetworkComponent::authority, "syncTransform",
         &Engine::NetworkComponent::syncTransform, "syncSprite",
         &Engine::NetworkComponent::syncSprite, "prefabPath", &Engine::NetworkComponent::prefabPath);
+};
+
+template <> struct glz::meta<raylib::Rectangle> {
+    static constexpr auto value =
+        glz::object("x", &raylib::Rectangle::x, "y", &raylib::Rectangle::y, "width",
+                    &raylib::Rectangle::width, "height", &raylib::Rectangle::height);
+};
+
+template <> struct glz::meta<Engine::FrameData> {
+    static constexpr auto value =
+        glz::object("rect", &Engine::FrameData::rect, "pivotX", &Engine::FrameData::pivotX,
+                    "pivotY", &Engine::FrameData::pivotY);
+};
+
+template <> struct glz::meta<Engine::AnimationClip> {
+    static constexpr auto value = glz::object(
+        "name", &Engine::AnimationClip::name, "assetPaths", &Engine::AnimationClip::assetPaths,
+        "frameWidth", &Engine::AnimationClip::frameWidth, "frameHeight",
+        &Engine::AnimationClip::frameHeight, "totalFrames", &Engine::AnimationClip::totalFrames,
+        "frameData", &Engine::AnimationClip::frameData, "frameDuration",
+        &Engine::AnimationClip::frameDuration, "loop", &Engine::AnimationClip::loop);
+};
+
+template <> struct glz::meta<Engine::Animation> {
+    static constexpr auto value = glz::object(
+        "clips", &Engine::Animation::clips, "currentAnimation",
+        &Engine::Animation::currentAnimation, "frameDuration", &Engine::Animation::timer, "offsetX",
+        &Engine::Animation::offsetX, "offsetY", &Engine::Animation::offsetY, "scaleX",
+        &Engine::Animation::scaleX, "scaleY", &Engine::Animation::scaleY, "flipX",
+        &Engine::Animation::flipX, "flipY", &Engine::Animation::flipY);
 };
 
 #endif // ENGINE_REFLECTION_COMPONENTREFLECT_HPP_

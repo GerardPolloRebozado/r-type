@@ -82,6 +82,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/RotationPlugin.hpp\"\n"
             << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Plugins/CameraPlugin.hpp\"\n"
+            << "#include \"Plugins/AnimationPlugin.hpp\"\n"
             << "#include \"Scripting/ScriptPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
@@ -129,6 +130,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    audioPlugin.Init(app.GetRegistry());\n"
             << "    Engine::CameraPlugin cameraPlugin;\n"
             << "    cameraPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::AnimationPlugin animationPlugin;\n"
+            << "    animationPlugin.Init(app.GetRegistry());\n"
             << "    Engine::ScriptPlugin scriptPlugin;\n"
             << "    scriptPlugin.Init(app.GetRegistry());\n"
             << "    Engine::Multiplayer::ReplicationPlugin replicationPlugin;\n"
@@ -190,8 +193,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     const std::string exeFileStr = exeNameStr;
 #endif
     cmakeOut << projectSystemsCmake << "add_executable(" << exeNameStr << " \"" << projFolder
-             << "/main.cpp\" "
-             << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
+             << "/main.cpp\" " << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
     if (std::filesystem::exists(projectSystemsDir)) {
         cmakeOut << "target_include_directories(" << exeNameStr << " PRIVATE \""
                  << projectSystemsDir.string() << "\")\n";
