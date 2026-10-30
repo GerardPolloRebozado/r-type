@@ -6,15 +6,18 @@
 */
 #include "../../include/Plugins/AnimationPluginEditor.hpp"
 
+#include "FileDialog.hpp"
 #include "Plugins/AnimationPlugin.hpp"
-#include "misc/cpp/imgui_stdlib.h"
+#include <algorithm>
+#include <cmath>
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 #include <iostream>
-
-#include "FileDialog.hpp"
+#include <misc/cpp/imgui_stdlib.h>
+#include <rlImGui.h>
 
 namespace Editor {
+
 bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& registry) {
     if (!registry.HasComponent<Engine::Animation>(entity)) {
         return false;
@@ -25,30 +28,33 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
                                           ImGuiTreeNodeFlags_DefaultOpen);
 
     if (isOpen) {
-        for (auto& name : animation.names) {
-            ImGui::Text("Animation: %s", name.c_str());
+        ImGui::TextDisabled("Registered Clips:");
+        for (const auto& [name, clip] : animation.clips) {
+            ImGui::Text(" - %s", name.c_str());
         }
         ImGui::Separator();
+
         static std::string newAnimBuffer;
-
         ImGui::SetNextItemWidth(-40.0f);
-
         bool isEnterPressed =
             ImGui::InputText("##NewAnim", &newAnimBuffer, ImGuiInputTextFlags_EnterReturnsTrue);
-
         ImGui::SameLine();
         bool isButtonPressed = ImGui::Button("+", ImVec2(32.0f, 0));
 
         if ((isEnterPressed || isButtonPressed) && !newAnimBuffer.empty()) {
-            animation.names.push_back(newAnimBuffer);
+            if (animation.clips.find(newAnimBuffer) == animation.clips.end()) {
+                animation.clips[newAnimBuffer] = Engine::AnimationClip(newAnimBuffer, {});
+                if (animation.currentAnimation.empty()) {
+                    animation.Play(newAnimBuffer);
+                }
+            }
             newAnimBuffer.clear();
         }
 
         ImGui::Separator();
 
         static bool showAnimatorWindow = false;
-
-        if (ImGui::Button("Animator")) {
+        if (ImGui::Button("Open Animator Editor", ImVec2(-1.0f, 0))) {
             showAnimatorWindow = true;
         }
 
@@ -56,60 +62,108 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
             ImGui::SetNextWindowSize(ImVec2(850, 750), ImGuiCond_Once);
 
             if (ImGui::Begin("Animation Editor", &showAnimatorWindow)) {
+                Engine::AnimationClip* activeClip = animation.GetCurrentClip();
 
-                ImGui::TextDisabled("Preview");
+                ImGui::TextDisabled("ANIMATION SELECTION");
+                std::string currentAnimName =
+                    animation.currentAnimation.empty() ? "None" : animation.currentAnimation;
 
-                ImVec2 viewportSize(ImGui::GetContentRegionAvail().x, 220.0f);
-                ImGui::BeginChild("AnimationPreviewViewport", viewportSize, true,
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 120.0f);
+                if (ImGui::BeginCombo("##ActiveAnimationCombo", currentAnimName.c_str())) {
+                    for (const auto& [name, clip] : animation.clips) {
+                        const bool isSelected = (animation.currentAnimation == name);
+                        if (ImGui::Selectable(name.c_str(), isSelected)) {
+                            animation.Play(name);
+                        }
+                        if (isSelected) {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("Delete", ImVec2(110.0f, 0)) &&
+                    !animation.currentAnimation.empty()) {
+                    animation.clips.erase(animation.currentAnimation);
+                    animation.currentAnimation =
+                        animation.clips.empty() ? "" : animation.clips.begin()->first;
+                    animation.sprites.clear();
+                    animation.currentFrame = 0;
+                    activeClip = animation.GetCurrentClip();
+                }
+
+                ImGui::Separator();
+
+                if (!activeClip) {
+                    ImGui::TextDisabled("Create or select a clip to start editing.");
+                    ImGui::End();
+                    return true;
+                }
+
+                ImGui::TextDisabled("PREVIEW");
+
+                ImVec2 availRegion = ImGui::GetContentRegionAvail();
+                float previewHeight = std::max(220.0f, availRegion.y - 420.0f);
+                ImGui::BeginChild("PreviewWindow", ImVec2(0, previewHeight), true,
                                   ImGuiWindowFlags_NoScrollbar);
 
-                if (!animation.sprites.empty() &&
-                    animation.currentFrame < animation.sprites.size() &&
-                    animation.sprites[animation.currentFrame]) {
+                bool isSingleSheet =
+                    (activeClip->frameWidth > 0.0f && activeClip->frameHeight > 0.0f) ||
+                    !activeClip->frameData.empty();
+                std::size_t spriteIdx = isSingleSheet ? 0 : animation.currentFrame;
 
-                    auto& texture = animation.sprites[animation.currentFrame]->GetTexture();
-                    auto textureId = static_cast<ImTextureID>(texture.id);
-                    float spriteW = (animation.frameWidth > 0.0f)
-                                        ? animation.frameWidth
-                                        : static_cast<float>(texture.width);
-                    float spriteH = (animation.frameHeight > 0.0f)
-                                        ? animation.frameHeight
-                                        : static_cast<float>(texture.height);
+                if (!animation.sprites.empty() && spriteIdx < animation.sprites.size() &&
+                    animation.sprites[spriteIdx]) {
+                    auto& sprite = animation.sprites[spriteIdx];
+                    const auto& texture = sprite->GetTexture();
+                    raylib::Rectangle src = sprite->GetSourceRect();
 
-                    float scale = std::min((viewportSize.x - 20.0f) / spriteW,
-                                           (viewportSize.y - 20.0f) / spriteH);
-                    ImVec2 displaySize(spriteW * scale, spriteH * scale);
-
-                    ImGui::SetCursorPos(ImVec2((viewportSize.x - displaySize.x) * 0.5f,
-                                               (viewportSize.y - displaySize.y) * 0.5f));
-
-                    ImVec2 uv0(0.0f, 0.0f);
-                    ImVec2 uv1(1.0f, 1.0f);
-
-                    if (animation.frameWidth > 0.0f && animation.frameHeight > 0.0f) {
-                        float texW = static_cast<float>(texture.width);
-                        float texH = static_cast<float>(texture.height);
-
-                        int cols = static_cast<int>(texW / animation.frameWidth);
-                        if (cols > 0) {
-                            int col = static_cast<int>(animation.currentFrame) % cols;
-                            int row = static_cast<int>(animation.currentFrame) / cols;
-
-                            uv0 = ImVec2((col * animation.frameWidth) / texW,
-                                         (row * animation.frameHeight) / texH);
-                            uv1 = ImVec2(((col + 1) * animation.frameWidth) / texW,
-                                         ((row + 1) * animation.frameHeight) / texH);
-                        }
+                    if (!activeClip->frameData.empty() &&
+                        animation.currentFrame < activeClip->frameData.size()) {
+                        src = activeClip->frameData[animation.currentFrame].rect;
+                    } else if (activeClip->frameWidth > 0.0f && activeClip->frameHeight > 0.0f) {
+                        int cols =
+                            std::max(1, static_cast<int>(texture.width / activeClip->frameWidth));
+                        int col = static_cast<int>(animation.currentFrame) % cols;
+                        int row = static_cast<int>(animation.currentFrame) / cols;
+                        src = raylib::Rectangle{static_cast<float>(col * activeClip->frameWidth),
+                                                static_cast<float>(row * activeClip->frameHeight),
+                                                activeClip->frameWidth, activeClip->frameHeight};
                     }
 
                     if (animation.flipX) {
-                        std::swap(uv0.x, uv1.x);
+                        src.width = -std::abs(src.width);
                     }
                     if (animation.flipY) {
-                        std::swap(uv0.y, uv1.y);
+                        src.height = -std::abs(src.height);
                     }
 
-                    ImGui::Image(textureId, displaySize, uv0, uv1);
+                    float spriteW =
+                        std::abs(src.width > 0 ? src.width : static_cast<float>(texture.width));
+                    float spriteH =
+                        std::abs(src.height > 0 ? src.height : static_cast<float>(texture.height));
+
+                    ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+
+                    float maxW = viewportSize.x - 20.0f;
+                    float maxH = viewportSize.y - 20.0f;
+
+                    float scale = std::min(maxW / spriteW, maxH / spriteH);
+                    int targetW = static_cast<int>(spriteW * scale);
+                    int targetH = static_cast<int>(spriteH * scale);
+
+                    ImGui::SetCursorPos(ImVec2((viewportSize.x - targetW) * 0.5f,
+                                               (viewportSize.y - targetH) * 0.5f));
+
+                    if (src.width != 0 && src.height != 0) {
+                        rlImGuiImageRect(&texture, targetW, targetH, src);
+                    } else {
+                        rlImGuiImageSize(&texture, targetW, targetH);
+                    }
+                } else {
+                    ImGui::TextDisabled("No texture loaded for current frame.");
                 }
 
                 ImGui::EndChild();
@@ -118,20 +172,22 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
                     animation.isPlaying = !animation.isPlaying;
                 }
                 ImGui::SameLine();
-                ImGui::Checkbox("Loop", &animation.loop);
+                ImGui::Checkbox("Loop", &activeClip->loop);
 
                 ImGui::Separator();
 
-                ImGui::TextDisabled("FRAMES / SPRITES of the Animation");
-
-                ImGui::BeginChild("SpritesGallery", ImVec2(0, 140.0f), true,
+                ImGui::TextDisabled("TIMELINE / FRAMES");
+                ImGui::BeginChild("SpritesGallery", ImVec2(0, 120.0f), true,
                                   ImGuiWindowFlags_HorizontalScrollbar);
 
-                size_t totalFrameCount =
-                    !animation.frameData.empty()
-                        ? animation.frameData.size()
-                        : (animation.totalFrames > 0 ? animation.totalFrames
-                                                     : animation.sprites.size());
+                size_t totalFrameCount = 0;
+                if (!activeClip->frameData.empty()) {
+                    totalFrameCount = activeClip->frameData.size();
+                } else if (activeClip->totalFrames > 0) {
+                    totalFrameCount = activeClip->totalFrames;
+                } else if (!activeClip->assetPaths.empty()) {
+                    totalFrameCount = activeClip->assetPaths.size();
+                }
 
                 for (size_t i = 0; i < totalFrameCount; ++i) {
                     ImGui::PushID(static_cast<int>(i));
@@ -142,7 +198,7 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
                     }
 
                     std::string frameLabel = "Frame " + std::to_string(i);
-                    if (ImGui::Button(frameLabel.c_str(), ImVec2(90.0f, 90.0f))) {
+                    if (ImGui::Button(frameLabel.c_str(), ImVec2(80.0f, 80.0f))) {
                         animation.currentFrame = i;
                     }
 
@@ -158,67 +214,69 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
 
                 ImGui::Separator();
 
-                ImGui::TextDisabled("Parameters");
-
-                static int selectedAnimIndex = 0;
-                std::string currentAnimName =
-                    (selectedAnimIndex < static_cast<int>(animation.names.size()))
-                        ? animation.names[selectedAnimIndex]
-                        : "None";
-
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 180.0f);
-                if (ImGui::BeginCombo("Active Animation", currentAnimName.c_str())) {
-                    for (int i = 0; i < static_cast<int>(animation.names.size()); ++i) {
-                        const bool isSelected = (selectedAnimIndex == i);
-                        if (ImGui::Selectable(animation.names[i].c_str(), isSelected)) {
-                            selectedAnimIndex = i;
-                        }
-                        if (isSelected) {
-                            ImGui::SetItemDefaultFocus();
-                        }
-                    }
-                    ImGui::EndCombo();
-                }
-
-                ImGui::SameLine();
-
-                if (ImGui::Button("Search", ImVec2(160.0f, 0))) {
+                ImGui::TextDisabled("RESOURCES & FILES");
+                if (ImGui::Button("Browse Sprites...", ImVec2(160.0f, 0))) {
                     std::vector<std::string> selectedFiles =
                         Editor::PickFilesDialog("Select Sprites");
 
                     if (!selectedFiles.empty()) {
-                        animation.assetPaths.insert(animation.assetPaths.end(),
-                                                    selectedFiles.begin(), selectedFiles.end());
-
+                        activeClip->assetPaths = std::move(selectedFiles);
                         animation.sprites.clear();
                         animation.currentFrame = 0;
                         animation.timer = 0.0f;
                     }
                 }
 
-                if (!animation.assetPaths.empty()) {
-                    ImGui::TextWrapped("File: %s", animation.assetPaths[0].c_str());
+                if (!activeClip->assetPaths.empty()) {
+                    ImGui::SameLine();
+                    ImGui::TextWrapped("Source: %s", activeClip->assetPaths[0].c_str());
+                }
+
+                ImGui::Separator();
+                ImGui::TextDisabled("GRID SLICING (UNIFORM SPRITESHEET)");
+
+                bool widthChanged = ImGui::InputFloat("Frame Width (px)", &activeClip->frameWidth,
+                                                      1.0f, 10.0f, "%.0f");
+                bool heightChanged = ImGui::InputFloat(
+                    "Frame Height (px)", &activeClip->frameHeight, 1.0f, 10.0f, "%.0f");
+
+                if (!animation.sprites.empty() && animation.sprites[0]) {
+                    const auto& texture = animation.sprites[0]->GetTexture();
+
+                    if (texture.width > 0 && texture.height > 0 && activeClip->frameWidth > 0.0f &&
+                        activeClip->frameHeight > 0.0f) {
+                        int cols = static_cast<int>(texture.width / activeClip->frameWidth);
+                        int rows = static_cast<int>(texture.height / activeClip->frameHeight);
+                        size_t calculatedFrames = static_cast<size_t>(cols * rows);
+
+                        ImGui::Text("Detected: %d columns x %d rows (%zu total frames)", cols, rows,
+                                    calculatedFrames);
+                        ImGui::SameLine();
+
+                        if (ImGui::Button("Apply Slice") || widthChanged || heightChanged) {
+                            activeClip->totalFrames = calculatedFrames;
+                            animation.currentFrame = 0;
+                        }
+                    }
+                }
+
+                int totalFrames = static_cast<int>(activeClip->totalFrames);
+                if (ImGui::InputInt("Total Frames (0 = manual)", &totalFrames)) {
+                    if (totalFrames >= 0) {
+                        activeClip->totalFrames = static_cast<size_t>(totalFrames);
+                    }
                 }
 
                 ImGui::Separator();
 
-                int currentFrame = static_cast<int>(animation.currentFrame);
-                if (ImGui::InputInt("Actual Frame", &currentFrame)) {
-                    if (currentFrame >= 0 && static_cast<size_t>(currentFrame) < totalFrameCount) {
-                        animation.currentFrame = static_cast<size_t>(currentFrame);
-                    }
-                }
-
-                int totalFrames = static_cast<int>(animation.totalFrames);
-                if (ImGui::InputInt("Total Frames", &totalFrames)) {
-                    if (totalFrames >= 0) {
-                        animation.totalFrames = static_cast<size_t>(totalFrames);
-                    }
-                }
-
-                ImGui::InputFloat("Frame Width", &animation.frameWidth);
-                ImGui::InputFloat("Frame Height", &animation.frameHeight);
-                ImGui::InputFloat("Frame Duration", &animation.frameDuration);
+                ImGui::TextDisabled("ENTITY TRANSFORM PROPERTIES");
+                ImGui::InputFloat("Offset X", &animation.offsetX);
+                ImGui::InputFloat("Offset Y", &animation.offsetY);
+                ImGui::InputFloat("Scale X", &animation.scaleX);
+                ImGui::InputFloat("Scale Y", &animation.scaleY);
+                ImGui::Checkbox("Flip X", &animation.flipX);
+                ImGui::SameLine();
+                ImGui::Checkbox("Flip Y", &animation.flipY);
             }
             ImGui::End();
         }
