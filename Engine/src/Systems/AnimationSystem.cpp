@@ -12,23 +12,23 @@
 
 namespace Engine {
 
-static std::size_t GetAnimationTotalFrames(const Animation& anim, const Sprite* sprite) {
-    if (!anim.frameData.empty()) {
-        return anim.frameData.size();
+static std::size_t GetAnimationTotalFrames(const AnimationClip& clip, const Sprite* sprite) {
+    if (!clip.frameData.empty()) {
+        return clip.frameData.size();
     }
-    if (anim.frameWidth > 0.0f && anim.frameHeight > 0.0f) {
-        if (anim.totalFrames > 0) {
-            return anim.totalFrames;
+    if (clip.frameWidth > 0.0f && clip.frameHeight > 0.0f) {
+        if (clip.totalFrames > 0) {
+            return clip.totalFrames;
         }
         if (sprite) {
-            int cols = static_cast<int>(sprite->GetTexture().width / anim.frameWidth);
-            int rows = static_cast<int>(sprite->GetTexture().height / anim.frameHeight);
+            int cols = static_cast<int>(sprite->GetTexture().width / clip.frameWidth);
+            int rows = static_cast<int>(sprite->GetTexture().height / clip.frameHeight);
             int total = cols * rows;
             return total > 0 ? static_cast<std::size_t>(total) : 1;
         }
         return 1;
     }
-    return anim.assetPaths.size();
+    return clip.assetPaths.size();
 }
 
 void AnimationSystem::Update(Registry& registry, float dt) {
@@ -38,30 +38,31 @@ void AnimationSystem::Update(Registry& registry, float dt) {
 
     auto animArray = registry.GetComponentArray<Animation>();
     for (auto& [entity, anim] : *animArray) {
-        if (!anim.isPlaying || anim.assetPaths.empty() || anim.frameDuration <= 0.0f) {
+        auto* clip = anim.GetCurrentClip();
+        if (!anim.isPlaying || !clip || clip->assetPaths.empty() || clip->frameDuration <= 0.0f) {
             continue;
         }
 
         const Sprite* currentSpritePtr = nullptr;
         if (!anim.sprites.empty()) {
             std::size_t spriteIdx =
-                (anim.frameWidth > 0.0f || !anim.frameData.empty()) ? 0 : anim.currentFrame;
+                (clip->frameWidth > 0.0f || !clip->frameData.empty()) ? 0 : anim.currentFrame;
             if (spriteIdx < anim.sprites.size() && anim.sprites[spriteIdx]) {
                 currentSpritePtr = anim.sprites[spriteIdx].get();
             }
         }
 
-        std::size_t total = GetAnimationTotalFrames(anim, currentSpritePtr);
+        std::size_t total = GetAnimationTotalFrames(*clip, currentSpritePtr);
         if (total <= 1) {
             continue;
         }
 
         anim.timer += dt;
-        while (anim.timer >= anim.frameDuration) {
-            anim.timer -= anim.frameDuration;
+        while (anim.timer >= clip->frameDuration) {
+            anim.timer -= clip->frameDuration;
             if (anim.currentFrame + 1 < total) {
                 anim.currentFrame++;
-            } else if (anim.loop) {
+            } else if (clip->loop) {
                 anim.currentFrame = 0;
             } else {
                 anim.isPlaying = false;
@@ -84,27 +85,29 @@ void AnimationSystem::DrawEntity(Registry& registry, Entity entity) {
     auto& position = registry.GetComponent<Position>(entity);
     auto& anim = registry.GetComponent<Animation>(entity);
 
-    if (anim.assetPaths.empty()) {
+    auto* clip = anim.GetCurrentClip();
+    if (!clip || clip->assetPaths.empty()) {
         return;
     }
 
-    if (anim.sprites.size() != anim.assetPaths.size()) {
-        anim.sprites.resize(anim.assetPaths.size(), nullptr);
+    if (anim.sprites.size() != clip->assetPaths.size()) {
+        anim.sprites.clear();
+        anim.sprites.resize(clip->assetPaths.size(), nullptr);
     }
 
     bool isSingleSheet =
-        (anim.frameWidth > 0.0f && anim.frameHeight > 0.0f) || !anim.frameData.empty();
+        (clip->frameWidth > 0.0f && clip->frameHeight > 0.0f) || !clip->frameData.empty();
     std::size_t assetIdx = isSingleSheet ? 0 : anim.currentFrame;
 
-    if (assetIdx >= anim.assetPaths.size()) {
+    if (assetIdx >= clip->assetPaths.size()) {
         assetIdx = 0;
     }
 
     // Lazy load sprite via AssetManager
-    if (!anim.sprites[assetIdx] && !anim.assetPaths[assetIdx].empty()) {
+    if (!anim.sprites[assetIdx] && !clip->assetPaths[assetIdx].empty()) {
         if (registry.HasResource<AssetManager>()) {
             auto& am = registry.GetResource<AssetManager>();
-            const std::string& path = anim.assetPaths[assetIdx];
+            const std::string& path = clip->assetPaths[assetIdx];
             const std::string resolved = ResolveProjectPath(registry, path).string();
             try {
                 am.LoadSprite(path, resolved);
@@ -135,19 +138,19 @@ void AnimationSystem::DrawEntity(Registry& registry, Entity entity) {
         float pivotOffsetX = 0.0f;
         float pivotOffsetY = 0.0f;
 
-        if (!anim.frameData.empty() && anim.currentFrame < anim.frameData.size()) {
-            const auto& fd = anim.frameData[anim.currentFrame];
+        if (!clip->frameData.empty() && anim.currentFrame < clip->frameData.size()) {
+            const auto& fd = clip->frameData[anim.currentFrame];
             srcRect = fd.rect;
             pivotOffsetX = fd.pivotX;
             pivotOffsetY = fd.pivotY;
-        } else if (anim.frameWidth > 0.0f && anim.frameHeight > 0.0f) {
+        } else if (clip->frameWidth > 0.0f && clip->frameHeight > 0.0f) {
             int textureWidth = currentSprite->GetTexture().width;
-            int cols = std::max(1, static_cast<int>(textureWidth / anim.frameWidth));
+            int cols = std::max(1, static_cast<int>(textureWidth / clip->frameWidth));
             int col = static_cast<int>(anim.currentFrame) % cols;
             int row = static_cast<int>(anim.currentFrame) / cols;
-            srcRect = raylib::Rectangle{static_cast<float>(col * anim.frameWidth),
-                                        static_cast<float>(row * anim.frameHeight), anim.frameWidth,
-                                        anim.frameHeight};
+            srcRect = raylib::Rectangle{static_cast<float>(col * clip->frameWidth),
+                                        static_cast<float>(row * clip->frameHeight),
+                                        clip->frameWidth, clip->frameHeight};
         }
 
         const raylib::Vector2 drawPosition = {position.x + anim.offsetX + pivotOffsetX,

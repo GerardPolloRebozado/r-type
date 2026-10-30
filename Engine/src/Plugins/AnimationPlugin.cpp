@@ -14,7 +14,11 @@ void AnimationPlugin::Init(Registry& registry) {
 
 void AnimationPlugin::AttachToEntity(Registry& registry, Entity entity,
                                      const Animation& animation) {
-    registry.AddComponent(entity, animation);
+    Animation anim = animation;
+    if (anim.currentAnimation.empty() && !anim.clips.empty()) {
+        anim.currentAnimation = anim.clips.begin()->first;
+    }
+    registry.AddComponent(entity, std::move(anim));
     if (!registry.HasComponent<Position>(entity)) {
         registry.AddComponent(entity, Position());
     }

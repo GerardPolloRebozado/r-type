@@ -13,6 +13,7 @@ target_include_directories(EngineHeaders INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/i
 set(SRC_FILES
         src/Assets/AssetManager.cpp
         src/Assets/Sprite.cpp
+        src/components/Animation.cpp
         src/components/ShapeComponent.cpp
         src/Core/Application.cpp
         src/Core/Renderer.cpp
