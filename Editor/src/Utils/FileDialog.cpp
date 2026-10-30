@@ -11,4 +11,15 @@ std::string PickFolderDialog(const std::string& title, const std::string& defaul
     auto dir = pfd::select_folder(title, base).result();
     return dir;
 }
+
+std::vector<std::string> PickFilesDialog(const std::string& title, const std::string& defaultPath) {
+    const std::string base = defaultPath.empty() ? pfd::path::home() : defaultPath;
+
+    auto files = pfd::open_file(title, base, {"Image Files", "*.png *.jpg *.jpeg *.bmp"},
+                                pfd::opt::multiselect)
+                     .result();
+
+    return files;
+}
+
 } // namespace Editor

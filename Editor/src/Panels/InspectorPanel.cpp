@@ -20,6 +20,8 @@
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 
+#include "Plugins/AnimationPluginEditor.hpp"
+
 namespace Editor {
 InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
@@ -33,6 +35,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ScriptPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<AudioPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<AnimationPluginEditor>());
 }
 
 void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {

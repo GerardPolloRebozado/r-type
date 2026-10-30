@@ -13,6 +13,7 @@ target_include_directories(EngineHeaders INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/i
 set(SRC_FILES
         src/Assets/AssetManager.cpp
         src/Assets/Sprite.cpp
+        src/components/Animation.cpp
         src/components/ShapeComponent.cpp
         src/Core/Application.cpp
         src/Core/Renderer.cpp
@@ -34,6 +35,7 @@ set(SRC_FILES
         src/Plugins/RotationPlugin.cpp
         src/Plugins/ShapePlugin.cpp
         src/Plugins/SpritePlugin.cpp
+        src/Plugins/AnimationPlugin.cpp
         src/Plugins/TextPlugin.cpp
         src/Scripting/ScriptPlugin.cpp
         src/Scripting/ScriptSystem.cpp
@@ -64,6 +66,7 @@ set(SRC_FILES
         src/Systems/PositionSystem.cpp
         src/Systems/ShapeSystem.cpp
         src/Systems/SpriteSystem.cpp
+        src/Systems/AnimationSystem.cpp
         src/Systems/SystemExample.cpp
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
