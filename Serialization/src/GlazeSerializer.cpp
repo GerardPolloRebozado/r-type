@@ -92,7 +92,7 @@ GlazeSerializer::EntitySnapshot GlazeSerializer::CaptureEntity(Engine::Registry&
     }
     if (registry.IsComponentRegistered<Engine::Animation>() &&
         registry.HasComponent<Engine::Animation>(entity)) {
-        entitySnapshot.animation = registry.GetComponent<Engine::Animation>(entity);
+        entitySnapshot.animation = registry.RequireComponent<Engine::Animation>(entity);
     }
     // Tests and tools that never register this type must still capture a scene.
     if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
@@ -229,7 +229,8 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
         if (remapCamera && registry.HasComponent<Engine::CameraComponent>(entity)) {
             const auto it = idRemap.find(*entitySnapshot.camera->followTarget);
             if (it != idRemap.end()) {
-                registry.RequireComponent<Engine::CameraComponent>(entity).followTarget = it->second;
+                registry.RequireComponent<Engine::CameraComponent>(entity).followTarget =
+                    it->second;
             }
         }
     }

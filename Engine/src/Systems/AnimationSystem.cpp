@@ -82,8 +82,8 @@ void AnimationSystem::DrawEntity(Registry& registry, Entity entity) {
         return;
     }
 
-    auto& position = registry.GetComponent<Position>(entity);
-    auto& anim = registry.GetComponent<Animation>(entity);
+    auto& position = registry.RequireComponent<Position>(entity);
+    auto& anim = registry.RequireComponent<Animation>(entity);
 
     auto* clip = anim.GetCurrentClip();
     if (!clip || clip->assetPaths.empty()) {
@@ -126,7 +126,7 @@ void AnimationSystem::DrawEntity(Registry& registry, Entity entity) {
             currentSprite->SetScale({anim.scaleX, anim.scaleY});
         }
         if (registry.HasComponent<Rotation>(entity)) {
-            currentSprite->SetRotation(registry.GetComponent<Rotation>(entity).angle);
+            currentSprite->SetRotation(registry.RequireComponent<Rotation>(entity).angle);
         }
         raylib::Color tint = raylib::Color::White();
         tint.a =
