@@ -23,7 +23,7 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
         return false;
     }
 
-    auto& animation = registry.GetComponent<Engine::Animation>(entity);
+    auto& animation = registry.RequireComponent<Engine::Animation>(entity);
     auto isOpen = ImGui::CollapsingHeader((std::string(GetIcon()) + " " + GetName()).c_str(),
                                           ImGuiTreeNodeFlags_DefaultOpen);
 
