@@ -249,7 +249,6 @@ Each test executable prints its failures and returns a non-zero exit code on fai
 
 ## Next steps
 
-- [Your first game in the editor](first-game-editor.md) — create a project and press Play.
-- [Core concepts](concepts.md) — entities, components, systems, resources, and scenes.
-- [Editor tour](editor-tour.md) — a quick walk through the panels.
-- [Building the engine](../engine/building.md) — link Pozzo into your own C++ project.
+- [Your first game in the editor](first-game-editor.md)  -  create a project and press Play.
+- [Core concepts](concepts.md)  -  entities, components, systems, resources, and scenes.
+- [Building the engine](../engine/building.md)  -  link Pozzo into your own C++ project.

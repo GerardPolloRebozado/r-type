@@ -148,24 +148,24 @@ check with `HasComponent<T>()` first.
 
 The built-in components are:
 
-- `Position` — world `x`, `y`, draw layer `z`, previous-frame values, a `moved`
+- `Position`  -  world `x`, `y`, draw layer `z`, previous-frame values, a `moved`
   flag, and a `relative` flag used by hierarchies.
-- `Rotation` — angle in degrees.
-- `Parent` — parent entity ID, used for hierarchies and subtree destruction.
-- `ScreenSpace` — tag that moves rendering from the world pass to the HUD pass.
-- `Name` — optional human-readable name.
-- `SpriteComponent`, `ShapeComponent`, `Text` — renderable data.
-- `ColliderComponent`, `CollisionEvents`, `SignalConnections` — collision and
+- `Rotation`  -  angle in degrees.
+- `Parent`  -  parent entity ID, used for hierarchies and subtree destruction.
+- `ScreenSpace`  -  tag that moves rendering from the world pass to the HUD pass.
+- `Name`  -  optional human-readable name.
+- `SpriteComponent`, `ShapeComponent`, `Text`  -  renderable data.
+- `ColliderComponent`, `CollisionEvents`, `SignalConnections`  -  collision and
   signal data.
-- `CameraComponent` — camera zoom, follow target, shake, and bounds.
-- `Input` — player index and active flag for a controllable entity.
-- `AudioSource` — audio trigger data.
-- `NetworkComponent` — replication metadata.
-- `Opacity` — alpha multiplier with optional inheritance to children.
-- `PrefabInstance` — marks the root of a prefab subtree.
+- `CameraComponent`  -  camera zoom, follow target, shake, and bounds.
+- `Input`  -  player index and active flag for a controllable entity.
+- `AudioSource`  -  audio trigger data.
+- `NetworkComponent`  -  replication metadata.
+- `Opacity`  -  alpha multiplier with optional inheritance to children.
+- `PrefabInstance`  -  marks the root of a prefab subtree.
 
 See [Components](../engine/components.md) and the
-[component reference](../reference/components.md).
+[component reference](../engine/components.md).
 
 ## Editor
 
@@ -185,18 +185,18 @@ settings, and the input map.
 
 The editor is an ImGui docking layout. The main panels are:
 
-- **Hierarchy** — the entity tree, including parent/child structure.
-- **Inspector** — component editing, driven by one `IPluginEditor` per
+- **Hierarchy**  -  the entity tree, including parent/child structure.
+- **Inspector**  -  component editing, driven by one `IPluginEditor` per
   component type.
-- **Scene** — the live scene view, editor camera, selection, and move/rotate
+- **Scene**  -  the live scene view, editor camera, selection, and move/rotate
   gizmos.
-- **Assets** — files in the project folder.
-- **Console** — engine and editor logs.
-- **Connections** — signal connections between entities.
-- **Preview** — isolated previews for assets and prefabs.
-- **Input Map** — action-to-key bindings stored in the scene.
-- **Settings** — scene, window, and build settings.
-- **State** — state groups used by the state tools.
+- **Assets**  -  files in the project folder.
+- **Console**  -  engine and editor logs.
+- **Connections**  -  signal connections between entities.
+- **Preview**  -  isolated previews for assets and prefabs.
+- **Input Map**  -  action-to-key bindings stored in the scene.
+- **Settings**  -  scene, window, and build settings.
+- **State**  -  state groups used by the state tools.
 
 File > Save Scene writes `test.scene` in the project folder. The play button
 saves first, finds the generated game executable, and launches it from the
@@ -425,8 +425,8 @@ own position. See [Prefabs](../editor/prefabs.md).
 Rendering is shared by the game loop and the editor scene view through
 `Engine::RenderScene`. It performs two passes:
 
-1. **World pass** — inside the active camera.
-2. **Screen pass** — in canvas pixels, for entities tagged with `ScreenSpace`
+1. **World pass**  -  inside the active camera.
+2. **Screen pass**  -  in canvas pixels, for entities tagged with `ScreenSpace`
    (HUD, menus).
 
 Within a pass, the engine collects every entity drawn by a
@@ -437,12 +437,12 @@ order for systems that draw on their own.
 
 The built-in renderers are:
 
-- `SpriteSystem` — draws `SpriteComponent` at `Position` plus the sprite offset,
+- `SpriteSystem`  -  draws `SpriteComponent` at `Position` plus the sprite offset,
   applying rotation, scale, flip, and effective opacity.
-- `ShapeSystem` — draws rectangles, circles, polygons, and lines, filled or
+- `ShapeSystem`  -  draws rectangles, circles, polygons, and lines, filled or
   outlined, with rotation.
-- `TextSystem` — draws `Text` with the default or a custom font.
-- `CameraSystem` — follows targets, decays shake, clamps to bounds, and exposes
+- `TextSystem`  -  draws `Text` with the default or a custom font.
+- `CameraSystem`  -  follows targets, decays shake, clamps to bounds, and exposes
   world-to-screen conversions.
 
 A `CameraComponent` uses its entity's `Position` as the world point at the
@@ -472,15 +472,15 @@ scripts on each run.
 
 Important built-in resources include:
 
-- `VirtualResolution` — the fixed game canvas and mouse mapping.
-- `LaunchOptions` — command-line arguments.
-- `ProjectContext` — the local project root used for asset resolution.
-- `AssetManager` — loaded sprites, sounds, music, and fonts.
-- `InputManager` — player ID to controller mapping.
+- `VirtualResolution`  -  the fixed game canvas and mouse mapping.
+- `LaunchOptions`  -  command-line arguments.
+- `ProjectContext`  -  the local project root used for asset resolution.
+- `AssetManager`  -  loaded sprites, sounds, music, and fonts.
+- `InputManager`  -  player ID to controller mapping.
 - `NetworkHostResource`, `PacketRegistryResource`, `PacketRouterResource`,
-  `PlayerInputState`, and `PlayerSlotState` — multiplayer state.
-- `PrefabSpawner` — runtime prefab hook installed by serialization.
-- `State<T>`, `NextState<T>`, and `StateTransitionEvent<T>` — the state-machine
+  `PlayerInputState`, and `PlayerSlotState`  -  multiplayer state.
+- `PrefabSpawner`  -  runtime prefab hook installed by serialization.
+- `State<T>`, `NextState<T>`, and `StateTransitionEvent<T>`  -  the state-machine
   pattern.
 
 The editor adds editor-only resources such as `EditorMode` and `EditorConfig`,
@@ -520,7 +520,7 @@ The generated game loads the project's scene files after initializing the engine
 plugins. Scene loading does not initialize plugins or their component types;
 those must already be registered before deserialization. See
 [Scenes](../editor/scenes.md) and the
-[scene format](../reference/scene-format.md).
+[scene format](../editor/scenes.md).
 
 ## Scripting
 
@@ -567,7 +567,7 @@ stored, connections survive scene saves, loads, and script reloads.
 
 The editor registry has `EditorMode`, so `ScriptSystem` does nothing while you
 are editing. Press Play to run scripts in a real game process. See
-[Scripting](../engine/scripting.md) and the [Lua API](../reference/lua-api.md).
+[Scripting](../engine/scripting.md) and the [Lua API](../lua/index.md).
 
 ## Serialization
 
@@ -595,7 +595,7 @@ References to entities outside the restored subtree are left unchanged. This is
 what makes pasting a subtree or loading a prefab preserve external connections.
 
 Serialization also owns the project-relative path conversion used by assets and
-scripts. See the [scene format](../reference/scene-format.md).
+scripts. See the [scene format](../editor/scenes.md).
 
 ## Systems
 
@@ -631,16 +631,16 @@ movement and timers; do not assume one update per frame.
 
 The built-in systems are:
 
-- `HierarchySystem` — propagates parent motion to relative children.
-- `PositionSystem` — snapshots previous positions and updates the `moved` flag.
-- `SpriteSystem`, `ShapeSystem`, `TextSystem` — layered rendering.
-- `CameraSystem` — follow, shake, bounds, and camera conversion.
-- `CollisionSystem` — SAT overlap tests, resolution, and contact events.
-- `AudioSystem` — consumes audio triggers and updates music streams.
-- `ScriptSystem` — loads and updates Lua scripts.
-- `MultiplayerSystem` — polls the network host each fixed tick.
-- `ReplicationSystem` — spawn, despawn, identity, input, and state snapshots.
-- `StatesSystem<T>` — applies `NextState<T>` transitions.
+- `HierarchySystem`  -  propagates parent motion to relative children.
+- `PositionSystem`  -  snapshots previous positions and updates the `moved` flag.
+- `SpriteSystem`, `ShapeSystem`, `TextSystem`  -  layered rendering.
+- `CameraSystem`  -  follow, shake, bounds, and camera conversion.
+- `CollisionSystem`  -  SAT overlap tests, resolution, and contact events.
+- `AudioSystem`  -  consumes audio triggers and updates music streams.
+- `ScriptSystem`  -  loads and updates Lua scripts.
+- `MultiplayerSystem`  -  polls the network host each fixed tick.
+- `ReplicationSystem`  -  spawn, despawn, identity, input, and state snapshots.
+- `StatesSystem<T>`  -  applies `NextState<T>` transitions.
 
 Systems that draw one entity at a time derive from `LayeredRenderSystem` instead
 of `System` and implement `CanDraw` and `DrawEntity`. That is what lets sprites,
@@ -648,4 +648,4 @@ shapes, and text share one `z`-sorted draw list.
 
 Use `QueueDestroyEntity` for destruction during a system update and let
 `FlushQueues` handle it after the frame. See [Systems](../engine/systems.md) and
-the [system reference](../reference/systems.md).
+the [system reference](../engine/systems.md).

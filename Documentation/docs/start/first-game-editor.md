@@ -40,7 +40,6 @@ The example uses some sprites from [Kenney Assets](https://kenney.nl/assets/pixe
 | Panel | Default position | What it is for |
 |---|---|---|
 | **Hierarchy** | Left | Create, select, rename, copy and parent entities |
-u
 | **Scene** | Center | See the level and drag the selected entity |
 | **Inspector** | Right | Add components and edit their values |
 | **Assets** | Bottom | Browse the project's files |
@@ -78,7 +77,7 @@ lower one.
 ## 4. Give it a collider
 
 1. Right-click the **Inspector** and choose **Add Collider**.
-2. In **Collision Boundary**, set **Width** `44`, **Height** `52` — the size of
+2. In **Collision Boundary**, set **Width** `44`, **Height** `52`  -  the size of
    `player.png`.
 3. Leave **Is Trigger** and **Is Static** off.
 
@@ -94,7 +93,7 @@ collider. Nothing draws it, so the picture and the physics box are independent.
   interact with everything.
 
 ![The Player entity with a sprite and a collider](../assets/screenshots/first-game-editor/03-entity-inspector.png)
-*Screenshot 3 — Name, Sprite path, Position and the Collider's 44 × 52 boundary.*
+*Screenshot 3  -  Name, Sprite path, Position and the Collider's 44 × 52 boundary.*
 
 ## 5. Add a script
 
@@ -159,7 +158,7 @@ The callback names are `onCreate(entity)`, `onUpdate(entity, dt)` and
       and click **Play** again.
 
 ![The Player's script section](../assets/screenshots/first-game-editor/04-script.png)
-*Screenshot 4 — Script Path `scripts/player.lua` and the editor's Not loaded yet status.*
+*Screenshot 4  -  Script Path `scripts/player.lua` and the editor's Not loaded yet status.*
 
 ## 6. Bind the controls
 
@@ -173,7 +172,7 @@ The script asks for named actions, not key codes.
 4. Repeat for `right` → Right arrow. (Add `jump` → Space when you add jumping.)
 
 ![The Input Map](../assets/screenshots/first-game-editor/05-input-map.png)
-*Screenshot 5 — the `left` and `right` actions with their keys.*
+*Screenshot 5  -  the `left` and `right` actions with their keys.*
 
 Action names are **case-sensitive**. `left`, `Left` and `LEFT` are three
 different actions. The Input Map is stored in the scene, but it is baked into
@@ -226,9 +225,8 @@ relative.
 
 ## Next steps
 
-- [Core concepts](concepts.md) — entities, components, systems and scenes.
-- [Lua API reference](../reference/lua-api.md) — every function available to a
+- [Core concepts](concepts.md)  -  entities, components, systems and scenes.
+- [Lua API reference](../lua/index.md)  -  every function available to a
   script.
-- [Lua scripting](../engine/scripting.md) — the script lifecycle and signals.
-- [Editor tour](editor-tour.md) — the other panels and workflows.
-- [Your first game in C++](first-game-engine.md) — when Lua is not enough.
+- [Lua scripting](../engine/scripting.md)  -  the script lifecycle and signals.
+- [Your first game in C++](first-game-engine.md)  -  when Lua is not enough.

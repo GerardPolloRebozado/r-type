@@ -14,7 +14,7 @@ hide:
 <div class="editor-mock" aria-hidden="true">
 <div class="editor-mock__bar">
 <span class="editor-mock__dot"></span><span class="editor-mock__dot"></span><span class="editor-mock__dot"></span>
-<span class="editor-mock__title">RTypeEditor — test.scene</span>
+<span class="editor-mock__title">RTypeEditor  -  test.scene</span>
 <div class="editor-mock__controls">
 <svg class="editor-mock__tool editor-mock__tool--hammer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 <rect x="4" y="4" width="10" height="5" rx="1.5"/>
@@ -68,7 +68,7 @@ hide:
 </div>
 
 <p class="hero-actions" markdown>
-[Get started](start/){ .md-button .md-button--primary }
+[Get started](start/index.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/GerardPolloRebozado/r-type){ .md-button }
 </p>
 
@@ -101,7 +101,7 @@ I'm extending it.
 <div class="tile" markdown>
 I need a reference.
 
-**[I want to look up the API.](reference/index.md)**
+**[I want to look up the API.](lua/index.md)**
 </div>
 
 </div>
@@ -129,7 +129,7 @@ Panels, prefabs, and scene serialization.
 </div>
 
 <div class="doc-card" markdown>
-**[Reference](reference/index.md)**
+**[Reference](lua/index.md)**
 
 Components, systems, file formats, and the generated C++ API.
 </div>

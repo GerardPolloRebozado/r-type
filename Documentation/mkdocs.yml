@@ -6,10 +6,6 @@ repo_name: GerardPolloRebozado/r-type
 edit_uri: edit/main/Documentation/docs/
 copyright: Made with a lot of love.
 
-# Previous documentation, kept for reference while the new structure is written.
-exclude_docs: |
-  old/
-
 theme:
   name: material
   language: en
@@ -104,7 +100,42 @@ nav:
       - Core concepts: start/concepts.md
       - Your first game in the editor: start/first-game-editor.md
       - Your first game in C++: start/first-game-engine.md
-      - Editor tour: start/editor-tour.md
+  - How do I...?:
+      - how-do-i/index.md
+      - Add a HUD: how-do-i/add-a-hud.md
+      - Add a camera: how-do-i/add-a-camera.md
+      - Add audio: how-do-i/add-audio.md
+      - Handle collisions: how-do-i/handle-collisions.md
+      - Switch scenes: how-do-i/switch-scenes.md
+      - Spawn entities at runtime: how-do-i/spawn-entities.md
+      - Add multiplayer: how-do-i/add-multiplayer.md
+      - Set up input mapping: how-do-i/input-mapping.md
+      - Lua cookbook: how-do-i/lua-cookbook.md
+      - Lua lifecycle and debugging: how-do-i/lua-lifecycle-and-debugging.md
+  - Reference:
+      - lua/index.md
+      - Entity: lua/entity.md
+      - Transform: lua/transform.md
+      - Component:
+          - lua/component/index.md
+          - Cross-component query: lua/component/query.md
+          - Sprite: lua/component/sprite.md
+          - Shape: lua/component/shape.md
+          - Text: lua/component/text.md
+          - Collider: lua/component/collider.md
+          - Opacity: lua/component/opacity.md
+          - Parent / Hierarchy: lua/component/parent.md
+          - Connections: lua/component/connections.md
+          - Audio: lua/component/audio.md
+          - Script: lua/component/script.md
+          - findEntityByName: lua/component/find-entity-by-name.md
+      - Input & Controller: lua/input.md
+      - Time: lua/time.md
+      - Scene: lua/scene.md
+      - Log: lua/log.md
+      - Layers: lua/layers.md
+      - Audio: lua/audio.md
+      - Net: lua/net.md
   - Engine:
       - engine/index.md
       - Application: engine/application.md
@@ -151,15 +182,11 @@ nav:
       - Adding components and systems: contributing/adding-components.md
       - Adding editor features: contributing/adding-editor-features.md
       - Style: contributing/style.md
-  - Reference:
-      - reference/index.md
-      - Components: reference/components.md
-      - Systems: reference/systems.md
-      - Scene format: reference/scene-format.md
-      - Lua API: reference/lua-api.md
       - C++ API:
           - Classes: Engine/annotated.md
           - Files: Engine/files.md
           - Namespaces: Engine/namespaces.md
           - Hierarchy: Engine/hierarchy.md
           - Modules: Engine/modules.md
+
+

@@ -68,7 +68,7 @@ h6 {
 }
 
 /* --------------------------------------------------------------------------
-   Light mode — same editor colours, on paper
+   Light mode - same editor colours, on paper
    -------------------------------------------------------------------------- */
 
 body[data-md-color-scheme="default"] {
@@ -180,7 +180,7 @@ body[data-md-color-scheme="default"] h6 {
 }
 
 /* --------------------------------------------------------------------------
-   Footer — a single centered line
+   Footer - a single centered line
    -------------------------------------------------------------------------- */
 
 .md-footer__inner {
@@ -218,7 +218,7 @@ body[data-md-color-scheme="default"] .md-copyright {
 }
 
 /* --------------------------------------------------------------------------
-   Header — quieter bar, centered search
+   Header - quieter bar, centered search
    -------------------------------------------------------------------------- */
 
 .md-header__title {
@@ -739,4 +739,26 @@ body[data-md-color-scheme="default"] .editor-mock__tool {
   .tiles {
     grid-template-columns: 1fr;
   }
+}
+
+/* Tables: allow wrapping at spaces/punctuation first; only break inside a
+   long token as a last resort, and scroll horizontally if still too wide. */
+.md-typeset table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.md-typeset table code {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  hyphens: none;
+}
+
+.md-typeset table td,
+.md-typeset table th {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
