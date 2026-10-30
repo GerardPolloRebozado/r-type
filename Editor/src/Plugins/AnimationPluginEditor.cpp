@@ -194,6 +194,64 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
 
                 ImGui::Separator();
 
+                ImGui::TextDisabled("INDIVIDUAL FRAME LIST MANAGEMENT");
+
+                if (ImGui::Button("Add Single Frame...")) {
+                    auto files = Editor::PickFilesDialog("Select Single Frame");
+                    if (!files.empty()) {
+                        activeClip->assetPaths.push_back(files[0]);
+                        animation.sprites.clear();
+                    }
+                }
+
+                ImGui::BeginChild("FrameListControl", ImVec2(0, 140.0f), true);
+                for (int i = 0; i < static_cast<int>(activeClip->assetPaths.size()); ++i) {
+                    ImGui::PushID(i);
+
+                    bool isSelected = (static_cast<size_t>(i) == animation.currentFrame);
+                    std::string label =
+                        "Frame " + std::to_string(i) + ": " + activeClip->assetPaths[i];
+
+                    if (ImGui::Selectable(
+                            label.c_str(), isSelected, 0,
+                            ImVec2(std::max(1.0f, ImGui::GetContentRegionAvail().x - 40.0f), 0))) {
+                        animation.currentFrame = static_cast<size_t>(i);
+                    }
+
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                        ImGui::SetDragDropPayload("FRAME_REORDER", &i, sizeof(int));
+                        ImGui::Text("Moving Frame %d", i);
+                        ImGui::EndDragDropSource();
+                    }
+
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload =
+                                ImGui::AcceptDragDropPayload("FRAME_REORDER")) {
+                            int sourceIdx = *static_cast<const int*>(payload->Data);
+                            std::swap(activeClip->assetPaths[sourceIdx], activeClip->assetPaths[i]);
+                            animation.sprites.clear();
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("X", ImVec2(30.0f, 0))) {
+                        activeClip->assetPaths.erase(activeClip->assetPaths.begin() + i);
+                        animation.sprites.clear();
+                        if (animation.currentFrame >= activeClip->assetPaths.size() &&
+                            animation.currentFrame > 0) {
+                            animation.currentFrame--;
+                        }
+                        ImGui::PopID();
+                        break;
+                    }
+
+                    ImGui::PopID();
+                }
+                ImGui::EndChild();
+
+                ImGui::Separator();
+
                 ImGui::TextDisabled("TIMELINE / FRAMES");
                 ImGui::BeginChild("SpritesGallery", ImVec2(0, 120.0f), true,
                                   ImGuiWindowFlags_HorizontalScrollbar);
@@ -324,4 +382,5 @@ void AnimationPluginEditor::RemoveComponent(Engine::Entity entity, Engine::Regis
     }
     registry.RemoveComponent<Engine::Animation>(entity);
 }
+
 } // namespace Editor
