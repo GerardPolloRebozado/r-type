@@ -4,10 +4,11 @@
 #include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "EditorConfig.hpp"
+#include "Logging/Logger.hpp"
 #include <algorithm>
+#include <exception>
 #include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
-#include <iostream>
 #include <rlImGui.h>
 #include <string>
 
@@ -48,11 +49,11 @@ void LoadSpriteForComponent(Engine::Registry& registry, Engine::SpriteComponent&
             spr = std::make_shared<Engine::Sprite>(resolvedPath.string());
         }
     } catch (const std::exception& e) {
-        std::cerr << "[SpritePluginEditor] Failed to load sprite: " << resolvedPath.string()
-                  << " - " << e.what() << "\n";
+        log_user_error("[SpritePluginEditor] Failed to load sprite: " + resolvedPath.string() +
+                       " - " + e.what());
     } catch (...) {
-        std::cerr << "[SpritePluginEditor] Failed to load sprite: " << resolvedPath.string()
-                  << " (Unknown Error)\n";
+        log_user_error("[SpritePluginEditor] Failed to load sprite: " + resolvedPath.string() +
+                       " (Unknown Error)");
     }
 
     if (spr) {

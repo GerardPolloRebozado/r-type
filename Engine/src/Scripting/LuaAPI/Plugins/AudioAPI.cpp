@@ -29,7 +29,7 @@ std::shared_ptr<Sound> getOrLoadSound(Registry& registry, const std::string& pat
         assetManager.LoadSound(path, ResolveAssetPath(registry, path).string(), loop);
         return assetManager.GetSound(path);
     } catch (const std::exception& error) {
-        log_error(std::string("[LuaAPI] Sound load failed for '") + path + "': " + error.what());
+        log_user_error(std::string("[LuaAPI] Sound load failed for '") + path + "': " + error.what());
         return nullptr;
     }
 }
@@ -47,7 +47,7 @@ std::shared_ptr<Music> getOrLoadMusic(Registry& registry, const std::string& pat
         assetManager.LoadMusic(path, ResolveAssetPath(registry, path).string(), loop);
         return assetManager.GetMusic(path);
     } catch (const std::exception& error) {
-        log_error(std::string("[LuaAPI] Music load failed for '") + path + "': " + error.what());
+        log_user_error(std::string("[LuaAPI] Music load failed for '") + path + "': " + error.what());
         return nullptr;
     }
 }

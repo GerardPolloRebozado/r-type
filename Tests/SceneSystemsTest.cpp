@@ -77,11 +77,13 @@ int main() {
     {
         // The menu script asks for the level on its first update. Its
         // onDestroy checks it receives both self and the entity.
+        // Probes use log.error: the console buffer keeps user errors only.
+        // log.info stays on the terminal and never reaches TakeScriptLines.
         std::ofstream(project / "menu.lua") << R"(
 local Script = {}
 function Script:onCreate(entity)
     self.entity = entity
-    log.info("[T] menu create " .. tostring(entity))
+    log.error("[T] menu create " .. tostring(entity))
 end
 function Script:onUpdate(entity, dt)
     if not self.asked then
@@ -90,18 +92,18 @@ function Script:onUpdate(entity, dt)
     end
 end
 function Script:onDestroy(entity)
-    log.info("[T] menu destroy " .. tostring(entity) .. " self=" .. tostring(self.entity == entity))
+    log.error("[T] menu destroy " .. tostring(entity) .. " self=" .. tostring(self.entity == entity))
 end
 return Script
 )";
         std::ofstream(project / "level.lua") << R"(
 local Script = {}
 function Script:onCreate(entity)
-    log.info("[T] level create " .. tostring(entity) .. " fresh=" .. tostring(self.entity == nil))
+    log.error("[T] level create " .. tostring(entity) .. " fresh=" .. tostring(self.entity == nil))
     self.entity = entity
 end
 function Script:onDestroy(entity)
-    log.info("[T] level destroy " .. tostring(entity))
+    log.error("[T] level destroy " .. tostring(entity))
 end
 return Script
 )";

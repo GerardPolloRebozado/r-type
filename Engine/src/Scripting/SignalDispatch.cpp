@@ -19,7 +19,7 @@ std::unordered_set<std::string>& WarnedKeys() {
 
 void WarnOnce(const std::string& key, const std::string& message) {
     if (WarnedKeys().insert(key).second) {
-        log_error(message);
+        log_user_error(message);
     }
 }
 
@@ -70,7 +70,7 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
         auto result = fn->call(script.scriptTable, emitter, other);
         if (!result.valid()) {
             sol::error err = result;
-            log_error("[Signals] '" + signal + "' handler '" + connection.method +
+            log_user_error("[Signals] '" + signal + "' handler '" + connection.method +
                       "' error (target " + std::to_string(connection.target) + "): " + err.what());
         }
     }

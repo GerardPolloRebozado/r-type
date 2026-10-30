@@ -4,6 +4,7 @@
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Plugins/ColliderPlugin.hpp"
 #include "Components/SpriteComponent.hpp"
 #include "Core/Renderer.hpp"
 #include "Panels/HierarchyPanel.hpp"
@@ -117,10 +118,8 @@ void SceneRenderer::RenderColliderOverlays(Engine::Registry& registry) {
                                   ? registry.RequireComponent<Engine::Rotation>(entity)
                                   : defaultRot;
 
-            std::optional<Engine::ShapeComponent> shape = col.shape;
-            if (!shape.has_value() && registry.HasComponent<Engine::ShapeComponent>(entity)) {
-                shape = registry.RequireComponent<Engine::ShapeComponent>(entity);
-            }
+            std::optional<Engine::ShapeComponent> shape =
+                Engine::ColliderPlugin::ResolveShape(registry, entity, col);
             if (!shape.has_value()) {
                 continue;
             }

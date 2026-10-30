@@ -13,6 +13,7 @@ target_include_directories(EngineHeaders INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/i
 set(SRC_FILES
         src/Assets/AssetManager.cpp
         src/Assets/Sprite.cpp
+        src/components/Animation.cpp
         src/components/ShapeComponent.cpp
         src/Core/Application.cpp
         src/Core/Renderer.cpp
@@ -21,6 +22,7 @@ set(SRC_FILES
         src/Input/IController.cpp
         src/Input/InputManager.cpp
         src/Logging/LogBuffer.cpp
+        src/Logging/LogWriter.cpp
         src/Plugins/AudioPlugin.cpp
         src/Plugins/CameraPlugin.cpp
         src/Plugins/ColliderPlugin.cpp
@@ -33,6 +35,7 @@ set(SRC_FILES
         src/Plugins/RotationPlugin.cpp
         src/Plugins/ShapePlugin.cpp
         src/Plugins/SpritePlugin.cpp
+        src/Plugins/AnimationPlugin.cpp
         src/Plugins/TextPlugin.cpp
         src/Scripting/ScriptPlugin.cpp
         src/Scripting/ScriptSystem.cpp
@@ -63,6 +66,7 @@ set(SRC_FILES
         src/Systems/PositionSystem.cpp
         src/Systems/ShapeSystem.cpp
         src/Systems/SpriteSystem.cpp
+        src/Systems/AnimationSystem.cpp
         src/Systems/SystemExample.cpp
         src/Systems/TextSystem.cpp
         src/Resources/NetworkHostResource.cpp
@@ -116,6 +120,7 @@ set(INC_FILES
         include/Logging/LogBuffer.hpp
         include/Logging/LogConfig.hpp
         include/Logging/Logger.hpp
+        include/Logging/LogWriter.hpp
         include/Plugins/AudioPlugin.hpp
         include/Plugins/CameraPlugin.hpp
         include/Plugins/ColliderPlugin.hpp
@@ -187,6 +192,10 @@ set(INC_FILES
 
 add_library(Engine STATIC ${SRC_FILES} ${INC_FILES})
 target_link_libraries(Engine PUBLIC EngineHeaders)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    find_package(Threads REQUIRED)
+    target_link_libraries(Engine PUBLIC Threads::Threads)
+endif()
 
 set(ENGINE_LOG_LEVEL "ENGINE_LOG_INFO" CACHE STRING
         "Minimum Engine log level (ENGINE_LOG_ERROR, ENGINE_LOG_DEBUG, ENGINE_LOG_INFO)")

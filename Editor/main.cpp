@@ -29,6 +29,8 @@
 #include "ProjectFile.hpp"
 #include <filesystem>
 
+#include "Plugins/AnimationPlugin.hpp"
+
 using std::string;
 
 void RunEditor(const string& scenePathString) {
@@ -89,6 +91,8 @@ void RunEditor(const string& scenePathString) {
     scriptPlugin.Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;
     cameraPlugin.Init(app.GetRegistry());
+    Engine::AnimationPlugin animation_plugin;
+    animation_plugin.Init(app.GetRegistry());
 
     // This registry is edited, never played
     app.GetRegistry().AddResource<Engine::EditorMode>();

@@ -12,7 +12,7 @@ namespace Engine {
 
 void AudioSystem::WarnMissing(const std::string& assetId, const std::string& reason) {
     if (m_WarnedMissing.insert(assetId).second) {
-        log_error("[AudioSystem] Cannot play '" + assetId + "': " + reason);
+        log_user_error("[AudioSystem] Cannot play '" + assetId + "': " + reason);
     }
 }
 

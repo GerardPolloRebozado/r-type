@@ -50,7 +50,7 @@ void ConsolePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& confi
     }
 
     if (m_Entries.empty()) {
-        ImGui::TextDisabled("No logs yet.");
+        ImGui::TextDisabled("No problems.");
     } else {
         for (std::size_t i = 0; i < m_Entries.size(); ++i) {
             Engine::LogEntry const& entry = m_Entries[i];

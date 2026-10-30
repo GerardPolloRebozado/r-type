@@ -1,9 +1,11 @@
 /**
  * @file LogBuffer.hpp
- * @brief Fixed-size ring of recent engine log lines for the Editor console.
+ * @brief Fixed-size ring of user-facing log lines for the Editor console.
  *
- * Written from @ref emit on the main thread. When the buffer is full, the oldest
- * line is overwritten. The Editor ConsolePanel copies entries out each frame.
+ * @ref emit pushes a line here only for @ref LogAudience::User. Engine diagnostics
+ * stay on the terminal. When the buffer is full, the oldest line is overwritten.
+ * The Editor ConsolePanel copies entries out each frame. The copy lock is released
+ * before the caller draws.
  */
 
 #ifndef ENGINE_LOGGING_LOGBUFFER_HPP_
@@ -11,6 +13,7 @@
 
 #include "Logging/LogConfig.hpp"
 #include <cstddef>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -27,10 +30,10 @@ struct LogEntry {
 
 /**
  * @class LogBuffer
- * @brief Process-wide ring of the most recent log messages.
+ * @brief Process-wide ring of the most recent user error messages.
  *
- * Main thread only: the game loop and the Editor UI share one thread, so this
- * type does not lock. Capacity is fixed; @ref Push drops the oldest line once full.
+ * @ref Push and @ref CopyEntriesInOrder share one mutex. Capacity is fixed;
+ * @ref Push drops the oldest line once full. Engine lines are not stored here.
  */
 class LogBuffer {
   public:
@@ -54,12 +57,13 @@ class LogBuffer {
 
   private:
     std::vector<LogEntry> m_Entries;
+    mutable std::mutex m_Mutex;
     std::size_t m_WriteIndex = 0;
     std::size_t m_Count = 0;
 };
 
 /**
- * @brief The single log ring used by @ref emit and the Editor console.
+ * @brief The user-error ring used by @ref emit and the Editor console.
  */
 LogBuffer& GetLogBuffer();
 
