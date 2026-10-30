@@ -1,9 +1,6 @@
-# Play Multiplayer
+# Multiplayer
 
-The editor is an **authoring tool, not a runtime**: Lua scripts never run inside it, and the
-`MultiplayerPlugin` is not loaded into the editor process. "Play Multiplayer" launches the **real
-game binaries** — one server and N clients — each running the scene you are working on. The editor
-just decides *who to launch* and *with what arguments*; the game processes do the running.
+Preview and test networked scenes.
 
 > **In plain words:** the editor is the drawing board. When you hit **Play Multiplayer**, it starts a
 > referee (the server) and a few players (the clients) as separate windows, all looking at the
@@ -27,12 +24,12 @@ Two places in the editor:
 The toolbar buttons, left to right:
 
 ```
-[ 🔨 Build ]   [ ▶ Play ]   [ 👥 Play Multiplayer ]   (or)   [ ⏹ Stop ]
+[ Build ]   [ Play ]   [ Play Multiplayer ]   (or)   [ Stop ]
 ```
 
-- **▶ Play** launches a single, single-player process.
-- **👥 Play Multiplayer** launches `1 server + N clients`.
-- **⏹ Stop** (replaces the play buttons while games run) kills every launched process.
+- **Play** launches a single, single-player process.
+- **Play Multiplayer** launches `1 server + N clients`.
+- **Stop** (replaces the play buttons while games run) kills every launched process.
 
 ---
 
@@ -49,8 +46,10 @@ The count is capped at **5** because the engine assigns one distinct **color slo
 player (`0`–`4`). The transport also enforces it, so a sixth client is simply refused. Player `N`
 gets color slot `N-1`; in the shipped R-Type project that maps to sprite block `5N-4 .. 5N`.
 
-The server address and port are **not** exposed here yet — a launched client always connects to
+The server address and port are **not** exposed here yet  -  a launched client always connects to
 `127.0.0.1:3000` (see [§8](#8-missing-steps-not-available-yet)).
+
+!!! warning "This will be modified to allow flexibility"
 
 ---
 
@@ -79,7 +78,7 @@ You can type a prefab path or **drag a `.prefab` from the Assets panel** straigh
 
 > A `Client` entity in the scene is a **template**: the server destroys it on startup and spawns one
 > copy per connected player from **Prefab Path**. So you author the player **once**, set the prefab
-> path, and every connection gets its own instance — with its own color slot.
+> path, and every connection gets its own instance  -  with its own color slot.
 
 ---
 
@@ -131,7 +130,7 @@ This is the minimal recipe. It assumes one player prefab and one enemy.
 
 **5. Build, then play.**
 
-- Click **🔨 Build** (Play Multiplayer does **not** build for you — see [§8](#8-missing-steps-not-available-yet)).
+- Click **🔨 Build** (Play Multiplayer does **not** build for you  -  see [§8](#8-missing-steps-not-available-yet)).
 - Set **Client Count** to `2` in Settings.
 - Click **👥 Play Multiplayer**. Two client windows appear and connect; the tail of the server log
   shows the clients connecting.
@@ -156,7 +155,7 @@ controls.
 | Player | `Client` | transform + sprite | one per connection, distinct color slot |
 | Enemy | `Server` | transform (+ sprite if it animates) | exists in the scene on both sides |
 | Bullet / explosion | `Server` | transform + sprite | created at runtime, marked with `Net.replicate` |
-| Walls / background | `Shared` | — | identical everywhere, zero bandwidth |
+| Walls / background | `Shared` |  -  | identical everywhere, zero bandwidth |
 
 ```lua
 -- playerGun.lua: fire and let the engine replicate the bullet
@@ -173,10 +172,10 @@ Same shape as (a) but with free 2D movement and pickups:
 |---|---|---|---|
 | Player | `Client` | transform + sprite | each client controls its own |
 | Pickup | `Server` | transform + sprite | server decides who grabs it |
-| Arena tiles | `Shared` | — | level geometry |
+| Arena tiles | `Shared` |  -  | level geometry |
 
 Because the server owns the pickup, two players reaching it on the same frame resolves
-deterministically — no client gets to "win" by touching first locally.
+deterministically  -  no client gets to "win" by touching first locally.
 
 ### c. Co-op action / physics playground
 
@@ -196,7 +195,7 @@ Net.rpc(leverEntity, "doorOpened", { id = self.doorId })
 
 ### d. Turn-based board / card game
 
-Turn-based games barely need state streaming at all — they need **events**:
+Turn-based games barely need state streaming at all  -  they need **events**:
 
 - Add a `Network` component with **Authority → Client** to each player's hand/avatar, or skip
   replication entirely and use RPCs.
@@ -210,8 +209,8 @@ Turn-based games barely need state streaming at all — they need **events**:
 | Entity | Authority | Sync |
 |---|---|---|
 | Car / athlete | `Client` | transform |
-| Track decorations | `Shared` | — |
-| Checkpoints / finish line | `Server` | — (triggers, resolved server-side) |
+| Track decorations | `Shared` |  -  |
+| Checkpoints / finish line | `Server` |  -  (triggers, resolved server-side) |
 
 The server decides finishing order and lap counts; clients only ever report steering and throttle.
 
@@ -230,18 +229,18 @@ false, so scripts take their single-player branch. You do not maintain two versi
 | Co-op action | players | physics objects | interact |
 | Turn-based | (optional) hands | board, deck | play/end turn |
 | Racing | vehicles | checkpoints | lap |
-| Solitaire-like | — | — | all RPC |
+| Solitaire-like |  -  |  -  | all RPC |
 
 ---
 
 ## 7. Recipes for different genres
 
 Deeper than the sketches above: for each genre, what to tag in the Inspector and the Lua pattern that
-makes it work. Every recipe is **editor + Lua only** — no C++.
+makes it work. Every recipe is **editor + Lua only**  -  no C++.
 
 > Two facts shape all of them. **Only `Position` (+ `Rotation.angle`) and the sprite replicate
 > declaratively**; anything else (health, money, turn, cards) travels as an RPC, or is encoded in a
-> sprite path. And **a Lua script cannot instantiate a `.prefab`** — it builds bare entities with
+> sprite path. And **a Lua script cannot instantiate a `.prefab`**  -  it builds bare entities with
 > `Entity.create()` + `Component.add*`. The workaround: build on the server, then hand a `prefabPath`
 > to `Net.replicate(...)` so *clients* still instantiate the authored prefab (see the
 > [engine TODO](../engine/networking.md#14-todos-and-planned-work)).
@@ -265,13 +264,13 @@ Component.addBoxCollider(e, 24, 24)
 Net.replicate(e, "Server", true, true, "Prefabs/Thing.prefab")
 ```
 
-### 7.1 Pong / air-hockey — real-time, almost no state
+### 7.1 Pong / air-hockey  -  real-time, almost no state
 
 | Entity | Authority | Sync | Notes |
 |---|---|---|---|
 | `Ball` (scene) | Server | Transform | the server moves it in Lua |
 | `Paddle` prefab | Client | Transform | one per connection (slots 0, 1) |
-| Goal / wall | Shared | — | identical everywhere |
+| Goal / wall | Shared |  -  | identical everywhere |
 
 Paddle (server side):
 
@@ -285,19 +284,19 @@ function Paddle:onUpdate(e, dt)
 end
 ```
 
-The ball needs **no networking code at all** — it is `Server` authority, so `syncTransform` carries
+The ball needs **no networking code at all**  -  it is `Server` authority, so `syncTransform` carries
 it to both clients. Score is the only extra state: `Net.broadcast("score", { l = .., r = .. })` on the
 server, `Net.on("score", ...)` on clients.
 
 **Why it fits:** the simplest proof that a moving object "just appears" on every screen.
 
-### 7.2 Top-down arena shooter — bullets, health, respawn
+### 7.2 Top-down arena shooter  -  bullets, health, respawn
 
 | Entity | Authority | Sync | Notes |
 |---|---|---|---|
 | `Player` prefab | Client | Transform + Sprite | color from slot |
 | `Bullet` (runtime) | Server | Transform + Sprite | server builds it; clients get the prefab |
-| Wall | Shared | — | |
+| Wall | Shared |  -  | |
 
 Firing uses the `Net.replicate(..., prefabPath)` pattern. Health is **not** synced, so the server
 announces it:
@@ -310,7 +309,7 @@ Net.onEntityRpc("hurt", function(e, data) self.hp = data.hp; self.flash = 0.2 en
 ```
 
 `player_input` carries the whole set of active action names marked `networked`, so extra actions
-(dash / reload) work on the server too — no extra RPC needed as long as the keybind is networked:
+(dash / reload) work on the server too  -  no extra RPC needed as long as the keybind is networked:
 
 ```lua
 if Net.isServer() and input.DASH then Net.rpc(e, "dash", {}) end
@@ -330,16 +329,16 @@ Component.setOpacity(e, 0)
 **Why it fits:** a twitch shooter with health, respawn and score, from just `Net.replicate` +
 `Net.rpc`.
 
-### 7.3 Co-op platformer — a server-driven world
+### 7.3 Co-op platformer  -  a server-driven world
 
 | Entity | Authority | Sync | Notes |
 |---|---|---|---|
 | `Player` prefab | Client | Transform + Sprite | |
 | `Platform` prefab | Server | Transform | the server animates it in Lua |
 | `Lever` / `Door` | Server | Sprite | sprite swaps on/off; the door slides via a broadcast |
-| Terrain | Shared | — | |
+| Terrain | Shared |  -  | |
 
-Continuous state — the server animates, clients just watch:
+Continuous state  -  the server animates, clients just watch:
 
 ```lua
 function Platform:onUpdate(e, dt)
@@ -349,7 +348,7 @@ function Platform:onUpdate(e, dt)
 end
 ```
 
-Discrete event — a lever is an RPC, not a stream:
+Discrete event  -  a lever is an RPC, not a stream:
 
 ```lua
 -- lever, server
@@ -357,16 +356,16 @@ Component.setSpritePath(e, self.on and ON_IMG or OFF_IMG)
 Net.broadcast("door", { open = self.on })
 ```
 
-**Why it fits:** the two flavours side by side — replicate a transform (continuous) vs. announce an
+**Why it fits:** the two flavours side by side  -  replicate a transform (continuous) vs. announce an
 event (discrete).
 
-### 7.4 Turn-based card / board game — RPCs and sprites
+### 7.4 Turn-based card / board game  -  RPCs and sprites
 
 | Entity | Authority | Sync | Notes |
 |---|---|---|---|
 | `Seat` prefab (invisible) | Client | none | gives each client an identity + slot |
 | `CardSlot` × N | Server | Sprite | the sprite path **is** the card |
-| HUD | none | — | local text per client |
+| HUD | none |  -  | local text per client |
 
 Encode categorical state in the sprite path and let Sync Sprite do the work:
 
@@ -390,15 +389,15 @@ end)
 **Why it fits:** nothing moves, so there is no tick, no interpolation and no cheating surface; the
 server is simply the only rule-keeper.
 
-### 7.5 Co-op horde / tower-defense — many server units + an economy
+### 7.5 Co-op horde / tower-defense  -  many server units + an economy
 
 | Entity | Authority | Sync | Notes |
 |---|---|---|---|
 | `Player` prefab | Client | Transform + Sprite | |
-| `Director` (empty + script) | none | — | the server spawns waves |
+| `Director` (empty + script) | none |  -  | the server spawns waves |
 | `Zombie` (runtime) | Server | Transform + Sprite | `Net.replicate(..., "Prefabs/Zombie.prefab")` |
 | `Tower` (runtime) | Server | Transform | placed via RPC |
-| Path / terrain | Shared | — | |
+| Path / terrain | Shared |  -  | |
 
 The server director spawns a wave:
 
@@ -443,7 +442,7 @@ end)
 | Categorical state without a packet | encode it in the sprite path + Sync Sprite |
 | A per-player identity / color | `Net.playerSlot` / `Net.localEntity` |
 
-### 7.7 Several scenes — lobby → level → results
+### 7.7 Several scenes  -  lobby → level → results
 
 The server decides which scene everyone plays. Call `Scene.load` on the server only; every client
 follows automatically.
@@ -505,7 +504,7 @@ still missing. This list is the honest "what you cannot do yet".
 
 ### Tooling
 
-- **No in-editor play mode** and **no script execution in the editor** (by design — scripts only run
+- **No in-editor play mode** and **no script execution in the editor** (by design  -  scripts only run
   in the launched game).
 - **No network inspector.** There is no panel for peers, bandwidth, packet log or per-entity sync
   rates.
@@ -514,23 +513,23 @@ still missing. This list is the honest "what you cannot do yet".
 
 ### Design constraints (things to design around)
 
-These are not bugs — they are the current shape of the system, and a game has to fit them.
+These are not bugs  -  they are the current shape of the system, and a game has to fit them.
 
 - **One player prefab per scene.** The engine keeps a *single* player prefab path (the first
   `Client`-authority template's **Prefab Path** in the current scene) and destroys every `Client`
   template when the scene loads, so every connection spawns that same prefab. A scene without a
   template keeps the previous scene's prefab. Two different player classes in one scene are not
-  expressible today — give everyone the same prefab and vary look/behaviour per color slot
+  expressible today  -  give everyone the same prefab and vary look/behaviour per color slot
   (`Net.playerSlot`).
 - **No private messages from Lua.** `Net.broadcast` reaches everyone, and Lua cannot turn a player
   entity into its peer to `Net.send` to a single client. Anything a player must not see (a hidden
-  hand, fog of war) cannot be withheld through the API — only by not sending it.
+  hand, fog of war) cannot be withheld through the API  -  only by not sending it.
 - **The input packet is a fixed 5-bit set** (`up/down/left/right/shoot`). Any other button must go
   through an RPC (see §7.2); a sixth input bit is an engine change.
 - **RPC direction is fixed.** A client's RPC goes to the server only; the server's RPC goes to all
   clients.
 - **Two client windows on one machine share one keyboard.** Only the focused window receives key
-  events, so you cannot drive two local clients at once by hand — use two machines, or the automated
+  events, so you cannot drive two local clients at once by hand  -  use two machines, or the automated
   input hook (`RTYPE_TEST_INPUT`, see
   [Engine → Diagnostics](../engine/networking.md#11-diagnostics)).
 
@@ -551,10 +550,10 @@ These are not bugs — they are the current shape of the system, and a game has 
 
 | Symptom | Likely cause / fix |
 |---|---|
-| Clicking **Play Multiplayer** does nothing | The game executable is missing or stale — click **🔨 Build** first. |
+| Clicking **Play Multiplayer** does nothing | The game executable is missing or stale  -  click **🔨 Build** first. |
 | Client windows open but show a frozen scene | The server failed to bind `:3000` (already in use) or the client could not connect. Check the console logs. |
 | Only one player appears | The scene entity is not `Client` authority, or its **Prefab Path** is empty (the server has nothing to spawn). |
-| All players look identical | The color slot is not being read in your player script — use `Net.playerSlot(entity)` (see `player.lua`). |
+| All players look identical | The color slot is not being read in your player script  -  use `Net.playerSlot(entity)` (see `player.lua`). |
 | Changes to scripts don't show up | Rebuild the game, then relaunch; there is no hot reload. |
 | Need to see traffic | Launch a process with `RTYPE_NET_DEBUG=1` and watch its log for per-second input/position lines. |
 | A process lingers after Stop | Stop kills each process group; if a child was launched outside it, kill it manually. |

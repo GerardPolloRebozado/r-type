@@ -46,7 +46,7 @@
 #endif
 
 extern "C" {
-typedef int(__stdcall*WNDENUMPROC)(HWND, LPARAM);
+typedef int(__stdcall* WNDENUMPROC)(HWND, LPARAM);
 __declspec(dllimport) int __stdcall EnumWindows(WNDENUMPROC, LPARAM);
 __declspec(dllimport) int __stdcall IsWindowVisible(HWND);
 __declspec(dllimport) int __stdcall PostMessageA(HWND, UINT, WPARAM, LPARAM);

@@ -101,6 +101,10 @@ Documentation/doxygen_output/
 #Other
 *.png
 
+# Documentation assets (the wildcard above is for generated images)
+!Documentation/docs/assets/screenshots/**/*.png
+!Documentation/docs/assets/first-game-editor/sprites/**/*.png
+
 *.scene
 
 portable-file-dialogs.h

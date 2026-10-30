@@ -28,8 +28,7 @@ void registerPosition(sol::state_view lua, Registry& registry) {
     };
 
     // z is optional: when omitted, the entity keeps its current draw layer.
-    transform["setPosition"] = [&registry](Entity entity, float x, float y,
-                                           sol::optional<int> z) {
+    transform["setPosition"] = [&registry](Entity entity, float x, float y, sol::optional<int> z) {
         if (!registry.HasComponent<Position>(entity)) {
             registry.AddComponent<Position>(entity, Position{x, y, z.value_or(0)});
         } else {
