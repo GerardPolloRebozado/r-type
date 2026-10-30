@@ -169,8 +169,17 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
 
                     ImVec2 spriteCenter(previewItemMin.x + static_cast<float>(targetW) * 0.5f,
                                         previewItemMin.y + static_cast<float>(targetH) * 0.5f);
-                    ImVec2 pivotPos(spriteCenter.x + (animation.offsetX * scale),
-                                    spriteCenter.y + (animation.offsetY * scale));
+
+                    float framePivotX = animation.offsetX;
+                    float framePivotY = animation.offsetY;
+                    if (!activeClip->frameData.empty() &&
+                        animation.currentFrame < activeClip->frameData.size()) {
+                        framePivotX += activeClip->frameData[animation.currentFrame].pivotX;
+                        framePivotY += activeClip->frameData[animation.currentFrame].pivotY;
+                    }
+
+                    ImVec2 pivotPos(spriteCenter.x + (framePivotX * scale),
+                                    spriteCenter.y + (framePivotY * scale));
 
                     float crossSize = 10.0f;
                     drawList->AddLine(ImVec2(pivotPos.x - crossSize, pivotPos.y),
@@ -191,6 +200,140 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
                 }
                 ImGui::SameLine();
                 ImGui::Checkbox("Loop", &activeClip->loop);
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(120.0f);
+                ImGui::InputFloat("Frame Duration (s)", &activeClip->frameDuration, 0.01f, 0.1f,
+                                  "%.3f");
+
+                ImGui::Separator();
+
+                ImGui::TextDisabled("CUSTOM FRAMEDATA CANVAS & EDITOR");
+
+                if (!animation.sprites.empty() && animation.sprites[0]) {
+                    const auto& texture = animation.sprites[0]->GetTexture();
+
+                    ImVec2 canvasSize(ImGui::GetContentRegionAvail().x, 220.0f);
+                    ImGui::BeginChild("CanvasChild", canvasSize, true,
+                                      ImGuiWindowFlags_NoScrollbar);
+
+                    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+                    ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+                    float texW = static_cast<float>(texture.width);
+                    float texH = static_cast<float>(texture.height);
+                    float scale =
+                        std::min((canvasSize.x - 20.0f) / texW, (canvasSize.y - 20.0f) / texH);
+                    int displayW = static_cast<int>(texW * scale);
+                    int displayH = static_cast<int>(texH * scale);
+
+                    ImVec2 offsetPos(
+                        canvasPos.x + (canvasSize.x - static_cast<float>(displayW)) * 0.5f,
+                        canvasPos.y + (canvasSize.y - static_cast<float>(displayH)) * 0.5f);
+
+                    ImGui::SetCursorScreenPos(offsetPos);
+                    rlImGuiImageSize(&texture, displayW, displayH);
+
+                    ImGui::SetCursorScreenPos(offsetPos);
+                    ImGui::InvisibleButton("CanvasOverlay", ImVec2(static_cast<float>(displayW),
+                                                                   static_cast<float>(displayH)));
+
+                    bool isHovered = ImGui::IsItemHovered();
+
+                    drawList->AddRect(offsetPos,
+                                      ImVec2(offsetPos.x + displayW, offsetPos.y + displayH),
+                                      IM_COL32(255, 255, 255, 120));
+
+                    for (size_t idx = 0; idx < activeClip->frameData.size(); ++idx) {
+                        const auto& fd = activeClip->frameData[idx];
+                        ImVec2 pMin(offsetPos.x + fd.rect.x * scale,
+                                    offsetPos.y + fd.rect.y * scale);
+                        ImVec2 pMax(pMin.x + fd.rect.width * scale,
+                                    pMin.y + fd.rect.height * scale);
+
+                        ImU32 color = (idx == animation.currentFrame) ? IM_COL32(0, 255, 0, 255)
+                                                                      : IM_COL32(255, 255, 0, 180);
+                        drawList->AddRect(pMin, pMax, color, 0.0f, 0, 2.0f);
+
+                        ImVec2 pPivot(pMin.x + (fd.rect.width * 0.5f + fd.pivotX) * scale,
+                                      pMin.y + (fd.rect.height * 0.5f + fd.pivotY) * scale);
+                        drawList->AddCircleFilled(pPivot, 2.5f, IM_COL32(255, 0, 0, 255));
+                    }
+
+                    static ImVec2 dragStart(0.0f, 0.0f);
+                    static bool isDragging = false;
+
+                    if (isHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                        dragStart = ImGui::GetIO().MousePos;
+                        isDragging = true;
+                    }
+
+                    if (isDragging) {
+                        ImVec2 dragCurrent = ImGui::GetIO().MousePos;
+                        drawList->AddRect(dragStart, dragCurrent, IM_COL32(255, 0, 0, 255), 0.0f, 0,
+                                          1.5f);
+
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                            isDragging = false;
+
+                            float relX1 =
+                                (std::min(dragStart.x, dragCurrent.x) - offsetPos.x) / scale;
+                            float relY1 =
+                                (std::min(dragStart.y, dragCurrent.y) - offsetPos.y) / scale;
+                            float relW = std::abs(dragCurrent.x - dragStart.x) / scale;
+                            float relH = std::abs(dragCurrent.y - dragStart.y) / scale;
+
+                            if (relW > 4.0f && relH > 4.0f) {
+                                activeClip->frameData.emplace_back(relX1, relY1, relW, relH);
+                                animation.currentFrame = activeClip->frameData.size() - 1;
+                            }
+                        }
+                    }
+
+                    ImGui::EndChild();
+
+                    if (!activeClip->frameData.empty() &&
+                        animation.currentFrame < activeClip->frameData.size()) {
+                        auto& currentFd = activeClip->frameData[animation.currentFrame];
+
+                        ImGui::Text("Editing FrameData [%zu]", animation.currentFrame);
+                        ImGui::SameLine();
+                        if (ImGui::Button("Delete Frame")) {
+                            activeClip->frameData.erase(activeClip->frameData.begin() +
+                                                        animation.currentFrame);
+                            if (animation.currentFrame > 0) {
+                                animation.currentFrame--;
+                            }
+                        }
+                        ImGui::SameLine();
+                        if (ImGui::Button("Clear All Frames")) {
+                            activeClip->frameData.clear();
+                            animation.currentFrame = 0;
+                        }
+
+                        if (!activeClip->frameData.empty()) {
+                            ImGui::SetNextItemWidth(100.0f);
+                            ImGui::InputFloat("X##fdX", &currentFd.rect.x, 1.0f, 10.0f, "%.0f");
+                            ImGui::SameLine();
+                            ImGui::SetNextItemWidth(100.0f);
+                            ImGui::InputFloat("Y##fdY", &currentFd.rect.y, 1.0f, 10.0f, "%.0f");
+                            ImGui::SameLine();
+                            ImGui::SetNextItemWidth(100.0f);
+                            ImGui::InputFloat("W##fdW", &currentFd.rect.width, 1.0f, 10.0f, "%.0f");
+                            ImGui::SameLine();
+                            ImGui::SetNextItemWidth(100.0f);
+                            ImGui::InputFloat("H##fdH", &currentFd.rect.height, 1.0f, 10.0f,
+                                              "%.0f");
+
+                            ImGui::SetNextItemWidth(120.0f);
+                            ImGui::InputFloat("Pivot X##fdPX", &currentFd.pivotX, 1.0f, 5.0f,
+                                              "%.1f");
+                            ImGui::SameLine();
+                            ImGui::SetNextItemWidth(120.0f);
+                            ImGui::InputFloat("Pivot Y##fdPY", &currentFd.pivotY, 1.0f, 5.0f,
+                                              "%.1f");
+                        }
+                    }
+                }
 
                 ImGui::Separator();
 
