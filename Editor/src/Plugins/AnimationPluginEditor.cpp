@@ -68,7 +68,7 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
                 std::string currentAnimName =
                     animation.currentAnimation.empty() ? "None" : animation.currentAnimation;
 
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 120.0f);
+                ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x - 120.0f));
                 if (ImGui::BeginCombo("##ActiveAnimationCombo", currentAnimName.c_str())) {
                     for (const auto& [name, clip] : animation.clips) {
                         const bool isSelected = (animation.currentAnimation == name);
@@ -147,21 +147,39 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
 
                     ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
-                    float maxW = viewportSize.x - 20.0f;
-                    float maxH = viewportSize.y - 20.0f;
+                    float maxW = std::max(1.0f, viewportSize.x - 20.0f);
+                    float maxH = std::max(1.0f, viewportSize.y - 20.0f);
 
                     float scale = std::min(maxW / spriteW, maxH / spriteH);
                     int targetW = static_cast<int>(spriteW * scale);
                     int targetH = static_cast<int>(spriteH * scale);
 
-                    ImGui::SetCursorPos(ImVec2((viewportSize.x - targetW) * 0.5f,
-                                               (viewportSize.y - targetH) * 0.5f));
+                    ImGui::SetCursorPos(
+                        ImVec2((viewportSize.x - static_cast<float>(targetW)) * 0.5f,
+                               (viewportSize.y - static_cast<float>(targetH)) * 0.5f));
+
+                    ImDrawList* drawList = ImGui::GetWindowDrawList();
+                    ImVec2 previewItemMin = ImGui::GetCursorScreenPos();
 
                     if (src.width != 0 && src.height != 0) {
                         rlImGuiImageRect(&texture, targetW, targetH, src);
                     } else {
                         rlImGuiImageSize(&texture, targetW, targetH);
                     }
+
+                    ImVec2 spriteCenter(previewItemMin.x + static_cast<float>(targetW) * 0.5f,
+                                        previewItemMin.y + static_cast<float>(targetH) * 0.5f);
+                    ImVec2 pivotPos(spriteCenter.x + (animation.offsetX * scale),
+                                    spriteCenter.y + (animation.offsetY * scale));
+
+                    float crossSize = 10.0f;
+                    drawList->AddLine(ImVec2(pivotPos.x - crossSize, pivotPos.y),
+                                      ImVec2(pivotPos.x + crossSize, pivotPos.y),
+                                      IM_COL32(255, 0, 0, 255), 2.0f);
+                    drawList->AddLine(ImVec2(pivotPos.x, pivotPos.y - crossSize),
+                                      ImVec2(pivotPos.x, pivotPos.y + crossSize),
+                                      IM_COL32(0, 255, 0, 255), 2.0f);
+                    drawList->AddCircleFilled(pivotPos, 3.0f, IM_COL32(255, 255, 0, 255));
                 } else {
                     ImGui::TextDisabled("No texture loaded for current frame.");
                 }
