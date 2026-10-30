@@ -398,7 +398,7 @@ void PreviewPanel::EnsurePrefabLoaded(Engine::Registry& scene, EditorConfig& con
 
     if (!EntitySubtree::ReadPrefabFile(absolutePath, m_Prefab->fileSnapshots)) {
         m_Prefab->loadFailed = true;
-        log_error("Failed to open prefab preview: " + absolutePath);
+        log_user_error("Failed to open prefab preview: " + absolutePath);
         return;
     }
 

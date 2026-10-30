@@ -55,6 +55,7 @@ nav:
       - ECS Architecture: engine/ecs.md
       - Systems & Components: engine/systems.md
       - Asset Management: engine/assets.md
+      - Logging: engine/logging.md
       - Plugins: engine/plugins.md
       - Text Rendering: engine/text.md
       - Input Management: engine/input.md

@@ -4,6 +4,7 @@
 #include "Components/Name.hpp"
 #include "Components/Position.hpp"
 #include "Components/ShapeComponent.hpp"
+#include "Plugins/ColliderPlugin.hpp"
 #include "Scripting/SignalDispatch.hpp"
 #include <raylib-cpp.hpp>
 #include <raymath.hpp>
@@ -26,12 +27,10 @@ void CollisionSystem::Update(Registry& registry, float) {
         const auto& colA = registry.RequireComponent<ColliderComponent>(a);
         auto& posA = registry.RequireComponent<Position>(a);
         static const Rotation defaultRot{0.0f};
-        const auto& rotA =
-            registry.HasComponent<Rotation>(a) ? registry.RequireComponent<Rotation>(a) : defaultRot;
-        std::optional<ShapeComponent> shapeA = colA.shape;
-        if (!shapeA.has_value() && registry.HasComponent<ShapeComponent>(a)) {
-            shapeA = registry.RequireComponent<ShapeComponent>(a);
-        }
+        const auto& rotA = registry.HasComponent<Rotation>(a)
+                               ? registry.RequireComponent<Rotation>(a)
+                               : defaultRot;
+        std::optional<ShapeComponent> shapeA = ColliderPlugin::ResolveShape(registry, a, colA);
         if (!shapeA.has_value()) {
             continue;
         }
@@ -54,10 +53,7 @@ void CollisionSystem::Update(Registry& registry, float) {
             const auto& rotB = registry.HasComponent<Rotation>(b)
                                    ? registry.RequireComponent<Rotation>(b)
                                    : defaultRot;
-            std::optional<ShapeComponent> shapeB = colB.shape;
-            if (!shapeB.has_value() && registry.HasComponent<ShapeComponent>(b)) {
-                shapeB = registry.RequireComponent<ShapeComponent>(b);
-            }
+            std::optional<ShapeComponent> shapeB = ColliderPlugin::ResolveShape(registry, b, colB);
             if (!shapeB.has_value()) {
                 continue;
             }
@@ -178,7 +174,7 @@ void CollisionSystem::GetCollidableEntities(Registry& registry,
         collidableEntities.reserve(colliders->size());
         for (const auto& [entity, collider] : *colliders) {
             if (collider.enabled && registry.HasComponent<Position>(entity) &&
-                (collider.shape.has_value() || registry.HasComponent<ShapeComponent>(entity))) {
+                ColliderPlugin::ResolveShape(registry, entity, collider).has_value()) {
                 collidableEntities.push_back(entity);
             }
         }
@@ -193,7 +189,7 @@ bool CollisionSystem::IsCollidable(Registry& registry, Entity entity) {
         return false;
     }
     const auto& col = registry.RequireComponent<ColliderComponent>(entity);
-    return col.enabled && (col.shape.has_value() || registry.HasComponent<ShapeComponent>(entity));
+    return col.enabled && ColliderPlugin::ResolveShape(registry, entity, col).has_value();
 }
 
 void CollisionSystem::EnterContact(Registry& registry, Entity a, Entity b, bool isTrigger) {

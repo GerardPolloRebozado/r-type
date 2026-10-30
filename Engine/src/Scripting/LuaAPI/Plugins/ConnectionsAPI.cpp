@@ -21,7 +21,7 @@ void registerConnections(sol::state_view lua, Registry& registry) {
             return false;
         }
         if (!IsKnownSignal(signal)) {
-            log_error("[LuaAPI] Component.connect: unknown signal '" + signal + "'");
+            log_user_error("[LuaAPI] Component.connect: unknown signal '" + signal + "'");
             return false;
         }
         if (method.empty()) {

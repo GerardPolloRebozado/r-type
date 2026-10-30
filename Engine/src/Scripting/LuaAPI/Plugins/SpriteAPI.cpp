@@ -30,7 +30,7 @@ bool loadSpriteTexture(Registry& registry, const std::string& path) {
         am.LoadSprite(path, ResolveAssetPath(registry, path).string());
         return true;
     } catch (const std::exception& e) {
-        log_error(std::string("[LuaAPI] Sprite load failed for '") + path + "': " + e.what());
+        log_user_error(std::string("[LuaAPI] Sprite load failed for '") + path + "': " + e.what());
         return false;
     }
 }

@@ -53,6 +53,7 @@ Application::~Application() {
     if (!m_Config.headless) {
         CloseWindow();
     }
+    ShutdownLogging();
 }
 
 void Application::Run() {

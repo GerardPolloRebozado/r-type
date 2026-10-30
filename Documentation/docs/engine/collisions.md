@@ -35,7 +35,8 @@ Shapes are defined via `Engine::ShapeComponent`:
 Attached to entities that need collision detection.
 
 * `shape`: Optional embedded `ShapeComponent`. If not specified, the system looks for a `ShapeComponent` attached
-  directly to the entity.
+  directly to the entity. If the collider has neither, it is skipped and the editor Console reports it once.
+  That lookup does not throw when the entity has no shape.
 * `enabled`: Set to `false` to disable collision checks without removing components.
 * `isTrigger`: When `true`, designates the entity as a trigger zone.
 * `isStatic`: When `true`, the collider does not move during resolution (wall / floor).
