@@ -14,6 +14,7 @@ struct SceneData {
     std::string sceneName;
     SceneConfig config;
     GlazeSerializer::SceneSnapshot entities;
+    std::vector<Engine::WaveDefinition> waves;
 };
 
 class SceneSerializer {

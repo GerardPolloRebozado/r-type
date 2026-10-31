@@ -2,11 +2,10 @@
 #define SERIALIZATION_SCENECONFIG_HPP_
 
 #include "Core/Application.hpp"
-#include "ECS/Registry.hpp"
 #include "Inputs/IController.hpp"
+#include "Resources/WaveSchedule.hpp"
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace Serialization {
 
@@ -14,7 +13,11 @@ struct SceneConfig : public Engine::ApplicationConfig {
     std::string m_ProjectFolder = ".";
     std::string m_BuildExecutableName = "Game";
     std::string m_BuildWindowTitle = "Game";
+    bool m_BuildDebugSymbols = false;
     std::string m_InitialScenePath;
+
+    /** @brief Enemy waves configured from the editor panel **/
+    std::vector<Engine::WaveDefinition> m_Waves;
 
     int m_MultiplayerClientCount = 2;
     bool m_MultiplayerServerHeadless = false;

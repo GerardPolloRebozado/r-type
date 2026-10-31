@@ -1,9 +1,7 @@
 #include "SceneSerializer.hpp"
-#include "Components/Name.hpp"
 #include "Logging/Logger.hpp"
 #include "RuntimePrefab.hpp"
 #include <filesystem>
-#include <fstream>
 
 namespace Serialization {
 
@@ -17,6 +15,7 @@ void SceneSerializer::Serialize(const std::string& filepath, Engine::Registry& r
     sceneData.sceneName = "Untitled";
     sceneData.config = config;
     sceneData.entities = std::move(snapshot);
+    sceneData.waves = config.m_Waves;
 
     {
         std::error_code ec;
@@ -75,7 +74,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     std::string error;
     if (!m_Serializer.DeserializeFromFile(filepath, sceneData, &error)) {
         log_user_error("Failed to deserialize scene from file: " + filepath +
-                  (error.empty() ? "" : " (" + error + ")"));
+                       (error.empty() ? "" : " (" + error + ")"));
         registerContext(fallbackFolder);
         return false;
     }
@@ -89,6 +88,7 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
         out = sceneData.config;
         out.m_ProjectFolder = localFolder;
         out.m_InitialScenePath = localScene;
+        out.m_Waves = sceneData.waves;
     }
 
     if (!registry.HasResource<ProjectContext>()) {
@@ -120,6 +120,13 @@ bool SceneSerializer::Deserialize(const std::string& filepath, Engine::Registry&
     }
 
     m_Serializer.RestoreScene(registry, sceneData.entities);
+
+    if (!registry.HasResource<Engine::WaveSchedule>()) {
+        registry.AddResource<Engine::WaveSchedule>();
+    }
+    auto& schedule = registry.GetResource<Engine::WaveSchedule>();
+    schedule.waves = sceneData.waves;
+    schedule.spawned.assign(schedule.waves.size(), 0);
 
     return true;
 }

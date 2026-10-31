@@ -147,6 +147,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/ColliderPlugin.hpp\"\n"
             << "#include \"Plugins/CameraPlugin.hpp\"\n"
             << "#include \"Plugins/AnimationPlugin.hpp\"\n"
+            << "#include \"Plugins/WavePlugin.hpp\"\n"
             << "#include \"Scripting/ScriptPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
@@ -196,6 +197,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    cameraPlugin.Init(app.GetRegistry());\n"
             << "    Engine::AnimationPlugin animationPlugin;\n"
             << "    animationPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::WavePlugin wavePlugin;\n"
+            << "    wavePlugin.Init(app.GetRegistry());\n"
             << "    Engine::ScriptPlugin scriptPlugin;\n"
             << "    scriptPlugin.Init(app.GetRegistry());\n"
             << "    Engine::Multiplayer::ReplicationPlugin replicationPlugin;\n"
@@ -222,12 +225,13 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 
     // Only the startup scene is loaded. Other scenes are loaded later with
     // Scene.load(...) from Lua or SceneManager::Load from C++.
-    mainOut << "    // Startup scene: a .scene argument wins (e.g. ./" << cppEscape(exeNameStr)
-            << " Level2.scene),\n"
-            << "    // otherwise the project's startup scene.\n"
-            << "    const std::string startupScene = Serialization::PickStartupScene(config.args, \""
-            << cppEscape(StartupSceneRelativePath(config, projFolder)) << "\");\n"
-            << "    Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);\n";
+    mainOut
+        << "    // Startup scene: a .scene argument wins (e.g. ./" << cppEscape(exeNameStr)
+        << " Level2.scene),\n"
+        << "    // otherwise the project's startup scene.\n"
+        << "    const std::string startupScene = Serialization::PickStartupScene(config.args, \""
+        << cppEscape(StartupSceneRelativePath(config, projFolder)) << "\");\n"
+        << "    Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);\n";
 
     mainOut << "\n    app.Run();\n"
             << "    return 0;\n"
@@ -320,18 +324,26 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         jobs = 1;
     }
     const std::string parallelArgs = " --parallel " + std::to_string(jobs);
+    // Debug builds so dev can use gdb
+    const std::string buildTypeArg = config.m_BuildDebugSymbols ? " -DCMAKE_BUILD_TYPE=Debug" : "";
+#ifdef _WIN32
+    const std::string buildConfigArg =
+        config.m_BuildDebugSymbols ? " --config Debug" : " --config Release";
+#else
+    const std::string buildConfigArg;
+#endif
     // Configure and build are grouped so both outputs (including configure
     // errors such as a missing library) reach the pipe and the Console.
 #ifdef _WIN32
     std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
-                      " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
-                      exeNameStr + "\" --config Release" + parallelArgs +
+                      " -DEDITOR_BUILD=ON" + buildTypeArg + " && cmake --build \"" + buildDir +
+                      "\" --target \"" + exeNameStr + "\"" + buildConfigArg + parallelArgs +
                       ") 2>&1 & cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
 #else
     std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
-                      " -DEDITOR_BUILD=ON && cmake --build \"" + buildDir + "\" --target \"" +
-                      exeNameStr + "\"" + parallelArgs + ") 2>&1; cmake -E rm -f \"" + rootPath +
-                      "/.editor_build.cmake\"";
+                      " -DEDITOR_BUILD=ON" + buildTypeArg + " && cmake --build \"" + buildDir +
+                      "\" --target \"" + exeNameStr + "\"" + buildConfigArg + parallelArgs +
+                      ") 2>&1; cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
 #endif
 
     if (s_BuildThread.joinable()) {
@@ -339,7 +351,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     }
 
     {
-        std::lock_guard<std::mutex> lock(s_BuildMutex);
+        std::lock_guard lock(s_BuildMutex);
         s_BuildReport.reset();
     }
     s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr]() {
@@ -488,6 +500,14 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
         }
         if (ImGui::InputText("Window Title", winTitle.data(), winTitle.size())) {
             config.m_BuildWindowTitle = winTitle.data();
+        }
+
+        // Debug builds pass CMAKE_BUILD_TYPE=Debug so the exported game keeps
+        // its DWARF symbols (-g, no optimization) and can be inspected with gdb.
+        ImGui::Checkbox("Debug Build (gdb symbols)", &config.m_BuildDebugSymbols);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Builds the game with -g (Debug). Use it to debug the "
+                              "exported executable with gdb.");
         }
 
         ImGui::Spacing();

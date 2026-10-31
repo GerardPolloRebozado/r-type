@@ -25,7 +25,7 @@ class EditorLayer {
     void Init();
     void Shutdown();
     void OnUpdate();
-    void OnRenderGame(Engine::Registry& registry);
+    void OnRenderGame(Engine::Registry& registry) const;
 
     // Register a new panel to the editor
     void AddPanel(std::unique_ptr<IEditorPanel> panel);
@@ -68,13 +68,13 @@ class EditorLayer {
     // Saves the current entities to path and makes it the active scene.
     void SaveSceneAs(const std::string& path);
     // Destroys every entity and resets the selection.
-    void ClearScene();
+    void ClearScene() const;
     // Makes path the game's startup scene: writes project.json.
-    void SetStartupScene(const std::string& path);
+    void SetStartupScene(const std::string& path) const;
     bool IsStartupScene(const std::string& path) const;
 
     // Unsaved-changes tracking: JSON of the entities as last loaded/saved.
-    std::string CaptureSceneJson();
+    std::string CaptureSceneJson() const;
     bool HasUnsavedChanges();
     void MarkSceneSaved();
 
