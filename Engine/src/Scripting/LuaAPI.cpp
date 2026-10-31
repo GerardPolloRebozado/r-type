@@ -31,6 +31,7 @@
 #include "Scripting/LuaAPI/Plugins/TextAPI.hpp"
 #include "Scripting/LuaAPI/SceneAPI.hpp"
 #include "Scripting/LuaAPI/TimeAPI.hpp"
+#include "Scripting/LuaAPI/WaveAPI.hpp"
 #include <sol/sol.hpp>
 
 namespace Engine::LuaAPI {
@@ -69,6 +70,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerMultiplayer(lua, registry);
     registerScript(lua, registry);
     registerAudio(lua, registry);
+    registerWave(lua, registry);
 
     // Command-line arguments, published as the Lua global `arg` (1-indexed) so
     // scripts can pick a run mode without any game logic in C++.

@@ -1,6 +1,7 @@
 #include "EditorLayer.hpp"
 #include "EditorStyle.hpp"
 #include "Gallery.hpp"
+#include "Logging/Logger.hpp"
 #include "Panels/AssetsPanel.hpp"
 #include "Panels/ConnectionsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
@@ -11,7 +12,6 @@
 #include "Panels/SceneViewPanel.hpp"
 #include "Panels/ScriptEditorPanel.hpp"
 #include "Panels/SettingsPanel.hpp"
-#include "Logging/Logger.hpp"
 #include "ProjectFile.hpp"
 #include "Resources/PlayerSlotState.hpp"
 #include "SceneSerializer.hpp"
@@ -29,16 +29,15 @@
 #ifdef _WIN32
 #include "Compat/WindowsApi.hpp"
 #else
-#include <signal.h>
+#include <csignal>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
 
 #include "BundledAssets.hpp"
-#include "Gallery.hpp"
 #include "Panels/StatePanel.hpp"
-#include "SceneSerializer.hpp"
+#include "Panels/WavePanel.hpp"
 
 namespace Editor {
 ImFont* g_IconFont = nullptr;
@@ -55,6 +54,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<SettingsPanel>());
     AddPanel(std::make_unique<InputMappingPanel>());
     AddPanel(std::make_unique<StatePanel>());
+    AddPanel(std::make_unique<WavePanel>());
     auto scriptEditor = std::make_unique<ScriptEditorPanel>();
     m_ScriptEditorPanel = scriptEditor.get();
     AddPanel(std::move(scriptEditor));
@@ -87,7 +87,7 @@ void EditorLayer::Init() {
             const_cast<unsigned char*>(BundledAssets::fonts_Inter_Regular_ttf),
             BundledAssets::fonts_Inter_Regular_ttf_size, 16.0f, &font_config);
 
-        static const ImWchar icons_ranges[] = {ICON_MIN_FA, ICON_MAX_16_FA, 0};
+        static constexpr ImWchar icons_ranges[] = {ICON_MIN_FA, ICON_MAX_16_FA, 0};
         ImFontConfig icons_config;
         icons_config.MergeMode = true;
         icons_config.PixelSnapH = true;
@@ -153,10 +153,10 @@ void EditorLayer::OnUpdate() {
     InspectorPanel* inspector = nullptr;
 
     for (auto& panel : m_Panels) {
-        if (auto h = dynamic_cast<HierarchyPanel*>(panel.get())) {
+        if (const auto h = dynamic_cast<HierarchyPanel*>(panel.get())) {
             hierarchy = h;
         }
-        if (auto i = dynamic_cast<InspectorPanel*>(panel.get())) {
+        if (const auto i = dynamic_cast<InspectorPanel*>(panel.get())) {
             inspector = i;
         }
     }
@@ -195,8 +195,8 @@ bool EditorLayer::SaveActiveScene() {
     if (!m_Registry || !m_Configuration || m_Configuration->m_ActiveScenePath.empty()) {
         return false;
     }
-    const fs::path scenePath = ResolveProjectPath(m_Configuration->m_ProjectFolder,
-                                                  m_Configuration->m_ActiveScenePath);
+    const fs::path scenePath =
+        ResolveProjectPath(m_Configuration->m_ProjectFolder, m_Configuration->m_ActiveScenePath);
     std::error_code error;
     fs::create_directories(scenePath.parent_path(), error);
     Serialization::SceneSerializer serializer;
@@ -209,8 +209,8 @@ std::string EditorLayer::ActiveSceneRelativePath() const {
     if (!m_Configuration || m_Configuration->m_ActiveScenePath.empty()) {
         return "";
     }
-    const fs::path scenePath = ResolveProjectPath(m_Configuration->m_ProjectFolder,
-                                                  m_Configuration->m_ActiveScenePath);
+    const fs::path scenePath =
+        ResolveProjectPath(m_Configuration->m_ProjectFolder, m_Configuration->m_ActiveScenePath);
     std::error_code error;
     const fs::path relative =
         fs::relative(scenePath, fs::absolute(m_Configuration->m_ProjectFolder, error), error);
@@ -240,7 +240,7 @@ bool IsSkippedFolder(const fs::path& folder) {
 }
 } // namespace
 
-std::string EditorLayer::CaptureSceneJson() {
+std::string EditorLayer::CaptureSceneJson() const {
     if (!m_Registry) {
         return "";
     }
@@ -261,7 +261,7 @@ bool EditorLayer::HasUnsavedChanges() {
     return CaptureSceneJson() != m_SavedSceneJson;
 }
 
-void EditorLayer::ClearScene() {
+void EditorLayer::ClearScene() const {
     m_Registry->ClearEntities();
     if (m_Registry->HasResource<HierarchyPanelSelectedEntity>()) {
         m_Registry->GetResource<HierarchyPanelSelectedEntity>() = HierarchyPanelSelectedEntity{};
@@ -299,11 +299,11 @@ bool EditorLayer::IsStartupScene(const std::string& path) const {
            SamePath(path, m_Configuration->m_InitialScenePath);
 }
 
-void EditorLayer::SetStartupScene(const std::string& path) {
+void EditorLayer::SetStartupScene(const std::string& path) const {
     const fs::path project = m_Configuration->m_ProjectFolder;
     std::error_code error;
-    const fs::path relative =
-        fs::relative(fs::weakly_canonical(path, error), fs::weakly_canonical(project, error), error);
+    const fs::path relative = fs::relative(fs::weakly_canonical(path, error),
+                                           fs::weakly_canonical(project, error), error);
     const std::string text = relative.generic_string();
     if (error || text.empty() || text.rfind("..", 0) == 0) {
         log_error("[Editor] The startup scene must be inside the project folder: " + path);
@@ -367,11 +367,11 @@ std::vector<std::string> EditorLayer::ListProjectScenes() const {
             scenes.push_back(fs::relative(it->path(), root, error).generic_string());
         }
     }
-    std::sort(scenes.begin(), scenes.end());
+    std::ranges::sort(scenes);
     return scenes;
 }
 
-void EditorLayer::OpenSceneNameDialog(SceneNameDialog dialog, const std::string& folder) {
+void EditorLayer::OpenSceneNameDialog(const SceneNameDialog dialog, const std::string& folder) {
     m_NameDialog = dialog;
     m_NameDialogFolder = folder;
     m_NameDialogError.clear();
@@ -402,8 +402,7 @@ void EditorLayer::HandleSceneRequests() {
         m_Configuration->m_RequestedStartupScene.clear();
     }
     if (!m_Configuration->m_RequestedNewSceneFolder.empty()) {
-        OpenSceneNameDialog(SceneNameDialog::NewScene,
-                            m_Configuration->m_RequestedNewSceneFolder);
+        OpenSceneNameDialog(SceneNameDialog::NewScene, m_Configuration->m_RequestedNewSceneFolder);
         m_Configuration->m_RequestedNewSceneFolder.clear();
     }
 
@@ -500,8 +499,8 @@ void EditorLayer::DrawSceneDialogs() {
         const fs::path folderRelative =
             fs::relative(m_NameDialogFolder, m_Configuration->m_ProjectFolder, error);
         const std::string folderLabel = folderRelative.generic_string();
-        ImGui::Text("Folder: %s", error || folderLabel == "." ? "project root"
-                                                               : folderLabel.c_str());
+        ImGui::Text("Folder: %s",
+                    error || folderLabel == "." ? "project root" : folderLabel.c_str());
         if (ImGui::IsWindowAppearing()) {
             ImGui::SetKeyboardFocusHere();
         }
@@ -586,6 +585,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
         ImGui::DockBuilderDockWindow(ICON_FA_GAMEPAD " Input Map", dock_main_id);
+        ImGui::DockBuilderDockWindow(ICON_FA_GHOST " Waves", dock_main_id);
         ImGui::DockBuilderDockWindow("Preview", dock_main_id);
         ImGui::DockBuilderDockWindow("Script Editor", dock_main_id);
 
@@ -604,6 +604,10 @@ void EditorLayer::BeginDockSpace() {
             InputMappingPanel::s_IsOpen = true;
         }
 
+        if (ImGui::MenuItem("Waves")) {
+            WavePanel::s_IsOpen = true;
+        }
+
         if (ImGui::MenuItem("Settings")) {
             SettingsPanel::s_IsOpen = true;
         }
@@ -616,7 +620,7 @@ void EditorLayer::BeginDockSpace() {
 
         float button_size = 30.0f;
         float spacing = 5.0f;
-        float total_width = (button_size * 2) + spacing;
+        float total_width = button_size * 2 + spacing;
         float center_pos = ImGui::GetWindowWidth() / 2.0f - total_width / 2.0f;
 
         if (ImGui::GetCursorPosX() < center_pos) {
@@ -922,7 +926,7 @@ void EditorLayer::SetConfiguration(EditorConfig& config) {
     }
 }
 
-void EditorLayer::OnRenderGame(Engine::Registry& registry) {
+void EditorLayer::OnRenderGame(Engine::Registry& registry) const {
     for (auto& panel : m_Panels) {
         if (auto sceneView = dynamic_cast<SceneViewPanel*>(panel.get())) {
             if (m_Configuration) {

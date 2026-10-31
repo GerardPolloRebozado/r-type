@@ -1,6 +1,7 @@
 #include "Core/Application.hpp"
 #include "Inputs/Controller.hpp"
 #include "Inputs/InputManager.hpp"
+#include "Plugins/AnimationPlugin.hpp"
 #include "Plugins/AudioPlugin.hpp"
 #include "Plugins/CameraPlugin.hpp"
 #include "Plugins/ColliderPlugin.hpp"
@@ -15,10 +16,11 @@
 #include "Plugins/SignalPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
+#include "Plugins/WavePlugin.hpp"
 #include "SceneFiles.hpp"
 #include "Scripting/ScriptPlugin.hpp"
-#include <string>
 #include <raylib.h>
+#include <string>
 #include <vector>
 
 int main(int argc, char* argv[]) {
@@ -64,6 +66,10 @@ int main(int argc, char* argv[]) {
     audioPlugin.Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;
     cameraPlugin.Init(app.GetRegistry());
+    Engine::AnimationPlugin animationPlugin;
+    animationPlugin.Init(app.GetRegistry());
+    Engine::WavePlugin wavePlugin;
+    wavePlugin.Init(app.GetRegistry());
     Engine::ScriptPlugin scriptPlugin;
     scriptPlugin.Init(app.GetRegistry());
     Engine::Multiplayer::ReplicationPlugin replicationPlugin;

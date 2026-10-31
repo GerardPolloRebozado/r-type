@@ -27,6 +27,7 @@
 #include "Components/Text.hpp"
 #include "Core/Application.hpp"
 #include "Inputs/IController.hpp"
+#include "Resources/WaveSchedule.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <glaze/glaze.hpp>
 #include <raylib.h>
@@ -150,6 +151,13 @@ template <> struct glz::meta<Engine::Animation> {
         &Engine::Animation::offsetX, "offsetY", &Engine::Animation::offsetY, "scaleX",
         &Engine::Animation::scaleX, "scaleY", &Engine::Animation::scaleY, "flipX",
         &Engine::Animation::flipX, "flipY", &Engine::Animation::flipY);
+};
+
+template <> struct glz::meta<Engine::WavePatternType> {
+    static constexpr auto value =
+        enumerate("line", Engine::WavePatternType::Line, "vformation",
+                  Engine::WavePatternType::VFormation, "sine", Engine::WavePatternType::Sine,
+                  "grid", Engine::WavePatternType::Grid, "custom", Engine::WavePatternType::Custom);
 };
 
 #endif // ENGINE_REFLECTION_COMPONENTREFLECT_HPP_

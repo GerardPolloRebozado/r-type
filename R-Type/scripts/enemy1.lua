@@ -71,7 +71,7 @@ function Enemy:onCreate(entity)
 
     Component.setSpritePath(entity, SPRITES[self.frame])
     Component.addBoxCollider(entity, 32, 32)
-    Component.addAudioSource(testEntity, "assets/effects/explosion.mp3", false, false, 1)
+    Component.addAudioSource(entity, "assets/effects/explosion.mp3", false, false, 1)
 
     self.linkIndex = nil
     self.trailKey = nil

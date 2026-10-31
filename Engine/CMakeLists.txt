@@ -37,6 +37,7 @@ set(SRC_FILES
         src/Plugins/SpritePlugin.cpp
         src/Plugins/AnimationPlugin.cpp
         src/Plugins/TextPlugin.cpp
+        src/Plugins/WavePlugin.cpp
         src/Scripting/ScriptPlugin.cpp
         src/Scripting/ScriptSystem.cpp
         src/Scripting/SignalDispatch.cpp
@@ -69,6 +70,7 @@ set(SRC_FILES
         src/Systems/AnimationSystem.cpp
         src/Systems/SystemExample.cpp
         src/Systems/TextSystem.cpp
+        src/Systems/WaveSpawnerSystem.cpp
         src/Resources/NetworkHostResource.cpp
         src/Resources/SceneManager.cpp
         src/Systems/MultiplayerSystem.cpp
@@ -76,6 +78,8 @@ set(SRC_FILES
         src/Scripting/LuaAPI/Plugins/MultiplayerAPI.cpp
         include/Scripting/LuaAPI/Plugins/MultiplayerAPI.hpp
         src/Utils/EntityFlip.cpp
+        src/Utils/WavePatterns.cpp
+        src/Scripting/LuaAPI/WaveAPI.cpp
 )
 
 set(INC_FILES
@@ -139,7 +143,9 @@ set(INC_FILES
         include/Plugins/ShapePlugin.hpp
         include/Plugins/SpritePlugin.hpp
         include/Plugins/TextPlugin.hpp
+        include/Plugins/WavePlugin.hpp
         include/Resources/StateResource.hpp
+        include/Resources/WaveSchedule.hpp
         include/Reflection/ComponentReflect.hpp
         include/Scripting/ScriptComponent.hpp
         include/Scripting/ScriptPlugin.hpp
@@ -175,6 +181,7 @@ set(INC_FILES
         include/Systems/StatesSystem.hpp
         include/Systems/SystemExample.hpp
         include/Systems/TextSystem.hpp
+        include/Systems/WaveSpawnerSystem.hpp
         include/Resources/PacketRouterResource.hpp
         include/Systems/MultiplayerSystem.hpp
         include/Systems/ReplicationSystem.hpp
@@ -188,6 +195,8 @@ set(INC_FILES
         include/Plugins/ReplicationPlugin.hpp
         src/Plugins/MultiplayerPlugin.cpp
         src/Plugins/ReplicationPlugin.cpp
+        include/Utils/WavePatterns.hpp
+        include/Scripting/LuaAPI/WaveAPI.hpp
 )
 
 add_library(Engine STATIC ${SRC_FILES} ${INC_FILES})
