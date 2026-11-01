@@ -31,6 +31,9 @@ local function shouldSimulate()
 end
 
 local function readInput(owner)
+    if Player.active == false then
+        return {}
+    end
     if Net ~= nil and Net.input ~= nil then
         local input = Net.input(owner)
         if input ~= nil then
@@ -60,9 +63,9 @@ local function isOutsideScreen(entity)
 
     local viewport = Camera.viewport()
     return position.x < viewport.x - SCREEN_MARGIN or
-        position.x > viewport.x + viewport.width + SCREEN_MARGIN or
-        position.y < viewport.y - SCREEN_MARGIN or
-        position.y > viewport.y + viewport.height + SCREEN_MARGIN
+            position.x > viewport.x + viewport.width + SCREEN_MARGIN or
+            position.y < viewport.y - SCREEN_MARGIN or
+            position.y > viewport.y + viewport.height + SCREEN_MARGIN
 end
 
 local function destroyProjectiles(self)
