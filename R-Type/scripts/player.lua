@@ -13,6 +13,23 @@
 Player = {}
 
 Player.speed = 500.0
+Player.MAX_LIVES = 3
+Player.RESPAWN_DELAY = 1.0
+Player.INVULNERABILITY_DURATION = 1.0
+Player.states = {}
+Player.remoteStates = {}
+Player.remoteHandlerRegistered = false
+Player.gameOver = false
+Player.gameOverHandlerRegistered = false
+
+local DAMAGE_LAYERS = {
+    Enemy = true,
+    EnemyBullet = true,
+}
+
+local PLAYER_LAYER = "Player"
+local PLAYER_MASK = Layers.bit("Enemy") + Layers.bit("EnemyBullet") +
+    Layers.bit("PlayerBullet") + Layers.bit("Wall")
 
 -- Every player owns a block of 5 sprites, one block per color. The server
 -- assigns each connected client a distinct slot (0-based) and player.lua picks
@@ -62,6 +79,81 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
+local function registerNetworkHandlers()
+    if not isNetworked() then
+        return
+    end
+
+    if not Player.remoteHandlerRegistered then
+        Player.remoteHandlerRegistered = true
+        Net.onEntityRpc("player_damage", function(entity, data)
+            if type(data) ~= "table" then
+                return
+            end
+            Player.remoteStates[entity] = {
+                lives = tonumber(data.lives) or 0,
+                active = data.active == true,
+            }
+        end)
+    end
+
+    if not Player.gameOverHandlerRegistered then
+        Player.gameOverHandlerRegistered = true
+        Net.on("game_over", function()
+            Player.gameOver = true
+        end)
+    end
+end
+
+local function setActive(entity, active)
+    Component.setColliderEnabled(entity, active)
+    Component.setOpacity(entity, active and 1.0 or 0.0, true)
+end
+
+local function playerEntities()
+    local players = {}
+    for _, entity in ipairs(Component.entitiesWith("Collider")) do
+        if Component.getColliderLayerName(entity) == PLAYER_LAYER then
+            table.insert(players, entity)
+        end
+    end
+    return players
+end
+
+local function checkGameOver()
+    if Player.gameOver then
+        return true
+    end
+
+    local players = playerEntities()
+    if #players == 0 then
+        return false
+    end
+
+    for _, entity in ipairs(players) do
+        local state = Player.states[entity]
+        if state == nil or state.lives > 0 then
+            return false
+        end
+    end
+
+    Player.gameOver = true
+    log.info("[player.lua] All players have lost their lives; game over")
+    if isNetworked() then
+        Net.broadcast("game_over", {}, true)
+    end
+    return true
+end
+
+local function notifyDamage(entity, state)
+    if isNetworked() then
+        Net.rpc(entity, "player_damage", {
+            lives = state.lives,
+            active = state.active,
+        })
+    end
+end
+
 -- Prefer the replicated input (server) / local input (client): a set-table
 -- keyed by action name, e.g. { UP = true, SHOOT = true }. Falls back to
 -- the controller in single-player or when Net.input has no data.
@@ -92,18 +184,43 @@ local function readInput(entity)
 end
 
 function Player:onCreate(entity)
+    registerNetworkHandlers()
+    if next(Player.states) == nil then
+        Player.gameOver = false
+    end
+
     self.entity = entity
     self.animDirection = nil
     self.animElapsed = 0.0
     self.slot = ReadSlot(entity)
     self.sprites = SpritesForSlot(self.slot)
     self.currentSprite = nil
+    self.spawnPosition = Transform.getPosition(entity)
+    self.lives = Player.MAX_LIVES
+    self.respawnTimer = 0.0
+    self.invulnerabilityTimer = 0.0
+    self.active = true
+    self.dead = false
+    Player.states[entity] = self
 
     Component.setSpritePath(entity, self.sprites.idle)
     self.currentSprite = self.sprites.idle
+    Component.connect(entity, "onCollisionEnter", entity, "onCollisionEnter")
+    Component.setColliderLayer(entity, PLAYER_LAYER)
+    Component.setColliderMask(entity, PLAYER_MASK)
 end
 
 function Player:onUpdate(entity, dt)
+    local remoteState = Player.remoteStates[entity]
+    if remoteState ~= nil then
+        self.lives = remoteState.lives
+        if remoteState.active ~= self.active then
+            self.active = remoteState.active
+            setActive(entity, self.active)
+        end
+        Player.remoteStates[entity] = nil
+    end
+
     -- Networked client: the server owns position and animation for every
     -- player (including this one). ReplicationSystem applies them.
     if not shouldSimulate() then
@@ -113,6 +230,25 @@ function Player:onUpdate(entity, dt)
     if not dt or dt <= 0 then
         dt = 1.0 / 60.0
     end
+
+    if Player.gameOver then
+        return
+    end
+
+    if not self.active then
+        self.respawnTimer = self.respawnTimer - dt
+        if self.respawnTimer <= 0.0 and self.lives > 0 then
+            self.active = true
+            self.dead = false
+            self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
+            Transform.setPosition(entity, self.spawnPosition.x, self.spawnPosition.y)
+            setActive(entity, true)
+            notifyDamage(entity, self)
+        end
+        return
+    end
+
+    self.invulnerabilityTimer = math.max(0.0, self.invulnerabilityTimer - dt)
 
     -- The slot is assigned by the server around spawn time; refresh in case it
     -- was not known yet on the first tick.
@@ -182,7 +318,35 @@ function Player:collisionTest(one, two)
     log.info("Connection!")
 end
 
+function Player:onCollisionEnter(this, other)
+    if not shouldSimulate() or not self.active or self.invulnerabilityTimer > 0.0 or Player.gameOver then
+        return
+    end
+
+    local layer = Component.getColliderLayerName(other)
+    if not DAMAGE_LAYERS[layer] then
+        return
+    end
+
+    self.lives = math.max(0, self.lives - 1)
+    self.active = false
+    self.dead = self.lives == 0
+    self.respawnTimer = self.dead and 0.0 or Player.RESPAWN_DELAY
+    setActive(this, false)
+    notifyDamage(this, self)
+
+    if layer == "EnemyBullet" then
+        Entity.queueDestroy(other)
+    end
+
+    if self.dead then
+        checkGameOver()
+    end
+end
+
 function Player:onDestroy(entity)
+    Player.states[entity] = nil
+    Player.remoteStates[entity] = nil
     log.info("[player.lua] onDestroy entity " .. tostring(entity))
 end
 

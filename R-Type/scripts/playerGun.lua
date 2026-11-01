@@ -17,6 +17,7 @@ local PROJECTILE_SPRITE = "assets/player/shoot/laserbeam.png"
 local PROJECTILE_SPEED = 1800.0 -- pixels per second
 local PROJECTILE_LIFETIME = 2.0 -- seconds before auto-remove
 local FIRE_COOLDOWN = 0.15 -- seconds between shots
+local SCREEN_MARGIN = 128.0
 
 local function isNetworked()
     return Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked()
@@ -49,6 +50,26 @@ local function isShootDown(entity)
         return false
     end
     return readInput(owner).SHOOT == true
+end
+
+local function isOutsideScreen(entity)
+    local position = Transform.getPosition(entity)
+    if Camera == nil or Camera.viewport == nil then
+        return false
+    end
+
+    local viewport = Camera.viewport()
+    return position.x < viewport.x - SCREEN_MARGIN or
+        position.x > viewport.x + viewport.width + SCREEN_MARGIN or
+        position.y < viewport.y - SCREEN_MARGIN or
+        position.y > viewport.y + viewport.height + SCREEN_MARGIN
+end
+
+local function destroyProjectiles(self)
+    for _, projectile in ipairs(self.projectiles) do
+        Entity.destroy(projectile.entity)
+    end
+    self.projectiles = {}
 end
 
 function Script:onCreate(entity)
@@ -122,7 +143,7 @@ function Script:onUpdate(entity, dt)
         Transform.translate(projEntity, PROJECTILE_SPEED * dt, 0)
 
         proj.timer = proj.timer - dt
-        if proj.timer <= 0 then
+        if proj.timer <= 0 or isOutsideScreen(projEntity) then
             Entity.destroy(projEntity)
             table.remove(self.projectiles, i)
         end
@@ -169,10 +190,7 @@ function Script:onProjectileHit(bullet, other)
 end
 
 function Script:onDestroy(entity)
-    for _, proj in ipairs(self.projectiles) do
-        Entity.destroy(proj.entity)
-    end
-    self.projectiles = {}
+    destroyProjectiles(self)
 end
 
 return Script

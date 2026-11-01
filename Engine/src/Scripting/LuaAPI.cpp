@@ -12,6 +12,7 @@
 #include "Core/LaunchOptions.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
+#include "Scripting/LuaAPI/CameraAPI.hpp"
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
 #include "Scripting/LuaAPI/EntityAPI.hpp"
 #include "Scripting/LuaAPI/LogAPI.hpp"
@@ -53,6 +54,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerTime(lua);
     registerEntity(lua, registry);
     registerComponentQuery(lua, registry);
+    registerCamera(lua, registry);
     registerScene(lua, registry);
 
     // --- One module per Engine plugin ---
