@@ -31,7 +31,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 CPMAddPackage(
         NAME raylib
         GITHUB_REPOSITORY raysan5/raylib
-        GIT_TAG master
+        GIT_TAG 6.2
         OPTIONS
         "BUILD_SHARED_LIBS OFF"
 )
@@ -39,7 +39,7 @@ CPMAddPackage(
 CPMAddPackage(
         NAME raylib-cpp
         GITHUB_REPOSITORY RobLoach/raylib-cpp
-        GIT_TAG master
+        GIT_TAG v6.0.3
 )
 
 # NOTE: pinned to a fixed docking commit (Dear ImGui 1.93.1). The floating

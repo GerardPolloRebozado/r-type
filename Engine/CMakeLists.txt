@@ -45,6 +45,7 @@ set(SRC_FILES
         src/Scripting/LuaAPI/LogAPI.cpp
         src/Scripting/LuaAPI/TimeAPI.cpp
         src/Scripting/LuaAPI/EntityAPI.cpp
+        src/Scripting/LuaAPI/CameraAPI.cpp
         src/Scripting/LuaAPI/ComponentQueryAPI.cpp
         src/Scripting/LuaAPI/SceneAPI.cpp
         src/Scripting/LuaAPI/Plugins/PositionAPI.cpp
@@ -155,6 +156,7 @@ set(INC_FILES
         include/Scripting/LuaAPI/LogAPI.hpp
         include/Scripting/LuaAPI/TimeAPI.hpp
         include/Scripting/LuaAPI/EntityAPI.hpp
+        include/Scripting/LuaAPI/CameraAPI.hpp
         include/Scripting/LuaAPI/ComponentQueryAPI.hpp
         include/Scripting/LuaAPI/SceneAPI.hpp
         include/Scripting/LuaAPI/Plugins/PositionAPI.hpp
