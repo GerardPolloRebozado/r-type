@@ -29,7 +29,7 @@ local DAMAGE_LAYERS = {
 
 local PLAYER_LAYER = "Player"
 local PLAYER_MASK = Layers.bit("Enemy") + Layers.bit("EnemyBullet") +
-    Layers.bit("PlayerBullet") + Layers.bit("Wall")
+        Layers.bit("PlayerBullet") + Layers.bit("Wall")
 
 -- Every player owns a block of 5 sprites, one block per color. The server
 -- assigns each connected client a distinct slot (0-based) and player.lua picks
@@ -195,7 +195,6 @@ function Player:onCreate(entity)
     self.slot = ReadSlot(entity)
     self.sprites = SpritesForSlot(self.slot)
     self.currentSprite = nil
-    self.spawnPosition = Transform.getPosition(entity)
     self.lives = Player.MAX_LIVES
     self.respawnTimer = 0.0
     self.invulnerabilityTimer = 0.0
@@ -237,15 +236,15 @@ function Player:onUpdate(entity, dt)
 
     if not self.active then
         self.respawnTimer = self.respawnTimer - dt
+        local currOpacity = Component.getOpacity(entity)
+        Component.setOpacity(entity, currOpacity == 1.0 and 0.0 or 1.0, true)
         if self.respawnTimer <= 0.0 and self.lives > 0 then
             self.active = true
             self.dead = false
             self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
-            Transform.setPosition(entity, self.spawnPosition.x, self.spawnPosition.y)
             setActive(entity, true)
             notifyDamage(entity, self)
         end
-        return
     end
 
     self.invulnerabilityTimer = math.max(0.0, self.invulnerabilityTimer - dt)
