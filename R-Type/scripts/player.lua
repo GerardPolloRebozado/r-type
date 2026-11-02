@@ -86,8 +86,14 @@ local function registerNetworkHandlers()
 
     if not Player.remoteHandlerRegistered then
         Player.remoteHandlerRegistered = true
-        Net.onEntityRpc("player_damage", function(entity, data)
+        Net.on("player_damage", function(peer, data)
+            print("Updating lives")
             if type(data) ~= "table" then
+                return
+            end
+            print("Updating lives")
+            local entity = Net.entityFromId(data.entityId)
+            if entity == nil then
                 return
             end
             Player.remoteStates[entity] = {
@@ -147,10 +153,11 @@ end
 
 local function notifyDamage(entity, state)
     if isNetworked() then
-        Net.rpc(entity, "player_damage", {
+        Net.broadcast("player_damage", {
+            entityId = Net.networkId(entity),
             lives = state.lives,
             active = state.active,
-        })
+        }, true)
     end
 end
 

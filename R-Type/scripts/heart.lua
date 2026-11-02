@@ -1,7 +1,6 @@
 local Heart = {}
 Heart.entities = {}
 Heart.maxLives = nil
-Heart.lastPlayerLives = nil
 Heart.SPACING = 50
 Heart.STARTING_X = -1300.000
 Heart.STARTING_Y = -500.000
@@ -43,6 +42,9 @@ local function playerLives()
 end
 
 function Heart:onCreate(entity)
+    if isNetworked() and isServer() then
+        return
+    end
     self.entity = entity
     Heart.maxLives = maxLives()
     Heart.lastPlayerLives = Heart.maxLives
@@ -64,6 +66,9 @@ function Heart:createHeart(entity, index)
 end
 
 function Heart:syncHearts(entity, lives)
+    if isNetworked() and isServer() then
+        return
+    end
     for i = Heart.maxLives, 1, -1 do
         if i > lives then
             if Heart.entities[i] ~= nil then
@@ -81,15 +86,7 @@ function Heart:onUpdate(entity, dt)
     if lives == nil then
         return
     end
-    if Heart.lastPlayerLives == nil then
-        Heart.lastPlayerLives = lives
-        return
-    end
-    if lives == Heart.lastPlayerLives then
-        return
-    end
     Heart:syncHearts(entity, lives)
-    Heart.lastPlayerLives = lives
 end
 
 function Heart:onDestroy(entity)
