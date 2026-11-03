@@ -29,3 +29,6 @@ target_link_libraries(ScaffoldRoundTrip PRIVATE Engine Serialization glaze::glaz
 
 add_executable(MultiplayerScenesTest MultiplayerScenesTest.cpp)
 target_link_libraries(MultiplayerScenesTest PRIVATE Engine)
+
+add_executable(ScriptVariableSyncTest ScriptVariableSyncTest.cpp)
+target_link_libraries(ScriptVariableSyncTest PRIVATE Engine)
