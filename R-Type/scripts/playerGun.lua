@@ -12,7 +12,8 @@ local MUZZLE_01 = "assets/player/shoot/muzzleflash_000.png"
 local MUZZLE_02 = "assets/player/shoot/muzzleflash_001.png"
 local FRAME_DURATION = 0.05
 
-local PROJECTILE_SPRITE = "assets/player/shoot/laserbeam.png"
+local SHOOT_SPRITE = "assets/player/shoot/laserbeam.png"
+local SUPER_SHOOT_SPRITE = "assets/player/shoot/megabullet1.png"
 
 local PROJECTILE_SPEED = 1800.0 -- pixels per second
 local PROJECTILE_LIFETIME = 2.0 -- seconds before auto-remove
@@ -106,7 +107,7 @@ function PlayerGun:onUpdate(entity, dt)
     end
 
     local shootInput = self:readInput()
-    local isShooting = shootInput.SHOOT == true
+    local isShooting = shootInput.SHOOT == true or shootInput.SUPER_SHOOT
 
     if isShooting and not self.wasShootDown and not self.firing then
         self.firing = true
@@ -139,8 +140,12 @@ function PlayerGun:onUpdate(entity, dt)
     self.cooldown = math.max(0, self.cooldown - dt)
 
     if isShooting and not self.shootDown and self.cooldown <= 0 then
-        self:fireProjectile()
         self.cooldown = FIRE_COOLDOWN
+        if shootInput.SUPER_SHOOT then
+            self:fireSuperProjectile()
+        else
+            self:fireProjectile()
+        end
     end
 
     self.shootDown = isShooting
@@ -166,7 +171,7 @@ function PlayerGun:fireProjectile()
     local gunPosX = gunPos.x
     local gunPosY = gunPos.y
     Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
-    Component.addSprite(projEntity, PROJECTILE_SPRITE, 0, 0, 4.0, 4.0)
+    Component.addSprite(projEntity, SHOOT_SPRITE, 0, 0, 4.0, 4.0)
     Component.addBoxCollider(projEntity, 32, 32)
 
     Component.setColliderLayer(projEntity, "PlayerBullet")
@@ -188,7 +193,59 @@ function PlayerGun:fireProjectile()
     })
 end
 
+function PlayerGun:fireSuperProjectile()
+    local projEntity = Entity.create()
+
+    local gunPos = Transform.getPosition(self.entity)
+    local gunPosX = gunPos.x
+    local gunPosY = gunPos.y
+    Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
+    Component.addSprite(projEntity, SUPER_SHOOT_SPRITE, 0, 0, 4.0, 4.0)
+    Component.addBoxCollider(projEntity, 32, 32)
+
+    Component.setColliderLayer(projEntity, "PlayerBullet")
+    Component.setColliderMask(projEntity, Layers.bit("Enemy"))
+
+    Component.setOpacity(projEntity, 1.0)
+
+    Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
+
+    -- In multiplayer this assigns a network id and makes ReplicationSystem
+    -- announce the spawn + sync its position/sprite to every client.
+    if isNetworked() then
+        Net.replicate(projEntity, "Server", true, true)
+    end
+
+    table.insert(self.projectiles, {
+        entity = projEntity,
+        timer = PROJECTILE_LIFETIME,
+        hitsRemaining = 3,
+    })
+end
+
 function PlayerGun:onProjectileHit(bullet, other)
+    local projectile
+    for i = #self.projectiles, 1, -1 do
+        if self.projectiles[i].entity == bullet then
+            projectile = self.projectiles[i]
+            break
+        end
+    end
+
+    if projectile == nil then
+        return
+    end
+
+    if projectile.hitsRemaining ~= nil then
+        if Component.getColliderLayerName(other) ~= "Enemy" then
+            return
+        end
+        projectile.hitsRemaining = projectile.hitsRemaining - 1
+        if projectile.hitsRemaining > 0 then
+            return
+        end
+    end
+
     Entity.queueDestroy(bullet)
     for i = #self.projectiles, 1, -1 do
         if self.projectiles[i].entity == bullet then
