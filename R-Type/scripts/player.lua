@@ -87,6 +87,12 @@ local function isLocalPlayer(entity)
     return Net.localEntity ~= nil and Net.localEntity() == entity
 end
 
+local function showGameOver()
+    local textEntity = Entity.find("GameOver")
+    local playerPosition = Transform.getPosition()
+    Component.setOpacity(textEntity, 1.0)
+end
+
 local function registerNetworkHandlers()
     if not isNetworked() then
         return
@@ -96,6 +102,7 @@ local function registerNetworkHandlers()
         Player.gameOverHandlerRegistered = true
         Net.on("game_over", function()
             Player.gameOver = true
+            showGameOver()
         end)
     end
 end
@@ -136,6 +143,8 @@ local function checkGameOver()
     log.info("[player.lua] All players have lost their lives; game over")
     if isNetworked() then
         Net.broadcast("game_over", {}, true)
+    else
+        showGameOver()
     end
     return true
 end
