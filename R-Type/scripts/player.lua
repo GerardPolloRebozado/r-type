@@ -149,27 +149,27 @@ local function checkGameOver()
 end
 
 local function readInput(entity)
-    if Net ~= nil and Net.input ~= nil then
-        local input = Net.input(entity)
-        if input ~= nil then
-            return input
-        end
+    local input = {
+        UP = false,
+        DOWN = false,
+        LEFT = false,
+        RIGHT = false
+    }
+    local netInput = Net.input(entity)
+    if netInput == nil then
+        netInput = input
     end
-    local input = {}
-    if Controller.isActionActive("UP") then
+    if Controller.isActionActive("UP") or netInput.UP then
         input.UP = true
     end
-    if Controller.isActionActive("DOWN") then
+    if Controller.isActionActive("DOWN") or netInput.DOWN then
         input.DOWN = true
     end
-    if Controller.isActionActive("LEFT") then
+    if Controller.isActionActive("LEFT") or netInput.LEFT then
         input.LEFT = true
     end
-    if Controller.isActionActive("RIGHT") then
+    if Controller.isActionActive("RIGHT") or netInput.RIGHT then
         input.RIGHT = true
-    end
-    if Controller.isActionActive("SHOOT") then
-        input.SHOOT = true
     end
     return input
 end

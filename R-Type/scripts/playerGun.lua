@@ -6,7 +6,7 @@
 -- sends its SHOOT bit in the input packet; the server spawns the projectile and
 -- marks it as a replicated runtime entity, so every client sees it.
 
-local Script = {}
+local PlayerGun = {}
 
 local MUZZLE_01 = "assets/player/shoot/muzzleflash_000.png"
 local MUZZLE_02 = "assets/player/shoot/muzzleflash_001.png"
@@ -30,29 +30,47 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
-local function readInput(owner)
+function PlayerGun:readInput(owner)
+    print("Hello im checking if you shoot")
     if Player.active == false then
         return {}
     end
-    if Net ~= nil and Net.input ~= nil then
-        local input = Net.input(owner)
-        if input ~= nil then
-            return input
-        end
+    local input = {
+        SUPER_SHOOT = false,
+        SHOOT = false,
+    }
+    local netInput = Net.input(owner)
+    if netInput == nil then
+        netInput = input
     end
-    local input = {}
-    if Controller.isActionActive("SHOOT") then
-        input.SHOOT = true
+    if Controller.isActionActive("SHOOT") or netInput.SHOOT then
+        self.shootCounter = (self.shootCounter or 0) + 1
+        print("Shoot counter:", self.shootCounter)
+        if self.shootCounter >= 30 then
+            input.SUPER_SHOOT = true
+        else
+            input.SHOOT = true
+        end
+    else
+        print("Shoot counter:", self.shootCounter)
+        if self.shootCounter and self.shootCounter > 0 then
+            if self.shootCounter < 30 then
+                input.SHOOT = true
+            end
+            self.shootCounter = 0
+        end
     end
     return input
 end
 
-local function isShootDown(entity)
+function PlayerGun:isShootDown(entity)
     local owner = Component.getParent(entity)
+    print("Checking if shoot is down for owner:", owner)
     if owner == nil then
         return false
     end
-    return readInput(owner).SHOOT == true
+    local input = self.readInput(owner)
+    return input.SHOOT == true or input.SUPER_SHOOT == true
 end
 
 local function isOutsideScreen(entity)
@@ -75,13 +93,14 @@ local function destroyProjectiles(self)
     self.projectiles = {}
 end
 
-function Script:onCreate(entity)
+function PlayerGun:onCreate(entity)
     self.entity = entity
     self.wasShootDown = false
     self.firing = false
     self.phase = 0
     self.elapsed = 0.0
 
+    self.shootCounter = 0
     self.shootDown = false
     self.cooldown = 0.0
     self.projectiles = {}
@@ -90,7 +109,7 @@ function Script:onCreate(entity)
     Component.setOpacity(entity, 0.0)
 end
 
-function Script:onUpdate(entity, dt)
+function PlayerGun:onUpdate(entity, dt)
     -- Networked client: the server decides when bullets exist.
     if not shouldSimulate() then
         return
@@ -100,7 +119,7 @@ function Script:onUpdate(entity, dt)
         dt = 1.0 / 60.0
     end
 
-    local shootDown = isShootDown(entity)
+    local shootDown = self.isShootDown(entity)
 
     if shootDown and not self.wasShootDown and not self.firing then
         self.firing = true
@@ -153,7 +172,7 @@ function Script:onUpdate(entity, dt)
     end
 end
 
-function Script:fireProjectile()
+function PlayerGun:fireProjectile()
     local projEntity = Entity.create()
 
     local gunPos = Transform.getPosition(self.entity)
@@ -182,7 +201,7 @@ function Script:fireProjectile()
     })
 end
 
-function Script:onProjectileHit(bullet, other)
+function PlayerGun:onProjectileHit(bullet, other)
     Entity.queueDestroy(bullet)
     for i = #self.projectiles, 1, -1 do
         if self.projectiles[i].entity == bullet then
@@ -192,8 +211,8 @@ function Script:onProjectileHit(bullet, other)
     end
 end
 
-function Script:onDestroy(entity)
+function PlayerGun:onDestroy(entity)
     destroyProjectiles(self)
 end
 
-return Script
+return PlayerGun
