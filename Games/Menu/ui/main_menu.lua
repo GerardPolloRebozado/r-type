@@ -1,7 +1,5 @@
 local Menu = UI.use("menu")
 local Settings = UI.use("settings")
-local Confirm = UI.use("confirm")
-local Progress = UI.use("progress")
 
 local Screen = {
     page = "menu",
@@ -17,6 +15,13 @@ function Screen:onOpen(entity)
     self.fullscreen = false
     self.difficulty = 2
     self.name = "Pilot"
+    UI.setTheme({
+        accent = { 1.0, 0.84, 0.16, 1 },
+        panel = { 0, 0, 0, 1 },
+        text = { 0.95, 0.94, 0.90, 1 },
+        rounding = 0,
+        fontScale = 1,
+    })
 end
 
 function Screen:draw(entity)
@@ -75,39 +80,31 @@ function Screen:draw(entity)
     end
 
     if self.page == "confirm" then
-        local choice = Confirm.draw({
-            title = "Quit",
-            message = "Leave the menu demo?",
-            confirmLabel = "Quit",
-            cancelLabel = "Stay",
+        Menu.draw({
+            message = "LEAVE THE GAME?",
+            items = {
+                { label = "QUIT", onClick = function() self.page = "playing" end },
+                { label = "STAY", onClick = function() self.page = "menu" end },
+            },
         })
-        if choice == "confirm" then
-            self.page = "playing"
-        elseif choice == "cancel" then
-            self.page = "menu"
-        end
         return
     end
 
     if self.page == "playing" then
-        local displayW, displayH = ImGui.GetDisplaySize()
-        ImGui.SetNextWindowPos((displayW - 360) * 0.5, (displayH - 180) * 0.5)
-        ImGui.SetNextWindowSize(360, 180)
-        ImGui.Begin("Playing")
-        Progress.draw({ label = "In game", value = self.volume })
-        if ImGui.Button("Back to menu", 180, 36) then
-            self.page = "menu"
-        end
-        ImGui.End()
+        Menu.draw({
+            message = "R-9  LAUNCHED",
+            items = {
+                { label = "BACK", onClick = function() self.page = "menu" end },
+            },
+        })
         return
     end
 
     Menu.draw({
-        title = "R-TYPE",
         items = {
-            { label = "Play", style = "primary", onClick = function() self.page = "playing" end },
-            { label = "Settings", style = "secondary", onClick = function() self.page = "settings" end },
-            { label = "Quit", style = "danger", onClick = function() self.page = "confirm" end },
+            { label = "PLAY", onClick = function() self.page = "playing" end },
+            { label = "SETTINGS", onClick = function() self.page = "settings" end },
+            { label = "QUIT", onClick = function() self.page = "confirm" end },
         },
     })
 end

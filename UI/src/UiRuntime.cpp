@@ -74,24 +74,32 @@ void UiRuntime::EnsureImGui() {
 void UiRuntime::ApplyTheme() {
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = nullptr;
-    ImVec4 border = m_Theme.accent;
+    ImVec4 border{0.73f, 0.66f, 0.48f, 0.90f};
+    ImVec4 frame = m_Theme.panel;
+
+    frame.x = std::min(frame.x + 0.07f, 1.0f);
+    frame.y = std::min(frame.y + 0.06f, 1.0f);
+    frame.z = std::min(frame.z + 0.045f, 1.0f);
+    frame.w = 1.0f;
 
     style.WindowRounding = m_Theme.rounding;
     style.FrameRounding = m_Theme.rounding;
     style.GrabRounding = m_Theme.rounding;
+    style.WindowBorderSize = 0.0f;
+    style.FrameBorderSize = 1.0f;
     style.WindowPadding = ImVec2(18.0f, 16.0f);
-    style.FramePadding = ImVec2(12.0f, 8.0f);
-    style.ItemSpacing = ImVec2(10.0f, 10.0f);
+    style.FramePadding = ImVec2(8.0f, 6.0f);
+    style.ItemSpacing = ImVec2(10.0f, 8.0f);
 
     colors = style.Colors;
-    border.w = 0.35f;
     colors[ImGuiCol_Text] = m_Theme.text;
     colors[ImGuiCol_WindowBg] = m_Theme.panel;
     colors[ImGuiCol_PopupBg] = m_Theme.panel;
     colors[ImGuiCol_Border] = border;
-    colors[ImGuiCol_FrameBg] = ImVec4(0.12f, 0.14f, 0.18f, 1.0f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.22f, 0.28f, 1.0f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.16f, 0.28f, 0.34f, 1.0f);
+    colors[ImGuiCol_Separator] = border;
+    colors[ImGuiCol_FrameBg] = frame;
+    colors[ImGuiCol_FrameBgHovered] = Lighten(frame);
+    colors[ImGuiCol_FrameBgActive] = Lighten(Lighten(frame));
     colors[ImGuiCol_TitleBg] = m_Theme.panel;
     colors[ImGuiCol_TitleBgActive] = m_Theme.panel;
     colors[ImGuiCol_Button] = m_Theme.accent;
