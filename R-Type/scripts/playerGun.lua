@@ -30,8 +30,8 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
-function PlayerGun:readInput(owner)
-    print("Hello im checking if you shoot")
+function PlayerGun:readInput()
+    local owner = Component.getParent(self.entity)
     if Player.active == false then
         return {}
     end
@@ -45,14 +45,10 @@ function PlayerGun:readInput(owner)
     end
     if Controller.isActionActive("SHOOT") or netInput.SHOOT then
         self.shootCounter = (self.shootCounter or 0) + 1
-        print("Shoot counter:", self.shootCounter)
         if self.shootCounter >= 30 then
             input.SUPER_SHOOT = true
-        else
-            input.SHOOT = true
         end
     else
-        print("Shoot counter:", self.shootCounter)
         if self.shootCounter and self.shootCounter > 0 then
             if self.shootCounter < 30 then
                 input.SHOOT = true
@@ -61,16 +57,6 @@ function PlayerGun:readInput(owner)
         end
     end
     return input
-end
-
-function PlayerGun:isShootDown(entity)
-    local owner = Component.getParent(entity)
-    print("Checking if shoot is down for owner:", owner)
-    if owner == nil then
-        return false
-    end
-    local input = self.readInput(owner)
-    return input.SHOOT == true or input.SUPER_SHOOT == true
 end
 
 local function isOutsideScreen(entity)
@@ -119,9 +105,10 @@ function PlayerGun:onUpdate(entity, dt)
         dt = 1.0 / 60.0
     end
 
-    local shootDown = self.isShootDown(entity)
+    local shootInput = self:readInput()
+    local isShooting = shootInput.SHOOT == true
 
-    if shootDown and not self.wasShootDown and not self.firing then
+    if isShooting and not self.wasShootDown and not self.firing then
         self.firing = true
         self.phase = 1
         self.elapsed = 0.0
@@ -130,7 +117,7 @@ function PlayerGun:onUpdate(entity, dt)
         Component.setOpacity(entity, 1.0)
     end
 
-    self.wasShootDown = shootDown
+    self.wasShootDown = isShooting
 
     if self.firing then
         self.elapsed = self.elapsed + dt
@@ -151,12 +138,12 @@ function PlayerGun:onUpdate(entity, dt)
 
     self.cooldown = math.max(0, self.cooldown - dt)
 
-    if shootDown and not self.shootDown and self.cooldown <= 0 then
+    if isShooting and not self.shootDown and self.cooldown <= 0 then
         self:fireProjectile()
         self.cooldown = FIRE_COOLDOWN
     end
 
-    self.shootDown = shootDown
+    self.shootDown = isShooting
 
     for i = #self.projectiles, 1, -1 do
         local proj = self.projectiles[i]
