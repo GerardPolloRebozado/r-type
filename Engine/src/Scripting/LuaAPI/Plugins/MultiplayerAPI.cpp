@@ -15,22 +15,27 @@
 #include "Resources/PacketRouterResource.hpp"
 #include "Resources/PlayerInputState.hpp"
 #include "Resources/PlayerSlotState.hpp"
+#include "Resources/ScriptVariableState.hpp"
 #include "Scripting/LuaAPI/Internal/Helpers.hpp"
+#include "Scripting/LuaAPI/Internal/LuaValue.hpp"
+#include "Scripting/ScriptComponent.hpp"
+#include "Scripting/ScriptVariableSync.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <glaze/glaze.hpp>
 #include <optional>
 #include <set>
 #include <sol/sol.hpp>
 #include <string>
+#include <vector>
 
 namespace Engine::LuaAPI {
 using Multiplayer::NetworkHostResource;
 using Multiplayer::PacketRegistryResource;
 using Multiplayer::PacketRouterResource;
 using Multiplayer::PlayerSlotState;
+using Multiplayer::ScriptVariableState;
 
 PacketRegistryResource* GetPacketRegistry(Registry& registry) {
     return &registry.GetResource<PacketRegistryResource>();
@@ -38,110 +43,6 @@ PacketRegistryResource* GetPacketRegistry(Registry& registry) {
 
 PacketRouterResource* GetPacketRouter(Registry& registry) {
     return &registry.GetResource<PacketRouterResource>();
-}
-
-// Lua tables are dynamic so reflection is not possible, we use the generic glaze serializers to do
-// it
-glz::generic LuaToGeneric(const sol::object& obj, std::set<const void*>& seen, int depth) {
-    glz::generic out{};
-    switch (obj.get_type()) {
-        case sol::type::lua_nil:
-        case sol::type::none:
-            break;
-        case sol::type::boolean:
-            out = obj.as<bool>();
-            break;
-        case sol::type::number:
-            out = obj.as<double>();
-            break;
-        case sol::type::string:
-            out = obj.as<std::string>();
-            break;
-        case sol::type::table: {
-            if (depth > 32) {
-                break; // null on excessive nesting
-            }
-            const sol::table table = obj.as<sol::table>();
-            const void* pointer = table.pointer();
-            if (!seen.insert(pointer).second) {
-                break; // cycle guard -> null
-            }
-            // Array iff keys are exactly 1..N (Lua convention); otherwise an object
-            // with stringified keys (JSON objects only allow string keys).
-            const std::size_t count = table.size();
-            bool isArray = count > 0;
-            for (std::size_t i = 1; i <= count && isArray; ++i) {
-                const sol::object item = table.get<sol::object>(i);
-                if (!item.valid() || item.get_type() == sol::type::lua_nil) {
-                    isArray = false;
-                }
-            }
-            if (isArray) {
-                glz::generic::array_t items;
-                items.reserve(count);
-                for (std::size_t i = 1; i <= count; ++i) {
-                    items.push_back(LuaToGeneric(table.get<sol::object>(i), seen, depth + 1));
-                }
-                out = items;
-            } else {
-                for (const auto& [key, value] : table) {
-                    std::string name;
-                    if (key.is<std::string>()) {
-                        name = key.as<std::string>();
-                    } else if (key.is<int>()) {
-                        name = std::to_string(key.as<int>());
-                    } else if (key.is<double>()) {
-                        name = std::to_string(key.as<double>());
-                    } else if (key.is<bool>()) {
-                        name = key.as<bool>() ? "true" : "false";
-                    } else {
-                        continue;
-                    }
-                    out[name] = LuaToGeneric(value, seen, depth + 1);
-                }
-            }
-            seen.erase(pointer);
-            break;
-        }
-        default:
-            break; // functions, threads, userdata: not serializable -> null
-    }
-    return out;
-}
-
-sol::object GenericToLua(sol::state_view lua, const glz::generic& value) {
-    if (value.is_null()) {
-        return sol::object{};
-    }
-    if (value.is_boolean()) {
-        return sol::make_object(lua, value.get<bool>());
-    }
-    if (value.is_string()) {
-        return sol::make_object(lua, value.get_string());
-    }
-    if (value.is_number()) {
-        const double number = value.get<double>();
-        if (std::floor(number) == number && std::abs(number) <= 9007199254740991.0) {
-            return sol::make_object(lua, static_cast<long long>(number));
-        }
-        return sol::make_object(lua, number);
-    }
-    if (value.is_array()) {
-        sol::table table = lua.create_table();
-        int index = 1;
-        for (const auto& item : value.get_array()) {
-            table[index++] = GenericToLua(lua, item);
-        }
-        return table;
-    }
-    if (value.is_object()) {
-        sol::table table = lua.create_table();
-        for (const auto& entry : value.get_object()) {
-            table[entry.first] = GenericToLua(lua, entry.second);
-        }
-        return table;
-    }
-    return sol::object{};
 }
 
 std::string EncodePayload(const sol::object& data) {
@@ -153,7 +54,7 @@ std::string EncodePayload(const sol::object& data) {
         return data.as<std::string>(); // raw string passthrough (no JSON quoting)
     }
     std::set<const void*> seen;
-    const glz::generic generic = LuaToGeneric(data, seen, 0);
+    const glz::generic generic = Internal::LuaToGeneric(data, seen, 0);
     const auto serialized = glz::write_json(generic);
     if (!serialized) {
         log_error("[Net] Failed to encode packet payload to JSON");
@@ -169,7 +70,7 @@ sol::object DecodePayload(sol::state_view lua, const uint8_t* payload, std::size
     const std::string raw{reinterpret_cast<const char*>(payload), size};
     glz::generic generic{};
     if (!glz::read_json(generic, raw)) {
-        return GenericToLua(lua, generic);
+        return Internal::GenericToLua(lua, generic);
     }
     return sol::make_object(lua, raw); // not JSON: deliver the raw string
 }
@@ -553,6 +454,87 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
     };
 
     /**
+     * Registers Lua fields to replicate with the entity's network state.
+     * Net.sync(entity, self, { "lives", "active" })
+     */
+    net["sync"] = [&registry](const Entity entity, const sol::table& table,
+                              sol::optional<sol::table> fields) -> bool {
+        if (!registry.IsEntityAlive(entity) || !registry.IsComponentRegistered<ScriptComponent>() ||
+            !registry.HasComponent<ScriptComponent>(entity)) {
+            log_user_error("[Net] sync: entity has no script component");
+            return false;
+        }
+        auto& script = registry.RequireComponent<ScriptComponent>(entity);
+        if (!script.loaded || !script.scriptTable.valid() || !table.valid() ||
+            script.scriptTable.pointer() != table.pointer()) {
+            log_user_error("[Net] sync: the table must be the entity's script table (self)");
+            return false;
+        }
+
+        std::vector<std::string> names;
+        auto addField = [&names](const std::string& name) {
+            if (name.empty() || std::ranges::find(names, name) != names.end()) {
+                return;
+            }
+            names.push_back(name);
+        };
+
+        if (fields.has_value() && fields->valid()) {
+            for (const auto& [key, value] : *fields) {
+                (void)key;
+                if (value.is<std::string>()) {
+                    addField(value.as<std::string>());
+                }
+            }
+        } else {
+            // No explicit list: sync serializable fields and skip methods.
+            for (const auto& [key, value] : table) {
+                if (!key.is<std::string>()) {
+                    continue;
+                }
+                const auto type = value.get_type();
+                if (type != sol::type::boolean && type != sol::type::number &&
+                    type != sol::type::string && type != sol::type::table) {
+                    continue;
+                }
+                addField(key.as<std::string>());
+            }
+        }
+
+        if (names.empty()) {
+            log_user_error("[Net] sync: no field names to synchronize");
+            return false;
+        }
+
+        if (!registry.HasResource<ScriptVariableState>()) {
+            registry.AddResource<ScriptVariableState>();
+        }
+        registry.GetResource<ScriptVariableState>().Register(entity, std::move(names));
+
+        // The script may have been created after the first state snapshot: apply
+        // whatever arrived while this entity was not registered yet.
+        if (registry.HasResource<NetworkHostResource>()) {
+            auto& host = registry.GetResource<NetworkHostResource>();
+            if (!host.IsServer()) {
+                if (const auto networkId = host.GetNetworkId(registry, entity);
+                    networkId.has_value()) {
+                    Multiplayer::ResolvePendingScriptVariables(registry, entity, *networkId);
+                }
+            }
+        }
+        return true;
+    };
+
+    /** Stops replicating fields previously registered with Net.sync. */
+    net["unsync"] = [&registry](const Entity entity) -> bool {
+        if (!registry.HasResource<ScriptVariableState>()) {
+            return false;
+        }
+        registry.GetResource<ScriptVariableState>().Remove(entity);
+        return true;
+    };
+
+    /**
      * Marks a runtime entity (bullet, effect, ...) as replicated.
      * Net.replicate(entity, "Server", true, true)
      *
@@ -560,9 +542,9 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
      * announces the spawn and syncs Position/Rotation/Sprite from then on. On
      * a client it only tags the entity (clients never broadcast).
      */
-    net["replicate"] = [&registry](Entity entity, sol::optional<std::string> authority,
-                                   sol::optional<bool> syncTransform,
-                                   sol::optional<bool> syncSprite,
+    net["replicate"] = [&registry](const Entity entity, const sol::optional<std::string>& authority,
+                                   const sol::optional<bool> syncTransform,
+                                   const sol::optional<bool> syncSprite,
                                    sol::optional<std::string> prefabPath) -> bool {
         if (!registry.IsEntityAlive(entity) ||
             !registry.IsComponentRegistered<NetworkComponent>()) {
@@ -588,155 +570,6 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
                 host.TrackNetworkEntity(registry, entity, network.networkId);
             }
         }
-        return true;
-    };
-
-    // Sends a custom message to all other machines about this entity
-    // Usage: entity:rpc("methodName", { arg1 = 1, arg2 = "hello" })
-    net["rpc"] = [&registry](Entity entity, const std::string& method, sol::object data) -> bool {
-        if (!registry.HasResource<NetworkHostResource>() ||
-            !registry.HasResource<PacketRegistryResource>()) {
-            return false;
-        }
-        if (!registry.HasComponent<NetworkComponent>(entity)) {
-            return false;
-        }
-        const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
-        if (netComp.networkId == 0) {
-            return false;
-        }
-
-        auto& host = registry.GetResource<NetworkHostResource>();
-        auto& packetRegistry = registry.GetResource<PacketRegistryResource>();
-
-        // Serialize the RPC payload
-        glz::generic msg{};
-        msg = glz::generic::object_t{};
-        auto& obj = msg.get_object();
-        obj["entityId"] = static_cast<double>(netComp.networkId);
-        obj["method"] = method;
-        std::set<const void*> seen;
-        obj["data"] = LuaToGeneric(data, seen, 0);
-
-        std::string json;
-        if (!glz::write_json(msg, json)) {
-            return false;
-        }
-
-        const auto packetId = packetRegistry.GetOrRegister("entity_rpc");
-        auto* packet = NetworkHostResource::CreateRawPacket(
-            static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-            json.size(), true);
-        if (!packet) {
-            return false;
-        }
-
-        if (host.IsServer()) {
-            host.SendAllHost(packet, 0);
-        } else {
-            host.Send(packet, 0);
-        }
-        return true;
-    };
-
-    // Entity-scoped RPC escape hatch (unreliable)
-    // Same as rpc but sent unreliably (for high-frequency updates)
-    net["rpcUnreliable"] = [&registry](Entity entity, const std::string& method,
-                                       sol::object data) -> bool {
-        if (!registry.HasResource<NetworkHostResource>() ||
-            !registry.HasResource<PacketRegistryResource>()) {
-            return false;
-        }
-        if (!registry.HasComponent<NetworkComponent>(entity)) {
-            return false;
-        }
-        const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
-        if (netComp.networkId == 0) {
-            return false;
-        }
-
-        auto& host = registry.GetResource<NetworkHostResource>();
-        auto& packetRegistry = registry.GetResource<PacketRegistryResource>();
-
-        glz::generic msg{};
-        msg = glz::generic::object_t{};
-        auto& obj = msg.get_object();
-        obj["entityId"] = static_cast<double>(netComp.networkId);
-        obj["method"] = method;
-        std::set<const void*> seen;
-        obj["data"] = LuaToGeneric(data, seen, 0);
-
-        std::string json;
-        if (!glz::write_json(msg, json)) {
-            return false;
-        }
-
-        const auto packetId = packetRegistry.GetOrRegister("entity_rpc");
-        auto* packet = NetworkHostResource::CreateRawPacket(
-            static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-            json.size(), false);
-        if (!packet) {
-            return false;
-        }
-
-        if (host.IsServer()) {
-            host.SendAllHost(packet, 0);
-        } else {
-            host.Send(packet, 0);
-        }
-        return true;
-    };
-
-    // Register a handler for entity RPCs
-    // Usage: Net.onEntityRpc("methodName", function(entity, data) ... end)
-    net["onEntityRpc"] = [&registry](sol::this_state ts, const std::string& method,
-                                     sol::function handler) -> bool {
-        if (!registry.HasResource<PacketRouterResource>() || !handler.valid()) {
-            return false;
-        }
-        auto& router = registry.GetResource<PacketRouterResource>();
-
-        const auto packetId =
-            registry.GetResource<PacketRegistryResource>().GetOrRegister("entity_rpc");
-
-        router.On(packetId, [method, handler](Registry& registry, ENetPeer* peer,
-                                              const uint8_t* payload, std::size_t size) {
-            if (size == 0 || payload == nullptr) {
-                return;
-            }
-            const std::string raw{reinterpret_cast<const char*>(payload), size};
-            glz::generic msg{};
-            if (!glz::read_json(msg, raw)) {
-                return;
-            }
-
-            auto& host = registry.GetResource<NetworkHostResource>();
-            const auto& obj = msg.get_object();
-            auto it = obj.find("entityId");
-            if (it == obj.end()) {
-                return;
-            }
-            const std::size_t netId = static_cast<std::size_t>(it->second.get<double>());
-
-            auto methodIt = obj.find("method");
-            if (methodIt == obj.end() || methodIt->second.get<std::string>() != method) {
-                return;
-            }
-
-            if (auto found = host.GetEntityByNetworkId(netId); found.has_value()) {
-                Entity entity = *found;
-                auto dataIt = obj.find("data");
-                sol::object data = sol::object{};
-                if (dataIt != obj.end()) {
-                    data = GenericToLua(sol::state_view{handler.lua_state()}, dataIt->second);
-                }
-                auto result = handler(entity, data);
-                if (!result.valid()) {
-                    sol::error err = result;
-                    log_user_error("[Net] entity:rpc '" + method + "' handler error: " + err.what());
-                }
-            }
-        });
         return true;
     };
 }

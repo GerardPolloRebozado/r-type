@@ -79,14 +79,13 @@ class ReplicationSystem : public System {
      * Tells clients which scene the server is running. @p peer null means all
      * clients. With @p reload, clients reload even if already on that scene.
      */
-    void SendSceneLoad(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
-                       bool reload);
+    void SendSceneLoad(Registry& registry, NetworkHostResource& host, ENetPeer* peer, bool reload);
     void RegisterSceneLoadHandler(Registry& registry);
     void ProcessDisconnect(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
                            Entity entity, std::size_t networkId);
     void BroadcastState(Registry& registry, NetworkHostResource& host,
                         PacketRegistryResource& packetRegistry);
-    void SendSpawn(Registry& registry, NetworkHostResource& host,
+    void SendSpawn(const Registry& registry, NetworkHostResource& host,
                    PacketRegistryResource& packetRegistry, Entity entity,
                    const NetworkComponent& network,
                    std::optional<std::uint8_t> slot = std::nullopt);
