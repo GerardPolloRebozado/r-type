@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     name: Deploy docs
+    if: github.repository != 'EpitechPGE3-2026/G-ING-500-BAR-5-1-rtype-1'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
