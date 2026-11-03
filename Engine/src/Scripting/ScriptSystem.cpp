@@ -4,6 +4,7 @@
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include "Scripting/LuaAPI.hpp"
+#include "Scripting/LuaBinder.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include <filesystem>
 #include <vector>
@@ -23,6 +24,14 @@ void ScriptSystem::Update(Registry& registry, float dt) {
     if (!apiRegistered) {
         lua.open_libraries();
         LuaAPI::registerEngineAPI(lua.lua_state(), registry);
+        if (registry.HasResource<LuaBinder>()) {
+            auto& modules = registry.GetResource<LuaBinder>().modules;
+            for (size_t i = 0; i < modules.size(); ++i) {
+                if (modules[i]) {
+                    modules[i](lua.lua_state(), registry);
+                }
+            }
+        }
         apiRegistered = true;
     }
 
@@ -121,6 +130,14 @@ void ScriptSystem::unloadScript(Registry& registry, Entity entity) {
         script.scriptTable = sol::lua_nil;
         script.loaded = false;
     }
+}
+
+sol::state_view ScriptSystem::GetLua() {
+    return lua;
+}
+
+bool ScriptSystem::IsApiReady() const {
+    return apiRegistered;
 }
 
 void ScriptSystem::OnSceneUnloaded(Registry& registry) {
