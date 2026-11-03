@@ -16,6 +16,7 @@
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
 #include "Scripting/LuaAPI/EntityAPI.hpp"
 #include "Scripting/LuaAPI/LogAPI.hpp"
+#include "Scripting/LuaAPI/Plugins/AnimationAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/AudioAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ColliderAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/ConnectionsAPI.hpp"
@@ -72,6 +73,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerMultiplayer(lua, registry);
     registerScript(lua, registry);
     registerAudio(lua, registry);
+    registerAnimation(lua, registry);
     registerWave(lua, registry);
 
     // Command-line arguments, published as the Lua global `arg` (1-indexed) so
