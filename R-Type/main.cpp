@@ -79,15 +79,15 @@ int main(int argc, char* argv[]) {
 
     auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();
     auto controller = std::make_unique<Engine::Controller>();
-    controller->addKeybind("UP", {87, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("UP", {265, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("DOWN", {83, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("DOWN", {264, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("LEFT", {65, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("LEFT", {263, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("SHOOT", {32, 0, static_cast<Engine::DeviceType>(0)}, true);
     controller->addKeybind("RIGHT", {68, 0, static_cast<Engine::DeviceType>(0)}, true);
     controller->addKeybind("RIGHT", {262, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("SHOOT", {32, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("LEFT", {65, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("LEFT", {263, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("DOWN", {83, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("DOWN", {264, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("UP", {87, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("UP", {265, 0, static_cast<Engine::DeviceType>(0)}, true);
     inputManager.AddPlayer(1, std::move(controller));
 
     // Startup scene: a .scene argument wins (e.g. ./Game Level2.scene),

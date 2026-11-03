@@ -57,8 +57,10 @@ local function SeedTrail(entity)
 end
 
 function Script:onCreate(entity)
-    if Net.IsNetworked() and Net.IsServer() == false then
-        return
+    if Net ~= nil then
+        if Net.isNetworked() and Net.isServer() == false then
+            return
+        end
     end
     self.entity = entity
     self.time = 0.5 / TRI_FREQ
