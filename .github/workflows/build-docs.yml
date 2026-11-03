@@ -13,6 +13,11 @@ jobs:
       - name: Checkout main
         uses: actions/checkout@v2
 
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
       - name: Deploy docs
         uses: mhausenblas/mkdocs-deploy-gh-pages@master
         env:
@@ -21,4 +26,4 @@ jobs:
           CONFIG_FILE: Documentation/mkdocs.yml
           EXTRA_PACKAGES: build-base
           # GITHUB_DOMAIN: github.myenterprise.com
-          REQUIREMENTS: folder/requirements.txt
+          REQUIREMENTS: Documentation/requirements.txt
