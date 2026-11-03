@@ -89,7 +89,6 @@ end
 
 local function showGameOver()
     local textEntity = Entity.find("GameOver")
-    local playerPosition = Transform.getPosition()
     Component.setOpacity(textEntity, 1.0)
 end
 
