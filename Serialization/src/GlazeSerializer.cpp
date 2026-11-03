@@ -13,6 +13,7 @@
 #include "Components/SpriteComponent.hpp"
 #include "Components/Text.hpp"
 #include "Scripting/ScriptComponent.hpp"
+#include "UI/UiComponent.hpp"
 #include <unordered_map>
 
 namespace Serialization {
@@ -35,7 +36,7 @@ bool SnapshotHasData(const GlazeSerializer::EntitySnapshot& entitySnapshot) {
            entitySnapshot.connections.has_value() || entitySnapshot.parent.has_value() ||
            entitySnapshot.input.has_value() || entitySnapshot.audioSource.has_value() ||
            entitySnapshot.camera.has_value() || entitySnapshot.script.has_value() ||
-           entitySnapshot.prefab.has_value();
+           entitySnapshot.ui.has_value() || entitySnapshot.prefab.has_value();
 }
 } // namespace
 
@@ -85,6 +86,10 @@ GlazeSerializer::EntitySnapshot GlazeSerializer::CaptureEntity(Engine::Registry&
     }
     if (registry.HasComponent<Engine::ScriptComponent>(entity)) {
         entitySnapshot.script = registry.RequireComponent<Engine::ScriptComponent>(entity);
+    }
+    if (registry.IsComponentRegistered<Engine::UiComponent>() &&
+        registry.HasComponent<Engine::UiComponent>(entity)) {
+        entitySnapshot.ui = registry.RequireComponent<Engine::UiComponent>(entity);
     }
     if (registry.IsComponentRegistered<Engine::NetworkComponent>() &&
         registry.HasComponent<Engine::NetworkComponent>(entity)) {
@@ -184,6 +189,13 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
         }
         if (entitySnapshot.script.has_value()) {
             registry.AddComponent<Engine::ScriptComponent>(entity, entitySnapshot.script.value());
+        }
+        if (entitySnapshot.ui.has_value()) {
+            Engine::UiComponent ui = entitySnapshot.ui.value();
+            ui.loaded = false;
+            ui.scriptTable = sol::lua_nil;
+            registry.RegisterComponent<Engine::UiComponent>();
+            registry.AddComponent<Engine::UiComponent>(entity, ui);
         }
         if (entitySnapshot.network.has_value()) {
             registry.AddComponent<Engine::NetworkComponent>(entity, entitySnapshot.network.value());

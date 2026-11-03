@@ -56,6 +56,7 @@ set(SRC_FILES
         src/Utils/FileDialog.cpp
         src/Utils/Multiplatform.cpp
         src/Plugins/AnimationPluginEditor.cpp
+        src/Plugins/UiPluginEditor.cpp
 )
 
 set(INC_FILES
@@ -100,6 +101,7 @@ set(INC_FILES
         include/Scripting/LuaSyntax.hpp
         include/Compat/WindowsApi.hpp
         include/Plugins/AnimationPluginEditor.hpp
+        include/Plugins/UiPluginEditor.hpp
 )
 
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
@@ -118,7 +120,7 @@ if (NOT EXISTS "${PFD_DEST}")
 endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-target_link_libraries(RTypeEditor PRIVATE Engine Serialization rlImGui imgui_textedit imgui glaze::glaze)
+target_link_libraries(RTypeEditor PRIVATE Engine Serialization UI rlImGui imgui_textedit imgui glaze::glaze)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_compile_options(RTypeEditor PRIVATE -s ASYNCIFY)

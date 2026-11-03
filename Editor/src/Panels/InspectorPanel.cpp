@@ -14,6 +14,7 @@
 #include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
+#include "Plugins/UiPluginEditor.hpp"
 #include "Resources/StateResource.hpp"
 #include <cstring>
 #include <extras/IconsFontAwesome6.h>
@@ -34,6 +35,7 @@ InspectorPanel::InspectorPanel() {
     m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ScriptPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<UiPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<AudioPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<AnimationPluginEditor>());
 }
