@@ -22,8 +22,6 @@ jobs:
         uses: mhausenblas/mkdocs-deploy-gh-pages@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CUSTOM_DOMAIN: luck-n-pozzo.pollorebozado.com
           CONFIG_FILE: Documentation/mkdocs.yml
           EXTRA_PACKAGES: build-base doxygen graphviz
-          # GITHUB_DOMAIN: github.myenterprise.com
           REQUIREMENTS: Documentation/requirements.txt
