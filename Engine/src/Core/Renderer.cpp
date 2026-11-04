@@ -32,15 +32,14 @@ void DrawLayered(Registry& registry, bool screenSpace) {
     }
 
     std::vector<LayeredDraw> draws;
-    for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        Entity entity{i};
-        if (!registry.HasComponent<Position>(entity)) {
-            continue;
-        }
-        int const z = registry.RequireComponent<Position>(entity).z;
-        for (size_t order = 0; order < layeredSystems.size(); ++order) {
-            if (layeredSystems[order]->CanDraw(registry, entity, screenSpace)) {
-                draws.push_back({z, order, entity, layeredSystems[order]});
+    if (registry.IsComponentRegistered<Position>()) {
+        auto posArray = registry.GetComponentArray<Position>();
+        for (const auto& [entity, pos] : *posArray) {
+            int const z = pos.z;
+            for (size_t order = 0; order < layeredSystems.size(); ++order) {
+                if (layeredSystems[order]->CanDraw(registry, entity, screenSpace)) {
+                    draws.push_back({z, order, entity, layeredSystems[order]});
+                }
             }
         }
     }
