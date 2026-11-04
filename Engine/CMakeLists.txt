@@ -53,6 +53,7 @@ set(SRC_FILES
         src/Scripting/LuaAPI/Plugins/PositionAPI.cpp
         src/Scripting/LuaAPI/Plugins/RotationAPI.cpp
         src/Scripting/LuaAPI/Plugins/SpriteAPI.cpp
+        src/Scripting/LuaAPI/Plugins/AnimationAPI.cpp
         src/Scripting/LuaAPI/Plugins/ShapeAPI.cpp
         src/Scripting/LuaAPI/Plugins/TextAPI.cpp
         src/Scripting/LuaAPI/Plugins/ColliderAPI.cpp
@@ -166,6 +167,7 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/PositionAPI.hpp
         include/Scripting/LuaAPI/Plugins/RotationAPI.hpp
         include/Scripting/LuaAPI/Plugins/SpriteAPI.hpp
+        include/Scripting/LuaAPI/Plugins/AnimationAPI.hpp
         include/Scripting/LuaAPI/Plugins/ShapeAPI.hpp
         include/Scripting/LuaAPI/Plugins/TextAPI.hpp
         include/Scripting/LuaAPI/Plugins/ColliderAPI.hpp

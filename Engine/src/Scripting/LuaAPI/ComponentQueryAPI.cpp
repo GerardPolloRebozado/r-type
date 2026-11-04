@@ -1,4 +1,5 @@
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
+#include "Components/Animation.hpp"
 #include "Components/AudioSource.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/Name.hpp"
@@ -29,6 +30,7 @@ void registerComponentQuery(sol::state_view lua, Registry& registry) {
         {"Position", std::type_index(typeid(Position))},
         {"Rotation", std::type_index(typeid(Rotation))},
         {"Sprite", std::type_index(typeid(SpriteComponent))},
+        {"Animation", std::type_index(typeid(Animation))},
         {"Shape", std::type_index(typeid(ShapeComponent))},
         {"Text", std::type_index(typeid(Text))},
         {"Name", std::type_index(typeid(Name))},
