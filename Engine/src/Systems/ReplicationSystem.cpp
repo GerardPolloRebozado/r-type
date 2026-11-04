@@ -379,6 +379,7 @@ void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
     host.ResetEntityBindings();
     host.InvalidateQueuedEventEntities();
     m_announcedIds.clear();
+    m_snapshots.clear();
     m_initialized = false;
 }
 
@@ -798,6 +799,7 @@ void ReplicationSystem::RegisterDespawnHandler(Registry& registry) {
         if (registry.IsEntityAlive(entity)) {
             registry.DestroyEntity(entity);
         }
+        m_snapshots.erase(networkId);
         log_info("[Replication] Despawned replica network id " + std::to_string(networkId));
     });
 }
