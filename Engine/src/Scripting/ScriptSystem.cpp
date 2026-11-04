@@ -5,6 +5,7 @@
 #include "Logging/Logger.hpp"
 #include "Scripting/LuaAPI.hpp"
 #include "Scripting/ScriptComponent.hpp"
+#include <algorithm>
 #include <filesystem>
 #include <vector>
 
@@ -31,8 +32,15 @@ void ScriptSystem::Update(Registry& registry, float dt) {
     }
     auto scriptArray = registry.GetComponentArray<ScriptComponent>();
 
+    // Collect and sort entity IDs so script load/update order is deterministic across all platforms
+    std::vector<Entity> entities;
+    entities.reserve(scriptArray->size());
     for (const auto& [entityId, scriptRef] : *scriptArray) {
-        Entity entity = entityId;
+        entities.push_back(entityId);
+    }
+    std::sort(entities.begin(), entities.end());
+
+    for (Entity entity : entities) {
         if (!registry.IsEntityAlive(entity)) {
             continue;
         }
