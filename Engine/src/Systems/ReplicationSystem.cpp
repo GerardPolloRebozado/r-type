@@ -18,6 +18,7 @@
 #include "Scripting/ScriptVariableSync.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <glaze/glaze.hpp>
@@ -284,65 +285,75 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
             }
         }
     }
+}
 
-    // Client-side interpolation: pick the two snapshots bracketing
-    // (m_simTime - delay) and lerp between them.
-    if (!host.IsServer()) {
-        m_simTime += dt;
-        constexpr double kDelay = 0.1; // 100 ms interpolation delay
-        const double t = m_simTime - kDelay;
-        for (auto& [networkId, buf] : m_snapshots) {
-            if (buf.size() < 2) {
-                continue;
+void ReplicationSystem::Interpolate(Registry& registry) {
+    if (!registry.HasResource<NetworkHostResource>()) {
+        return;
+    }
+    auto& host = registry.GetResource<NetworkHostResource>();
+    if (host.IsServer()) {
+        return;
+    }
+
+    const double now =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    constexpr double kDelay = 0.1; // 100 ms interpolation delay
+
+    for (auto& [networkId, buf] : m_snapshots) {
+        if (buf.size() < 2) {
+            continue;
+        }
+        const auto entityOpt = host.GetEntityByNetworkId(networkId);
+        if (!entityOpt.has_value()) {
+            continue;
+        }
+        const Entity entity = *entityOpt;
+        if (!registry.IsEntityAlive(entity)) {
+            continue;
+        }
+
+        const double t = now - kDelay;
+        const NetSnapshot* a = &buf.front();
+        const NetSnapshot* b = &buf.back();
+        for (size_t i = 0; i + 1 < buf.size(); ++i) {
+            if (buf[i].time <= t && t <= buf[i + 1].time) {
+                a = &buf[i];
+                b = &buf[i + 1];
+                break;
             }
-            const auto entityOpt = host.GetEntityByNetworkId(networkId);
-            if (!entityOpt.has_value()) {
-                continue;
+            if (t > buf.back().time) {
+                a = &buf[buf.size() - 2];
+                b = &buf.back();
             }
-            const Entity entity = *entityOpt;
-            if (!registry.IsEntityAlive(entity)) {
-                continue;
+        }
+        if (a == b) {
+            continue;
+        }
+        const double span = b->time - a->time;
+        float frac = (span > 0.0) ? static_cast<float>((t - a->time) / span) : 1.0f;
+        if (frac < 0.0f) {
+            frac = 0.0f;
+        }
+        if (frac > 1.0f) {
+            frac = 1.0f;
+        }
+
+        if (registry.HasComponent<Position>(entity)) {
+            auto& pos = registry.RequireComponent<Position>(entity);
+            pos.x = a->x + (b->x - a->x) * frac;
+            pos.y = a->y + (b->y - a->y) * frac;
+        }
+        if (registry.HasComponent<Rotation>(entity)) {
+            auto& rot = registry.RequireComponent<Rotation>(entity);
+            float diff = b->angle - a->angle;
+            while (diff > 180.0f) {
+                diff -= 360.0f;
             }
-            const NetSnapshot* a = &buf.front();
-            const NetSnapshot* b = &buf.back();
-            for (size_t i = 0; i + 1 < buf.size(); ++i) {
-                if (buf[i].time <= t && t <= buf[i + 1].time) {
-                    a = &buf[i];
-                    b = &buf[i + 1];
-                    break;
-                }
-                if (t > buf.back().time) {
-                    a = &buf[buf.size() - 2];
-                    b = &buf.back();
-                }
+            while (diff < -180.0f) {
+                diff += 360.0f;
             }
-            if (a == b) {
-                continue;
-            }
-            const double span = b->time - a->time;
-            float frac = (span > 0.0) ? static_cast<float>((t - a->time) / span) : 1.0f;
-            if (frac < 0.0f) {
-                frac = 0.0f;
-            }
-            if (frac > 1.0f) {
-                frac = 1.0f;
-            }
-            if (registry.HasComponent<Position>(entity)) {
-                auto& pos = registry.RequireComponent<Position>(entity);
-                pos.x = a->x + (b->x - a->x) * frac;
-                pos.y = a->y + (b->y - a->y) * frac;
-            }
-            if (registry.HasComponent<Rotation>(entity)) {
-                auto& rot = registry.RequireComponent<Rotation>(entity);
-                float diff = b->angle - a->angle;
-                while (diff > 180.0f) {
-                    diff -= 360.0f;
-                }
-                while (diff < -180.0f) {
-                    diff += 360.0f;
-                }
-                rot.angle = a->angle + diff * frac;
-            }
+            rot.angle = a->angle + diff * frac;
         }
     }
 }
@@ -679,7 +690,10 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
                          " (network id " + std::to_string(networkId) + ")");
             }
 
-            ApplyEntityState(registry, entity, entry, m_snapshots, networkId, m_simTime);
+            const double now =
+                std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+                    .count();
+            ApplyEntityState(registry, entity, entry, m_snapshots, networkId, now);
             if (const auto vars = obj.find("vars"); vars != obj.end() && vars->second.is_object()) {
                 ApplyReplicatedScriptVariables(registry, networkId, entity,
                                                vars->second.get_object());

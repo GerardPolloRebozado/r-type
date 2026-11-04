@@ -80,6 +80,8 @@ class ReplicationSystem : public System {
      */
     void OnSceneUnloaded(Registry& registry) override;
 
+    void Interpolate(Registry& registry);
+
   private:
     void Initialize(Registry& registry, NetworkHostResource& host);
     void ProcessConnect(Registry& registry, NetworkHostResource& host, ENetPeer* peer,

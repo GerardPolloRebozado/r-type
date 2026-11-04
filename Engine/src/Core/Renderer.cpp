@@ -2,6 +2,7 @@
 #include "Components/Position.hpp"
 #include "ECS/LayeredRenderSystem.hpp"
 #include "Systems/CameraSystem.hpp"
+#include "Systems/ReplicationSystem.hpp"
 #include <algorithm>
 #include <raylib.h>
 #include <tuple>
@@ -63,6 +64,15 @@ void RenderScene(Registry& registry, float viewportWidth, float viewportHeight,
         BeginMode2D(*cameraOverride);
     } else {
         BeginMode2D(CameraSystem::GetActiveCamera(registry, viewportWidth, viewportHeight));
+    }
+    // Interpolate replicated transforms before drawing so 20 Hz snapshots
+    // read as smooth motion at any frame rate.
+    if (registry.GetSystems().contains(typeid(Engine::Multiplayer::ReplicationSystem))) {
+        auto* repl = dynamic_cast<Engine::Multiplayer::ReplicationSystem*>(
+            registry.GetSystems().at(typeid(Engine::Multiplayer::ReplicationSystem)).get());
+        if (repl) {
+            repl->Interpolate(registry);
+        }
     }
     DrawLayered(registry, false);
 
