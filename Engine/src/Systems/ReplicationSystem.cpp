@@ -122,10 +122,10 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
     if (registry.HasComponent<Position>(entity)) {
         auto& position = registry.RequireComponent<Position>(entity);
         if (obj.find("x") != obj.end()) {
-            position.x = static_cast<float>(GenericNumber(obj, "x", position.x));
+            position.x = static_cast<float>(GenericNumber(obj, "x", 0.0)) / 10.0f;
         }
         if (obj.find("y") != obj.end()) {
-            position.y = static_cast<float>(GenericNumber(obj, "y", position.y));
+            position.y = static_cast<float>(GenericNumber(obj, "y", 0.0)) / 10.0f;
         }
         if (obj.find("z") != obj.end()) {
             position.z = static_cast<int>(GenericNumber(obj, "z", position.z));
@@ -133,7 +133,7 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
     }
     if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
         auto& rotation = registry.RequireComponent<Rotation>(entity);
-        rotation.angle = static_cast<float>(GenericNumber(obj, "angle", rotation.angle));
+        rotation.angle = static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
     }
     if (const auto it = obj.find("sprite"); it != obj.end()) {
         ApplySpriteState(registry, entity, it->second);
@@ -427,15 +427,14 @@ void ReplicationSystem::SendSceneLoad(Registry& registry, NetworkHostResource& h
     auto& obj = message.get_object();
     obj["scene"] = scene;
     obj["reload"] = reload;
-    std::string json;
-    if (glz::write_json(message, json)) {
+    Buffer buffer;
+    if (glz::write_beve(message, buffer)) {
         return;
     }
     const auto packetId =
         registry.GetResource<PacketRegistryResource>().GetOrRegister("scene_load");
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-        json.size(), true);
+    auto* packet =
+        NetworkHostResource::CreateRawPacket(static_cast<std::uint16_t>(packetId), buffer, true);
     if (packet == nullptr) {
         return;
     }
@@ -462,7 +461,7 @@ void ReplicationSystem::RegisterSceneLoadHandler(Registry& registry) {
         }
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic message{};
-        if (glz::read_json(message, raw) || !message.is_object()) {
+        if (glz::read_beve(message, raw) || !message.is_object()) {
             return;
         }
         const auto& obj = message.get_object();
@@ -540,7 +539,7 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
 
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic array{};
-        if (glz::read_json(array, raw) || !array.is_array()) {
+        if (glz::read_beve(array, raw) || !array.is_array()) {
             return;
         }
 
@@ -606,7 +605,7 @@ void ReplicationSystem::RegisterSpawnHandler(Registry& registry) {
 
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic message{};
-        if (glz::read_json(message, raw) || !message.is_object()) {
+        if (glz::read_beve(message, raw) || !message.is_object()) {
             return;
         }
         const auto& obj = message.get_object();
@@ -660,7 +659,7 @@ void ReplicationSystem::RegisterDespawnHandler(Registry& registry) {
 
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic message{};
-        if (glz::read_json(message, raw) || !message.is_object()) {
+        if (glz::read_beve(message, raw) || !message.is_object()) {
             return;
         }
         const auto& obj = message.get_object();
@@ -785,12 +784,13 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
 
         if (network.syncTransform && registry.HasComponent<Position>(entity)) {
             const auto& position = registry.RequireComponent<Position>(entity);
-            obj["x"] = position.x;
-            obj["y"] = position.y;
-            obj["z"] = static_cast<double>(position.z);
+            obj["x"] = static_cast<int>(std::lround(position.x * 10.0f));
+            obj["y"] = static_cast<int>(std::lround(position.y * 10.0f));
+            obj["z"] = position.z;
         }
         if (network.syncTransform && registry.HasComponent<Rotation>(entity)) {
-            obj["angle"] = registry.RequireComponent<Rotation>(entity).angle;
+            obj["angle"] = static_cast<int>(
+                std::lround(registry.RequireComponent<Rotation>(entity).angle * 10.0f));
         }
         if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity)) {
             obj["sprite"] = SerializeSpriteState(registry, entity);
@@ -836,14 +836,13 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         return;
     }
 
-    std::string json;
-    if (glz::write_json(array, json)) {
+    Buffer buffer;
+    if (glz::write_beve(array, buffer)) {
         log_error("[Replication] Failed to serialize state snapshot");
         return;
     }
 
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), false);
+    auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, false);
     if (packet != nullptr) {
         host.SendAllHost(packet, 0);
     }
@@ -867,13 +866,12 @@ void ReplicationSystem::SendSpawn(const Registry& registry, NetworkHostResource&
         obj["slot"] = static_cast<double>(*slot);
     }
 
-    std::string json;
-    if (glz::write_json(message, json)) {
+    Buffer buffer;
+    if (glz::write_beve(message, buffer)) {
         return;
     }
     const auto packetId = packetRegistry.GetOrRegister("replication_spawn");
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
+    auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, true);
     if (packet != nullptr) {
         host.SendAllHost(packet, 1);
         m_announcedIds.insert(network.networkId);
@@ -889,13 +887,12 @@ void ReplicationSystem::SendDespawn(Registry& registry, NetworkHostResource& hos
     glz::generic message = glz::generic::object_t{};
     message.get_object()["id"] = static_cast<double>(networkId);
 
-    std::string json;
-    if (glz::write_json(message, json)) {
+    Buffer buffer;
+    if (glz::write_beve(message, buffer)) {
         return;
     }
     const auto packetId = packetRegistry.GetOrRegister("replication_despawn");
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
+    auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, true);
     if (packet != nullptr) {
         host.SendAllHost(packet, 1);
     } else {
