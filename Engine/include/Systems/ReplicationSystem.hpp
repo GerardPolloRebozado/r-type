@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -54,6 +55,22 @@ class NetworkHostResource;
  *     Net.input(entity), so movement stays in Lua without scripts ever touching
  *     ENet.
  */
+/**
+ * @struct SmoothTarget
+ * @brief Client-side interpolation target for a replicated entity.
+ *
+ * When a state snapshot arrives, the received transform is stored here instead
+ * of being written straight into Position. ReplicationSystem::Update lerps the
+ * live Position toward this target each frame, smoothing 20 Hz snapshots into
+ * 60 Hz motion.
+ */
+struct SmoothTarget {
+    float x = 0.0f;
+    float y = 0.0f;
+    float angle = 0.0f;
+    bool hasValue = false;
+};
+
 class ReplicationSystem : public System {
   public:
     ReplicationSystem();
@@ -119,6 +136,8 @@ class ReplicationSystem : public System {
     /** RTYPE_NET_DEBUG=1 prints player positions once per second. */
     bool m_debug = false;
     std::size_t m_debugTicks = 0;
+    /** Client-side interpolation targets, keyed by network id. */
+    std::unordered_map<std::size_t, SmoothTarget> m_smoothTarget;
 };
 
 } // namespace Engine::Multiplayer
