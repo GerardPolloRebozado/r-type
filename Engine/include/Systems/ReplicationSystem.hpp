@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Compat/EnetWrapper.hpp"
+#include <glaze/glaze.hpp>
 
 namespace Engine::Multiplayer {
 
@@ -66,6 +67,13 @@ struct NetSnapshot {
     float angle = 0.0f;
 };
 
+struct PredictedInput {
+    std::uint32_t seq = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    float angle = 0.0f;
+};
+
 class ReplicationSystem : public System {
   public:
     ReplicationSystem();
@@ -99,6 +107,7 @@ class ReplicationSystem : public System {
                            Entity entity, std::size_t networkId);
     void BroadcastState(Registry& registry, NetworkHostResource& host,
                         PacketRegistryResource& packetRegistry);
+    void ReconcileLocalPlayer(Registry& registry, Entity entity, const glz::generic::object_t& obj);
     void SendSpawn(const Registry& registry, NetworkHostResource& host,
                    PacketRegistryResource& packetRegistry, Entity entity,
                    const NetworkComponent& network,
@@ -135,8 +144,14 @@ class ReplicationSystem : public System {
     std::size_t m_debugTicks = 0;
     /** Client-side snapshot history for interpolation, keyed by network id. */
     std::unordered_map<std::size_t, std::vector<NetSnapshot>> m_snapshots;
-    /** Accumulated sim time on the client, used to pick interpolation samples. */
-    double m_simTime = 0.0;
+    double m_serverTime = 0.0;
+    double m_snapshotAccumulator = 0.0;
+    double m_serverClockOffset = 0.0;
+    bool m_hasServerClock = false;
+    double m_interpDelay = 0.075;
+    std::uint32_t m_inputSeq = 0;
+    std::uint32_t m_lastAckedSeq = 0;
+    std::vector<PredictedInput> m_predictionHistory;
 };
 
 } // namespace Engine::Multiplayer

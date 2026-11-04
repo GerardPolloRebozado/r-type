@@ -29,6 +29,12 @@ namespace Engine::Multiplayer {
 ReplicationSystem::ReplicationSystem() {
     const char* debug = std::getenv("RTYPE_NET_DEBUG");
     m_debug = debug != nullptr && std::string(debug) != "0";
+    if (const char* delay = std::getenv("RTYPE_NET_INTERP_DELAY_MS"); delay != nullptr) {
+        const double ms = std::atof(delay);
+        if (ms >= 0.0 && ms <= 1000.0) {
+            m_interpDelay = ms / 1000.0;
+        }
+    }
 }
 
 namespace {
@@ -156,7 +162,7 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
                                          ? registry.RequireComponent<Rotation>(entity).angle
                                          : 0.0f);
             buf.push_back(snap);
-            if (buf.size() > 4) {
+            if (buf.size() > 16) {
                 buf.erase(buf.begin());
             }
             // First sample: snap immediately.
@@ -268,6 +274,8 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
     }
 
     if (host.IsServer()) {
+        m_serverTime += dt;
+        m_snapshotAccumulator += static_cast<double>(dt);
         // Scripted entities move themselves through Net.input(entity). Only
         // script-less network entities fall back to the engine default
         BroadcastState(registry, host, packetRegistry);
@@ -296,12 +304,18 @@ void ReplicationSystem::Interpolate(Registry& registry) {
         return;
     }
 
-    const double now =
+    const double localNow =
         std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    constexpr double kDelay = 0.1; // 100 ms interpolation delay
+    const double sampleTime = m_hasServerClock ? localNow + m_serverClockOffset - m_interpDelay
+                                               : localNow - m_interpDelay;
+
+    const auto localNetworkId = host.GetLocalNetworkId();
 
     for (auto& [networkId, buf] : m_snapshots) {
         if (buf.size() < 2) {
+            continue;
+        }
+        if (localNetworkId.has_value() && *localNetworkId == networkId) {
             continue;
         }
         const auto entityOpt = host.GetEntityByNetworkId(networkId);
@@ -313,47 +327,43 @@ void ReplicationSystem::Interpolate(Registry& registry) {
             continue;
         }
 
-        const double t = now - kDelay;
-        const NetSnapshot* a = &buf.front();
-        const NetSnapshot* b = &buf.back();
-        for (size_t i = 0; i + 1 < buf.size(); ++i) {
-            if (buf[i].time <= t && t <= buf[i + 1].time) {
-                a = &buf[i];
-                b = &buf[i + 1];
-                break;
+        NetSnapshot a = buf.front();
+        NetSnapshot b = buf.front();
+        float frac = 0.0f;
+
+        if (sampleTime >= buf.back().time) {
+            a = buf[buf.size() - 2];
+            b = buf.back();
+            const double span = b.time - a.time;
+            frac = span > 0.0 ? static_cast<float>((sampleTime - a.time) / span) : 1.0f;
+        } else if (sampleTime > buf.front().time) {
+            for (std::size_t i = 0; i + 1 < buf.size(); ++i) {
+                if (buf[i].time <= sampleTime && sampleTime <= buf[i + 1].time) {
+                    a = buf[i];
+                    b = buf[i + 1];
+                    const double span = b.time - a.time;
+                    frac = span > 0.0 ? static_cast<float>((sampleTime - a.time) / span) : 1.0f;
+                    break;
+                }
             }
-            if (t > buf.back().time) {
-                a = &buf[buf.size() - 2];
-                b = &buf.back();
-            }
         }
-        if (a == b) {
-            continue;
-        }
-        const double span = b->time - a->time;
-        float frac = (span > 0.0) ? static_cast<float>((t - a->time) / span) : 1.0f;
-        if (frac < 0.0f) {
-            frac = 0.0f;
-        }
-        if (frac > 1.0f) {
-            frac = 1.0f;
-        }
+        frac = std::clamp(frac, 0.0f, 1.0f);
 
         if (registry.HasComponent<Position>(entity)) {
             auto& pos = registry.RequireComponent<Position>(entity);
-            pos.x = a->x + (b->x - a->x) * frac;
-            pos.y = a->y + (b->y - a->y) * frac;
+            pos.x = a.x + (b.x - a.x) * frac;
+            pos.y = a.y + (b.y - a.y) * frac;
         }
         if (registry.HasComponent<Rotation>(entity)) {
             auto& rot = registry.RequireComponent<Rotation>(entity);
-            float diff = b->angle - a->angle;
+            float diff = b.angle - a.angle;
             while (diff > 180.0f) {
                 diff -= 360.0f;
             }
             while (diff < -180.0f) {
                 diff += 360.0f;
             }
-            rot.angle = a->angle + diff * frac;
+            rot.angle = a.angle + diff * frac;
         }
     }
 }
@@ -380,6 +390,10 @@ void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
     host.InvalidateQueuedEventEntities();
     m_announcedIds.clear();
     m_snapshots.clear();
+    m_hasServerClock = false;
+    m_predictionHistory.clear();
+    m_lastAckedSeq = 0;
+    m_snapshotAccumulator = 0.0;
     m_initialized = false;
 }
 
@@ -613,7 +627,9 @@ void ReplicationSystem::ProcessDisconnect(Registry& registry, NetworkHostResourc
     // Drop the last input so a reused id (or a despawned entity) never keeps
     // moving from stale input.
     if (registry.HasResource<PlayerInputState>()) {
-        registry.GetResource<PlayerInputState>().byNetworkId.erase(networkId);
+        auto& inputs = registry.GetResource<PlayerInputState>();
+        inputs.byNetworkId.erase(networkId);
+        inputs.lastSeq.erase(networkId);
     }
     // Free the color slot so the next player can take it.
     if (registry.HasResource<PlayerSlotState>()) {
@@ -650,12 +666,49 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
         }
 
         const std::string raw{reinterpret_cast<const char*>(payload), size};
-        glz::generic array{};
-        if (glz::read_beve(array, raw) || !array.is_array()) {
+        glz::generic message{};
+        if (glz::read_beve(message, raw)) {
             return;
         }
 
-        for (const auto& entry : array.get_array()) {
+        const glz::generic* entities = nullptr;
+        double serverTime = 0.0;
+        bool hasServerTime = false;
+        if (message.is_array()) {
+            entities = &message;
+        } else if (message.is_object()) {
+            const auto& msgObj = message.get_object();
+            if (const auto it = msgObj.find("entities");
+                it != msgObj.end() && it->second.is_array()) {
+                entities = &it->second;
+            }
+            if (const auto it = msgObj.find("time"); it != msgObj.end() && it->second.is_number()) {
+                serverTime = it->second.get<double>();
+                hasServerTime = true;
+            }
+        }
+        if (entities == nullptr) {
+            return;
+        }
+
+        const double arrival =
+            std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        if (hasServerTime) {
+            const double candidate = serverTime - arrival;
+            if (!m_hasServerClock) {
+                m_serverClockOffset = candidate;
+                m_hasServerClock = true;
+            } else if (candidate > m_serverClockOffset) {
+                m_serverClockOffset = candidate;
+            } else {
+                m_serverClockOffset = std::max(candidate, m_serverClockOffset - 0.001);
+            }
+        }
+        const double snapshotTime = hasServerTime ? serverTime : arrival;
+        const auto localNetworkId = host.GetLocalNetworkId();
+
+        for (const auto& entry : entities->get_array()) {
             if (!entry.is_object()) {
                 continue;
             }
@@ -691,16 +744,87 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
                          " (network id " + std::to_string(networkId) + ")");
             }
 
-            const double now =
-                std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
-                    .count();
-            ApplyEntityState(registry, entity, entry, m_snapshots, networkId, now);
+            if (localNetworkId.has_value() && *localNetworkId == networkId) {
+                ReconcileLocalPlayer(registry, entity, obj);
+            } else {
+                ApplyEntityState(registry, entity, entry, m_snapshots, networkId, snapshotTime);
+            }
             if (const auto vars = obj.find("vars"); vars != obj.end() && vars->second.is_object()) {
                 ApplyReplicatedScriptVariables(registry, networkId, entity,
                                                vars->second.get_object());
             }
         }
     });
+}
+
+void ReplicationSystem::ReconcileLocalPlayer(Registry& registry, Entity entity,
+                                             const glz::generic::object_t& obj) {
+    if (!registry.HasComponent<Position>(entity)) {
+        return;
+    }
+    auto& position = registry.RequireComponent<Position>(entity);
+
+    bool hasPos = false;
+    float serverX = position.x;
+    float serverY = position.y;
+    if (obj.find("x") != obj.end()) {
+        serverX = static_cast<float>(GenericNumber(obj, "x", 0.0)) / 10.0f;
+        hasPos = true;
+    }
+    if (obj.find("y") != obj.end()) {
+        serverY = static_cast<float>(GenericNumber(obj, "y", 0.0)) / 10.0f;
+        hasPos = true;
+    }
+
+    bool hasAngle = false;
+    float serverAngle = 0.0f;
+    if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
+        serverAngle = static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
+        hasAngle = true;
+    }
+
+    bool hasAck = false;
+    std::uint32_t ack = 0;
+    if (const auto it = obj.find("ack"); it != obj.end() && it->second.is_number()) {
+        ack = static_cast<std::uint32_t>(std::lround(it->second.get<double>()));
+        hasAck = true;
+    }
+
+    if (!hasAck || ack <= m_lastAckedSeq) {
+        return;
+    }
+    m_lastAckedSeq = ack;
+
+    const PredictedInput* matched = nullptr;
+    for (const auto& predicted : m_predictionHistory) {
+        if (predicted.seq > ack) {
+            break;
+        }
+        matched = &predicted;
+    }
+    if (matched == nullptr) {
+        return;
+    }
+
+    if (hasPos) {
+        position.x += serverX - matched->x;
+        position.y += serverY - matched->y;
+    }
+    if (hasAngle) {
+        float error = serverAngle - matched->angle;
+        while (error > 180.0f) {
+            error -= 360.0f;
+        }
+        while (error < -180.0f) {
+            error += 360.0f;
+        }
+        registry.RequireComponent<Rotation>(entity).angle += error;
+    }
+
+    m_predictionHistory.erase(
+        std::remove_if(m_predictionHistory.begin(), m_predictionHistory.end(),
+                       [ack](const PredictedInput& predicted) { return predicted.seq <= ack; }),
+        m_predictionHistory.end());
 }
 
 void ReplicationSystem::RegisterSpawnHandler(Registry& registry) {
@@ -839,8 +963,18 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
         if (!registry.HasResource<PlayerInputState>()) {
             registry.AddResource<PlayerInputState>();
         }
-        const auto parsed = ParseNetInput(inputIt->second);
-        registry.GetResource<PlayerInputState>().byNetworkId[networkId] = parsed;
+        auto& playerInput = registry.GetResource<PlayerInputState>();
+
+        if (const auto seqIt = obj.find("seq"); seqIt != obj.end() && seqIt->second.is_number()) {
+            const auto seq = static_cast<std::uint32_t>(std::lround(seqIt->second.get<double>()));
+            const auto last = playerInput.lastSeq.find(networkId);
+            if (last != playerInput.lastSeq.end() && seq <= last->second) {
+                return;
+            }
+            playerInput.lastSeq[networkId] = seq;
+        }
+
+        playerInput.byNetworkId[networkId] = ParseNetInput(inputIt->second);
     });
 }
 
@@ -895,6 +1029,13 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
             if (const auto slot = registry.GetResource<PlayerSlotState>().Get(network.networkId);
                 slot.has_value()) {
                 obj["slot"] = static_cast<double>(*slot);
+            }
+        }
+        if (network.authority == "Client" && registry.HasResource<PlayerInputState>()) {
+            const auto& inputs = registry.GetResource<PlayerInputState>();
+            if (const auto it = inputs.lastSeq.find(network.networkId);
+                it != inputs.lastSeq.end()) {
+                obj["ack"] = static_cast<double>(it->second);
             }
         }
 
@@ -952,14 +1093,19 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         return;
     }
 
-    // Rate-limit state snapshots to ~20 Hz; spawns/despawns above are
-    // still sent every tick (reliable, immediate).
-    if (m_debugTicks % 3 != 0) {
+    constexpr double kSnapshotInterval = 1.0 / 20.0;
+    if (m_snapshotAccumulator < kSnapshotInterval) {
         return;
     }
+    m_snapshotAccumulator = std::fmod(m_snapshotAccumulator, kSnapshotInterval);
+
+    glz::generic message = glz::generic::object_t{};
+    auto& messageObj = message.get_object();
+    messageObj["time"] = m_serverTime;
+    messageObj["entities"] = std::move(array);
 
     Buffer buffer;
-    if (glz::write_beve(array, buffer)) {
+    if (glz::write_beve(message, buffer)) {
         log_error("[Replication] Failed to serialize state snapshot");
         return;
     }
@@ -1035,10 +1181,34 @@ void ReplicationSystem::SendLocalInput(Registry& registry, NetworkHostResource& 
         return;
     }
 
+    ++m_inputSeq;
+
     glz::generic message = glz::generic::object_t{};
     auto& obj = message.get_object();
     obj["id"] = static_cast<double>(*localNetworkId);
+    obj["seq"] = static_cast<double>(m_inputSeq);
     obj["input"] = controller->getNetworkedActiveActions();
+
+    if (const auto localEntity = host.GetLocalEntity();
+        localEntity.has_value() && registry.IsEntityAlive(*localEntity) &&
+        registry.HasComponent<Position>(*localEntity)) {
+        PredictedInput predicted;
+        predicted.seq = m_inputSeq;
+        const auto& position = registry.RequireComponent<Position>(*localEntity);
+        predicted.x = position.x;
+        predicted.y = position.y;
+        if (registry.HasComponent<Rotation>(*localEntity)) {
+            predicted.angle = registry.RequireComponent<Rotation>(*localEntity).angle;
+        }
+        m_predictionHistory.push_back(predicted);
+
+        constexpr std::size_t kMaxPredictionHistory = 120;
+        if (m_predictionHistory.size() > kMaxPredictionHistory) {
+            m_predictionHistory.erase(m_predictionHistory.begin(),
+                                      m_predictionHistory.end() - kMaxPredictionHistory);
+        }
+    }
+
     std::vector<std::byte> buffer{};
 
     if (glz::write_beve(message, buffer)) {
