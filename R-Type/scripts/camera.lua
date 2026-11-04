@@ -50,7 +50,7 @@ end
 
 function Script:onTriggerEnter(camera, other)
     print("Destroying entity " .. tostring(other) .. " because it entered camera trigger")
-    Entity.destroy(other)
+    Entity.queueDestroy(other)
 end
 
 return Script

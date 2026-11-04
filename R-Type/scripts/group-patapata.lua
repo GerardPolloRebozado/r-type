@@ -57,13 +57,13 @@ local function SeedTrail(entity)
 end
 
 function Script:onCreate(entity)
+    self.entity = entity
+    self.time = 0.5 / TRI_FREQ
     if Net ~= nil then
         if Net.isNetworked() and Net.isServer() == false then
             return
         end
     end
-    self.entity = entity
-    self.time = 0.5 / TRI_FREQ
     SeedTrail(entity)
     -- Read after seeding: SeedTrail may re-anchor the leader at the head.
     self.baseY = Transform.getPosition(entity).y
@@ -71,6 +71,12 @@ function Script:onCreate(entity)
 end
 
 function Script:onUpdate(entity, dt)
+    if Net ~= nil then
+        if Net.isNetworked() and Net.isServer() == false then
+            return
+        end
+    end
+
     if not dt or dt <= 0 then
         dt = 1.0 / 60.0
     end
