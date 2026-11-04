@@ -130,7 +130,6 @@ if (NOT EDITOR_BUILD)
     add_subdirectory(Editor)
     add_subdirectory(Tools)
     add_subdirectory(Games)
-    enable_testing()
     add_subdirectory(Tests)
 endif ()
 
