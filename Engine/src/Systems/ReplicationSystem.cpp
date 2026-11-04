@@ -736,12 +736,17 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
     const bool logThisTick = m_debug && (m_debugTicks % 60 == 0);
 
     glz::generic array = glz::generic::array_t{};
-    std::vector<std::size_t> currentIds;
-    currentIds.reserve(registry.GetEntityCount());
 
-    for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        const Entity entity{i};
-        if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
+    if (!registry.IsComponentRegistered<NetworkComponent>()) {
+        return;
+    }
+    auto netArray = registry.GetComponentArray<NetworkComponent>();
+
+    std::vector<std::size_t> currentIds;
+    currentIds.reserve(netArray->size());
+
+    for (const auto& [entity, networkRef] : *netArray) {
+        if (!registry.IsEntityAlive(entity)) {
             continue;
         }
         auto& network = registry.RequireComponent<NetworkComponent>(entity);

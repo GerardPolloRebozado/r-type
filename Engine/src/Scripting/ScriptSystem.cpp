@@ -26,9 +26,14 @@ void ScriptSystem::Update(Registry& registry, float dt) {
         apiRegistered = true;
     }
 
-    for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        Entity entity{i};
-        if (!registry.HasComponent<ScriptComponent>(entity)) {
+    if (!registry.IsComponentRegistered<ScriptComponent>()) {
+        return;
+    }
+    auto scriptArray = registry.GetComponentArray<ScriptComponent>();
+
+    for (const auto& [entityId, scriptRef] : *scriptArray) {
+        Entity entity = entityId;
+        if (!registry.IsEntityAlive(entity)) {
             continue;
         }
 
@@ -48,7 +53,7 @@ void ScriptSystem::Update(Registry& registry, float dt) {
                 if (!result.valid()) {
                     sol::error err = result;
                     log_user_error(std::string("[ScriptSystem] onUpdate error (entity ") +
-                              std::to_string(entity) + "): " + err.what());
+                                   std::to_string(entity) + "): " + err.what());
                 }
             }
         }
@@ -96,7 +101,7 @@ void ScriptSystem::loadScript(Registry& registry, Entity entity) {
         if (!callResult.valid()) {
             sol::error err = callResult;
             log_user_error(std::string("[ScriptSystem] onCreate error (entity ") +
-                      std::to_string(entity) + "): " + err.what());
+                           std::to_string(entity) + "): " + err.what());
         }
     }
 
@@ -115,7 +120,7 @@ void ScriptSystem::unloadScript(Registry& registry, Entity entity) {
             if (!result.valid()) {
                 sol::error err = result;
                 log_user_error(std::string("[ScriptSystem] onDestroy error (entity ") +
-                          std::to_string(entity) + "): " + err.what());
+                               std::to_string(entity) + "): " + err.what());
             }
         }
         script.scriptTable = sol::lua_nil;
