@@ -29,3 +29,7 @@ target_link_libraries(ScaffoldRoundTrip PRIVATE Engine Serialization glaze::glaz
 
 add_executable(MultiplayerScenesTest MultiplayerScenesTest.cpp)
 target_link_libraries(MultiplayerScenesTest PRIVATE Engine)
+
+add_executable(WaveSpawnerNetworkTest WaveSpawnerNetworkTest.cpp)
+target_link_libraries(WaveSpawnerNetworkTest PRIVATE Engine)
+add_test(NAME WaveSpawnerNetworkTest COMMAND WaveSpawnerNetworkTest)
