@@ -1,3 +1,4 @@
+-- Pages live on this table. The component reloads the file; there is no screen stack.
 local Menu = UI.use("menu")
 local Settings = UI.use("settings")
 
@@ -66,6 +67,7 @@ function Screen:draw(entity)
             },
         })
         self.volume = values.Volume or self.volume
+        -- An unchecked box returns false, which is not the same as a missing key.
         if values.Fullscreen ~= nil then
             self.fullscreen = values.Fullscreen
         end

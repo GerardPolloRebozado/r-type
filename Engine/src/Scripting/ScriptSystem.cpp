@@ -24,11 +24,12 @@ void ScriptSystem::Update(Registry& registry, float dt) {
     if (!apiRegistered) {
         lua.open_libraries();
         LuaAPI::registerEngineAPI(lua.lua_state(), registry);
+        // Plugins such as UI register here, once, after the engine API.
         if (registry.HasResource<LuaBinder>()) {
             auto& modules = registry.GetResource<LuaBinder>().modules;
             for (size_t i = 0; i < modules.size(); ++i) {
                 if (modules[i]) {
-                    modules[i](lua.lua_state(), registry);
+                    modules[i](lua, registry);
                 }
             }
         }

@@ -15,6 +15,7 @@ std::unordered_set<std::string> UiSystem::s_WarnedMissing;
 
 namespace {
 
+// GetSystem throws when the script plugin was not loaded.
 std::shared_ptr<ScriptSystem> FindScriptSystem(Registry& registry) {
     const auto& systems = registry.GetSystems();
     const auto it = systems.find(typeid(ScriptSystem));
@@ -24,7 +25,7 @@ std::shared_ptr<ScriptSystem> FindScriptSystem(Registry& registry) {
     return std::static_pointer_cast<ScriptSystem>(it->second);
 }
 
-void CallHook(sol::table table, const char* name, Entity entity) {
+void CallHook(sol::table table, const std::string& name, Entity entity) {
     sol::optional<sol::function> hook = table[name];
     sol::protected_function_result result;
 
@@ -69,6 +70,7 @@ void UiSystem::Draw(Registry& registry) {
         if (!draw || !draw->valid()) {
             continue;
         }
+        // One bad script must not skip the other entities this frame.
         auto result = draw->call(ui.scriptTable, entity);
         if (!result.valid()) {
             sol::error err = result;
@@ -90,13 +92,14 @@ void UiSystem::LoadScript(Registry& registry, Entity entity) {
     }
     fullPath = ResolveAssetPath(registry, ui.scriptPath);
     if (!std::filesystem::exists(fullPath)) {
+        // The path is checked every frame. Warn only the first time.
         if (s_WarnedMissing.insert(ui.scriptPath).second) {
             log_user_error("[UI] Script not found: " + fullPath.string());
         }
         return;
     }
 
-    result = scripts->GetLua().script_file(fullPath.string(), &sol::script_default_on_error);
+    result = scripts->GetLua().script_file(fullPath.string());
     if (!result.valid()) {
         sol::error err = result;
         log_user_error("[UI] Failed to load script " + fullPath.string() + ": " + err.what());
@@ -110,6 +113,7 @@ void UiSystem::LoadScript(Registry& registry, Entity entity) {
 
     ui.scriptTable = object.as<sol::table>();
     ui.loaded = true;
+    // onOpen runs once, after the table exists.
     CallHook(ui.scriptTable, "onOpen", entity);
     log_info("[UI] Loaded UI script for entity " + std::to_string(entity) + ": " + ui.scriptPath);
 }
@@ -129,11 +133,14 @@ void UiSystem::UnloadScript(Registry& registry, Entity entity) {
 
 void UiSystem::OnSceneUnloaded(Registry& registry) {
     std::vector<Entity> entities;
+    std::shared_ptr<ComponentArray<UiComponent>> components;
 
     if (!registry.IsComponentRegistered<UiComponent>()) {
         return;
     }
-    for (const auto& [entity, ui] : *registry.GetComponentArray<UiComponent>()) {
+    // onClose can remove the component, so the list is copied first.
+    components = registry.GetComponentArray<UiComponent>();
+    for (const auto& [entity, ui] : *components) {
         if (ui.loaded) {
             entities.push_back(entity);
         }

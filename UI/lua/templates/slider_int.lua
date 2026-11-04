@@ -1,3 +1,4 @@
+-- Returns the new integer. "##" keeps the visible label off the slider id.
 local SliderInt = {}
 
 SliderInt.defaults = {

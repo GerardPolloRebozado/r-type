@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <rlImGui.h>
 #include <typeindex>
 
@@ -26,12 +27,28 @@ ImVec4 Darken(ImVec4 color) {
     return color;
 }
 
-std::optional<ImVec4> ReadColor(const sol::table& props, const char* key) {
+enum class NamedStyle { Primary, Secondary, Ghost, Danger };
+
+NamedStyle NamedStyleFrom(const std::string& name) {
+    if (name == "secondary") {
+        return NamedStyle::Secondary;
+    }
+    if (name == "ghost") {
+        return NamedStyle::Ghost;
+    }
+    if (name == "danger") {
+        return NamedStyle::Danger;
+    }
+    return NamedStyle::Primary;
+}
+
+std::optional<ImVec4> ReadColor(const sol::table& props, const std::string& key) {
     sol::optional<sol::table> color = props[key];
     if (!color || !color->valid()) {
         return std::nullopt;
     }
     ImVec4 value{1.0f, 1.0f, 1.0f, 1.0f};
+    // Lua colors are {r, g, b, a} at indexes 1..4.
     value.x = color->get_or(1, 1.0f);
     value.y = color->get_or(2, 1.0f);
     value.z = color->get_or(3, 1.0f);
@@ -43,6 +60,7 @@ std::optional<ImVec4> ReadColor(const sol::table& props, const char* key) {
 
 UiRuntime::~UiRuntime() {
     m_Textures.clear();
+    // The window is already closed when the registry is destroyed.
     if (m_ImGuiReady && IsWindowReady()) {
         rlImGuiShutdown();
         m_ImGuiReady = false;
@@ -73,10 +91,10 @@ void UiRuntime::EnsureImGui() {
 
 void UiRuntime::ApplyTheme() {
     ImGuiStyle& style = ImGui::GetStyle();
-    ImVec4* colors = nullptr;
     ImVec4 border{0.73f, 0.66f, 0.48f, 0.90f};
     ImVec4 frame = m_Theme.panel;
 
+    // Bone border and a frame slightly lighter than the panel, so widgets stay on the black field.
     frame.x = std::min(frame.x + 0.07f, 1.0f);
     frame.y = std::min(frame.y + 0.06f, 1.0f);
     frame.z = std::min(frame.z + 0.045f, 1.0f);
@@ -91,26 +109,25 @@ void UiRuntime::ApplyTheme() {
     style.FramePadding = ImVec2(8.0f, 6.0f);
     style.ItemSpacing = ImVec2(10.0f, 8.0f);
 
-    colors = style.Colors;
-    colors[ImGuiCol_Text] = m_Theme.text;
-    colors[ImGuiCol_WindowBg] = m_Theme.panel;
-    colors[ImGuiCol_PopupBg] = m_Theme.panel;
-    colors[ImGuiCol_Border] = border;
-    colors[ImGuiCol_Separator] = border;
-    colors[ImGuiCol_FrameBg] = frame;
-    colors[ImGuiCol_FrameBgHovered] = Lighten(frame);
-    colors[ImGuiCol_FrameBgActive] = Lighten(Lighten(frame));
-    colors[ImGuiCol_TitleBg] = m_Theme.panel;
-    colors[ImGuiCol_TitleBgActive] = m_Theme.panel;
-    colors[ImGuiCol_Button] = m_Theme.accent;
-    colors[ImGuiCol_ButtonHovered] = Lighten(m_Theme.accent);
-    colors[ImGuiCol_ButtonActive] = Darken(m_Theme.accent);
-    colors[ImGuiCol_Header] = m_Theme.accent;
-    colors[ImGuiCol_HeaderHovered] = Lighten(m_Theme.accent);
-    colors[ImGuiCol_HeaderActive] = Darken(m_Theme.accent);
-    colors[ImGuiCol_SliderGrab] = m_Theme.accent;
-    colors[ImGuiCol_SliderGrabActive] = Lighten(m_Theme.accent);
-    colors[ImGuiCol_CheckMark] = m_Theme.accent;
+    style.Colors[ImGuiCol_Text] = m_Theme.text;
+    style.Colors[ImGuiCol_WindowBg] = m_Theme.panel;
+    style.Colors[ImGuiCol_PopupBg] = m_Theme.panel;
+    style.Colors[ImGuiCol_Border] = border;
+    style.Colors[ImGuiCol_Separator] = border;
+    style.Colors[ImGuiCol_FrameBg] = frame;
+    style.Colors[ImGuiCol_FrameBgHovered] = Lighten(frame);
+    style.Colors[ImGuiCol_FrameBgActive] = Lighten(Lighten(frame));
+    style.Colors[ImGuiCol_TitleBg] = m_Theme.panel;
+    style.Colors[ImGuiCol_TitleBgActive] = m_Theme.panel;
+    style.Colors[ImGuiCol_Button] = m_Theme.accent;
+    style.Colors[ImGuiCol_ButtonHovered] = Lighten(m_Theme.accent);
+    style.Colors[ImGuiCol_ButtonActive] = Darken(m_Theme.accent);
+    style.Colors[ImGuiCol_Header] = m_Theme.accent;
+    style.Colors[ImGuiCol_HeaderHovered] = Lighten(m_Theme.accent);
+    style.Colors[ImGuiCol_HeaderActive] = Darken(m_Theme.accent);
+    style.Colors[ImGuiCol_SliderGrab] = m_Theme.accent;
+    style.Colors[ImGuiCol_SliderGrabActive] = Lighten(m_Theme.accent);
+    style.Colors[ImGuiCol_CheckMark] = m_Theme.accent;
     ImGui::GetIO().FontGlobalScale = m_Theme.fontScale;
 }
 
@@ -127,6 +144,7 @@ void UiRuntime::Draw(Registry& registry) {
     if (!registry.HasResource<VirtualResolution>()) {
         return;
     }
+    // The letterbox maps the mouse into virtual pixels. ImGui reads the real window.
     registry.GetResource<VirtualResolution>().ClearMouseMapping();
     EnsureImGui();
     if (!m_ImGuiReady) {
@@ -139,6 +157,7 @@ void UiRuntime::Draw(Registry& registry) {
         m_ThemeDirty = false;
     }
 
+    // GetSystem throws if the system was never registered.
     system = systems.find(typeid(UiSystem));
     if (system != systems.end()) {
         std::static_pointer_cast<UiSystem>(system->second)->Draw(registry);
@@ -146,6 +165,7 @@ void UiRuntime::Draw(Registry& registry) {
 
     m_BlocksMouse = ImGui::GetIO().WantCaptureMouse;
     m_BlocksKeyboard = ImGui::GetIO().WantCaptureKeyboard;
+    // A Lua error can skip popStyle. Drop anything still pushed.
     ReleaseStyles();
     rlImGuiEnd();
 }
@@ -198,19 +218,26 @@ void UiRuntime::PushStyle(const sol::table& props) {
     if (style) {
         styleName = *style;
     }
-    if (styleName == "secondary") {
+    // Primary is already copied from the theme. An unknown name stays there.
+    switch (NamedStyleFrom(styleName)) {
+    case NamedStyle::Secondary:
         button = ImVec4(0.18f, 0.22f, 0.28f, 1.0f);
         hover = Lighten(button);
         active = Darken(button);
-    } else if (styleName == "ghost") {
+        break;
+    case NamedStyle::Ghost:
         button = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
         hover = ImVec4(m_Theme.accent.x, m_Theme.accent.y, m_Theme.accent.z, 0.18f);
         active = ImVec4(m_Theme.accent.x, m_Theme.accent.y, m_Theme.accent.z, 0.30f);
         text = m_Theme.accent;
-    } else if (styleName == "danger") {
+        break;
+    case NamedStyle::Danger:
         button = ImVec4(0.75f, 0.22f, 0.24f, 1.0f);
         hover = ImVec4(0.86f, 0.30f, 0.32f, 1.0f);
         active = ImVec4(0.58f, 0.14f, 0.16f, 1.0f);
+        break;
+    case NamedStyle::Primary:
+        break;
     }
     if (color) {
         button = *color;
@@ -294,6 +321,7 @@ sol::table UiRuntime::UseTemplate(sol::state_view lua, Registry& registry, const
         return cached->second;
     }
 
+    // A script next to the game overrides the copy shipped with the UI library.
     path = ResolveAssetPath(registry, "ui/templates/" + name + ".lua");
     if (!std::filesystem::exists(path)) {
         path = std::filesystem::path(m_TemplateRoot) / (name + ".lua");
@@ -303,7 +331,7 @@ sol::table UiRuntime::UseTemplate(sol::state_view lua, Registry& registry, const
         return lua.create_table();
     }
 
-    result = lua.script_file(path.string(), &sol::script_default_on_error);
+    result = lua.script_file(path.string());
     if (!result.valid()) {
         sol::error err = result;
         log_user_error("[UI] Failed to load template " + path.string() + ": " + err.what());
@@ -354,6 +382,7 @@ void UiRuntime::DrawImage(Registry& registry, const std::string& path, float wid
     }
     drawWidth = static_cast<int>(width);
     drawHeight = static_cast<int>(height);
+    // Zero means the texture's own size.
     if (drawWidth <= 0) {
         drawWidth = found->second->texture.width;
     }

@@ -1,3 +1,4 @@
+-- An empty path draws nothing. The path is resolved from the project folder.
 local Image = {}
 
 Image.defaults = {

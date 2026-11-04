@@ -5,8 +5,25 @@
 #include <filesystem>
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
+#include <optional>
+#include <string>
 
 namespace Editor {
+
+namespace {
+
+// ImGui owns the payload for this call. The path is copied out and the pointer is not kept.
+std::optional<std::string> AcceptBrowserPath() {
+    const ImGuiPayload* dropped = nullptr;
+
+    dropped = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM");
+    if (dropped == nullptr || dropped->Data == nullptr) {
+        return std::nullopt;
+    }
+    return std::string(static_cast<const char*>(dropped->Data));
+}
+
+} // namespace
 
 const char* UiPluginEditor::GetName() const {
     return "UI";
@@ -43,15 +60,18 @@ bool UiPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& regi
     }
 
     ImGui::SetNextItemWidth(220.0f);
+    // The loaded table belongs to the previous file. Drop it so the next frame reloads.
     if (ImGui::InputText("Script", &ui.scriptPath)) {
         ui.loaded = false;
         ui.scriptTable = sol::lua_nil;
     }
 
+    // The drop payload is an absolute path. Scenes store a project-relative one.
     if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
-            const char* path = static_cast<const char*>(payload->Data);
-            ui.scriptPath = ToProjectRelativePath(registry, path);
+        std::optional<std::string> dropped = AcceptBrowserPath();
+
+        if (dropped.has_value()) {
+            ui.scriptPath = ToProjectRelativePath(registry, *dropped);
             ui.loaded = false;
             ui.scriptTable = sol::lua_nil;
         }
@@ -60,6 +80,7 @@ bool UiPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registry& regi
 
     ImGui::Checkbox("Auto Reload", &ui.autoReload);
 
+    // The runtime logs a missing file once. The inspector shows it on every frame.
     if (!ui.scriptPath.empty() &&
         !std::filesystem::exists(ResolveAssetPath(registry, ui.scriptPath))) {
         ImGui::TextColored(ImVec4(0.9f, 0.4f, 0.4f, 1.0f), "File not found");

@@ -7,6 +7,7 @@ namespace Engine::LuaAPI {
 void registerUI(sol::state_view lua, Registry& registry) {
     sol::table ui = lua.create_named_table("UI");
 
+    // ImGui is the widget library. UI is the template layer on top of it.
     sol_ImGui::Init(lua);
 
     ui["use"] = [&registry, lua](const std::string& name) {
@@ -15,6 +16,7 @@ void registerUI(sol::state_view lua, Registry& registry) {
     ui["register"] = [&registry](const std::string& name, sol::table table) {
         registry.GetResource<UiRuntime>().RegisterTemplate(name, std::move(table));
     };
+    // create_table is non-const. A captured state view would otherwise be const.
     ui["merge"] = [lua](sol::table defaults, sol::optional<sol::table> props) mutable {
         sol::table merged = lua.create_table();
         defaults.for_each([&](sol::object key, sol::object value) { merged[key] = value; });

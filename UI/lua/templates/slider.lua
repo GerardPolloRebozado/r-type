@@ -1,3 +1,4 @@
+-- Returns the new value. "##" keeps the visible label off the slider id.
 local Slider = {}
 
 Slider.defaults = {

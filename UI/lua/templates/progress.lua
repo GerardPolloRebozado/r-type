@@ -1,3 +1,4 @@
+-- value is clamped to 0..1 before it is drawn.
 local Progress = {}
 
 Progress.defaults = {

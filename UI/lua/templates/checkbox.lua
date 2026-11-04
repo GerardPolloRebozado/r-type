@@ -1,3 +1,4 @@
+-- Returns the checked state. A missing value counts as unchecked.
 local Checkbox = {}
 
 Checkbox.defaults = {

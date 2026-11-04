@@ -24,6 +24,7 @@ int main() {
     auto& registry = app.GetRegistry();
 
     registry.AddResource<Engine::ProjectContext>(std::string(MENU_SOURCE_DIR));
+    // CreateEntity always adds Position and Rotation, so those plugins have to be present.
     Engine::PositionPlugin().Init(registry);
     Engine::RotationPlugin().Init(registry);
     Engine::ScriptPlugin().Init(registry);

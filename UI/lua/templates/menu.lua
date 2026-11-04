@@ -1,3 +1,5 @@
+-- Full-screen title screen. Rows are text with a blinking cursor, not filled buttons.
+-- Colors follow the stage: black void, bone walls, red mark, yellow selection.
 local Menu = {}
 
 Menu.defaults = {
@@ -13,6 +15,7 @@ local BONE = { 0.73, 0.66, 0.48, 1 }
 local BLUE = { 0.10, 0.28, 0.62, 1 }
 
 local function screenFlags()
+    -- NoNav: Enter is handled in draw. ImGui must not also click the row.
     return ImGuiWindowFlags.NoDecoration
         | ImGuiWindowFlags.NoMove
         | ImGuiWindowFlags.NoSavedSettings
@@ -154,6 +157,7 @@ function Menu.draw(props)
     local index = 1
     local item = nil
 
+    -- The cursor lives on the module so it survives frames, and resets when the list changes.
     if Menu.count ~= #items then
         Menu.cursor = 1
         Menu.count = #items

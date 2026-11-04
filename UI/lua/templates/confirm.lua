@@ -1,3 +1,4 @@
+-- Returns "confirm", "cancel", or nil while the window is still open.
 local Confirm = {}
 
 Confirm.defaults = {

@@ -1,3 +1,4 @@
+-- Returns the edited string.
 local Input = {}
 
 Input.defaults = {

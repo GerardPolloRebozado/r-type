@@ -1,3 +1,4 @@
+-- Returns true on the click that also calls onClick.
 local Button = {}
 
 Button.defaults = {

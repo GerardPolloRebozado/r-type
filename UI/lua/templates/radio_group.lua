@@ -1,3 +1,4 @@
+-- value is 1-based, the same index ipairs gives each option.
 local RadioGroup = {}
 
 RadioGroup.defaults = {

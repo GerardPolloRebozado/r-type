@@ -1,3 +1,4 @@
+-- Same black screen as the title menu. Each row's label is the key in the returned table.
 local Settings = {}
 
 Settings.defaults = {

@@ -24,14 +24,14 @@ void UiPlugin::Init(Registry& registry) {
     if (!registry.HasResource<LuaBinder>()) {
         registry.AddResource<LuaBinder>();
     }
+    // ScriptSystem calls this once, on its shared state, after the engine API.
     registry.GetResource<LuaBinder>().modules.push_back(
-        [](lua_State* state, Registry& bound) {
-            LuaAPI::registerUI(sol::state_view(state), bound);
-        });
+        [](sol::state_view state, Registry& bound) { LuaAPI::registerUI(state, bound); });
 
     if (!registry.HasResource<UiPass>()) {
         registry.AddResource<UiPass>();
     }
+    // Window space, after the letterboxed canvas. The editor's render path never calls it.
     registry.GetResource<UiPass>().draw = [](Registry& bound) {
         if (!bound.HasResource<UiRuntime>()) {
             return;

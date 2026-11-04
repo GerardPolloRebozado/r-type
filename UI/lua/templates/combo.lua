@@ -1,3 +1,4 @@
+-- value is 1-based. ImGui's combo index starts at 0.
 local Combo = {}
 
 Combo.defaults = {

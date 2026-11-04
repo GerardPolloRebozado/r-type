@@ -1,3 +1,4 @@
+-- Cells in a row are 1-based. ImGui columns start at 0.
 local Table = {}
 
 Table.defaults = {

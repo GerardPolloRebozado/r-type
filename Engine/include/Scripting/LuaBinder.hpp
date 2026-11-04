@@ -3,9 +3,8 @@
 
 #include "ECS/Registry.hpp"
 #include <functional>
+#include <sol/sol.hpp>
 #include <vector>
-
-struct lua_State;
 
 namespace Engine {
 
@@ -13,10 +12,10 @@ namespace Engine {
  * @brief Extra Lua modules registered on the shared script state.
  *
  * ScriptSystem runs every module once, after the engine API, on its first
- * update. The lua_State is owned by ScriptSystem and is not owned here.
+ * update. The state is owned by ScriptSystem and is not owned here.
  */
 struct LuaBinder {
-    std::vector<std::function<void(lua_State*, Registry&)>> modules;
+    std::vector<std::function<void(sol::state_view, Registry&)>> modules;
 };
 
 } // namespace Engine
