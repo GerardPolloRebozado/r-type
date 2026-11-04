@@ -114,8 +114,8 @@ void ApplySpriteState(Registry& registry, Entity entity, const glz::generic& val
 
 /** Applies one state snapshot entry to a local entity. */
 void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& state,
-                      std::unordered_map<std::size_t, SmoothTarget>& smoothTarget,
-                      std::size_t networkId) {
+                      std::unordered_map<std::size_t, std::vector<NetSnapshot>>& snapshots,
+                      std::size_t networkId, double now) {
     if (!state.is_object() || !registry.IsEntityAlive(entity)) {
         return;
     }
@@ -138,29 +138,40 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
         if (obj.find("z") != obj.end()) {
             tz = static_cast<int>(GenericNumber(obj, "z", position.z));
         }
-        if (hasPos) {
-            auto& target = smoothTarget[networkId];
-            target.x = tx;
-            target.y = ty;
-            if (!target.hasValue) {
-                // First snapshot: snap, no lerp.
-                position.x = tx;
-                position.y = ty;
-                position.z = tz;
-                target.hasValue = true;
+        float ta = 0.0f;
+        bool hasAngle = false;
+        if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
+            ta = static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
+            hasAngle = true;
+        }
+        if (hasPos || hasAngle) {
+            auto& buf = snapshots[networkId];
+            NetSnapshot snap;
+            snap.time = now;
+            snap.x = hasPos ? tx : position.x;
+            snap.y = hasPos ? ty : position.y;
+            snap.angle = hasAngle ? ta
+                                  : (registry.HasComponent<Rotation>(entity)
+                                         ? registry.RequireComponent<Rotation>(entity).angle
+                                         : 0.0f);
+            buf.push_back(snap);
+            if (buf.size() > 4) {
+                buf.erase(buf.begin());
+            }
+            // First sample: snap immediately.
+            if (buf.size() == 1) {
+                if (hasPos) {
+                    position.x = tx;
+                    position.y = ty;
+                    position.z = tz;
+                }
+                if (hasAngle) {
+                    registry.RequireComponent<Rotation>(entity).angle = ta;
+                }
             }
         }
         if (obj.find("z") != obj.end()) {
             position.z = tz;
-        }
-    }
-    if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
-        auto& rotation = registry.RequireComponent<Rotation>(entity);
-        const float ta = static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
-        auto& target = smoothTarget[networkId];
-        target.angle = ta;
-        if (!target.hasValue) {
-            rotation.angle = ta;
         }
     }
     if (const auto it = obj.find("sprite"); it != obj.end()) {
@@ -274,12 +285,14 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
         }
     }
 
-    // Client-side smoothing: lerp replicated transforms toward their latest
-    // server target so 20 Hz snapshots read as smooth 60 Hz motion.
+    // Client-side interpolation: pick the two snapshots bracketing
+    // (m_simTime - delay) and lerp between them.
     if (!host.IsServer()) {
-        const float alpha = std::min(1.0f, dt * 12.0f);
-        for (auto& [networkId, target] : m_smoothTarget) {
-            if (!target.hasValue) {
+        m_simTime += dt;
+        constexpr double kDelay = 0.1; // 100 ms interpolation delay
+        const double t = m_simTime - kDelay;
+        for (auto& [networkId, buf] : m_snapshots) {
+            if (buf.size() < 2) {
                 continue;
             }
             const auto entityOpt = host.GetEntityByNetworkId(networkId);
@@ -290,21 +303,45 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
             if (!registry.IsEntityAlive(entity)) {
                 continue;
             }
+            const NetSnapshot* a = &buf.front();
+            const NetSnapshot* b = &buf.back();
+            for (size_t i = 0; i + 1 < buf.size(); ++i) {
+                if (buf[i].time <= t && t <= buf[i + 1].time) {
+                    a = &buf[i];
+                    b = &buf[i + 1];
+                    break;
+                }
+                if (t > buf.back().time) {
+                    a = &buf[buf.size() - 2];
+                    b = &buf.back();
+                }
+            }
+            if (a == b) {
+                continue;
+            }
+            const double span = b->time - a->time;
+            float frac = (span > 0.0) ? static_cast<float>((t - a->time) / span) : 1.0f;
+            if (frac < 0.0f) {
+                frac = 0.0f;
+            }
+            if (frac > 1.0f) {
+                frac = 1.0f;
+            }
             if (registry.HasComponent<Position>(entity)) {
                 auto& pos = registry.RequireComponent<Position>(entity);
-                pos.x += (target.x - pos.x) * alpha;
-                pos.y += (target.y - pos.y) * alpha;
+                pos.x = a->x + (b->x - a->x) * frac;
+                pos.y = a->y + (b->y - a->y) * frac;
             }
             if (registry.HasComponent<Rotation>(entity)) {
                 auto& rot = registry.RequireComponent<Rotation>(entity);
-                float diff = target.angle - rot.angle;
+                float diff = b->angle - a->angle;
                 while (diff > 180.0f) {
                     diff -= 360.0f;
                 }
                 while (diff < -180.0f) {
                     diff += 360.0f;
                 }
-                rot.angle += diff * alpha;
+                rot.angle = a->angle + diff * frac;
             }
         }
     }
@@ -642,7 +679,7 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
                          " (network id " + std::to_string(networkId) + ")");
             }
 
-            ApplyEntityState(registry, entity, entry, m_smoothTarget, networkId);
+            ApplyEntityState(registry, entity, entry, m_snapshots, networkId, m_simTime);
             if (const auto vars = obj.find("vars"); vars != obj.end() && vars->second.is_object()) {
                 ApplyReplicatedScriptVariables(registry, networkId, entity,
                                                vars->second.get_object());

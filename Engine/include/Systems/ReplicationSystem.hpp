@@ -56,19 +56,14 @@ class NetworkHostResource;
  *     ENet.
  */
 /**
- * @struct SmoothTarget
- * @brief Client-side interpolation target for a replicated entity.
- *
- * When a state snapshot arrives, the received transform is stored here instead
- * of being written straight into Position. ReplicationSystem::Update lerps the
- * live Position toward this target each frame, smoothing 20 Hz snapshots into
- * 60 Hz motion.
+ * @struct NetSnapshot
+ * @brief One timestamped transform sample received from the server.
  */
-struct SmoothTarget {
+struct NetSnapshot {
+    double time = 0.0;
     float x = 0.0f;
     float y = 0.0f;
     float angle = 0.0f;
-    bool hasValue = false;
 };
 
 class ReplicationSystem : public System {
@@ -136,8 +131,10 @@ class ReplicationSystem : public System {
     /** RTYPE_NET_DEBUG=1 prints player positions once per second. */
     bool m_debug = false;
     std::size_t m_debugTicks = 0;
-    /** Client-side interpolation targets, keyed by network id. */
-    std::unordered_map<std::size_t, SmoothTarget> m_smoothTarget;
+    /** Client-side snapshot history for interpolation, keyed by network id. */
+    std::unordered_map<std::size_t, std::vector<NetSnapshot>> m_snapshots;
+    /** Accumulated sim time on the client, used to pick interpolation samples. */
+    double m_simTime = 0.0;
 };
 
 } // namespace Engine::Multiplayer
