@@ -57,8 +57,9 @@ void registerComponentQuery(sol::state_view lua, Registry& registry) {
     // Returns every entity carrying the given component, as an array table.
     // Lets scripts iterate the world (e.g. a server snapshotting all positions)
     // without knowing entity ids up front.
-    component["entitiesWith"] = [lua,
+    component["entitiesWith"] = [luaState = lua.lua_state(),
                                  &registry](const std::string& typeName) mutable -> sol::table {
+        sol::state_view lua(luaState);
         sol::table out = lua.create_table();
         const auto it = kComponentTypeIds.find(typeName);
         if (it == kComponentTypeIds.end()) {

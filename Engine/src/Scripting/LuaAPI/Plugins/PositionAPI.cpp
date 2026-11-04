@@ -13,7 +13,9 @@ void registerPosition(sol::state_view lua, Registry& registry) {
     // Returns a plain {x, y, z} table rather than the C++ Position usertype to
     // avoid sol2 usertype copy-construction friction with Position's extra
     // fields (prevX/prevY/moved/relative), or whatever I read on a so post
-    transform["getPosition"] = [lua, &registry](Entity entity) mutable -> sol::table {
+    transform["getPosition"] = [luaState = lua.lua_state(),
+                                &registry](Entity entity) mutable -> sol::table {
+        sol::state_view lua(luaState);
         sol::table t = lua.create_table();
         t["x"] = 0.0f;
         t["y"] = 0.0f;

@@ -144,15 +144,17 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         return netHost.Connect(host, static_cast<std::uint16_t>(port)) != nullptr;
     };
 
-    net["on"] = [lua, &registry](const std::string& name, const sol::function& callback) mutable {
+    net["on"] = [luaState = lua.lua_state(), &registry](const std::string& name,
+                                                        const sol::function& callback) mutable {
         auto* packetRegistry = GetPacketRegistry(registry);
         auto* router = GetPacketRouter(registry);
         if (packetRegistry == nullptr || router == nullptr || !callback.valid()) {
             return false;
         }
         const PacketTypeID id = packetRegistry->GetOrRegister(name);
-        router->On(id, [lua, callback](Registry& /*r*/, ENetPeer* peer, const uint8_t* payload,
-                                       const std::size_t size) mutable {
+        router->On(id, [luaState, callback](Registry& /*r*/, ENetPeer* peer, const uint8_t* payload,
+                                            const std::size_t size) mutable {
+            sol::state_view lua(luaState);
             sol::object data = DecodePayload(lua, payload, size);
             auto result = callback(static_cast<void*>(peer), data);
             if (!result.valid()) {
@@ -226,7 +228,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         return true;
     };
 
-    net["onConnect"] = [lua, &registry](sol::object callback) mutable {
+    net["onConnect"] = [&registry](sol::object callback) mutable {
         auto* router = GetPacketRouter(registry);
         if (router == nullptr) {
             return;
@@ -239,7 +241,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!fn.valid()) {
             return;
         }
-        router->m_OnConnect = [lua, fn](Registry& /*r*/, ENetPeer* peer) mutable {
+        router->m_OnConnect = [fn](Registry& /*r*/, ENetPeer* peer) mutable {
             auto result = fn(static_cast<void*>(peer));
             if (!result.valid()) {
                 sol::error err = result;
@@ -248,7 +250,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         };
     };
 
-    net["onDisconnect"] = [lua, &registry](sol::object callback) mutable {
+    net["onDisconnect"] = [&registry](sol::object callback) mutable {
         auto* router = GetPacketRouter(registry);
         if (router == nullptr) {
             return;
@@ -261,7 +263,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!fn.valid()) {
             return;
         }
-        router->m_OnDisconnect = [lua, fn](Registry& /*r*/, ENetPeer* peer) mutable {
+        router->m_OnDisconnect = [fn](Registry& /*r*/, ENetPeer* peer) mutable {
             auto result = fn(static_cast<void*>(peer));
             if (!result.valid()) {
                 sol::error err = result;

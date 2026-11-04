@@ -72,14 +72,18 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         return false;
     };
 
-    component["getSprite"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getSprite"] = [luaState = lua.lua_state(),
+                              &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, "sprite");
         }
         return sol::make_object(lua, sol::lua_nil);
     };
 
-    component["getSpriteInfo"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getSpriteInfo"] = [luaState = lua.lua_state(),
+                                  &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
@@ -95,7 +99,9 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         return sol::make_object(lua, t);
     };
 
-    component["getSpriteFlip"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getSpriteFlip"] = [luaState = lua.lua_state(),
+                                  &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
@@ -119,7 +125,9 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         return true;
     };
 
-    component["getSpriteScale"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getSpriteScale"] = [luaState = lua.lua_state(),
+                                   &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
@@ -130,7 +138,9 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         return sol::make_object(lua, t);
     };
 
-    component["getSpriteOffset"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getSpriteOffset"] = [luaState = lua.lua_state(),
+                                    &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
@@ -141,7 +151,9 @@ void registerSprite(sol::state_view lua, Registry& registry) {
         return sol::make_object(lua, t);
     };
 
-    component["getSpritePath"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getSpritePath"] = [luaState = lua.lua_state(),
+                                  &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (!registry.HasComponent<SpriteComponent>(entity)) {
             return sol::make_object(lua, sol::lua_nil);
         }
@@ -185,7 +197,9 @@ void registerSprite(sol::state_view lua, Registry& registry) {
 
     // Find an entity by its Name component value
     // not ideal though
-    component["findEntityByName"] = [&registry, lua](const std::string& name) -> sol::object {
+    component["findEntityByName"] =
+        [&registry, luaState = lua.lua_state()](const std::string& name) -> sol::object {
+        sol::state_view lua(luaState);
         for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
             Entity entity = i;
             if (registry.HasComponent<Engine::Name>(entity)) {

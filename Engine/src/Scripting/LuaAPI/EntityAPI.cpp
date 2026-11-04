@@ -30,10 +30,13 @@ void registerEntity(sol::state_view lua, Registry& registry) {
 
     t["queueDestroy"] = [&registry](Entity entity) { registry.QueueDestroyEntity(entity); };
 
-    t["find"] = [lua, &registry](const std::string& name) mutable -> sol::object {
+    t["find"] = [luaState = lua.lua_state(),
+                 &registry](const std::string& name) mutable -> sol::object {
+        sol::state_view lua(luaState);
         for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
             Entity e{i};
-            if (registry.HasComponent<Name>(e) && registry.RequireComponent<Name>(e).value == name) {
+            if (registry.HasComponent<Name>(e) &&
+                registry.RequireComponent<Name>(e).value == name) {
                 return sol::make_object(lua, e);
             }
         }

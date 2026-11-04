@@ -56,8 +56,9 @@ void registerController(sol::state_view lua, Registry& registry) {
         return ctrl->isActionActive(action);
     };
 
-    controller["getActiveActions"] =
-        [lua, &registry](sol::optional<int> playerIdOpt) mutable -> sol::table {
+    controller["getActiveActions"] = [luaState = lua.lua_state(), &registry](
+                                         sol::optional<int> playerIdOpt) mutable -> sol::table {
+        sol::state_view lua(luaState);
         sol::table out = lua.create_table();
         const int playerId = playerIdOpt.value_or(kDefaultPlayerId);
         IController* ctrl = getController(registry, playerId);
