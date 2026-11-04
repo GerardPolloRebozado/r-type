@@ -875,7 +875,7 @@ void ReplicationSystem::SendSpawn(const Registry& registry, NetworkHostResource&
     auto* packet = NetworkHostResource::CreateRawPacket(
         packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
     if (packet != nullptr) {
-        host.SendAllHost(packet, 0);
+        host.SendAllHost(packet, 1);
         m_announcedIds.insert(network.networkId);
     }
 }
@@ -897,9 +897,12 @@ void ReplicationSystem::SendDespawn(Registry& registry, NetworkHostResource& hos
     auto* packet = NetworkHostResource::CreateRawPacket(
         packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
     if (packet != nullptr) {
-        host.SendAllHost(packet, 0);
-        m_announcedIds.erase(networkId);
+        host.SendAllHost(packet, 1);
+    } else {
+        log_error("[Replication] Failed to allocate despawn packet for network id " +
+                  std::to_string(networkId));
     }
+    m_announcedIds.erase(networkId);
 }
 
 void ReplicationSystem::SendLocalInput(Registry& registry, NetworkHostResource& host,
