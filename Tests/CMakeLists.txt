@@ -40,3 +40,7 @@ add_test(NAME MultiplayerScenesTest COMMAND MultiplayerScenesTest)
 add_executable(WaveSpawnerNetworkTest WaveSpawnerNetworkTest.cpp)
 target_link_libraries(WaveSpawnerNetworkTest PRIVATE Engine)
 add_test(NAME WaveSpawnerNetworkTest COMMAND WaveSpawnerNetworkTest)
+
+add_executable(AnimationAPITest AnimationAPITest.cpp)
+target_link_libraries(AnimationAPITest PRIVATE Engine)
+add_test(NAME AnimationAPITest COMMAND AnimationAPITest)
