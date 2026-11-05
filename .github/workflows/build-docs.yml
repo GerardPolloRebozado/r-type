@@ -1,0 +1,27 @@
+name: Publish docs via GitHub Pages
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Deploy docs
+    if: github.repository != 'EpitechPGE3-2026/G-ING-500-BAR-5-1-rtype-1'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v2
+
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Deploy docs
+        uses: mhausenblas/mkdocs-deploy-gh-pages@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONFIG_FILE: Documentation/mkdocs.yml
+          EXTRA_PACKAGES: build-base doxygen graphviz
+          REQUIREMENTS: Documentation/requirements.txt
