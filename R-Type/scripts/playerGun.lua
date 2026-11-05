@@ -181,7 +181,7 @@ function PlayerGun:fireProjectile()
     -- In multiplayer this assigns a network id and makes ReplicationSystem
     -- announce the spawn + sync its position/sprite to every client.
     if isNetworked() then
-        Net.replicate(projEntity, "Server", true, false)
+        Net.replicate(projEntity, "Server", false, false)
     end
 
     table.insert(self.projectiles, {
@@ -191,14 +191,8 @@ function PlayerGun:fireProjectile()
 end
 
 function PlayerGun:fireSuperProjectile()
-    local projEntity = Entity.create()
-
     local gunPos = Transform.getPosition(self.entity)
-    local gunPosX = gunPos.x
-    local gunPosY = gunPos.y
-    Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
-    Component.addSprite(projEntity, SUPER_SHOOT_SPRITE, 0, 0, 4.0, 4.0)
-    Component.addBoxCollider(projEntity, 32, 32)
+    local projEntity = Pool.acquire("Prefabs/Bullet.prefab", gunPos.x, gunPos.y + 6.0)
 
     Component.setColliderLayer(projEntity, "PlayerBullet")
     Component.setColliderMask(projEntity, Layers.bit("Enemy"))
