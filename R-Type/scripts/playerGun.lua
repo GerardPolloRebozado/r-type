@@ -34,7 +34,9 @@ end
 
 function PlayerGun:readInput()
     local owner = Component.getParent(self.entity)
-    if Player.active == false then
+    -- Player is defined by player.lua; guard against it not being loaded yet
+    -- (script load order is not guaranteed across platforms).
+    if Player == nil or Player.active == false then
         return {}
     end
     local input = {
