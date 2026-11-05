@@ -1,6 +1,8 @@
 #include "UI/LuaAPI/UiAPI.hpp"
 #include "UI/UiRuntime.hpp"
 #include "sol_ImGui.h"
+#include <array>
+#include <tuple>
 
 namespace Engine::LuaAPI {
 
@@ -46,6 +48,45 @@ void registerUI(sol::state_view lua, Registry& registry) {
     };
     ui["image"] = [&registry](const std::string& path, float width, float height) {
         registry.GetResource<UiRuntime>().DrawImage(registry, path, width, height);
+    };
+    ui["beginScreen"] = [&registry](const std::string& id, sol::optional<int> flags) {
+        if (!registry.HasResource<UiRuntime>()) {
+            return;
+        }
+        registry.GetResource<UiRuntime>().BeginScreen(id, flags.value_or(0));
+    };
+    ui["endScreen"] = [&registry]() {
+        if (!registry.HasResource<UiRuntime>()) {
+            return;
+        }
+        registry.GetResource<UiRuntime>().EndScreen();
+    };
+    ui["beginPanel"] = [&registry](const std::string& id, float width, float height,
+                                   sol::optional<int> flags) {
+        if (!registry.HasResource<UiRuntime>()) {
+            return;
+        }
+        registry.GetResource<UiRuntime>().BeginPanel(id, width, height, flags.value_or(0));
+    };
+    ui["endPanel"] = [&registry]() {
+        if (!registry.HasResource<UiRuntime>()) {
+            return;
+        }
+        registry.GetResource<UiRuntime>().EndPanel();
+    };
+    ui["screenSize"] = [&registry]() {
+        std::array<float, 4> rect{0.0f, 0.0f, 0.0f, 0.0f};
+
+        if (registry.HasResource<UiRuntime>()) {
+            rect = registry.GetResource<UiRuntime>().GetScreenRect();
+        }
+        return std::make_tuple(rect[2], rect[3]);
+    };
+    ui["isPreview"] = [&registry]() {
+        if (!registry.HasResource<UiRuntime>()) {
+            return false;
+        }
+        return registry.GetResource<UiRuntime>().IsPreview();
     };
 }
 

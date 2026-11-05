@@ -3,10 +3,12 @@
 local Menu = {}
 
 Menu.defaults = {
-    title = "R-TYPE",
+    title = "GAME NAME",
     items = {},
     message = "",
 }
+
+Menu.widths = {}
 
 local RED = { 0.86, 0.08, 0.11, 1 }
 local WHITE = { 0.95, 0.94, 0.90, 1 }
@@ -21,24 +23,6 @@ local function screenFlags()
         | ImGuiWindowFlags.NoSavedSettings
         | ImGuiWindowFlags.NoNav
         | ImGuiWindowFlags.NoBringToFrontOnFocus
-end
-
-local function beginScreen(id)
-    local displayW, displayH = ImGui.GetDisplaySize()
-
-    ImGui.SetNextWindowPos(0, 0)
-    ImGui.SetNextWindowSize(displayW, displayH)
-    ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 0, 0)
-    ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0)
-    ImGui.PushStyleColor(ImGuiCol.WindowBg, 0, 0, 0, 1)
-    ImGui.Begin(id, true, screenFlags())
-    return displayW, displayH
-end
-
-local function endScreen()
-    ImGui.End()
-    ImGui.PopStyleColor()
-    ImGui.PopStyleVar(2)
 end
 
 local function solidBar(id, width, height, color)
@@ -72,8 +56,7 @@ local function scoreLine(windowW)
     ImGui.TextColored(YELLOW[1], YELLOW[2], YELLOW[3], 1, "000000")
 end
 
-local function logo(windowW, top)
-    local text = "R-TYPE"
+local function logo(text, windowW, top)
     local widths = {}
     local total = 0
     local x = 0
@@ -97,7 +80,7 @@ local function logo(windowW, top)
     for index = 1, #text do
         ch = text:sub(index, index)
         ImGui.SetCursorPos(x, top)
-        if ch == "R" then
+        if index == 1 then
             ImGui.TextColored(RED[1], RED[2], RED[3], 1, ch)
         else
             ImGui.TextColored(WHITE[1], WHITE[2], WHITE[3], 1, ch)
@@ -124,7 +107,8 @@ local function itemRow(label, index, active, blink, windowW, y)
         text = { 0, 0, 0, 0 },
         rounding = 0,
     })
-    clicked = ImGui.Button("##" .. label, rowW, 42)
+    -- The index keeps two rows with the same label apart.
+    clicked = ImGui.Button("##" .. index .. "-" .. label, rowW, 42)
     UI.popStyle()
     ImGui.PopStyleVar()
     if ImGui.IsItemHovered() then
@@ -147,9 +131,38 @@ local function itemRow(label, index, active, blink, windowW, y)
     return clicked
 end
 
+-- A widget's size is only known once drawn, so it is centered on last frame's width.
+local function childRow(child, index, windowW, y)
+    local template = UI.use(child.template)
+    local width = Menu.widths[index] or 320
+    local height = 0
+    local value = nil
+
+    ImGui.SetCursorPos((windowW - width) * 0.5, y)
+    ImGui.PushID("child" .. index)
+    ImGui.BeginGroup()
+    if template.draw then
+        value = template.draw(child.props or {})
+    end
+    ImGui.EndGroup()
+    ImGui.PopID()
+    width, height = ImGui.GetItemRectSize()
+    Menu.widths[index] = width
+    return value, height
+end
+
+local function pressed(clicked, row, keys)
+    return clicked or (keys and row == Menu.cursor and ImGui.IsKeyPressed(ImGuiKey.Enter))
+end
+
 function Menu.draw(props)
     local p = UI.merge(Menu.defaults, props)
     local items = p.items or {}
+    local children = p.children or {}
+    local values = {}
+    local rowCount = 0
+    local row = 0
+    local keys = not UI.isPreview()
     local windowW = 0
     local windowH = 0
     local blink = false
@@ -157,30 +170,46 @@ function Menu.draw(props)
     local index = 1
     local item = nil
 
+    -- Children replace items. Only button children are rows the cursor walks.
+    if #children > 0 then
+        for index, item in ipairs(children) do
+            if item.template == "button" then
+                rowCount = rowCount + 1
+            end
+        end
+    else
+        rowCount = #items
+    end
+
     -- The cursor lives on the module so it survives frames, and resets when the list changes.
-    if Menu.count ~= #items then
+    if Menu.count ~= rowCount then
         Menu.cursor = 1
-        Menu.count = #items
+        Menu.count = rowCount
+        Menu.widths = {}
     end
     if not Menu.cursor or Menu.cursor < 1 then
         Menu.cursor = 1
     end
     blink = (ImGui.GetTime() % 0.66) < 0.33
 
-    if #items > 0 and ImGui.IsKeyPressed(ImGuiKey.DownArrow, true) then
-        Menu.cursor = (Menu.cursor % #items) + 1
+    if keys and rowCount > 0 and ImGui.IsKeyPressed(ImGuiKey.DownArrow, true) then
+        Menu.cursor = (Menu.cursor % rowCount) + 1
     end
-    if #items > 0 and ImGui.IsKeyPressed(ImGuiKey.UpArrow, true) then
-        Menu.cursor = ((Menu.cursor - 2) % #items) + 1
+    if keys and rowCount > 0 and ImGui.IsKeyPressed(ImGuiKey.UpArrow, true) then
+        Menu.cursor = ((Menu.cursor - 2) % rowCount) + 1
     end
 
-    windowW, windowH = beginScreen("##rtype-menu")
+    windowW, windowH = UI.screenSize()
+    ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 0, 0)
+    ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0)
+    ImGui.PushStyleColor(ImGuiCol.WindowBg, 0, 0, 0, 1)
+    UI.beginScreen("##rtype-menu", screenFlags())
     ImGui.SetCursorPos(0, 0)
     solidBar("##top-bone", windowW, 14, BONE)
     ImGui.SetCursorPos(0, 14)
     solidBar("##top-red", windowW, 3, RED)
     scoreLine(windowW)
-    logo(windowW, windowH * 0.20)
+    logo(p.title or "GAME NAME", windowW, windowH * 0.20)
 
     if p.message and p.message ~= "" then
         local messageW = 0
@@ -192,22 +221,44 @@ function Menu.draw(props)
     end
 
     y = windowH * 0.52
-    for index, item in ipairs(items) do
-        local label = item.label or "ITEM"
-        local clicked = itemRow(label, index, index == Menu.cursor, blink, windowW, y)
-        if clicked or (index == Menu.cursor and ImGui.IsKeyPressed(ImGuiKey.Enter)) then
-            if type(item.onClick) == "function" then
-                item.onClick()
+    if #children > 0 then
+        for index, item in ipairs(children) do
+            if item.template == "button" then
+                local label = (item.props and item.props.label) or "ITEM"
+                local clicked = false
+                row = row + 1
+                clicked = itemRow(label, row, row == Menu.cursor, blink, windowW, y)
+                if pressed(clicked, row, keys) and type(item.onClick) == "function" then
+                    item.onClick()
+                end
+                y = y + 50
+            else
+                local value, height = childRow(item, index, windowW, y)
+                values[index] = value
+                y = y + math.max(height, 24) + 12
             end
         end
-        y = y + 50
+    else
+        for index, item in ipairs(items) do
+            local label = item.label or "ITEM"
+            local clicked = itemRow(label, index, index == Menu.cursor, blink, windowW, y)
+            if pressed(clicked, index, keys) then
+                if type(item.onClick) == "function" then
+                    item.onClick()
+                end
+            end
+            y = y + 50
+        end
     end
 
     ImGui.SetCursorPos(0, windowH - 17)
     solidBar("##bottom-red", windowW, 3, RED)
     ImGui.SetCursorPos(0, windowH - 14)
     solidBar("##bottom-bone", windowW, 14, BONE)
-    endScreen()
+    UI.endScreen()
+    ImGui.PopStyleColor()
+    ImGui.PopStyleVar(2)
+    return values
 end
 
 return Menu

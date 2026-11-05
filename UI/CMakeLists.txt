@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(UI STATIC
+        src/UiCatalog.cpp
         src/UiPlugin.cpp
         src/UiSystem.cpp
         src/UiRuntime.cpp

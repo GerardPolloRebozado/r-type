@@ -281,6 +281,10 @@ void DrawAddComponentMenu(std::vector<std::unique_ptr<IPluginEditor>>& editors,
                           Engine::Entity entity, Engine::Registry& registry) {
     bool anyAvailable = false;
     for (auto& editor : editors) {
+        if (TryDrawUiAddMenu(*editor, entity, registry)) {
+            anyAvailable = true;
+            continue;
+        }
         if (!editor->HasComponent(entity, registry)) {
             anyAvailable = true;
             const std::string menuItem =

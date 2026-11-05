@@ -10,7 +10,7 @@ RadioGroup.defaults = {
 
 function RadioGroup.draw(props)
     local p = UI.merge(RadioGroup.defaults, props)
-    local value = p.value or 1
+    local value = math.floor(p.value or 1)
     local options = p.options or {}
 
     UI.pushStyle(p)
@@ -18,7 +18,7 @@ function RadioGroup.draw(props)
         ImGui.Text(p.label)
     end
     for index, option in ipairs(options) do
-        value = ImGui.RadioButton(option, value, index)
+        value = ImGui.RadioButton(option, value, math.floor(index))
     end
     UI.popStyle()
     return value

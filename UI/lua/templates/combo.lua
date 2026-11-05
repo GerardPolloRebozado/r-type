@@ -12,9 +12,13 @@ Combo.defaults = {
 function Combo.draw(props)
     local p = UI.merge(Combo.defaults, props)
     local options = p.options or {}
-    local index = (p.value or 1) - 1
-    local value = p.value or 1
+    local index = math.floor(p.value or 1) - 1
+    local value = math.floor(p.value or 1)
 
+    -- ImGui has nothing to pick from, so the value goes back unchanged.
+    if #options == 0 then
+        return value
+    end
     if index < 0 then
         index = 0
     end
@@ -23,7 +27,7 @@ function Combo.draw(props)
     if p.width then
         ImGui.SetNextItemWidth(p.width)
     end
-    index = ImGui.Combo(p.label, index, options, #options)
+    index = ImGui.Combo(p.label, index, options, math.floor(#options))
     UI.popStyle()
     value = index + 1
     return value

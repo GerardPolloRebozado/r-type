@@ -83,6 +83,7 @@ function Screen:draw(entity)
 
     if self.page == "confirm" then
         Menu.draw({
+            title = "R-TYPE",
             message = "LEAVE THE GAME?",
             items = {
                 { label = "QUIT", onClick = function() self.page = "playing" end },
@@ -94,6 +95,7 @@ function Screen:draw(entity)
 
     if self.page == "playing" then
         Menu.draw({
+            title = "R-TYPE",
             message = "R-9  LAUNCHED",
             items = {
                 { label = "BACK", onClick = function() self.page = "menu" end },
@@ -103,6 +105,7 @@ function Screen:draw(entity)
     end
 
     Menu.draw({
+        title = "R-TYPE",
         items = {
             { label = "PLAY", onClick = function() self.page = "playing" end },
             { label = "SETTINGS", onClick = function() self.page = "settings" end },

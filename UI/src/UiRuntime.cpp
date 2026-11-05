@@ -252,7 +252,9 @@ void UiRuntime::PushStyle(const sol::table& props) {
         text = *textColor;
     }
 
-    if (m_ImGuiReady) {
+    // The editor already has an ImGui context. m_ImGuiReady stays false there so
+    // shutdown does not tear that context down.
+    if (m_ImGuiReady || ImGui::GetCurrentContext() != nullptr) {
         ImGui::PushStyleColor(ImGuiCol_Button, button);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, active);
@@ -286,7 +288,7 @@ void UiRuntime::PopStyle() {
     }
     frame = m_StyleStack.back();
     m_StyleStack.pop_back();
-    if (!m_ImGuiReady) {
+    if (!m_ImGuiReady && ImGui::GetCurrentContext() == nullptr) {
         return;
     }
     if (frame.disabled) {
@@ -301,6 +303,83 @@ void UiRuntime::PopStyle() {
     if (frame.colors > 0) {
         ImGui::PopStyleColor(frame.colors);
     }
+}
+
+std::size_t UiRuntime::StyleDepth() const {
+    return m_StyleStack.size();
+}
+
+void UiRuntime::RestoreStyleDepth(std::size_t depth) {
+    while (m_StyleStack.size() > depth) {
+        PopStyle();
+    }
+}
+
+void UiRuntime::SetPreview(bool preview, float x, float y, float width, float height) {
+    m_Preview = preview;
+    m_PreviewRect = {x, y, width, height};
+}
+
+bool UiRuntime::IsPreview() const {
+    return m_Preview;
+}
+
+std::array<float, 4> UiRuntime::GetScreenRect() const {
+    if (m_Preview) {
+        return m_PreviewRect;
+    }
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return {0.0f, 0.0f, 0.0f, 0.0f};
+    }
+    return {0.0f, 0.0f, ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y};
+}
+
+void UiRuntime::BeginScreen(const std::string& id, int flags) {
+    std::array<float, 4> rect = GetScreenRect();
+
+    BeginRect(id, rect[0], rect[1], rect[2], rect[3], flags);
+}
+
+void UiRuntime::EndScreen() {
+    EndRect();
+}
+
+void UiRuntime::BeginPanel(const std::string& id, float width, float height, int flags) {
+    std::array<float, 4> rect = GetScreenRect();
+
+    BeginRect(id, rect[0] + (rect[2] - width) * 0.5f, rect[1] + (rect[3] - height) * 0.5f, width,
+              height, flags);
+}
+
+void UiRuntime::EndPanel() {
+    EndRect();
+}
+
+void UiRuntime::BeginRect(const std::string& id, float x, float y, float width, float height,
+                          int flags) {
+    ImGuiWindowFlags windowFlags = static_cast<ImGuiWindowFlags>(flags);
+
+    if (!m_Preview) {
+        ImGui::SetNextWindowPos(ImVec2(x, y));
+        ImGui::SetNextWindowSize(ImVec2(width, height));
+        ImGui::Begin(id.c_str(), nullptr, windowFlags);
+        return;
+    }
+    // BeginChild asserts on AlwaysAutoResize, the only window flag a child rejects.
+    windowFlags &= ~ImGuiWindowFlags_AlwaysAutoResize;
+    ImGui::SetCursorScreenPos(ImVec2(x, y));
+    // Templates push WindowBg for their page, but a child fills with ChildBg.
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_WindowBg]);
+    ImGui::BeginChild(id.c_str(), ImVec2(width, height), ImGuiChildFlags_None, windowFlags);
+}
+
+void UiRuntime::EndRect() {
+    if (!m_Preview) {
+        ImGui::End();
+        return;
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
 }
 
 bool UiRuntime::BlocksMouse() const {
