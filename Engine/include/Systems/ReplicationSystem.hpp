@@ -146,6 +146,17 @@ class ReplicationSystem : public System {
     std::size_t m_broadcastTicks = 0;
     /** Client-side snapshot history for interpolation, keyed by network id. */
     std::unordered_map<std::size_t, std::vector<NetSnapshot>> m_snapshots;
+
+    /** Last broadcast state per network id, used to emit deltas. */
+    struct LastSentState {
+        bool has = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        int z = 0;
+        float angle = 0.0f;
+        std::string spritePath;
+    };
+    std::unordered_map<std::size_t, LastSentState> m_lastSent;
     double m_serverTime = 0.0;
     double m_snapshotAccumulator = 0.0;
     double m_serverClockOffset = 0.0;

@@ -884,10 +884,24 @@ void ReplicationSystem::RegisterSpawnHandler(Registry& registry) {
         network.networkId = networkId;
         network.authority = GenericString(obj, "authority", "Server");
         network.prefabPath = prefabPath;
-        network.syncTransform = true;
-        network.syncSprite = true;
+        network.syncTransform = GenericBool(obj, "syncTransform", true);
+        network.syncSprite = GenericBool(obj, "syncSprite", true);
         registry.AddComponent<NetworkComponent>(entity, network);
         host.TrackNetworkEntity(registry, entity, networkId);
+
+        if (registry.HasComponent<Position>(entity) && obj.find("x") != obj.end()) {
+            auto& position = registry.RequireComponent<Position>(entity);
+            position.x = static_cast<float>(GenericNumber(obj, "x", 0.0)) / 10.0f;
+            position.y = static_cast<float>(GenericNumber(obj, "y", 0.0)) / 10.0f;
+            position.z = static_cast<int>(GenericNumber(obj, "z", position.z));
+            position.prevX = position.x;
+            position.prevY = position.y;
+            position.prevZ = position.z;
+        }
+        if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
+            registry.RequireComponent<Rotation>(entity).angle =
+                static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
+        }
 
         log_info("[Replication] Spawned " +
                  std::string(prefabPath.empty() ? "entity" : "prefab '" + prefabPath + "'") +
@@ -1004,6 +1018,7 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
     const auto packetId = packetRegistry.GetOrRegister("replication_state");
     ++m_broadcastTicks;
     const bool logThisTick = m_debug && (m_broadcastTicks % 60 == 0);
+    const bool forceFull = (m_broadcastTicks % 100 == 0);
 
     glz::generic array = glz::generic::array_t{};
 
@@ -1070,6 +1085,8 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
 
         currentIds.push_back(network.networkId);
 
+        auto& last = m_lastSent[network.networkId];
+
         glz::generic snapshot = glz::generic::object_t{};
         auto& obj = snapshot.get_object();
         obj["id"] = static_cast<double>(network.networkId);
@@ -1092,14 +1109,18 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
             }
         }
 
-        auto& last = m_lastSent[network.networkId];
-
         const bool onScreen =
             !hasRef || !registry.HasComponent<Position>(entity) ||
             (registry.RequireComponent<Position>(entity).x >= minPlayerX - CULL_MARGIN &&
              registry.RequireComponent<Position>(entity).x <= maxPlayerX + CULL_MARGIN);
 
-        if (network.syncTransform && registry.HasComponent<Position>(entity) && onScreen) {
+        const bool hasVars = registry.HasResource<ScriptVariableState>() &&
+                             registry.GetResource<ScriptVariableState>().Find(entity) != nullptr;
+        const bool isBulletLike = (network.authority != "Client") && !hasVars;
+        const bool rateOk = forceFull || !isBulletLike || (m_broadcastTicks % 2 == 0);
+
+        if (network.syncTransform && registry.HasComponent<Position>(entity) && onScreen &&
+            rateOk) {
             const auto& position = registry.RequireComponent<Position>(entity);
             const bool posChanged = forceFull || !last.has ||
                                     std::fabs(position.x - last.x) > 0.01f ||
@@ -1110,7 +1131,8 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
                 obj["z"] = position.z;
             }
         }
-        if (network.syncTransform && registry.HasComponent<Rotation>(entity) && onScreen) {
+        if (network.syncTransform && registry.HasComponent<Rotation>(entity) && onScreen &&
+            rateOk) {
             const float angle = registry.RequireComponent<Rotation>(entity).angle;
             const bool angleChanged =
                 forceFull || !last.has || std::fabs(angle - last.angle) > 0.01f;
@@ -1118,7 +1140,8 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
                 obj["angle"] = static_cast<int>(std::lround(angle * 10.0f));
             }
         }
-        if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity) && onScreen) {
+        if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity) && onScreen &&
+            rateOk) {
             const std::string spritePath =
                 registry.RequireComponent<SpriteComponent>(entity).assetPath;
             const bool spriteChanged = forceFull || !last.has || spritePath != last.spritePath;
@@ -1224,8 +1247,22 @@ void ReplicationSystem::SendSpawn(const Registry& registry, NetworkHostResource&
     obj["id"] = static_cast<double>(network.networkId);
     obj["authority"] = network.authority;
     obj["prefabPath"] = network.prefabPath;
+    obj["syncTransform"] = network.syncTransform;
+    obj["syncSprite"] = network.syncSprite;
     if (slot.has_value()) {
         obj["slot"] = static_cast<double>(*slot);
+    }
+    // Include initial transform so clients can place (and simulate) the
+    // entity even when syncTransform is false (client-side simulation).
+    if (registry.HasComponent<Position>(entity)) {
+        const auto& position = registry.RequireComponent<Position>(entity);
+        obj["x"] = static_cast<int>(std::lround(position.x * 10.0f));
+        obj["y"] = static_cast<int>(std::lround(position.y * 10.0f));
+        obj["z"] = position.z;
+    }
+    if (registry.HasComponent<Rotation>(entity)) {
+        obj["angle"] = static_cast<int>(
+            std::lround(registry.RequireComponent<Rotation>(entity).angle * 10.0f));
     }
 
     Buffer buffer;

@@ -18,6 +18,7 @@ local SUPER_SHOOT_SPRITE = "assets/player/shoot/megabullet1.png"
 local PROJECTILE_SPEED = 1800.0 -- pixels per second
 local PROJECTILE_LIFETIME = 2.0 -- seconds before auto-remove
 local FIRE_COOLDOWN = 0.15 -- seconds between shots
+local MAX_BULLETS = 24 -- cap active bullets to bound worst case
 local SCREEN_MARGIN = 128.0
 
 local function isNetworked()
@@ -139,7 +140,7 @@ function PlayerGun:onUpdate(entity, dt)
 
     self.cooldown = math.max(0, self.cooldown - dt)
 
-    if isShooting and not self.shootDown and self.cooldown <= 0 then
+    if isShooting and not self.shootDown and self.cooldown <= 0 and #self.projectiles < MAX_BULLETS then
         self.cooldown = FIRE_COOLDOWN
         if shootInput.SUPER_SHOOT then
             self:fireSuperProjectile()
@@ -184,7 +185,7 @@ function PlayerGun:fireProjectile()
     -- In multiplayer this assigns a network id and makes ReplicationSystem
     -- announce the spawn + sync its position/sprite to every client.
     if isNetworked() then
-        Net.replicate(projEntity, "Server", true, true)
+        Net.replicate(projEntity, "Server", true, false)
     end
 
     table.insert(self.projectiles, {
@@ -213,7 +214,7 @@ function PlayerGun:fireSuperProjectile()
     -- In multiplayer this assigns a network id and makes ReplicationSystem
     -- announce the spawn + sync its position/sprite to every client.
     if isNetworked() then
-        Net.replicate(projEntity, "Server", true, true)
+        Net.replicate(projEntity, "Server", true, false)
     end
 
     table.insert(self.projectiles, {
