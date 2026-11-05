@@ -804,10 +804,17 @@ void ReplicationSystem::ReconcileLocalPlayer(Registry& registry, Entity entity,
         hasAck = true;
     }
 
+    const double now =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (m_lastAckedSeq != 0 && (now - m_lastAckTime) > 1.0) {
+        m_predictionHistory.clear();
+    }
+
     if (!hasAck || ack <= m_lastAckedSeq) {
         return;
     }
     m_lastAckedSeq = ack;
+    m_lastAckTime = now;
 
     const PredictedInput* matched = nullptr;
     for (const auto& predicted : m_predictionHistory) {

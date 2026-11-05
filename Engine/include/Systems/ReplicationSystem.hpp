@@ -165,6 +165,7 @@ class ReplicationSystem : public System {
     double m_interpDelay = 0.075;
     std::uint32_t m_inputSeq = 0;
     std::uint32_t m_lastAckedSeq = 0;
+    double m_lastAckTime = 0.0;
     std::vector<PredictedInput> m_predictionHistory;
 };
 
