@@ -116,6 +116,7 @@ function Enemy:onCreate(entity)
 
     if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
         Net.replicate(entity, "Server", true, true)
+        Net.setSnapshotPriority(entity, 2)
     end
 
     self.linkIndex = nil
