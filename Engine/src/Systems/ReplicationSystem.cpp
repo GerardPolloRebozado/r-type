@@ -415,17 +415,19 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
     // instances through replication_spawn. This applies to both roles so a
     // client never keeps a duplicate "local" player next to the server one.
     std::vector<Entity> templates;
-    for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        const Entity entity{i};
-        if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
-            continue;
-        }
-        const auto& network = registry.RequireComponent<NetworkComponent>(entity);
-        if (network.authority == "Client") {
-            if (m_playerPrefabPath.empty() && !network.prefabPath.empty()) {
-                m_playerPrefabPath = network.prefabPath;
+    if (registry.IsComponentRegistered<NetworkComponent>()) {
+        auto netArray = registry.GetComponentArray<NetworkComponent>();
+        for (const auto& [entity, networkRef] : *netArray) {
+            if (!registry.IsEntityAlive(entity)) {
+                continue;
             }
-            templates.push_back(entity);
+            const auto& network = registry.RequireComponent<NetworkComponent>(entity);
+            if (network.authority == "Client") {
+                if (m_playerPrefabPath.empty() && !network.prefabPath.empty()) {
+                    m_playerPrefabPath = network.prefabPath;
+                }
+                templates.push_back(entity);
+            }
         }
     }
     for (const Entity entity : templates) {
@@ -440,20 +442,22 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
     // Server-authority scene entities exist on every machine. Reusing the
     // scene entity id as the network id lets clients match their local copy
     // without a spawn round-trip (and keeps parent/child links intact).
-    for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        const Entity entity{i};
-        if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
-            continue;
-        }
-        auto& network = registry.RequireComponent<NetworkComponent>(entity);
-        if (network.authority == "Server" && network.networkId == 0) {
-            network.networkId = static_cast<std::uint64_t>(entity);
-            host.TrackNetworkEntity(registry, entity, entity);
-        }
-        if (host.IsServer() && network.authority == "Server") {
-            // Clients already have this entity from the shared scene, so it is
-            // already "known": no spawn packet is needed.
-            m_announcedIds.insert(network.networkId);
+    if (registry.IsComponentRegistered<NetworkComponent>()) {
+        auto netArray = registry.GetComponentArray<NetworkComponent>();
+        for (const auto& [entity, networkRef] : *netArray) {
+            if (!registry.IsEntityAlive(entity)) {
+                continue;
+            }
+            auto& network = registry.RequireComponent<NetworkComponent>(entity);
+            if (network.authority == "Server" && network.networkId == 0) {
+                network.networkId = static_cast<std::uint64_t>(entity);
+                host.TrackNetworkEntity(registry, entity, entity);
+            }
+            if (host.IsServer() && network.authority == "Server") {
+                // Clients already have this entity from the shared scene, so it is
+                // already "known": no spawn packet is needed.
+                m_announcedIds.insert(network.networkId);
+            }
         }
     }
 
@@ -958,6 +962,15 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
             return;
         }
 
+        if (const auto peerEntity = host.GetEntityID(peer); peerEntity.has_value()) {
+            const auto ownedId = host.GetNetworkId(registry, *peerEntity);
+            if (!ownedId.has_value() || *ownedId != networkId) {
+                return;
+            }
+        } else {
+            return;
+        }
+
         // Store by network id, not entity: ProcessConnect may replace the
         // placeholder entity after the first input packet arrives.
         if (!registry.HasResource<PlayerInputState>()) {
@@ -981,8 +994,8 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
 void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& host,
                                        PacketRegistryResource& packetRegistry) {
     const auto packetId = packetRegistry.GetOrRegister("replication_state");
-    ++m_debugTicks;
-    const bool logThisTick = m_debug && (m_debugTicks % 60 == 0);
+    ++m_broadcastTicks;
+    const bool logThisTick = m_debug && (m_broadcastTicks % 60 == 0);
 
     glz::generic array = glz::generic::array_t{};
 

@@ -112,11 +112,16 @@ void NetworkHostResource::TrackNetworkEntity(Registry& registry, Entity entity,
 }
 
 void NetworkHostResource::UntrackNetworkEntity(Registry& registry, Entity entity) {
+    const auto peerIt = m_entityToPeer.find(entity);
+    ENetPeer* peer = (peerIt != m_entityToPeer.end()) ? peerIt->second : nullptr;
     if (registry.IsComponentRegistered<PlayerInformation>() &&
         registry.HasComponent<PlayerInformation>(entity)) {
         m_idToEntity.erase(registry.RequireComponent<PlayerInformation>(entity).id);
     }
     m_entityToPeer.erase(entity);
+    if (peer != nullptr) {
+        peer->data = nullptr;
+    }
     if (m_localEntity.has_value() && *m_localEntity == entity) {
         m_localEntity.reset();
     }

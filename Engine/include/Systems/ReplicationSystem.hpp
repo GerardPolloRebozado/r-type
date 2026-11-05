@@ -118,7 +118,6 @@ class ReplicationSystem : public System {
     void RegisterSpawnHandler(Registry& registry);
     void RegisterDespawnHandler(Registry& registry);
     void RegisterInputHandler(Registry& registry);
-    void ApplyDefaultMovement(Registry& registry, const NetworkHostResource& host, float dt);
     void SendLocalInput(Registry& registry, NetworkHostResource& host,
                         PacketRegistryResource& packetRegistry);
     Entity SpawnFromPrefab(Registry& registry, const std::string& prefabPath);
@@ -142,6 +141,8 @@ class ReplicationSystem : public System {
     /** RTYPE_NET_DEBUG=1 prints player positions once per second. */
     bool m_debug = false;
     std::size_t m_debugTicks = 0;
+    /** Separate counter for BroadcastState so client/server debug cadences don't interfere. */
+    std::size_t m_broadcastTicks = 0;
     /** Client-side snapshot history for interpolation, keyed by network id. */
     std::unordered_map<std::size_t, std::vector<NetSnapshot>> m_snapshots;
     double m_serverTime = 0.0;
