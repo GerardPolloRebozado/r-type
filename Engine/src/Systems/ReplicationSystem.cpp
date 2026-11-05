@@ -627,6 +627,8 @@ void ReplicationSystem::ProcessDisconnect(Registry& registry, NetworkHostResourc
     if (entity != kInvalidEntity && registry.IsEntityAlive(entity)) {
         host.UntrackNetworkEntity(registry, entity);
         registry.DestroyEntity(entity);
+    } else if (networkId != 0) {
+        host.UntrackNetworkId(networkId);
     }
 
     if (!host.IsServer() || networkId == 0) {

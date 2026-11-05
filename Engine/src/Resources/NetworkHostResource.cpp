@@ -127,6 +127,10 @@ void NetworkHostResource::UntrackNetworkEntity(Registry& registry, Entity entity
     }
 }
 
+void NetworkHostResource::UntrackNetworkId(std::size_t networkId) {
+    m_idToEntity.erase(networkId);
+}
+
 std::vector<NetworkHostResource::ConnectedPlayer>
 NetworkHostResource::ConnectedPlayers(Registry& registry) const {
     std::vector<ConnectedPlayer> players;

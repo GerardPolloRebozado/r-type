@@ -187,6 +187,12 @@ class NetworkHostResource {
      */
     void UntrackNetworkEntity(Registry& registry, Entity entity);
 
+    /**
+     * @brief Removes a network binding by id only (when the entity is already
+     * gone). Keeps id->entity and peer maps consistent.
+     */
+    void UntrackNetworkId(std::size_t networkId);
+
     /** @brief A connected player on the server: its peer and network id. */
     struct ConnectedPlayer {
         ENetPeer* peer;
