@@ -162,7 +162,10 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
                                          ? registry.RequireComponent<Rotation>(entity).angle
                                          : 0.0f);
             buf.push_back(snap);
-            if (buf.size() > 16) {
+            while (buf.size() > 16) {
+                buf.erase(buf.begin());
+            }
+            while (buf.size() > 1 && (now - buf.front().time) > 1.0) {
                 buf.erase(buf.begin());
             }
             // First sample: snap immediately.
