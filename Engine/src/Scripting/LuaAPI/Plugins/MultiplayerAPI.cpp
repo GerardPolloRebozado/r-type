@@ -552,6 +552,10 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
             !registry.IsComponentRegistered<NetworkComponent>()) {
             return false;
         }
+        if (registry.HasResource<NetworkHostResource>() &&
+            !registry.GetResource<NetworkHostResource>().IsServer()) {
+            return false;
+        }
         NetworkComponent network;
         if (registry.HasComponent<NetworkComponent>(entity)) {
             network = registry.RequireComponent<NetworkComponent>(entity);
