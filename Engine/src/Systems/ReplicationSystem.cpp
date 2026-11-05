@@ -1,4 +1,7 @@
 #include "Systems/ReplicationSystem.hpp"
+#ifdef RTYPE_HAVE_ZLIB
+#include <zlib.h>
+#endif
 
 #include "Components/NetworkComponent.hpp"
 #include "Components/Position.hpp"
@@ -292,7 +295,8 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
                 registry.HasComponent<Position>(*localEntity)) {
                 const auto& position = registry.RequireComponent<Position>(*localEntity);
                 log_info("[NetDebug] client local entity=" + std::to_string(*localEntity) +
-                         " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y));
+                         " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y) +
+                         " ackLag=" + std::to_string(m_inputSeq - m_lastAckedSeq));
             }
         }
     }
@@ -679,7 +683,31 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
             return; // Servers publish state, they never consume it.
         }
 
-        const std::string raw{reinterpret_cast<const char*>(payload), size};
+        std::string raw;
+#ifdef RTYPE_HAVE_ZLIB
+        if (size > 1 && payload[0] == 0x01) {
+            // Compressed payload: decompress.
+            uLongf destLen = size * 4 + 1024;
+            std::vector<char> out(destLen);
+            int zres = uncompress(reinterpret_cast<Bytef*>(out.data()), &destLen,
+                                  reinterpret_cast<const Bytef*>(payload + 1), size - 1);
+            if (zres == Z_OK) {
+                raw.assign(out.data(), destLen);
+            } else {
+                raw.assign(reinterpret_cast<const char*>(payload), size);
+            }
+        } else if (size > 1 && payload[0] == 0x00) {
+            raw.assign(reinterpret_cast<const char*>(payload + 1), size - 1);
+        } else {
+            raw.assign(reinterpret_cast<const char*>(payload), size);
+        }
+#else
+        if (size > 1 && payload[0] == 0x00) {
+            raw.assign(reinterpret_cast<const char*>(payload + 1), size - 1);
+        } else {
+            raw.assign(reinterpret_cast<const char*>(payload), size);
+        }
+#endif
         glz::generic message{};
         if (glz::read_beve(message, raw)) {
             return;
@@ -1116,6 +1144,10 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
             }
         }
 
+        bool posChanged = false;
+        bool angleChanged = false;
+        bool spriteChanged = false;
+
         const bool onScreen =
             !hasRef || !registry.HasComponent<Position>(entity) ||
             (registry.RequireComponent<Position>(entity).x >= minPlayerX - CULL_MARGIN &&
@@ -1129,9 +1161,8 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         if (network.syncTransform && registry.HasComponent<Position>(entity) && onScreen &&
             rateOk) {
             const auto& position = registry.RequireComponent<Position>(entity);
-            const bool posChanged = forceFull || !last.has ||
-                                    std::fabs(position.x - last.x) > 0.01f ||
-                                    std::fabs(position.y - last.y) > 0.01f || position.z != last.z;
+            posChanged = forceFull || !last.has || std::fabs(position.x - last.x) > 0.01f ||
+                         std::fabs(position.y - last.y) > 0.01f || position.z != last.z;
             if (posChanged) {
                 obj["x"] = static_cast<int>(std::lround(position.x * 10.0f));
                 obj["y"] = static_cast<int>(std::lround(position.y * 10.0f));
@@ -1141,8 +1172,7 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         if (network.syncTransform && registry.HasComponent<Rotation>(entity) && onScreen &&
             rateOk) {
             const float angle = registry.RequireComponent<Rotation>(entity).angle;
-            const bool angleChanged =
-                forceFull || !last.has || std::fabs(angle - last.angle) > 0.01f;
+            angleChanged = forceFull || !last.has || std::fabs(angle - last.angle) > 0.01f;
             if (angleChanged) {
                 obj["angle"] = static_cast<int>(std::lround(angle * 10.0f));
             }
@@ -1151,11 +1181,12 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
             rateOk) {
             const std::string spritePath =
                 registry.RequireComponent<SpriteComponent>(entity).assetPath;
-            const bool spriteChanged = forceFull || !last.has || spritePath != last.spritePath;
+            spriteChanged = forceFull || !last.has || spritePath != last.spritePath;
             if (spriteChanged) {
                 obj["sprite"] = SerializeSpriteState(registry, entity);
             }
         }
+        bool varsChanged = false;
         if (registry.HasResource<ScriptVariableState>()) {
             auto& variables = registry.GetResource<ScriptVariableState>();
             if (const auto* registration = variables.Find(entity); registration != nullptr) {
@@ -1172,13 +1203,18 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
                         sig += buf;
                         sig += ";";
                     }
-                    if (forceFull || sig != last.varsSignature) {
+                    varsChanged = forceFull || sig != last.varsSignature;
+                    if (varsChanged) {
                         obj["vars"] = std::move(vars);
-                        last.varsSignature = sig;
                     }
+                    last.varsSignature = sig;
                 }
             }
         }
+        // Determine if anything changed this tick.
+        const bool dirty =
+            forceFull || !last.has || posChanged || angleChanged || spriteChanged || varsChanged;
+
         // Update last-sent state for delta emission.
         last.has = true;
         if (registry.HasComponent<Position>(entity)) {
@@ -1192,6 +1228,16 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         }
         if (registry.HasComponent<SpriteComponent>(entity)) {
             last.spritePath = registry.RequireComponent<SpriteComponent>(entity).assetPath;
+        }
+
+        if (!dirty && !forceFull && last.has) {
+            if (logThisTick && network.authority == "Client" &&
+                registry.HasComponent<Position>(entity)) {
+                const auto& position = registry.RequireComponent<Position>(entity);
+                log_info("[NetDebug] server player id=" + std::to_string(network.networkId) +
+                         " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y));
+            }
+            continue;
         }
 
         if (logThisTick && network.authority == "Client" &&
@@ -1245,6 +1291,34 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         log_error("[Replication] Failed to serialize state snapshot");
         return;
     }
+
+#ifdef RTYPE_HAVE_ZLIB
+    // Compress the payload to reduce bandwidth on entity-heavy scenes.
+    Buffer compressed;
+    compressed.push_back(static_cast<std::byte>(0x01)); // magic: compressed
+    uLongf destLen = compressBound(buffer.size()) + 1;
+    compressed.resize(1 + destLen);
+    int zres =
+        compress2(reinterpret_cast<Bytef*>(compressed.data() + 1), &destLen,
+                  reinterpret_cast<const Bytef*>(buffer.data()), buffer.size(), Z_BEST_SPEED);
+    if (zres == Z_OK) {
+        compressed.resize(1 + destLen);
+        buffer = std::move(compressed);
+    } else {
+        // Fall back to uncompressed: replace magic byte with 0x00.
+        Buffer fallback;
+        fallback.push_back(static_cast<std::byte>(0x00));
+        fallback.insert(fallback.end(), buffer.begin(), buffer.end());
+        buffer = std::move(fallback);
+    }
+#else
+    {
+        Buffer prefixed;
+        prefixed.push_back(static_cast<std::byte>(0x00)); // magic: uncompressed
+        prefixed.insert(prefixed.end(), buffer.begin(), buffer.end());
+        buffer = std::move(prefixed);
+    }
+#endif
 
     auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, false);
     if (packet != nullptr) {
