@@ -84,6 +84,7 @@ set(SRC_FILES
         src/Utils/EntityFlip.cpp
         src/Utils/WavePatterns.cpp
         src/Scripting/LuaAPI/WaveAPI.cpp
+        src/Scripting/LuaAPI/PoolAPI.cpp
 )
 
 set(INC_FILES

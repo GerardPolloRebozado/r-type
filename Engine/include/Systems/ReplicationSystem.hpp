@@ -108,7 +108,7 @@ class ReplicationSystem : public System {
     void BroadcastState(Registry& registry, NetworkHostResource& host,
                         PacketRegistryResource& packetRegistry);
     void ReconcileLocalPlayer(Registry& registry, Entity entity, const glz::generic::object_t& obj);
-    void SendSpawn(const Registry& registry, NetworkHostResource& host,
+    void SendSpawn(Registry& registry, NetworkHostResource& host,
                    PacketRegistryResource& packetRegistry, Entity entity,
                    const NetworkComponent& network,
                    std::optional<std::uint8_t> slot = std::nullopt);

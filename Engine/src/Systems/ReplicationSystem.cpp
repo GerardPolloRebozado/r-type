@@ -1233,7 +1233,7 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
     }
 }
 
-void ReplicationSystem::SendSpawn(const Registry& registry, NetworkHostResource& host,
+void ReplicationSystem::SendSpawn(Registry& registry, NetworkHostResource& host,
                                   PacketRegistryResource& packetRegistry, Entity entity,
                                   const NetworkComponent& network,
                                   const std::optional<std::uint8_t> slot) {
