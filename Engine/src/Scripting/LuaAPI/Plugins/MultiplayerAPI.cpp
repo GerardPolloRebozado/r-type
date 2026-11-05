@@ -342,6 +342,18 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
 
     // Number of distinct player colors/slots the game supports.
     net["maxPlayers"] = []() { return static_cast<int>(PlayerSlotState::kMaxPlayers); };
+    net["setSnapshotPriority"] = [&registry](Entity entity, int priority) -> bool {
+        if (!registry.IsEntityAlive(entity) ||
+            !registry.IsComponentRegistered<NetworkComponent>()) {
+            return false;
+        }
+        if (!registry.HasComponent<NetworkComponent>(entity)) {
+            return false;
+        }
+        auto& network = registry.RequireComponent<NetworkComponent>(entity);
+        network.snapshotPriority = priority;
+        return true;
+    };
     net["setMaxPlayers"] = [](int value) {
         if (value < 1 || value > 255) {
             return false;
