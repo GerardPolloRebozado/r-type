@@ -1,4 +1,5 @@
 #include "Core/Application.hpp"
+#include "Core/UiPass.hpp"
 #include "Components/Name.hpp"
 #include "Components/PrefabInstance.hpp"
 #include "Core/LaunchOptions.hpp"
@@ -150,6 +151,12 @@ void Application::PostUpdate(float dt) {
         // UI stays in window space, drawn on top of the letterboxed canvas.
         if (m_Config.onUI) {
             m_Config.onUI();
+        }
+        if (m_Registry.HasResource<UiPass>()) {
+            UiPass& pass = m_Registry.GetResource<UiPass>();
+            if (pass.draw) {
+                pass.draw(m_Registry);
+            }
         }
 
         EndDrawing();
