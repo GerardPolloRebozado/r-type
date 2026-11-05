@@ -1156,7 +1156,19 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
                 auto& varsObj = vars.get_object();
                 if (ReadScriptVariables(registry, entity, registration->fields, varsObj) &&
                     !varsObj.empty()) {
-                    obj["vars"] = std::move(vars);
+                    std::string sig;
+                    for (const auto& [k, v] : varsObj) {
+                        sig += k;
+                        sig += "=";
+                        std::string buf;
+                        glz::write_json(v, buf);
+                        sig += buf;
+                        sig += ";";
+                    }
+                    if (forceFull || sig != last.varsSignature) {
+                        obj["vars"] = std::move(vars);
+                        last.varsSignature = sig;
+                    }
                 }
             }
         }

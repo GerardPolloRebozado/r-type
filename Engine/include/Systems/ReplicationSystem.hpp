@@ -155,6 +155,7 @@ class ReplicationSystem : public System {
         int z = 0;
         float angle = 0.0f;
         std::string spritePath;
+        std::string varsSignature;
     };
     std::unordered_map<std::size_t, LastSentState> m_lastSent;
     double m_serverTime = 0.0;

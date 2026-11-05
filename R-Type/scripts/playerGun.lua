@@ -78,7 +78,7 @@ end
 
 local function destroyProjectiles(self)
     for _, projectile in ipairs(self.projectiles) do
-        Entity.destroy(projectile.entity)
+        Pool.release(projectile.entity)
     end
     self.projectiles = {}
 end
@@ -161,21 +161,15 @@ function PlayerGun:onUpdate(entity, dt)
 
         proj.timer = proj.timer - dt
         if proj.timer <= 0 or isOutsideScreen(projEntity) then
-            Entity.destroy(projEntity)
+            Pool.release(projEntity)
             table.remove(self.projectiles, i)
         end
     end
 end
 
 function PlayerGun:fireProjectile()
-    local projEntity = Entity.create()
-
     local gunPos = Transform.getPosition(self.entity)
-    local gunPosX = gunPos.x
-    local gunPosY = gunPos.y
-    Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
-    Component.addSprite(projEntity, SHOOT_SPRITE, 0, 0, 4.0, 4.0)
-    Component.addBoxCollider(projEntity, 32, 32)
+    local projEntity = Pool.acquire("Prefabs/Bullet.prefab", gunPos.x, gunPos.y + 6.0)
 
     Component.setColliderLayer(projEntity, "PlayerBullet")
     Component.setColliderMask(projEntity, Layers.bit("Enemy") + Layers.bit("EnemyBullet") + Layers.bit("Wall"))
@@ -249,7 +243,7 @@ function PlayerGun:onProjectileHit(bullet, other)
         end
     end
 
-    Entity.queueDestroy(bullet)
+    Pool.release(bullet)
     for i = #self.projectiles, 1, -1 do
         if self.projectiles[i].entity == bullet then
             table.remove(self.projectiles, i)
