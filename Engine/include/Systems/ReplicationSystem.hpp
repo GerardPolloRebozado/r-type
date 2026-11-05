@@ -124,6 +124,7 @@ class ReplicationSystem : public System {
 
     bool m_initialized = false;
     bool m_handlersRegistered = false;
+    bool m_inSceneUnload = false;
     /** Server: the scene just changed; announce it and respawn players. */
     bool m_sceneChanged = false;
     /** Server: players to respawn in the new scene (peer + network id). */

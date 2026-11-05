@@ -369,9 +369,13 @@ void ReplicationSystem::Interpolate(Registry& registry) {
 }
 
 void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
+    if (m_inSceneUnload) {
+        return; // reentrant call: already tearing down
+    }
     if (!m_initialized || !registry.HasResource<NetworkHostResource>()) {
         return; // single-player, or no session yet: nothing to sync
     }
+    m_inSceneUnload = true;
     if (registry.HasResource<ScriptVariableState>()) {
         registry.GetResource<ScriptVariableState>().Reset();
     }
@@ -395,6 +399,7 @@ void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
     m_lastAckedSeq = 0;
     m_snapshotAccumulator = 0.0;
     m_initialized = false;
+    m_inSceneUnload = false;
 }
 
 void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host) {
