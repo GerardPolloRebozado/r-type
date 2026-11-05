@@ -1015,6 +1015,35 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
     std::vector<std::size_t> currentIds;
     currentIds.reserve(netArray->size());
 
+    // TODO: per-player AOI filtering so each client only
+    // receives entities relevant to its own viewport, but requires per-peer
+    // snapshots and per-peer announced-id tracking
+    float minPlayerX = 0.0f;
+    float maxPlayerX = 0.0f;
+    int playerCount = 0;
+    for (const auto& [e, nr] : *netArray) {
+        if (!registry.IsEntityAlive(e)) {
+            continue;
+        }
+        const auto& n = registry.RequireComponent<NetworkComponent>(e);
+        if (n.authority != "Client") {
+            continue;
+        }
+        if (!registry.HasComponent<Position>(e)) {
+            continue;
+        }
+        const float px = registry.RequireComponent<Position>(e).x;
+        if (playerCount == 0) {
+            minPlayerX = maxPlayerX = px;
+        } else {
+            minPlayerX = std::min(minPlayerX, px);
+            maxPlayerX = std::max(maxPlayerX, px);
+        }
+        ++playerCount;
+    }
+    const bool hasRef = playerCount > 0;
+    constexpr float CULL_MARGIN = 2200.0f;
+
     for (const auto& [entity, networkRef] : *netArray) {
         if (!registry.IsEntityAlive(entity)) {
             continue;
@@ -1063,18 +1092,39 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
             }
         }
 
-        if (network.syncTransform && registry.HasComponent<Position>(entity)) {
+        auto& last = m_lastSent[network.networkId];
+
+        const bool onScreen =
+            !hasRef || !registry.HasComponent<Position>(entity) ||
+            (registry.RequireComponent<Position>(entity).x >= minPlayerX - CULL_MARGIN &&
+             registry.RequireComponent<Position>(entity).x <= maxPlayerX + CULL_MARGIN);
+
+        if (network.syncTransform && registry.HasComponent<Position>(entity) && onScreen) {
             const auto& position = registry.RequireComponent<Position>(entity);
-            obj["x"] = static_cast<int>(std::lround(position.x * 10.0f));
-            obj["y"] = static_cast<int>(std::lround(position.y * 10.0f));
-            obj["z"] = position.z;
+            const bool posChanged = forceFull || !last.has ||
+                                    std::fabs(position.x - last.x) > 0.01f ||
+                                    std::fabs(position.y - last.y) > 0.01f || position.z != last.z;
+            if (posChanged) {
+                obj["x"] = static_cast<int>(std::lround(position.x * 10.0f));
+                obj["y"] = static_cast<int>(std::lround(position.y * 10.0f));
+                obj["z"] = position.z;
+            }
         }
-        if (network.syncTransform && registry.HasComponent<Rotation>(entity)) {
-            obj["angle"] = static_cast<int>(
-                std::lround(registry.RequireComponent<Rotation>(entity).angle * 10.0f));
+        if (network.syncTransform && registry.HasComponent<Rotation>(entity) && onScreen) {
+            const float angle = registry.RequireComponent<Rotation>(entity).angle;
+            const bool angleChanged =
+                forceFull || !last.has || std::fabs(angle - last.angle) > 0.01f;
+            if (angleChanged) {
+                obj["angle"] = static_cast<int>(std::lround(angle * 10.0f));
+            }
         }
-        if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity)) {
-            obj["sprite"] = SerializeSpriteState(registry, entity);
+        if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity) && onScreen) {
+            const std::string spritePath =
+                registry.RequireComponent<SpriteComponent>(entity).assetPath;
+            const bool spriteChanged = forceFull || !last.has || spritePath != last.spritePath;
+            if (spriteChanged) {
+                obj["sprite"] = SerializeSpriteState(registry, entity);
+            }
         }
         if (registry.HasResource<ScriptVariableState>()) {
             auto& variables = registry.GetResource<ScriptVariableState>();
@@ -1087,6 +1137,21 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
                 }
             }
         }
+        // Update last-sent state for delta emission.
+        last.has = true;
+        if (registry.HasComponent<Position>(entity)) {
+            const auto& position = registry.RequireComponent<Position>(entity);
+            last.x = position.x;
+            last.y = position.y;
+            last.z = position.z;
+        }
+        if (registry.HasComponent<Rotation>(entity)) {
+            last.angle = registry.RequireComponent<Rotation>(entity).angle;
+        }
+        if (registry.HasComponent<SpriteComponent>(entity)) {
+            last.spritePath = registry.RequireComponent<SpriteComponent>(entity).assetPath;
+        }
+
         if (logThisTick && network.authority == "Client" &&
             registry.HasComponent<Position>(entity)) {
             const auto& position = registry.RequireComponent<Position>(entity);
