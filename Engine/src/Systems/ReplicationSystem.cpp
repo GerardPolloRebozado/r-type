@@ -1156,7 +1156,8 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         const bool hasVars = registry.HasResource<ScriptVariableState>() &&
                              registry.GetResource<ScriptVariableState>().Find(entity) != nullptr;
         const bool isBulletLike = (network.authority != "Client") && !hasVars;
-        const bool rateOk = forceFull || !isBulletLike || (m_broadcastTicks % 2 == 0);
+        const bool lowPriority = isBulletLike || (network.snapshotPriority >= 2);
+        const bool rateOk = forceFull || !lowPriority || (m_broadcastTicks % 2 == 0);
 
         if (network.syncTransform && registry.HasComponent<Position>(entity) && onScreen &&
             rateOk) {
