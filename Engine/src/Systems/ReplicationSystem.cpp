@@ -974,11 +974,9 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
 
         if (const auto peerEntity = host.GetEntityID(peer); peerEntity.has_value()) {
             const auto ownedId = host.GetNetworkId(registry, *peerEntity);
-            if (!ownedId.has_value() || *ownedId != networkId) {
+            if (ownedId.has_value() && *ownedId != networkId) {
                 return;
             }
-        } else {
-            return;
         }
 
         // Store by network id, not entity: ProcessConnect may replace the
@@ -1046,12 +1044,15 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         glz::generic snapshot = glz::generic::object_t{};
         auto& obj = snapshot.get_object();
         obj["id"] = static_cast<double>(network.networkId);
-        obj["authority"] = network.authority;
-        obj["prefabPath"] = network.prefabPath;
-        if (registry.HasResource<PlayerSlotState>()) {
-            if (const auto slot = registry.GetResource<PlayerSlotState>().Get(network.networkId);
-                slot.has_value()) {
-                obj["slot"] = static_cast<double>(*slot);
+        if (forceFull || !last.has) {
+            obj["authority"] = network.authority;
+            obj["prefabPath"] = network.prefabPath;
+            if (registry.HasResource<PlayerSlotState>()) {
+                if (const auto slot =
+                        registry.GetResource<PlayerSlotState>().Get(network.networkId);
+                    slot.has_value()) {
+                    obj["slot"] = static_cast<double>(*slot);
+                }
             }
         }
         if (network.authority == "Client" && registry.HasResource<PlayerInputState>()) {
