@@ -342,6 +342,13 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
 
     // Number of distinct player colors/slots the game supports.
     net["maxPlayers"] = []() { return static_cast<int>(PlayerSlotState::kMaxPlayers); };
+    net["setMaxPlayers"] = [](int value) {
+        if (value < 1 || value > 255) {
+            return false;
+        }
+        PlayerSlotState::kMaxPlayers = static_cast<std::uint8_t>(value);
+        return true;
+    };
 
     net["entityFromId"] = [&registry](sol::this_state ts, double networkId) -> sol::object {
         sol::state_view lua(ts);

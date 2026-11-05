@@ -1096,6 +1096,11 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         array.get_array().push_back(std::move(snapshot));
     }
 
+    if (logThisTick) {
+        log_info("[NetDebug] broadcast tick entities=" + std::to_string(currentIds.size()) +
+                 " announced=" + std::to_string(m_announcedIds.size()));
+    }
+
     // Anything announced but no longer broadcast has been destroyed (bullet
     // expiry, enemy death, disconnect). Tell clients reliably. Diffing against
     // the announced set (not just last tick's snapshot) also catches entities
