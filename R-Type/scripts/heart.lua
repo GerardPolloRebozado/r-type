@@ -7,7 +7,7 @@ Heart.playerEntity = nil
 Heart.lastLives = nil
 
 function Heart:onCreate(entity)
-    if Net.isNetworked() and Net.isServer() then
+    if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() and Net.isServer() then
         return
     end
     self.entity = entity
@@ -32,7 +32,7 @@ function Heart:createHeart(index)
 end
 
 function Heart:syncHearts(lives)
-    if Net.isNetworked() and Net.isServer() then
+    if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() and Net.isServer() then
         return
     end
     lives = math.max(0, math.min(self.maxLives, math.floor(lives or 0)))
@@ -49,7 +49,7 @@ function Heart:syncHearts(lives)
 end
 
 function Heart:setLives(playerEntity, lives)
-    if Net.isNetworked() and Net.isServer() then
+    if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() and Net.isServer() then
         return
     end
     if self.playerEntity == nil then

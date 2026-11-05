@@ -67,6 +67,10 @@ function Script:onCreate(entity)
 	Component.setColliderLayer(entity, BODY_LAYER)
 	Component.setColliderMask(entity, BODY_MASK)
 
+	if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
+		Net.replicate(entity, "Server", true, true)
+	end
+
 	self.sensor = nil
 	for _, child in ipairs(Component.getChildren(entity)) do
 		if Component.getColliderTrigger(child) then
