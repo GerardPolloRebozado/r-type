@@ -202,6 +202,10 @@ void InspectorPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         if (selectedEntity.entity != -1) {
             bool anyAvailable = false;
             for (auto& editor : m_PluginEditors) {
+                if (TryDrawUiAddMenu(*editor, selectedEntity.entity, registry)) {
+                    anyAvailable = true;
+                    continue;
+                }
                 if (!editor->HasComponent(selectedEntity.entity, registry)) {
                     anyAvailable = true;
                     std::string menuItem =

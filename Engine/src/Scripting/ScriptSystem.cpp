@@ -18,13 +18,11 @@ ScriptSystem::~ScriptSystem() = default;
 std::unordered_set<std::string> ScriptSystem::s_warnedMissingScripts;
 
 void ScriptSystem::Update(Registry& registry, float dt) {
-    if (registry.HasResource<EditorMode>()) {
-        return;
-    }
     if (!apiRegistered) {
         lua.open_libraries();
         LuaAPI::registerEngineAPI(lua.lua_state(), registry);
         // Plugins such as UI register here, once, after the engine API.
+        // The editor needs this too, so a placed widget can be previewed.
         if (registry.HasResource<LuaBinder>()) {
             auto& modules = registry.GetResource<LuaBinder>().modules;
             for (size_t i = 0; i < modules.size(); ++i) {
@@ -34,6 +32,9 @@ void ScriptSystem::Update(Registry& registry, float dt) {
             }
         }
         apiRegistered = true;
+    }
+    if (registry.HasResource<EditorMode>()) {
+        return;
     }
 
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {

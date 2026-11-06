@@ -21,7 +21,7 @@ function SliderInt.draw(props)
     if p.width then
         ImGui.SetNextItemWidth(p.width)
     end
-    value = ImGui.SliderInt("##" .. p.label, value, p.min or 0, p.max or 10)
+    value = ImGui.SliderInt("##" .. p.label, value, math.floor(p.min or 0), math.floor(p.max or 10))
     UI.popStyle()
     return value
 end

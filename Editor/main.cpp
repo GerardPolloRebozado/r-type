@@ -20,6 +20,7 @@
 #include "Plugins/TextPlugin.hpp"
 #include "Scaffold.hpp"
 #include "Scripting/ScriptPlugin.hpp"
+#include "UI/UiPlugin.hpp"
 #include "imgui.h"
 #include "raylib.hpp"
 #include "rlImGui.h"
@@ -89,6 +90,7 @@ void RunEditor(const string& scenePathString) {
     audioPlugin.Init(app.GetRegistry());
     Engine::ScriptPlugin scriptPlugin;
     scriptPlugin.Init(app.GetRegistry());
+    Engine::UiPlugin().Init(app.GetRegistry());
     Engine::CameraPlugin cameraPlugin;
     cameraPlugin.Init(app.GetRegistry());
     Engine::AnimationPlugin animation_plugin;

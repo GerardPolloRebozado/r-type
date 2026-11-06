@@ -1,15 +1,18 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Assets/AssetManager.hpp"
 #include "Components/Name.hpp"
+#include "UI/UiCatalog.hpp"
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
 #include "Components/SpriteComponent.hpp"
+#include "Core/VirtualResolution.hpp"
 #include "EditorConfig.hpp"
 #include "EntitySubtree.hpp"
 #include "Logging/Logger.hpp"
 #include "Panels/StatePanel.hpp"
 #include "Plugins/HierarchyPlugin.hpp"
+#include "Systems/CameraSystem.hpp"
 #include "Systems/HierarchySystem.hpp"
 #include <cmath>
 #include <imgui.h>
@@ -55,6 +58,30 @@ void SelectSpawned(Engine::Registry& registry, HierarchyPanelSelectedEntity& sel
         stateSel.groupIndex = -1;
         stateSel.stateIndex = -1;
     }
+}
+
+void SpawnUiTemplate(Engine::Registry& registry, HierarchyPanelSelectedEntity& selected,
+                     const std::string& id) {
+    const Engine::UiTemplateInfo* info = Engine::FindUiTemplate(id);
+    Engine::Entity entity = 0;
+    Vector2 center{0.0f, 0.0f};
+
+    if (info == nullptr) {
+        return;
+    }
+    entity = registry.CreateEntity();
+    Engine::AttachUiTemplate(registry, entity, id);
+    // Center of what the game camera shows, so the new widget is visible at once.
+    if (registry.HasResource<Engine::VirtualResolution>() &&
+        registry.HasComponent<Engine::Position>(entity)) {
+        const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
+        center = Engine::CameraSystem::ScreenToWorld(
+            registry, Vector2{static_cast<float>(canvas.GetWidth()) * 0.5f,
+                              static_cast<float>(canvas.GetHeight()) * 0.5f});
+        registry.RequireComponent<Engine::Position>(entity).x = center.x;
+        registry.RequireComponent<Engine::Position>(entity).y = center.y;
+    }
+    SelectSpawned(registry, selected, entity);
 }
 
 void PasteClipboard(Engine::Registry& registry, HierarchyPanelSelectedEntity& selected) {
@@ -169,9 +196,14 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
 
         ImGui::TextDisabled("Drag a row onto another to parent - drop on empty space to detach");
         ImGui::TextDisabled("Right-click a row for options - Del removes the selection");
+        ImGui::TextDisabled("Drop a UI template here to add it");
 
-        // Window drag drop target
-        ImGui::Dummy(ImGui::GetContentRegionAvail());
+        // Always leave a hit target. A full list used to leave no empty space to drop on.
+        ImVec2 dropSize = ImGui::GetContentRegionAvail();
+        if (dropSize.y < 72.0f) {
+            dropSize.y = 72.0f;
+        }
+        ImGui::InvisibleButton("##hierarchy-drop", dropSize);
         if (ImGui::BeginDragDropTarget()) {
             // Entity drop on empty space: detach, i.e. make it a root.
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY_ID")) {
@@ -179,6 +211,10 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 if (registry.IsEntityAlive(dragged)) {
                     DetachEntity(registry, dragged);
                 }
+            }
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("UI_TEMPLATE")) {
+                const std::string id(static_cast<const char*>(payload->Data));
+                SpawnUiTemplate(registry, selected, id);
             }
             if (const ImGuiPayload* payload =
                     ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
@@ -297,6 +333,18 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
                 } catch (const std::exception& e) {
                     log_user_error(std::string("[Hierarchy] attach failed: ") + e.what());
                 }
+            }
+        }
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("UI_TEMPLATE")) {
+            const std::string id(static_cast<const char*>(payload->Data));
+            const Engine::UiTemplateInfo* info = Engine::FindUiTemplate(id);
+            // A widget dropped on a screen fills that page. Anything else replaces the row's UI.
+            if (info != nullptr && Engine::IsUiWidget(*info) &&
+                Engine::IsUiScreenEntity(registry, entity)) {
+                SelectSpawned(registry, selected, Engine::AddUiChild(registry, entity, id));
+            } else {
+                Engine::AttachUiTemplate(registry, entity, id);
+                SelectSpawned(registry, selected, entity);
             }
         }
         // Asset drop: attach/replace this row's sprite (existing behavior).

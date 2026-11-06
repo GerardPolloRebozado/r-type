@@ -2,6 +2,7 @@
 #include "Core/UiPass.hpp"
 #include "Scripting/LuaBinder.hpp"
 #include "UI/LuaAPI/UiAPI.hpp"
+#include "UI/UiNavigation.hpp"
 #include "UI/UiRuntime.hpp"
 #include "UI/UiSystem.hpp"
 #include <sol/sol.hpp>
@@ -20,6 +21,10 @@ void UiPlugin::Init(Registry& registry) {
         registry.AddResource<UiRuntime>();
     }
     registry.GetResource<UiRuntime>().SetTemplateRoot(UI_TEMPLATES_DIR);
+
+    if (!registry.HasResource<UiNavigation>()) {
+        registry.AddResource<UiNavigation>();
+    }
 
     if (!registry.HasResource<LuaBinder>()) {
         registry.AddResource<LuaBinder>();

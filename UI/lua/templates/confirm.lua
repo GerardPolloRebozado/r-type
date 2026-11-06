@@ -15,14 +15,11 @@ function Confirm.draw(props)
     local p = UI.merge(Confirm.defaults, props)
     local Button = UI.use("button")
     local choice = nil
-    local displayW, displayH = ImGui.GetDisplaySize()
     local width = p.width or 360
     local height = p.height or 180
 
     UI.pushStyle(p)
-    ImGui.SetNextWindowPos((displayW - width) * 0.5, (displayH - height) * 0.5)
-    ImGui.SetNextWindowSize(width, height)
-    ImGui.Begin(p.title or "Confirm")
+    UI.beginPanel(p.title or "Confirm", width, height)
     ImGui.Text(p.message or "")
     ImGui.Spacing()
     if Button.draw({ label = p.confirmLabel or "Confirm", style = "danger", width = 140, height = 36 }) then
@@ -32,7 +29,7 @@ function Confirm.draw(props)
     if Button.draw({ label = p.cancelLabel or "Cancel", style = "ghost", width = 140, height = 36 }) then
         choice = "cancel"
     end
-    ImGui.End()
+    UI.endPanel()
     UI.popStyle()
     return choice
 end
