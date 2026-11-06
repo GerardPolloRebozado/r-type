@@ -343,21 +343,6 @@ void ReplicationSystem::Interpolate(Registry& registry) {
             continue;
         }
 
-        // If an entity hasn't received any state update for > 1.0 second,
-        // it was destroyed on the server (reliable despawn packet was delayed/lost).
-        // Clean up the phantom entity on the client.
-        if (!buf.empty() && (sampleTime - buf.back().time) > 1.0) {
-            if (registry.HasComponent<NetworkComponent>(entity)) {
-                const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
-                if (netComp.authority != "Shared") {
-                    host.UntrackNetworkEntity(registry, entity);
-                    registry.DestroyEntity(entity);
-                    staleIds.push_back(networkId);
-                    continue;
-                }
-            }
-        }
-
         if (buf.size() < 2) {
             continue;
         }
@@ -1432,6 +1417,7 @@ void ReplicationSystem::SendDespawn(Registry& registry, NetworkHostResource& hos
     const auto packetId = packetRegistry.GetOrRegister("replication_despawn");
     auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, true);
     if (packet != nullptr) {
+        // Channel 1: reliable despawns (ENet auto-retransmits until ACKed).
         host.SendAllHost(packet, 1);
     } else {
         log_error("[Replication] Failed to allocate despawn packet for network id " +
