@@ -54,17 +54,15 @@ function Script:onCreate(entity)
     self.sx = scale and scale.x or 1.0
     self.sy = scale and scale.y or 1.0
 
-    -- P1 half = this entity
+    -- half = this entity
     self.fighters[1].bar = entity
 
-    -- P2 half = new sprite on top of the same place
+    -- half = new sprite on top of the same place
     local p2 = Entity.create()
     Component.addSprite(p2, P2_PATH, 0, 0, self.sx, self.sy)
     Transform.setPosition(p2, self.baseX + P2_START * self.sx, self.baseY, self.baseZ + 1)
     self.fighters[2].bar = p2
-
-    self:refreshBar(self.fighters[1])
-    self:refreshBar(self.fighters[2])
+    self.barsReady = false
 end
 
 function Script:currentAttack(playerId)
@@ -81,21 +79,23 @@ end
 
 function Script:refreshBar(f)
     local w = math.floor(HALF_W * math.max(f.health, 0) / MAX_HEALTH + 0.5)
+    local ok
     if w < 1 then
-        Component.setSpriteRect(f.bar, 0, 0, 0, 0)
-        return
+        Component.setOpacity(f.bar, 0.0)
+        return true
     end
 
     if f.id == 1 then
-        -- P1: anchored to the KO logo, the visible part shrinks towards the left edge
+        -- anchored to the KO logo, left edge
         local srcX = HALF_W - w
-        Component.setSpriteRect(f.bar, srcX, 0, w, YELLOW_H)
+        ok = Component.setSpriteRect(f.bar, srcX, 0, w, YELLOW_H)
         Transform.setPosition(f.bar, self.baseX + srcX * self.sx, self.baseY, self.baseZ + 1)
     else
-        -- P2: anchored to the KO logo, the visible part shrinks towards the right edge
-        Component.setSpriteRect(f.bar, P2_START, 0, w, YELLOW_H)
+        -- anchored to the KO logo, right edge
+        ok = Component.setSpriteRect(f.bar, P2_START, 0, w, YELLOW_H)
         Transform.setPosition(f.bar, self.baseX + P2_START * self.sx, self.baseY, self.baseZ + 1)
     end
+    return ok
 end
 
 function Script:applyDamage(attacker, victim, amount)
@@ -146,6 +146,11 @@ function Script:onUpdate(entity, dt)
         return
     end
     local p1, p2 = self.fighters[1], self.fighters[2]
+    if not self.barsReady then
+        local ok1 = self:refreshBar(p1)
+        local ok2 = self:refreshBar(p2)
+        self.barsReady = ok1 and ok2
+    end
     self:checkHit(p1, p2)
     if not self.gameOver then
         self:checkHit(p2, p1)
