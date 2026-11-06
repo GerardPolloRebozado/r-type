@@ -231,8 +231,8 @@ function PlayerGun:fireProjectile()
 
     Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
 
-    -- In multiplayer this assigns a network id and makes ReplicationSystem
-    -- announce the spawn + sync its position/sprite to every client.
+    -- Replicate with syncTransform=true so ReplicationSystem syncs position
+    -- via snapshots. Bullet smoothness comes from snapshot rate tuning.
     if isNetworked() then
         Net.replicate(projEntity, "Server", true, false)
     end
@@ -260,8 +260,6 @@ function PlayerGun:fireSuperProjectile()
 
     Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
 
-    -- In multiplayer this assigns a network id and makes ReplicationSystem
-    -- announce the spawn + sync its position/sprite to every client.
     if isNetworked() then
         Net.replicate(projEntity, "Server", true, false)
     end

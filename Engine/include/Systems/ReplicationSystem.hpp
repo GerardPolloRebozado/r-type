@@ -163,6 +163,9 @@ class ReplicationSystem : public System {
     double m_serverClockOffset = 0.0;
     bool m_hasServerClock = false;
     double m_interpDelay = 0.075;
+    /** Snapshot interval in seconds (default 8ms ≈ 125Hz). Override with
+     * RTYPE_NET_SNAPSHOT_INTERVAL_MS. */
+    double m_snapshotInterval = 8.0 / 1000.0;
     std::uint32_t m_inputSeq = 0;
     std::uint32_t m_lastAckedSeq = 0;
     double m_lastAckTime = 0.0;

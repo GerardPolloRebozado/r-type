@@ -38,6 +38,12 @@ ReplicationSystem::ReplicationSystem() {
             m_interpDelay = ms / 1000.0;
         }
     }
+    if (const char* interval = std::getenv("RTYPE_NET_SNAPSHOT_INTERVAL_MS"); interval != nullptr) {
+        const double ms = std::atof(interval);
+        if (ms > 0.0 && ms <= 1000.0) {
+            m_snapshotInterval = ms / 1000.0;
+        }
+    }
 }
 
 namespace {
@@ -1313,11 +1319,10 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         return;
     }
 
-    constexpr double kSnapshotInterval = 1.0 / 60.0;
-    if (m_snapshotAccumulator < kSnapshotInterval) {
+    if (m_snapshotAccumulator < m_snapshotInterval) {
         return;
     }
-    m_snapshotAccumulator = std::fmod(m_snapshotAccumulator, kSnapshotInterval);
+    m_snapshotAccumulator = std::fmod(m_snapshotAccumulator, m_snapshotInterval);
 
     glz::generic message = glz::generic::object_t{};
     auto& messageObj = message.get_object();
