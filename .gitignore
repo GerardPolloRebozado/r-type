@@ -105,7 +105,6 @@ Documentation/doxygen_output/
 !Documentation/docs/assets/screenshots/**/*.png
 !Documentation/docs/assets/first-game-editor/sprites/**/*.png
 
-*.scene
 
 portable-file-dialogs.h
 *.gif
