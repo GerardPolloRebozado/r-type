@@ -1,13 +1,11 @@
 local Script = {}
 
-local NEXT_SCENE = "fighters.scene"
-
 local COUNTRIES = {
     { name = "England",  flag = { x = 474, y = 169, w = 96, h = 64 } },
     { name = "China",    flag = { x = 370, y = 169, w = 96, h = 64 } },
     { name = "Thailand", flag = { x = 422, y = 241, w = 96, h = 64 } },
     { name = "Japan",    flag = { x = 370, y = 97,  w = 96, h = 64 } },
-    { name = "USA",      flag = { x = 474, y = 97,  w = 96, h = 64 } },
+    { name = "USA",      flag = { x = 474, y = 97,  w = 96, h = 64 }, scene = "fighters.scene" },
 }
 local MAP_CROP = { x = 0, y = 0, w = 356, h = 228 }
 
@@ -50,6 +48,17 @@ function Script:refresh()
     end
 end
 
+function Script:choose(country)
+    if not country.scene then
+        log.info("[CountryMenu] " .. country.name .. " is not available yet")
+        return
+    end
+    SelectedCountry = { name = country.name }
+    log.info("[CountryMenu] selected " .. country.name)
+    self.done = true
+    Scene.load(country.scene)
+end
+
 local function pressed(action)
     return Controller.isActionActive(action, 1)
 end
@@ -63,7 +72,7 @@ function Script:onUpdate(entity, dt)
         return
     end
 
-    local left, right, confirm = pressed("Left"), pressed("Right"), pressed("Confirm")
+    local left, right, confirm = pressed("Left"), pressed("Right"), pressed("Intro")
 
     if left and not self.leftHeld then
         self.selected = (self.selected - 2) % #COUNTRIES + 1
@@ -72,16 +81,12 @@ function Script:onUpdate(entity, dt)
         self.selected = self.selected % #COUNTRIES + 1
         self:refresh()
     end
-
-    if confirm and not self.confirmHeld then
-        local c = COUNTRIES[self.selected]
-        SelectedCountry = { name = c.name }
-        log.info("[CountryMenu] selected " .. c.name)
-        self.done = true
-        Scene.load(NEXT_SCENE)
+    if (confirm and not self.confirmHeld) then
+        self:choose(COUNTRIES[self.selected])
     end
 
     self.leftHeld, self.rightHeld, self.confirmHeld = left, right, confirm
+    self.clickHeld = click
 end
 
 return Script

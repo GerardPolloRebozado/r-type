@@ -1,7 +1,7 @@
 local Script = {}
 
 local SHEET = "assets/scenarios/Street_Fighter_assets_sin_fondo/Street_Fighter_Intro_transparente.png"
-local NEXT_SCENE = "fighters.scene"
+local NEXT_SCENE = "game_menu.scene"
 
 local SCREEN_W, SCREEN_H = 1280, 720
 local FRAME_W, FRAME_H = 384, 224
