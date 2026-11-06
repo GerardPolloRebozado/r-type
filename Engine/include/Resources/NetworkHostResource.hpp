@@ -143,6 +143,15 @@ class NetworkHostResource {
     }
 
     /**
+     * @brief Immediately flushes all queued outgoing packets to the socket.
+     */
+    void Flush() {
+        if (m_host != nullptr) {
+            enet_host_flush(m_host);
+        }
+    }
+
+    /**
      * @brief Peer backing a server-side player entity, if still connected.
      */
     std::optional<ENetPeer*> GetPeer(Entity entity) const;

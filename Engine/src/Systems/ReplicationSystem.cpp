@@ -285,8 +285,10 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
         // Scripted entities move themselves through Net.input(entity). Only
         // script-less network entities fall back to the engine default
         BroadcastState(registry, host, packetRegistry);
+        host.Flush();
     } else if (host.GetLocalNetworkId().has_value()) {
         SendLocalInput(registry, host, packetRegistry);
+        host.Flush();
         if (m_debug) {
             ++m_debugTicks;
             const auto localEntity = host.GetLocalEntity();
@@ -318,19 +320,39 @@ void ReplicationSystem::Interpolate(Registry& registry) {
 
     const auto localNetworkId = host.GetLocalNetworkId();
 
+    std::vector<std::size_t> staleIds;
+
     for (auto& [networkId, buf] : m_snapshots) {
-        if (buf.size() < 2) {
-            continue;
-        }
         if (localNetworkId.has_value() && *localNetworkId == networkId) {
             continue;
         }
         const auto entityOpt = host.GetEntityByNetworkId(networkId);
         if (!entityOpt.has_value()) {
+            staleIds.push_back(networkId);
             continue;
         }
         const Entity entity = *entityOpt;
         if (!registry.IsEntityAlive(entity)) {
+            staleIds.push_back(networkId);
+            continue;
+        }
+
+        // If an entity hasn't received any state update for > 1.0 second,
+        // it was destroyed on the server (reliable despawn packet was delayed/lost).
+        // Clean up the phantom entity on the client.
+        if (!buf.empty() && (sampleTime - buf.back().time) > 1.0) {
+            if (registry.HasComponent<NetworkComponent>(entity)) {
+                const auto& netComp = registry.RequireComponent<NetworkComponent>(entity);
+                if (netComp.authority != "Shared") {
+                    host.UntrackNetworkEntity(registry, entity);
+                    registry.DestroyEntity(entity);
+                    staleIds.push_back(networkId);
+                    continue;
+                }
+            }
+        }
+
+        if (buf.size() < 2) {
             continue;
         }
 
@@ -372,6 +394,10 @@ void ReplicationSystem::Interpolate(Registry& registry) {
             }
             rot.angle = a.angle + diff * frac;
         }
+    }
+
+    for (const auto staleId : staleIds) {
+        m_snapshots.erase(staleId);
     }
 }
 
@@ -788,6 +814,9 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
 
             if (localNetworkId.has_value() && *localNetworkId == networkId) {
                 ReconcileLocalPlayer(registry, entity, obj);
+                if (const auto it = obj.find("sprite"); it != obj.end()) {
+                    ApplySpriteState(registry, entity, it->second);
+                }
             } else {
                 ApplyEntityState(registry, entity, entry, m_snapshots, networkId, snapshotTime);
             }
@@ -856,8 +885,14 @@ void ReplicationSystem::ReconcileLocalPlayer(Registry& registry, Entity entity,
     }
 
     if (hasPos) {
-        position.x += serverX - matched->x;
-        position.y += serverY - matched->y;
+        const float errorX = serverX - matched->x;
+        const float errorY = serverY - matched->y;
+        const float distSq = errorX * errorX + errorY * errorY;
+        // Only correct if error exceeds a small threshold (avoids micro-jitter from float rounding)
+        if (distSq > 1.0f) {
+            position.x += errorX * 0.5f;
+            position.y += errorY * 0.5f;
+        }
     }
     if (hasAngle) {
         float error = serverAngle - matched->angle;
@@ -867,7 +902,9 @@ void ReplicationSystem::ReconcileLocalPlayer(Registry& registry, Entity entity,
         while (error < -180.0f) {
             error += 360.0f;
         }
-        registry.RequireComponent<Rotation>(entity).angle += error;
+        if (std::fabs(error) > 1.0f) {
+            registry.RequireComponent<Rotation>(entity).angle += error * 0.5f;
+        }
     }
 
     m_predictionHistory.erase(
@@ -936,6 +973,9 @@ void ReplicationSystem::RegisterSpawnHandler(Registry& registry) {
         if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
             registry.RequireComponent<Rotation>(entity).angle =
                 static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
+        }
+        if (const auto it = obj.find("sprite"); it != obj.end()) {
+            ApplySpriteState(registry, entity, it->second);
         }
 
         log_info("[Replication] Spawned " +
@@ -1153,11 +1193,8 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
             (registry.RequireComponent<Position>(entity).x >= minPlayerX - CULL_MARGIN &&
              registry.RequireComponent<Position>(entity).x <= maxPlayerX + CULL_MARGIN);
 
-        const bool hasVars = registry.HasResource<ScriptVariableState>() &&
-                             registry.GetResource<ScriptVariableState>().Find(entity) != nullptr;
-        const bool isBulletLike = (network.authority != "Client") && !hasVars;
-        const bool lowPriority = isBulletLike || (network.snapshotPriority >= 2);
-        const bool rateOk = forceFull || !lowPriority || (m_broadcastTicks % 2 == 0);
+        // rateOk: send entities every snapshot tick so motion is fluid
+        const bool rateOk = true;
 
         if (network.syncTransform && registry.HasComponent<Position>(entity) && onScreen &&
             rateOk) {
@@ -1276,7 +1313,7 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         return;
     }
 
-    constexpr double kSnapshotInterval = 1.0 / 20.0;
+    constexpr double kSnapshotInterval = 1.0 / 60.0;
     if (m_snapshotAccumulator < kSnapshotInterval) {
         return;
     }
@@ -1357,6 +1394,9 @@ void ReplicationSystem::SendSpawn(Registry& registry, NetworkHostResource& host,
     if (registry.HasComponent<Rotation>(entity)) {
         obj["angle"] = static_cast<int>(
             std::lround(registry.RequireComponent<Rotation>(entity).angle * 10.0f));
+    }
+    if (registry.HasComponent<SpriteComponent>(entity)) {
+        obj["sprite"] = SerializeSpriteState(registry, entity);
     }
 
     Buffer buffer;

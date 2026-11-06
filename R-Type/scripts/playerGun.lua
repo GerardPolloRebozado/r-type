@@ -34,20 +34,29 @@ end
 
 function PlayerGun:readInput()
     local owner = Component.getParent(self.entity)
-    -- Player is defined by player.lua; guard against it not being loaded yet
-    -- (script load order is not guaranteed across platforms).
     if Player == nil or Player.active == false then
         return {}
     end
+
+    local shootActive = false
+    if not isNetworked() then
+        shootActive = Controller.isActionActive("SHOOT")
+    elseif Net.isServer() then
+        local netInput = Net.input(owner)
+        if netInput ~= nil then
+            shootActive = netInput.SHOOT == true
+        end
+    else
+        -- Networked client: not authoritative for gun simulation anyway
+        return {}
+    end
+
     local input = {
         SUPER_SHOOT = false,
         SHOOT = false,
     }
-    local netInput = Net.input(owner)
-    if netInput == nil then
-        netInput = input
-    end
-    if Controller.isActionActive("SHOOT") or netInput.SHOOT then
+
+    if shootActive then
         self.shootCounter = (self.shootCounter or 0) + 1
         if self.shootCounter >= 30 then
             input.SUPER_SHOOT = true
@@ -78,7 +87,7 @@ end
 
 local function destroyProjectiles(self)
     for _, projectile in ipairs(self.projectiles) do
-        Pool.release(projectile.entity)
+        Entity.destroy(projectile.entity)
     end
     self.projectiles = {}
 end
@@ -161,15 +170,21 @@ function PlayerGun:onUpdate(entity, dt)
 
         proj.timer = proj.timer - dt
         if proj.timer <= 0 or isOutsideScreen(projEntity) then
-            Pool.release(projEntity)
+            Entity.destroy(projEntity)
             table.remove(self.projectiles, i)
         end
     end
 end
 
 function PlayerGun:fireProjectile()
+    local projEntity = Entity.create()
+
     local gunPos = Transform.getPosition(self.entity)
-    local projEntity = Pool.acquire("Prefabs/Bullet.prefab", gunPos.x, gunPos.y + 6.0)
+    local gunPosX = gunPos.x
+    local gunPosY = gunPos.y
+    Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
+    Component.addSprite(projEntity, SHOOT_SPRITE, 0, 0, 4.0, 4.0)
+    Component.addBoxCollider(projEntity, 32, 32)
 
     Component.setColliderLayer(projEntity, "PlayerBullet")
     Component.setColliderMask(projEntity, Layers.bit("Enemy") + Layers.bit("EnemyBullet") + Layers.bit("Wall"))
@@ -181,7 +196,7 @@ function PlayerGun:fireProjectile()
     -- In multiplayer this assigns a network id and makes ReplicationSystem
     -- announce the spawn + sync its position/sprite to every client.
     if isNetworked() then
-        Net.replicate(projEntity, "Server", false, false)
+        Net.replicate(projEntity, "Server", true, false)
     end
 
     table.insert(self.projectiles, {
@@ -191,8 +206,14 @@ function PlayerGun:fireProjectile()
 end
 
 function PlayerGun:fireSuperProjectile()
+    local projEntity = Entity.create()
+
     local gunPos = Transform.getPosition(self.entity)
-    local projEntity = Pool.acquire("Prefabs/Bullet.prefab", gunPos.x, gunPos.y + 6.0)
+    local gunPosX = gunPos.x
+    local gunPosY = gunPos.y
+    Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
+    Component.addSprite(projEntity, SUPER_SHOOT_SPRITE, 0, 0, 4.0, 4.0)
+    Component.addBoxCollider(projEntity, 32, 32)
 
     Component.setColliderLayer(projEntity, "PlayerBullet")
     Component.setColliderMask(projEntity, Layers.bit("Enemy"))
@@ -237,7 +258,7 @@ function PlayerGun:onProjectileHit(bullet, other)
         end
     end
 
-    Pool.release(bullet)
+    Entity.queueDestroy(bullet)
     for i = #self.projectiles, 1, -1 do
         if self.projectiles[i].entity == bullet then
             table.remove(self.projectiles, i)

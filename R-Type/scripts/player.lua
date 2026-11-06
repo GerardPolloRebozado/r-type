@@ -137,29 +137,40 @@ local function checkGameOver()
 end
 
 local function readInput(entity)
-	local input = {
-		UP = false,
-		DOWN = false,
-		LEFT = false,
-		RIGHT = false,
-	}
-	local netInput = Net.input(entity)
-	if netInput == nil then
-		netInput = input
+	if not isNetworked() then
+		return {
+			UP = Controller.isActionActive("UP"),
+			DOWN = Controller.isActionActive("DOWN"),
+			LEFT = Controller.isActionActive("LEFT"),
+			RIGHT = Controller.isActionActive("RIGHT"),
+		}
 	end
-	if Controller.isActionActive("UP") or netInput.UP then
-		input.UP = true
+
+	-- On the server, strictly use the input received from the network
+	if Net.isServer() then
+		local netInput = Net.input(entity)
+		if netInput ~= nil then
+			return {
+				UP = netInput.UP == true,
+				DOWN = netInput.DOWN == true,
+				LEFT = netInput.LEFT == true,
+				RIGHT = netInput.RIGHT == true,
+			}
+		end
+		return { UP = false, DOWN = false, LEFT = false, RIGHT = false }
 	end
-	if Controller.isActionActive("DOWN") or netInput.DOWN then
-		input.DOWN = true
+
+	-- On a client, only read local controller if this entity is the local player
+	if isLocalPlayer(entity) then
+		return {
+			UP = Controller.isActionActive("UP"),
+			DOWN = Controller.isActionActive("DOWN"),
+			LEFT = Controller.isActionActive("LEFT"),
+			RIGHT = Controller.isActionActive("RIGHT"),
+		}
 	end
-	if Controller.isActionActive("LEFT") or netInput.LEFT then
-		input.LEFT = true
-	end
-	if Controller.isActionActive("RIGHT") or netInput.RIGHT then
-		input.RIGHT = true
-	end
-	return input
+
+	return { UP = false, DOWN = false, LEFT = false, RIGHT = false }
 end
 
 function Player:onCreate(entity)
@@ -203,6 +214,10 @@ function Player:onUpdate(entity, dt)
 	local simulate = shouldSimulate(entity)
 	local authority = isAuthority()
 
+	if not dt or dt <= 0 then
+		dt = 1.0 / 60.0
+	end
+
 	if self.isLocal and self.lives ~= self.lastHudLives then
 		if Heart ~= nil and Heart.setLives ~= nil then
 			self.lastHudLives = self.lives
@@ -210,38 +225,41 @@ function Player:onUpdate(entity, dt)
 		end
 	end
 
-	if self.active ~= self.lastAppliedActive then
-		self.lastAppliedActive = self.active
-		setActive(entity, self.active)
-	end
-
-	if not simulate then
-		return
-	end
-
-	if not dt or dt <= 0 then
-		dt = 1.0 / 60.0
-	end
-
-	if Player.gameOver then
-		return
-	end
-
 	if authority then
 		if not self.active then
 			self.respawnTimer = self.respawnTimer - dt
-			local currOpacity = Component.getOpacity(entity)
-			Component.setOpacity(entity, currOpacity == 1.0 and 0.0 or 1.0, true)
 			if self.respawnTimer <= 0.0 and self.lives > 0 then
 				self.active = true
 				self.dead = false
 				self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
-				setActive(entity, true)
 			end
 		end
-
 		self.invulnerabilityTimer = math.max(0.0, self.invulnerabilityTimer - dt)
-	elseif not self.active then
+	end
+
+	-- Handle client and server visual blinking:
+	-- While inactive (respawning) or invulnerable, blink locally
+	if not self.active then
+		-- Ship is respawning: toggle blinking
+		self.blinkTimer = (self.blinkTimer or 0.0) + dt
+		local visible = (math.floor(self.blinkTimer * 10) % 2) == 0
+		Component.setOpacity(entity, visible and 1.0 or 0.0, true)
+		Component.setColliderEnabled(entity, false)
+		return
+	elseif self.invulnerabilityTimer > 0.0 then
+		-- Ship just respawned and is invulnerable: blink quickly
+		self.invulnerabilityTimer = math.max(0.0, self.invulnerabilityTimer - dt)
+		self.blinkTimer = (self.blinkTimer or 0.0) + dt
+		local visible = (math.floor(self.blinkTimer * 12) % 2) == 0
+		Component.setOpacity(entity, visible and 1.0 or 0.3, true)
+		Component.setColliderEnabled(entity, true)
+	else
+		self.blinkTimer = 0.0
+		Component.setOpacity(entity, 1.0, true)
+		Component.setColliderEnabled(entity, true)
+	end
+
+	if not simulate then
 		return
 	end
 
