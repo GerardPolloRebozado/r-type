@@ -1,0 +1,15 @@
+# Core MkDocs dependency
+
+mkdocs>=1.5.0
+
+
+
+# Material for MkDocs theme (commonly used with deploy-mkdocs action)
+
+mkdocs-material>=9.0.0
+
+
+
+# MkDoxy plugin for Doxygen integration
+
+mkdoxy>=1.2.0

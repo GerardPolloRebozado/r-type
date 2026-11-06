@@ -14,6 +14,8 @@
 #include "Resources/PlayerSlotState.hpp"
 #include "Resources/PrefabSpawner.hpp"
 #include "Resources/SceneManager.hpp"
+#include "Resources/ScriptVariableState.hpp"
+#include "Scripting/ScriptVariableSync.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -249,6 +251,9 @@ void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
     if (!m_initialized || !registry.HasResource<NetworkHostResource>()) {
         return; // single-player, or no session yet: nothing to sync
     }
+    if (registry.HasResource<ScriptVariableState>()) {
+        registry.GetResource<ScriptVariableState>().Reset();
+    }
     auto& host = registry.GetResource<NetworkHostResource>();
     if (host.IsServer()) {
         // Players are destroyed with the scene. Remember who to respawn.
@@ -269,6 +274,9 @@ void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
 void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host) {
     if (!registry.HasResource<PlayerInputState>()) {
         registry.AddResource<PlayerInputState>();
+    }
+    if (!registry.HasResource<ScriptVariableState>()) {
+        registry.AddResource<ScriptVariableState>();
     }
     // Each scene may define its own player template. Keep the previous one
     // when the new scene has none (e.g. a level reusing the lobby's player).
@@ -371,8 +379,7 @@ void ReplicationSystem::ProcessConnect(Registry& registry, NetworkHostResource& 
 }
 
 void ReplicationSystem::SpawnPlayer(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
-                                    Entity placeholder, std::size_t networkId,
-                                    std::uint8_t slot) {
+                                    Entity placeholder, std::size_t networkId, std::uint8_t slot) {
     Entity entity = SpawnFromPrefab(registry, m_playerPrefabPath);
     if (entity == kInvalidEntity) {
         entity = (placeholder != kInvalidEntity && registry.IsEntityAlive(placeholder))
@@ -407,8 +414,8 @@ void ReplicationSystem::SpawnPlayer(Registry& registry, NetworkHostResource& hos
              std::to_string(networkId) + ", slot " + std::to_string(slot) + ")");
 }
 
-void ReplicationSystem::SendSceneLoad(Registry& registry, NetworkHostResource& host,
-                                      ENetPeer* peer, bool reload) {
+void ReplicationSystem::SendSceneLoad(Registry& registry, NetworkHostResource& host, ENetPeer* peer,
+                                      bool reload) {
     if (!host.IsServer() || !registry.HasResource<SceneManager>()) {
         return;
     }
@@ -501,6 +508,13 @@ void ReplicationSystem::ProcessDisconnect(Registry& registry, NetworkHostResourc
     if (registry.HasResource<PlayerSlotState>()) {
         registry.GetResource<PlayerSlotState>().Release(networkId);
     }
+    if (registry.HasResource<ScriptVariableState>()) {
+        auto& variables = registry.GetResource<ScriptVariableState>();
+        if (entity != kInvalidEntity) {
+            variables.Remove(entity);
+        }
+        variables.RemovePending(networkId);
+    }
 
     // Poll already removed the entity and its maps; the despawn diff would
     // catch it next tick, but sending it now keeps disconnects immediate.
@@ -567,6 +581,10 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
             }
 
             ApplyEntityState(registry, entity, entry);
+            if (const auto vars = obj.find("vars"); vars != obj.end() && vars->second.is_object()) {
+                ApplyReplicatedScriptVariables(registry, networkId, entity,
+                                               vars->second.get_object());
+            }
         }
     });
 }
@@ -652,9 +670,17 @@ void ReplicationSystem::RegisterDespawnHandler(Registry& registry) {
         const auto networkId = static_cast<std::size_t>(GenericNumber(obj, "id"));
         const auto found = host.GetEntityByNetworkId(networkId);
         if (!found.has_value()) {
+            if (registry.HasResource<ScriptVariableState>()) {
+                registry.GetResource<ScriptVariableState>().RemovePending(networkId);
+            }
             return;
         }
         const Entity entity = *found;
+        if (registry.HasResource<ScriptVariableState>()) {
+            auto& variables = registry.GetResource<ScriptVariableState>();
+            variables.Remove(entity);
+            variables.RemovePending(networkId);
+        }
         host.UntrackNetworkEntity(registry, entity);
         if (registry.IsEntityAlive(entity)) {
             registry.DestroyEntity(entity);
@@ -764,6 +790,17 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity)) {
             obj["sprite"] = SerializeSpriteState(registry, entity);
         }
+        if (registry.HasResource<ScriptVariableState>()) {
+            auto& variables = registry.GetResource<ScriptVariableState>();
+            if (const auto* registration = variables.Find(entity); registration != nullptr) {
+                glz::generic vars = glz::generic::object_t{};
+                auto& varsObj = vars.get_object();
+                if (ReadScriptVariables(registry, entity, registration->fields, varsObj) &&
+                    !varsObj.empty()) {
+                    obj["vars"] = std::move(vars);
+                }
+            }
+        }
         if (logThisTick && network.authority == "Client" &&
             registry.HasComponent<Position>(entity)) {
             const auto& position = registry.RequireComponent<Position>(entity);
@@ -801,17 +838,16 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
     }
 
     auto* packet = NetworkHostResource::CreateRawPacket(
-        static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-        json.size(), false);
+        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), false);
     if (packet != nullptr) {
         host.SendAllHost(packet, 0);
     }
 }
 
-void ReplicationSystem::SendSpawn(Registry& registry, NetworkHostResource& host,
+void ReplicationSystem::SendSpawn(const Registry& registry, NetworkHostResource& host,
                                   PacketRegistryResource& packetRegistry, Entity entity,
                                   const NetworkComponent& network,
-                                  std::optional<std::uint8_t> slot) {
+                                  const std::optional<std::uint8_t> slot) {
     (void)registry;
     (void)entity;
     if (!host.IsServer()) {
@@ -832,8 +868,7 @@ void ReplicationSystem::SendSpawn(Registry& registry, NetworkHostResource& host,
     }
     const auto packetId = packetRegistry.GetOrRegister("replication_spawn");
     auto* packet = NetworkHostResource::CreateRawPacket(
-        static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-        json.size(), true);
+        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
     if (packet != nullptr) {
         host.SendAllHost(packet, 0);
         m_announcedIds.insert(network.networkId);
@@ -855,8 +890,7 @@ void ReplicationSystem::SendDespawn(Registry& registry, NetworkHostResource& hos
     }
     const auto packetId = packetRegistry.GetOrRegister("replication_despawn");
     auto* packet = NetworkHostResource::CreateRawPacket(
-        static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-        json.size(), true);
+        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
     if (packet != nullptr) {
         host.SendAllHost(packet, 0);
         m_announcedIds.erase(networkId);

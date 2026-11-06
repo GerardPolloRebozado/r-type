@@ -40,6 +40,7 @@ set(SRC_FILES
         src/Plugins/WavePlugin.cpp
         src/Scripting/ScriptPlugin.cpp
         src/Scripting/ScriptSystem.cpp
+        src/Scripting/ScriptVariableSync.cpp
         src/Scripting/SignalDispatch.cpp
         src/Scripting/LuaAPI.cpp
         src/Scripting/LuaAPI/LogAPI.cpp
@@ -48,6 +49,7 @@ set(SRC_FILES
         src/Scripting/LuaAPI/CameraAPI.cpp
         src/Scripting/LuaAPI/ComponentQueryAPI.cpp
         src/Scripting/LuaAPI/SceneAPI.cpp
+        src/Scripting/LuaAPI/Internal/LuaValue.cpp
         src/Scripting/LuaAPI/Plugins/PositionAPI.cpp
         src/Scripting/LuaAPI/Plugins/RotationAPI.cpp
         src/Scripting/LuaAPI/Plugins/SpriteAPI.cpp
@@ -138,6 +140,7 @@ set(INC_FILES
         include/Resources/PlayerInputState.hpp
         include/Resources/PlayerSlotState.hpp
         include/Resources/PrefabSpawner.hpp
+        include/Resources/ScriptVariableState.hpp
         include/Plugins/PluginExample.hpp
         include/Plugins/PositionPlugin.hpp
         include/Plugins/RotationPlugin.hpp
@@ -151,6 +154,7 @@ set(INC_FILES
         include/Scripting/ScriptComponent.hpp
         include/Scripting/ScriptPlugin.hpp
         include/Scripting/ScriptSystem.hpp
+        include/Scripting/ScriptVariableSync.hpp
         include/Scripting/SignalDispatch.hpp
         include/Scripting/LuaAPI.hpp
         include/Scripting/LuaAPI/LogAPI.hpp
@@ -173,6 +177,7 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/InputAPI.hpp
         include/Scripting/LuaAPI/Plugins/AudioAPI.hpp
         include/Scripting/LuaAPI/Internal/Helpers.hpp
+        include/Scripting/LuaAPI/Internal/LuaValue.hpp
         include/Systems/AudioSystem.hpp
         include/Systems/CameraSystem.hpp
         include/Systems/CollisionSystem.hpp

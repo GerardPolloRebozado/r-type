@@ -6,13 +6,14 @@
 -- sends its SHOOT bit in the input packet; the server spawns the projectile and
 -- marks it as a replicated runtime entity, so every client sees it.
 
-local Script = {}
+local PlayerGun = {}
 
 local MUZZLE_01 = "assets/player/shoot/muzzleflash_000.png"
 local MUZZLE_02 = "assets/player/shoot/muzzleflash_001.png"
 local FRAME_DURATION = 0.05
 
-local PROJECTILE_SPRITE = "assets/player/shoot/laserbeam.png"
+local SHOOT_SPRITE = "assets/player/shoot/laserbeam.png"
+local SUPER_SHOOT_SPRITE = "assets/player/shoot/megabullet1.png"
 
 local PROJECTILE_SPEED = 1800.0 -- pixels per second
 local PROJECTILE_LIFETIME = 2.0 -- seconds before auto-remove
@@ -30,29 +31,33 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
-local function readInput(owner)
+function PlayerGun:readInput()
+    local owner = Component.getParent(self.entity)
     if Player.active == false then
         return {}
     end
-    if Net ~= nil and Net.input ~= nil then
-        local input = Net.input(owner)
-        if input ~= nil then
-            return input
+    local input = {
+        SUPER_SHOOT = false,
+        SHOOT = false,
+    }
+    local netInput = Net.input(owner)
+    if netInput == nil then
+        netInput = input
+    end
+    if Controller.isActionActive("SHOOT") or netInput.SHOOT then
+        self.shootCounter = (self.shootCounter or 0) + 1
+        if self.shootCounter >= 30 then
+            input.SUPER_SHOOT = true
+        end
+    else
+        if self.shootCounter and self.shootCounter > 0 then
+            if self.shootCounter < 30 then
+                input.SHOOT = true
+            end
+            self.shootCounter = 0
         end
     end
-    local input = {}
-    if Controller.isActionActive("SHOOT") then
-        input.SHOOT = true
-    end
     return input
-end
-
-local function isShootDown(entity)
-    local owner = Component.getParent(entity)
-    if owner == nil then
-        return false
-    end
-    return readInput(owner).SHOOT == true
 end
 
 local function isOutsideScreen(entity)
@@ -75,13 +80,14 @@ local function destroyProjectiles(self)
     self.projectiles = {}
 end
 
-function Script:onCreate(entity)
+function PlayerGun:onCreate(entity)
     self.entity = entity
     self.wasShootDown = false
     self.firing = false
     self.phase = 0
     self.elapsed = 0.0
 
+    self.shootCounter = 0
     self.shootDown = false
     self.cooldown = 0.0
     self.projectiles = {}
@@ -90,7 +96,7 @@ function Script:onCreate(entity)
     Component.setOpacity(entity, 0.0)
 end
 
-function Script:onUpdate(entity, dt)
+function PlayerGun:onUpdate(entity, dt)
     -- Networked client: the server decides when bullets exist.
     if not shouldSimulate() then
         return
@@ -100,9 +106,10 @@ function Script:onUpdate(entity, dt)
         dt = 1.0 / 60.0
     end
 
-    local shootDown = isShootDown(entity)
+    local shootInput = self:readInput()
+    local isShooting = shootInput.SHOOT == true or shootInput.SUPER_SHOOT
 
-    if shootDown and not self.wasShootDown and not self.firing then
+    if isShooting and not self.wasShootDown and not self.firing then
         self.firing = true
         self.phase = 1
         self.elapsed = 0.0
@@ -111,7 +118,7 @@ function Script:onUpdate(entity, dt)
         Component.setOpacity(entity, 1.0)
     end
 
-    self.wasShootDown = shootDown
+    self.wasShootDown = isShooting
 
     if self.firing then
         self.elapsed = self.elapsed + dt
@@ -132,12 +139,16 @@ function Script:onUpdate(entity, dt)
 
     self.cooldown = math.max(0, self.cooldown - dt)
 
-    if shootDown and not self.shootDown and self.cooldown <= 0 then
-        self:fireProjectile()
+    if isShooting and not self.shootDown and self.cooldown <= 0 then
         self.cooldown = FIRE_COOLDOWN
+        if shootInput.SUPER_SHOOT then
+            self:fireSuperProjectile()
+        else
+            self:fireProjectile()
+        end
     end
 
-    self.shootDown = shootDown
+    self.shootDown = isShooting
 
     for i = #self.projectiles, 1, -1 do
         local proj = self.projectiles[i]
@@ -153,14 +164,14 @@ function Script:onUpdate(entity, dt)
     end
 end
 
-function Script:fireProjectile()
+function PlayerGun:fireProjectile()
     local projEntity = Entity.create()
 
     local gunPos = Transform.getPosition(self.entity)
     local gunPosX = gunPos.x
     local gunPosY = gunPos.y
     Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
-    Component.addSprite(projEntity, PROJECTILE_SPRITE, 0, 0, 4.0, 4.0)
+    Component.addSprite(projEntity, SHOOT_SPRITE, 0, 0, 4.0, 4.0)
     Component.addBoxCollider(projEntity, 32, 32)
 
     Component.setColliderLayer(projEntity, "PlayerBullet")
@@ -182,7 +193,59 @@ function Script:fireProjectile()
     })
 end
 
-function Script:onProjectileHit(bullet, other)
+function PlayerGun:fireSuperProjectile()
+    local projEntity = Entity.create()
+
+    local gunPos = Transform.getPosition(self.entity)
+    local gunPosX = gunPos.x
+    local gunPosY = gunPos.y
+    Transform.setPosition(projEntity, gunPosX, gunPosY + 6)
+    Component.addSprite(projEntity, SUPER_SHOOT_SPRITE, 0, 0, 4.0, 4.0)
+    Component.addBoxCollider(projEntity, 32, 32)
+
+    Component.setColliderLayer(projEntity, "PlayerBullet")
+    Component.setColliderMask(projEntity, Layers.bit("Enemy"))
+
+    Component.setOpacity(projEntity, 1.0)
+
+    Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
+
+    -- In multiplayer this assigns a network id and makes ReplicationSystem
+    -- announce the spawn + sync its position/sprite to every client.
+    if isNetworked() then
+        Net.replicate(projEntity, "Server", true, true)
+    end
+
+    table.insert(self.projectiles, {
+        entity = projEntity,
+        timer = PROJECTILE_LIFETIME,
+        hitsRemaining = 3,
+    })
+end
+
+function PlayerGun:onProjectileHit(bullet, other)
+    local projectile
+    for i = #self.projectiles, 1, -1 do
+        if self.projectiles[i].entity == bullet then
+            projectile = self.projectiles[i]
+            break
+        end
+    end
+
+    if projectile == nil then
+        return
+    end
+
+    if projectile.hitsRemaining ~= nil then
+        if Component.getColliderLayerName(other) ~= "Enemy" then
+            return
+        end
+        projectile.hitsRemaining = projectile.hitsRemaining - 1
+        if projectile.hitsRemaining > 0 then
+            return
+        end
+    end
+
     Entity.queueDestroy(bullet)
     for i = #self.projectiles, 1, -1 do
         if self.projectiles[i].entity == bullet then
@@ -192,8 +255,8 @@ function Script:onProjectileHit(bullet, other)
     end
 end
 
-function Script:onDestroy(entity)
+function PlayerGun:onDestroy(entity)
     destroyProjectiles(self)
 end
 
-return Script
+return PlayerGun

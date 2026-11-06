@@ -114,6 +114,10 @@ function Enemy:onCreate(entity)
     Component.setColliderMask(entity, BODY_MASK)
     Component.addAudioSource(entity, "assets/effects/explosion.mp3", false, false, 1)
 
+    if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
+        Net.replicate(entity, "Server", true, true)
+    end
+
     self.linkIndex = nil
     self.trailKey = nil
     local parent = Component.getParent(entity)

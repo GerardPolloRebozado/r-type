@@ -17,8 +17,6 @@ Player.MAX_LIVES = 3
 Player.RESPAWN_DELAY = 1.0
 Player.INVULNERABILITY_DURATION = 1.0
 Player.states = {}
-Player.remoteStates = {}
-Player.remoteHandlerRegistered = false
 Player.gameOver = false
 Player.gameOverHandlerRegistered = false
 
@@ -79,28 +77,31 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
+local function isLocalPlayer(entity)
+    if not isNetworked() then
+        return true
+    end
+    if Net.isLocal ~= nil then
+        return Net.isLocal(entity)
+    end
+    return Net.localEntity ~= nil and Net.localEntity() == entity
+end
+
+local function showGameOver()
+    local textEntity = Entity.find("GameOver")
+    Component.setOpacity(textEntity, 1.0)
+end
+
 local function registerNetworkHandlers()
     if not isNetworked() then
         return
-    end
-
-    if not Player.remoteHandlerRegistered then
-        Player.remoteHandlerRegistered = true
-        Net.onEntityRpc("player_damage", function(entity, data)
-            if type(data) ~= "table" then
-                return
-            end
-            Player.remoteStates[entity] = {
-                lives = tonumber(data.lives) or 0,
-                active = data.active == true,
-            }
-        end)
     end
 
     if not Player.gameOverHandlerRegistered then
         Player.gameOverHandlerRegistered = true
         Net.on("game_over", function()
             Player.gameOver = true
+            showGameOver()
         end)
     end
 end
@@ -141,44 +142,34 @@ local function checkGameOver()
     log.info("[player.lua] All players have lost their lives; game over")
     if isNetworked() then
         Net.broadcast("game_over", {}, true)
+    else
+        showGameOver()
     end
     return true
 end
 
-local function notifyDamage(entity, state)
-    if isNetworked() then
-        Net.rpc(entity, "player_damage", {
-            lives = state.lives,
-            active = state.active,
-        })
-    end
-end
-
--- Prefer the replicated input (server) / local input (client): a set-table
--- keyed by action name, e.g. { UP = true, SHOOT = true }. Falls back to
--- the controller in single-player or when Net.input has no data.
 local function readInput(entity)
-    if Net ~= nil and Net.input ~= nil then
-        local input = Net.input(entity)
-        if input ~= nil then
-            return input
-        end
+    local input = {
+        UP = false,
+        DOWN = false,
+        LEFT = false,
+        RIGHT = false
+    }
+    local netInput = Net.input(entity)
+    if netInput == nil then
+        netInput = input
     end
-    local input = {}
-    if Controller.isActionActive("UP") then
+    if Controller.isActionActive("UP") or netInput.UP then
         input.UP = true
     end
-    if Controller.isActionActive("DOWN") then
+    if Controller.isActionActive("DOWN") or netInput.DOWN then
         input.DOWN = true
     end
-    if Controller.isActionActive("LEFT") then
+    if Controller.isActionActive("LEFT") or netInput.LEFT then
         input.LEFT = true
     end
-    if Controller.isActionActive("RIGHT") then
+    if Controller.isActionActive("RIGHT") or netInput.RIGHT then
         input.RIGHT = true
-    end
-    if Controller.isActionActive("SHOOT") then
-        input.SHOOT = true
     end
     return input
 end
@@ -200,24 +191,35 @@ function Player:onCreate(entity)
     self.invulnerabilityTimer = 0.0
     self.active = true
     self.dead = false
-    Player.states[entity] = self
+    self.isLocal = isLocalPlayer(entity)
+    self.lastHudLives = nil
+    self.lastAppliedActive = self.active
+
+    if Net.sync ~= nil then
+        Net.sync(entity, self, { "lives", "active" })
+    end
 
     Component.setSpritePath(entity, self.sprites.idle)
     self.currentSprite = self.sprites.idle
+    Player.states[entity] = self
     Component.connect(entity, "onCollisionEnter", entity, "onCollisionEnter")
     Component.setColliderLayer(entity, PLAYER_LAYER)
     Component.setColliderMask(entity, PLAYER_MASK)
 end
 
 function Player:onUpdate(entity, dt)
-    local remoteState = Player.remoteStates[entity]
-    if remoteState ~= nil then
-        self.lives = remoteState.lives
-        if remoteState.active ~= self.active then
-            self.active = remoteState.active
-            setActive(entity, self.active)
+    self.isLocal = isLocalPlayer(entity)
+
+    if self.isLocal and self.lives ~= self.lastHudLives then
+        if Heart ~= nil and Heart.setLives ~= nil then
+            self.lastHudLives = self.lives
+            Heart:setLives(entity, self.lives)
         end
-        Player.remoteStates[entity] = nil
+    end
+
+    if not shouldSimulate() and self.active ~= self.lastAppliedActive then
+        self.lastAppliedActive = self.active
+        setActive(entity, self.active)
     end
 
     -- Networked client: the server owns position and animation for every
@@ -243,7 +245,6 @@ function Player:onUpdate(entity, dt)
             self.dead = false
             self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
             setActive(entity, true)
-            notifyDamage(entity, self)
         end
     end
 
@@ -332,7 +333,6 @@ function Player:onCollisionEnter(this, other)
     self.dead = self.lives == 0
     self.respawnTimer = self.dead and 0.0 or Player.RESPAWN_DELAY
     setActive(this, false)
-    notifyDamage(this, self)
 
     if layer == "EnemyBullet" then
         Entity.queueDestroy(other)
@@ -345,7 +345,6 @@ end
 
 function Player:onDestroy(entity)
     Player.states[entity] = nil
-    Player.remoteStates[entity] = nil
     log.info("[player.lua] onDestroy entity " .. tostring(entity))
 end
 
