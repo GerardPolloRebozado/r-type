@@ -143,6 +143,11 @@ jobs:
             fi
           fi
 
+          # Copy R-Type game binary
+          if [ -f "R-Type/build/Game" ]; then
+            cp "R-Type/build/Game" "$DIST_DIR/$editor_pkg/bin/"
+          fi
+
           tar -czf "$DIST_DIR/$editor_pkg.tar.gz" -C "$DIST_DIR" "$editor_pkg"
           tar -czf "$DIST_DIR/$engine_pkg.tar.gz" -C "$DIST_DIR" "$engine_pkg"
           ls -lh "$DIST_DIR"
@@ -229,6 +234,11 @@ jobs:
           cp "$BUILD_DIR/Engine/libEngine.a" "$DIST_DIR/$engine_pkg/lib/"
           cp -R Engine/include/. "$DIST_DIR/$engine_pkg/include/"
           find "$BUILD_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$DIST_DIR/$editor_pkg/bin/" \;
+
+          # Copy R-Type game binary
+          if [ -f "R-Type/build/Game.exe" ]; then
+            cp "R-Type/build/Game.exe" "$DIST_DIR/$editor_pkg/bin/"
+          fi
 
           (cd "$DIST_DIR" && cmake -E tar cf "$editor_pkg.zip" --format=zip "$editor_pkg")
           (cd "$DIST_DIR" && cmake -E tar cf "$engine_pkg.zip" --format=zip "$engine_pkg")
