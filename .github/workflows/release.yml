@@ -94,8 +94,16 @@ jobs:
 
           cmake "${args[@]}"
 
+      - name: Configure R-Type game
+        run: |
+          set -euo pipefail
+          cmake -S R-Type -B R-Type/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
       - name: Build Engine and RTypeEditor
         run: cmake --build "$BUILD_DIR" --target Engine RTypeEditor --parallel
+
+      - name: Build R-Type game
+        run: cmake --build R-Type/build --parallel
 
       - name: Package
         env:
