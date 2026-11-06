@@ -79,19 +79,19 @@ int main(int argc, char* argv[]) {
 
     auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();
     auto controller = std::make_unique<Engine::Controller>();
-    controller->addKeybind("Intro", {257, 0, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("HeavyKick", {76, 76, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("MediumKick", {75, 75, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("HeavyPunch", {79, 79, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("LightPunch", {85, 85, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("ThreePunch", {80, 80, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("MediumPunch", {73, 73, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("Right", {68, 68, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("KKK", {59, 59, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("Crouch", {83, 83, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("LightKick", {74, 74, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("Left", {65, 65, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("Intro", {257, 257, static_cast<Engine::DeviceType>(0)}, false);
     controller->addKeybind("Jump", {87, 87, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("Left", {65, 65, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("LightKick", {74, 74, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("Crouch", {83, 83, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("KKK", {59, 59, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("Right", {68, 68, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("MediumPunch", {73, 73, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("ThreePunch", {80, 80, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("LightPunch", {85, 85, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("HeavyPunch", {79, 79, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("MediumKick", {75, 75, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("HeavyKick", {76, 76, static_cast<Engine::DeviceType>(0)}, false);
     inputManager.AddPlayer(1, std::move(controller));
 
     // Startup scene: a .scene argument wins (e.g. ./StreetFigter Level2.scene),

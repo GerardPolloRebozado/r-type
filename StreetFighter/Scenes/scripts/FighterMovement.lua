@@ -39,9 +39,32 @@ local function detectPlayerId(entity)
     return id or 1
 end
 
+local function isNetworked()
+    return Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked()
+end
+
+local function isServer()
+    return Net ~= nil and Net.isServer ~= nil and Net.isServer()
+end
+
+local function shouldSimulate()
+    if not isNetworked() then return true end
+    return isServer()
+end
+
+
+NetInputs = NetInputs or {}
+local P1_START_X = 346.45
+local PARK_X, PARK_Y = -2000.0, -2000.0
+
+local SYNC_FIELDS = { "netAnim", "netFlip" }
+
 function Script:onCreate(entity)
     self.entity = entity
     self.playerId = detectPlayerId(entity)
+    self.netAnim = ""
+    self.netFlip = false
+    self.netSynced = false
 
     self.moveSpeed = 220.0
     self.jumpForce = -420.0
@@ -66,6 +89,7 @@ function Script:applyFlip()
     local native = SPRITE_FACES_RIGHT[self.playerId]
     if native == nil then native = true end
     local flip = (self.facingRight ~= native)
+    self.netFlip = flip
     if Animation and Animation.setFlip then
         Animation.setFlip(self.entity, flip)
     elseif Component and Component.setSpriteFlip then
@@ -77,14 +101,23 @@ function Script:setupKeybinds()
     if not Controller or not Controller.addKeybind then
         return
     end
-
-    local keys = PLAYER_KEYS[self.playerId] or PLAYER_KEYS[1]
+    local bindId = isNetworked() and 1 or self.playerId
+    local keys = PLAYER_KEYS[bindId] or PLAYER_KEYS[1]
     for action, key in pairs(keys) do
-        Controller.addKeybind(action, key, Controller.KEYBOARD, 0, self.playerId)
+        Controller.addKeybind(action, key, Controller.KEYBOARD, 0, bindId, isNetworked())
     end
 end
 
 function Script:isAction(actionName)
+    if isNetworked() then
+        local input
+        if self.slot ~= nil then
+            input = Net.input and Net.input(self.entity)
+        else
+            input = NetInputs[self.playerId]
+        end
+        return input ~= nil and input[actionName] == true
+    end
     if Controller and Controller.isActionActive then
         return Controller.isActionActive(actionName, self.playerId)
     end
@@ -98,6 +131,7 @@ function Script:playAnim(clipName, restartIfSame)
     if self.currentAnim ~= clipName or restartIfSame then
         Animation.play(self.entity, clipName, restartIfSame or false)
         self.currentAnim = clipName
+        self.netAnim = clipName
     end
 end
 
@@ -152,7 +186,77 @@ function Script:onUpdate(entity, dt)
         return
     end
 
-    -- Fight finished (set by FighterHealth.lua): no more input, just the end pose
+    if isNetworked() and not self.netSynced and Net.sync then
+        self.netSynced = Net.sync(entity, self, SYNC_FIELDS) == true
+    end
+
+    if not shouldSimulate() then
+        if self.netAnim ~= nil and self.netAnim ~= "" and self.netAnim ~= self.currentAnim then
+            Animation.play(entity, self.netAnim, false)
+            self.currentAnim = self.netAnim
+        end
+        if self.netFlip ~= self.appliedFlip then
+            if Animation and Animation.setFlip then
+                Animation.setFlip(entity, self.netFlip == true)
+            elseif Component and Component.setSpriteFlip then
+                Component.setSpriteFlip(entity, self.netFlip == true)
+            end
+            self.appliedFlip = self.netFlip
+        end
+        return
+    end
+
+    self.slot = nil
+    if isServer() and Net.playerSlot then
+        self.slot = Net.playerSlot(entity)
+    end
+    if isNetworked() and not self.roleLogged then
+        self.roleLogged = true
+        log.info(string.format("[FighterMovement][net] entity=%s name=%s server=%s slot=%s playerId=%s",
+            tostring(entity), tostring(Entity.getName(entity)), tostring(isServer()),
+            tostring(self.slot), tostring(self.playerId)))
+    end
+    if self.slot ~= nil then
+        if self.slot >= 1 then
+            if self.slot == 1 then
+                NetInputs[2] = (Net.input and Net.input(entity)) or {}
+                NetP2Alive = 3
+            end
+            Transform.setPosition(entity, PARK_X, PARK_Y)
+            self:setHitboxActive(false)
+            return
+        end
+        self.playerId = 1
+        if not self.positioned then
+            local cur = Transform.getPosition(entity)
+            Transform.setPosition(entity, P1_START_X, FighterStartY or cur.y, cur.z)
+            self.positioned = true
+        end
+    end
+
+    if self.slot == nil and isNetworked() and isServer() and self.playerId == 2 then
+        local here = Transform.getPosition(entity)
+        if here and not self.homeX then
+            self.homeX, self.homeY, self.homeZ = here.x, here.y, here.z
+            self.groundY = here.y
+            FighterStartY = here.y
+        end
+        local connected = (NetP2Alive or 0) > 0
+        NetP2Alive = connected and (NetP2Alive - 1) or 0
+        if not connected then
+            Transform.setPosition(entity, PARK_X, PARK_Y)
+            self:setHitboxActive(false)
+            self.parked = true
+            return
+        elseif self.parked then
+            -- client 2 just joined: back to the starting spot
+            Transform.setPosition(entity, self.homeX, self.homeY, self.homeZ)
+            self.vy, self.isGrounded = 0.0, true
+            self.parked = false
+        end
+    end
+
+    --  the end pose
     if FightState and FightState.over then
         self:setHitboxActive(false)
         if FightState.winner == self.playerId then

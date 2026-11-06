@@ -69,7 +69,6 @@ function Script:onUpdate(entity, dt)
     if not self.ready then
         self.ready = self:setup()
         self:refresh()
-        return
     end
 
     local left, right, confirm = pressed("Left"), pressed("Right"), pressed("Intro")
@@ -77,16 +76,17 @@ function Script:onUpdate(entity, dt)
     if left and not self.leftHeld then
         self.selected = (self.selected - 2) % #COUNTRIES + 1
         self:refresh()
+        log.info("[CountryMenu] selected: " .. COUNTRIES[self.selected].name)
     elseif right and not self.rightHeld then
         self.selected = self.selected % #COUNTRIES + 1
         self:refresh()
+        log.info("[CountryMenu] selected: " .. COUNTRIES[self.selected].name)
     end
     if (confirm and not self.confirmHeld) then
         self:choose(COUNTRIES[self.selected])
     end
 
     self.leftHeld, self.rightHeld, self.confirmHeld = left, right, confirm
-    self.clickHeld = click
 end
 
 return Script
