@@ -52,10 +52,25 @@ function Script:onCreate(entity)
     self.isCrouching = false
     self.groundY = nil
     self.currentAnim = ""
-    self.facingRight = true
+    self.facingRight = (self.playerId == 1)
     self.hitboxEntity = nil
 
     self:setupKeybinds()
+end
+
+-- Direction each player's sprite sheet is drawn facing (Ryu faces right,
+-- the SF2 Sagat sheet faces left). Flip only when the current direction differs.
+local SPRITE_FACES_RIGHT = { [1] = true, [2] = false }
+
+function Script:applyFlip()
+    local native = SPRITE_FACES_RIGHT[self.playerId]
+    if native == nil then native = true end
+    local flip = (self.facingRight ~= native)
+    if Animation and Animation.setFlip then
+        Animation.setFlip(self.entity, flip)
+    elseif Component and Component.setSpriteFlip then
+        Component.setSpriteFlip(self.entity, flip)
+    end
 end
 
 function Script:setupKeybinds()
@@ -101,12 +116,6 @@ function Script:findHitboxEntity()
     return nil
 end
 
--- Transform positions are WORLD coordinates (even for children), and colliders
--- are rectangles anchored at their top-left corner. So the hitbox has to be
--- placed from the fighter's world position, not from a local offset.
---   offsetX: how far the hitbox reaches beyond the body's centre line (unused
---            now, the reach is given by the hitbox width)
---   offsetY: vertical shift from the body's vertical centre (negative = higher)
 function Script:setHitboxActive(active, offsetX, offsetY, width, height)
     local hb = self:findHitboxEntity()
     if not hb or not Component or not Component.setColliderEnabled then
@@ -130,9 +139,9 @@ function Script:setHitboxActive(active, offsetX, offsetY, width, height)
 
     local x
     if self.facingRight then
-        x = centerX              -- extends to the right of the centre line
+        x = centerX
     else
-        x = centerX - w          -- extends to the left of the centre line
+        x = centerX - w
     end
     local y = pos.y + bodyH / 2.0 - h / 2.0 + (offsetY or 0.0)
     Transform.setPosition(hb, x, y, pos.z)
@@ -195,22 +204,14 @@ function Script:onUpdate(entity, dt)
             dx = -self.moveSpeed * dt
             isMovingHorizontally = true
             self.facingRight = false
-            if Animation and Animation.setFlip then
-                Animation.setFlip(entity, true)
-            elseif Component and Component.setSpriteFlip then
-                Component.setSpriteFlip(entity, true)
-            end
         elseif rightActive and not leftActive then
             dx = self.moveSpeed * dt
             isMovingHorizontally = true
             self.facingRight = true
-            if Animation and Animation.setFlip then
-                Animation.setFlip(entity, false)
-            elseif Component and Component.setSpriteFlip then
-                Component.setSpriteFlip(entity, false)
-            end
         end
     end
+
+    self:applyFlip()
 
     local dy = 0.0
     if not self.isGrounded then
