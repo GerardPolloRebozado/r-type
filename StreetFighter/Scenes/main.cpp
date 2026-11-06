@@ -79,6 +79,7 @@ int main(int argc, char* argv[]) {
 
     auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();
     auto controller = std::make_unique<Engine::Controller>();
+    controller->addKeybind("Intro", {257, 257, static_cast<Engine::DeviceType>(0)}, false);
     controller->addKeybind("Jump", {87, 87, static_cast<Engine::DeviceType>(0)}, false);
     controller->addKeybind("Left", {65, 65, static_cast<Engine::DeviceType>(0)}, false);
     controller->addKeybind("LightKick", {74, 74, static_cast<Engine::DeviceType>(0)}, false);
@@ -95,7 +96,7 @@ int main(int argc, char* argv[]) {
 
     // Startup scene: a .scene argument wins (e.g. ./StreetFigter Level2.scene),
     // otherwise the project's startup scene.
-    const std::string startupScene = Serialization::PickStartupScene(config.args, "test.scene");
+    const std::string startupScene = Serialization::PickStartupScene(config.args, "intro.scene");
     Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);
 
     app.Run();
