@@ -221,7 +221,7 @@ function Player:onCreate(entity)
     self.lastAppliedActive = self.active
 
     if Net.sync ~= nil then
-        Net.sync(entity, self, { "lives", "active" })
+        Net.sync(entity, self, { "lives", "active", "invulnerabilityTimer" })
     end
 
     Component.setSpritePath(entity, self.sprites.idle)
@@ -274,8 +274,8 @@ function Player:onUpdate(entity, dt)
         return
     elseif self.invulnerabilityTimer > 0.0 then
         -- Ship just respawned and is invulnerable: blink quickly
-        -- Player CAN move during invulnerability but cannot shoot
-        self.invulnerabilityTimer = math.max(0.0, self.invulnerabilityTimer - dt)
+        -- Player CAN move and shoot during invulnerability
+        -- Timer is synced from server; client only displays it
         self.blinkTimer = (self.blinkTimer or 0.0) + dt
         local visible = (math.floor(self.blinkTimer * 12) % 2) == 0
         Component.setOpacity(entity, visible and 1.0 or 0.3, true)
@@ -368,10 +368,24 @@ function Player:onCollisionEnter(this, other)
         return
     end
 
+    -- Server is authoritative on damage: clients wait for server to apply it
+    if isNetworked() and not Net.isServer() then
+        return
+    end
+
     self.lives = math.max(0, self.lives - 1)
-    self.active = false
-    self.dead = self.lives == 0
-    self.respawnTimer = self.dead and 0.0 or Player.RESPAWN_DELAY
+
+    if self.lives == 0 then
+        -- Player died: cannot move, wait for respawn
+        self.dead = true
+        self.active = false
+        self.respawnTimer = Player.RESPAWN_DELAY
+    else
+        -- Damaged but alive: become invulnerable, keep moving and shooting
+        self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
+        self.active = true
+    end
+
     setActive(this, false)
 
     if layer == "EnemyBullet" then
