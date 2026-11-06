@@ -32,44 +32,73 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
+-- Responsive input:
+--   - Single player: controller only
+--   - Server: netInput only (authoritative, ignores local controller)
+--   - Client: controller only (for instant response, server corrects via reconciliation)
 function PlayerGun:readInput()
-    local owner = Component.getParent(self.entity)
-    if Player == nil or Player.active == false then
-        return {}
-    end
+	local owner = Component.getParent(self.entity)
+	if Player == nil or Player.active == false then
+		return {}
+	end
 
-    local shootActive = false
-    if not isNetworked() then
-        shootActive = Controller.isActionActive("SHOOT")
-    elseif Net.isServer() then
-        local netInput = Net.input(owner)
-        if netInput ~= nil then
-            shootActive = netInput.SHOOT == true
-        end
-    else
-        -- Networked client: not authoritative for gun simulation anyway
-        return {}
-    end
+	local input = {
+		SUPER_SHOOT = false,
+		SHOOT = false,
+	}
 
-    local input = {
-        SUPER_SHOOT = false,
-        SHOOT = false,
-    }
+	-- Single player: controller only
+	if not isNetworked() then
+		if Controller.isActionActive("SHOOT") then
+			self.shootCounter = (self.shootCounter or 0) + 1
+			if self.shootCounter >= 30 then
+				input.SUPER_SHOOT = true
+			end
+		else
+			if self.shootCounter and self.shootCounter > 0 then
+				if self.shootCounter < 30 then
+					input.SHOOT = true
+				end
+				self.shootCounter = 0
+			end
+		end
+		return input
+	end
 
-    if shootActive then
-        self.shootCounter = (self.shootCounter or 0) + 1
-        if self.shootCounter >= 30 then
-            input.SUPER_SHOOT = true
-        end
-    else
-        if self.shootCounter and self.shootCounter > 0 then
-            if self.shootCounter < 30 then
-                input.SHOOT = true
-            end
-            self.shootCounter = 0
-        end
-    end
-    return input
+	-- Server: use network input only (not local controller)
+	if Net.isServer() then
+		local netInput = Net.input(owner)
+		if netInput ~= nil and netInput.SHOOT == true then
+			self.shootCounter = (self.shootCounter or 0) + 1
+			if self.shootCounter >= 30 then
+				input.SUPER_SHOOT = true
+			end
+		else
+			if self.shootCounter and self.shootCounter > 0 then
+				if self.shootCounter < 30 then
+					input.SHOOT = true
+				end
+				self.shootCounter = 0
+			end
+		end
+		return input
+	end
+
+	-- Client: local controller for responsiveness
+	if Controller.isActionActive("SHOOT") then
+		self.shootCounter = (self.shootCounter or 0) + 1
+		if self.shootCounter >= 30 then
+			input.SUPER_SHOOT = true
+		end
+	else
+		if self.shootCounter and self.shootCounter > 0 then
+			if self.shootCounter < 30 then
+				input.SHOOT = true
+			end
+			self.shootCounter = 0
+		end
+	end
+	return input
 end
 
 local function isOutsideScreen(entity)
@@ -120,6 +149,15 @@ function PlayerGun:onUpdate(entity, dt)
 
     local shootInput = self:readInput()
     local isShooting = shootInput.SHOOT == true or shootInput.SUPER_SHOOT
+
+	-- Block shooting during invulnerability: player cannot shoot while immortal
+    local parent = Component.getParent(entity)
+    if parent ~= nil and Player ~= nil and Player.states ~= nil then
+        local playerState = Player.states[parent]
+        if playerState and playerState.invulnerabilityTimer and playerState.invulnerabilityTimer > 0 then
+            isShooting = false
+        end
+    end
 
     if isShooting and not self.wasShootDown and not self.firing then
         self.firing = true
