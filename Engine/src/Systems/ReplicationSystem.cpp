@@ -1417,8 +1417,9 @@ void ReplicationSystem::SendDespawn(Registry& registry, NetworkHostResource& hos
     const auto packetId = packetRegistry.GetOrRegister("replication_despawn");
     auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, true);
     if (packet != nullptr) {
-        // Channel 1: reliable despawns (ENet auto-retransmits until ACKed).
-        host.SendAllHost(packet, 1);
+        // Channel 2: reliable despawns, separate from spawns (channel 1).
+        // A lost despawn won't block spawn packets on channel 1.
+        host.SendAllHost(packet, 2);
     } else {
         log_error("[Replication] Failed to allocate despawn packet for network id " +
                   std::to_string(networkId));

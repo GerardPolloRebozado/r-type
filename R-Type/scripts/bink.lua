@@ -32,6 +32,7 @@ local EXPLOSION = {
 }
 local EXPLOSION_FRAME_DURATION = 0.1
 local KILLER_LAYER = "PlayerBullet"
+local SCREEN_MARGIN = 128.0 -- off-screen margin for despawn
 
 local function NextJumpDelay()
 	return JUMP_DELAY_MIN + math.random() * (JUMP_DELAY_MAX - JUMP_DELAY_MIN)
@@ -95,6 +96,16 @@ function Script:onUpdate(entity, dt)
 
 	if not dt or dt <= 0 then
 		dt = 1.0 / 60.0
+	end
+
+	-- Despawn enemy when it goes past the right edge of the screen
+	local position = Transform.getPosition(entity)
+	if Camera ~= nil and Camera.viewport ~= nil then
+		local viewport = Camera.viewport()
+		if position.x > viewport.x + viewport.width + SCREEN_MARGIN then
+			Entity.queueDestroy(entity)
+			return
+		end
 	end
 
 	if self.exploding then
