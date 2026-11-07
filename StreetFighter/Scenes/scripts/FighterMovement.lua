@@ -74,6 +74,24 @@ local ATTACK_ACTIVE, ATTACK_DELAY = 0.3, 0.25
 local P1_START_X = 346.45
 local PARK_X, PARK_Y = -2000.0, -2000.0
 
+-- Sound effects. The fighter's own voice (played when it is hit) is the
+local SFX = {
+    punch = "assets/sound/punch.mp3",
+    kick = "assets/sound/kick.mp3",
+    hadouken = "assets/sound/ryuken-hadooken.mp3",
+}
+-- victory voice, looked up by the fighter's hit voice
+local VICTORY_VOICE = {
+    ["assets/sound/zangief-grunt.mp3"] = "assets/sound/zangief-laugh.mp3",
+    ["assets/sound/blanka-growl.mp3"] = "assets/sound/blanka-roar.mp3",
+}
+
+local function sfx(path, volume)
+    if Audio and Audio.playSound then
+        Audio.playSound(path, volume or 1.0, false)
+    end
+end
+
 local SYNC_FIELDS = { "netAnim", "netFlip" }
 
 function Script:onCreate(entity)
@@ -388,12 +406,21 @@ function Script:onUpdate(entity, dt)
         self:clearFireballs()
         self:setHitboxActive(false)
         if FightState.winner == self.playerId then
+            if not self.victoryPlayed then
+                self.victoryPlayed = true
+                local voice = Component.getAudioSource and Component.getAudioSource(entity)
+                if voice and VICTORY_VOICE[voice.path] then
+                    sfx(VICTORY_VOICE[voice.path])
+                end
+            end
             self:playAnim("victory")
         else
             self:playAnim("knockdown")
         end
         return
     end
+
+    self.victoryPlayed = false
 
     local pos = Transform.getPosition(entity)
     if not pos then
@@ -429,7 +456,7 @@ function Script:onUpdate(entity, dt)
         casting = false
     end
 
-    local canAct = not stunned and not casting
+    local canAct = not stunned and not casting and not (RoundIntro == true)
     local leftActive = canAct and self:isAction("Left")
     local rightActive = canAct and self:isAction("Right")
     local jumpActive = canAct and self:isAction("Jump")
@@ -459,6 +486,7 @@ function Script:onUpdate(entity, dt)
         anyPunch, anyKick = self.latchPunch == true, self.latchKick == true
     elseif attackPressed and self.attackCd <= 0.0 then
         self.latchPunch, self.latchKick = anyPunch, anyKick
+        sfx(anyPunch and SFX.punch or SFX.kick)
         self.attackTimer = ATTACK_ACTIVE
         self.attackCd = ATTACK_ACTIVE + ATTACK_DELAY
     else
@@ -471,6 +499,7 @@ function Script:onUpdate(entity, dt)
         and Animation and Animation.play(self.entity, "hadouken", true) then
         self.requestedAnim, self.currentAnim, self.netAnim = "hadouken", "hadouken", "hadouken"
         self.castTimer, self.castFired = CAST_TIME, false
+        sfx(SFX.hadouken)
         self.fireCooldown = CAST_COOLDOWN
         casting = true
         canAct = false

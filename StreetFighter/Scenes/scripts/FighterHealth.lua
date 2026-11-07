@@ -24,6 +24,39 @@ local SECOND_OPPONENT = {
     England = "CAMMY", USA = "KEN", China = "DHALSIM", Thailand = "BLANKA", Japan = "ZANGIEF"
 }
 
+-- Background music per country: "a" plays against the first opponent and
+-- "b" (if any) against the second; without "b" the same track keeps playing.
+local SND = "assets/sound/"
+local MUSIC_VOLUME = 0.5
+local MUSIC = {
+    USA      = { a = SND .. "08 Joe (USA, Kickboxer).mp3", b = SND .. "09 Mike (USA, Boxer).mp3" },
+    England  = { a = SND .. "11 Birdie (England, Mohawk).mp3" },
+    China    = { a = SND .. "14 Lee (China, Great Wall).mp3" },
+    Thailand = { a = SND .. "17 Adon (Thailand, Sunset).mp3" },
+    Japan    = { a = SND .. "06 Geki (Japan, Ninja).mp3", b = SND .. "05 Retsu (Japan, Shaolin Temple).mp3" },
+}
+local GAME_OVER_MUSIC = SND .. "23 Continue.mp3"
+local WIN_SOUND = SND .. "you-win-street-fighter.mp3"
+local LOSE_SOUND = SND .. "you-lose.mp3"
+local ROUND_SOUND = SND .. "round.mp3"
+local FIGHT_SOUND = SND .. "fight.mp3"
+local ROUND_NUMBER = { [1] = SND .. "1.mp3", [2] = SND .. "2.mp3" }
+local ROUND_TIMELINE = {
+    { t = 0.0 }, { t = 0.95 }, { t = 1.75 }, { t = 2.4 },
+}
+
+local MENU_SCENE = "game_menu.scene"
+local WIN_EXIT_DELAY, LOSE_EXIT_DELAY = 5.0, 8.0
+
+local LOSE_TO_CONTINUE = 1.8
+
+local function playMusic(path, loop)
+    if path and Audio and Audio.playMusic then
+        Audio.stopAllMusic()
+        Audio.playMusic(path, MUSIC_VOLUME, loop)
+    end
+end
+
 local P2_PATH = "assets/misc/koYell_p2.png"
 local YELLOW_W, YELLOW_H = 324, 14
 local HALF_W = 147
@@ -36,6 +69,11 @@ function Script:onCreate(entity)
     FighterHitStun, FighterHitSeq, FighterBlocking = {}, {}, {}
     ActiveOpponent = "A"
     FighterEntities = {}
+    local country = SelectedCountry and SelectedCountry.name or "USA"
+    self.music = MUSIC[country] or MUSIC.USA
+    playMusic(self.music.a, true)
+    self.round = 1
+    self:startRound()
     -- called by FighterMovement when a fireball touches the opponent
     FireballHit = function(attackerId, amount)
         if self.gameOver then return end
@@ -139,7 +177,11 @@ function Script:applyDamage(attacker, victim, amount)
     local blocked = FighterBlocking and FighterBlocking[victim.id]
     if blocked then
         amount = math.floor(amount * BLOCK_CHIP)
+        if Audio and Audio.playSound then Audio.playSound("assets/sound/punch.mp3", 0.4, false) end
     else
+        if Audio and Audio.playSound then Audio.playSound("assets/sound/classic_punch.mp3", 1.0, false) end
+        -- the victim's own voice: AudioSource in its prefab
+        if victim.body and Component.playAudio then Component.playAudio(victim.body) end
         FighterHitStun = FighterHitStun or {}
         FighterHitSeq = FighterHitSeq or {}
         FighterHitStun[victim.id] = HIT_STUN
@@ -161,6 +203,16 @@ function Script:onKO(winner, loser)
     FightState = { over = true, winner = winner.id }
     if winner.id == 1 and self.reserve then
         self.swapTimer = SWAP_DELAY
+    elseif Audio and Audio.playSound then
+        Audio.stopAllMusic()
+        if winner.id == 1 then
+            Audio.playSound(WIN_SOUND, 1.0, false)        -- last opponent beaten
+            self.exitTimer = WIN_EXIT_DELAY
+        else
+            Audio.playSound(LOSE_SOUND, 1.0, false)       -- the player lost
+            self.continueTimer = LOSE_TO_CONTINUE
+            self.exitTimer = LOSE_EXIT_DELAY
+        end
     end
 end
 
@@ -169,6 +221,9 @@ function Script:nextOpponent()
     self.reserve = nil
     self.swapTimer = nil
     ActiveOpponent = "B"
+    if self.music.b then playMusic(self.music.b, true) end
+    self.round = self.round + 1
+    self:startRound()
     local f = self.fighters[2]
     f.body, f.hitbox, f.health, f.hasHit = r.body, r.hitbox, MAX_HEALTH, false
     FighterEntities[2] = r.body
@@ -210,7 +265,51 @@ function Script:checkHit(attacker, victim)
     end
 end
 
+function Script:startRound()
+    RoundIntro = true
+    self.introTime, self.introStep = 0.0, 1
+end
+
+function Script:updateRoundIntro(dt)
+    if not self.introTime then return end
+    self.introTime = self.introTime + dt
+    local nextEvent = ROUND_TIMELINE[self.introStep]
+    while nextEvent and self.introTime >= nextEvent.t do
+        local step = self.introStep
+        if Audio and Audio.playSound then
+            if step == 1 then Audio.playSound(ROUND_SOUND, 1.0, false)
+            elseif step == 2 and ROUND_NUMBER[self.round] then
+                Audio.playSound(ROUND_NUMBER[self.round], 1.0, false)
+            elseif step == 3 then Audio.playSound(FIGHT_SOUND, 1.0, false) end
+        end
+        if step == 4 then
+            RoundIntro = false
+            self.introTime = nil
+            return
+        end
+        self.introStep = step + 1
+        nextEvent = ROUND_TIMELINE[self.introStep]
+    end
+end
+
 function Script:onUpdate(entity, dt)
+    self:updateRoundIntro(dt)
+    if self.exitTimer then
+        self.exitTimer = self.exitTimer - dt
+        if self.exitTimer <= 0.0 then
+            self.exitTimer = nil
+            if Audio and Audio.stopAllMusic then Audio.stopAllMusic() end
+            Scene.load(MENU_SCENE)
+            return
+        end
+    end
+    if self.continueTimer then
+        self.continueTimer = self.continueTimer - dt
+        if self.continueTimer <= 0.0 then
+            self.continueTimer = nil
+            playMusic(GAME_OVER_MUSIC, false)
+        end
+    end
     if self.gameOver then
         if self.swapTimer then
             self.swapTimer = self.swapTimer - dt

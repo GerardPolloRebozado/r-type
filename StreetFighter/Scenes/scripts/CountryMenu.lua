@@ -7,6 +7,15 @@ local COUNTRIES = {
     { name = "Japan",    flag = { x = 370, y = 97,  w = 96, h = 64 }, scene = "japan.scene" },
     { name = "USA",      flag = { x = 474, y = 97,  w = 96, h = 64 }, scene = "fighters.scene" },
 }
+-- voice announcing the country when the cursor lands on it
+local VOICES = {
+    England = "assets/sound/england.mp3",
+    China = "assets/sound/china.mp3",
+    USA = "assets/sound/usa.mp3",
+    Japan = "assets/sound/japan.mp3",
+    Thailand = "assets/sound/thailand.mp3",
+}
+local MENU_MUSIC = "assets/sound/02 Stage Select.mp3"
 local MAP_CROP = { x = 0, y = 0, w = 356, h = 228 }
 
 function Script:onCreate(entity)
@@ -23,6 +32,11 @@ function Script:onCreate(entity)
         end
     end
     self.nameText = Entity.find("CountryName")
+    RoundIntro = false
+    -- the intro may already be playing this theme: do not restart it
+    if Audio and Audio.playMusic and not Audio.isMusicPlaying(MENU_MUSIC) then
+        Audio.playMusic(MENU_MUSIC, 0.6, true)
+    end
 end
 
 
@@ -48,6 +62,13 @@ function Script:refresh()
     end
 end
 
+function Script:announce()
+    local voice = VOICES[COUNTRIES[self.selected].name]
+    if voice and Audio and Audio.playSound then
+        Audio.playSound(voice, 1.0, false)
+    end
+end
+
 function Script:choose(country)
     if not country.scene then
         log.info("[CountryMenu] " .. country.name .. " is not available yet")
@@ -56,6 +77,7 @@ function Script:choose(country)
     SelectedCountry = { name = country.name }
     log.info("[CountryMenu] selected " .. country.name)
     self.done = true
+    if Audio and Audio.stopAllMusic then Audio.stopAllMusic() end
     Scene.load(country.scene)
 end
 
@@ -76,10 +98,12 @@ function Script:onUpdate(entity, dt)
     if left and not self.leftHeld then
         self.selected = (self.selected - 2) % #COUNTRIES + 1
         self:refresh()
+        self:announce()
         log.info("[CountryMenu] selected: " .. COUNTRIES[self.selected].name)
     elseif right and not self.rightHeld then
         self.selected = self.selected % #COUNTRIES + 1
         self:refresh()
+        self:announce()
         log.info("[CountryMenu] selected: " .. COUNTRIES[self.selected].name)
     end
     if (confirm and not self.confirmHeld) then

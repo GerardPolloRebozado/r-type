@@ -34,6 +34,12 @@ local HOLE_X = 195 * BG_SCALE_X
 local HOLE_Y = 125 * BG_SCALE_Y
 local FIST_FRAME_TIME = 0.2
 
+-- no dedicated intro track: the wall break gets an impact sound and the
+-- title uses the menu theme, which keeps playing into the country menu
+local IMPACT_SOUND = "assets/sound/classic_punch.mp3"
+local THEME = "assets/sound/02 Stage Select.mp3"
+local THEME_VOLUME = 0.6
+
 local FADE_TIME = 0.6
 local END_HOLD = 2.5
 
@@ -91,6 +97,9 @@ function Script:onUpdate(entity, dt)
         if self.wallTimer >= WALL[self.wallIndex].time then
             self.wallTimer = 0.0
             self.wallIndex = self.wallIndex + 1
+            if self.wallIndex == 2 and Audio and Audio.playSound then
+                Audio.playSound(IMPACT_SOUND, 1.0, false) -- the wall breaks
+            end
             local fr = WALL[self.wallIndex]
             Component.setSpriteRect(self.bg, fr.x, fr.y, fr.width, fr.height)
         end
@@ -101,6 +110,10 @@ function Script:onUpdate(entity, dt)
     self.wallTimer = self.wallTimer + dt
     local logoAlpha = math.min(1.0, math.max(0.0, (self.wallTimer - WALL[#WALL].time) / FADE_TIME))
     Component.setOpacity(self.logo, logoAlpha)
+    if logoAlpha > 0.0 and not self.themeStarted and Audio and Audio.playMusic then
+        self.themeStarted = true
+        Audio.playMusic(THEME, THEME_VOLUME, true)
+    end
 
     if logoAlpha >= 1.0 then
         self.fistTimer = self.fistTimer + dt

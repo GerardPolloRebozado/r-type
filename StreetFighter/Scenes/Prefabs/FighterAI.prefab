@@ -1,0 +1,1 @@
+{"entities":[{"entityId":1,"name":{"value":"FighterAI"},"position":{"x":0,"y":0,"z":0,"prevX":0,"prevY":0,"prevZ":0,"moved":false,"relative":false},"rotation":{"angle":0},"script":{"scriptPath":"scripts/FighterAI.lua","autoReload":true}}]}

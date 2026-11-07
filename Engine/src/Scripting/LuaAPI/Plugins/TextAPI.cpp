@@ -21,6 +21,21 @@ void registerText(sol::state_view lua, Registry& registry) {
                                  static_cast<unsigned char>(b), static_cast<unsigned char>(a)};
         registry.AddComponent<Text>(entity, tc);
     };
+
+    component["setText"] = [&registry](Entity entity, const std::string& text) -> bool {
+        if (!registry.HasComponent<Text>(entity)) {
+            return false;
+        }
+        registry.RequireComponent<Text>(entity).text = text;
+        return true;
+    };
+
+    component["getText"] = [lua, &registry](Entity entity) mutable -> sol::object {
+        if (!registry.HasComponent<Text>(entity)) {
+            return sol::make_object(lua, sol::lua_nil);
+        }
+        return sol::make_object(lua, registry.RequireComponent<Text>(entity).text);
+    };
 }
 
 } // namespace Engine::LuaAPI

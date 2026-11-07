@@ -105,6 +105,8 @@ Documentation/doxygen_output/
 !Documentation/docs/assets/screenshots/**/*.png
 !Documentation/docs/assets/first-game-editor/sprites/**/*.png
 
+!StreetFighter/Scenes/assets/**/*.png
 
 portable-file-dialogs.h
 *.gif
+StreetFighter/Scenes/StreetFigter
