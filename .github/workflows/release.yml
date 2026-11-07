@@ -36,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cpm_cache
           key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
@@ -177,12 +177,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
-          path: ${{ github.workspace }}.cpm_cache
+          path: ${{ github.workspace }}/.cpm_cache
           key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: |
             cpm-v1-${{ runner.os }}-${{ runner.arch }}-
@@ -266,10 +266,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cpm_cache
           key: cpm-wasm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
@@ -293,7 +293,7 @@ jobs:
 
       - name: Cache Lua WASM
         id: cache-lua
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/lua-wasm-install
           key: lua-wasm-v5.4.7-${{ runner.os }}
@@ -389,7 +389,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download WASM artifact
         uses: actions/download-artifact@v4
