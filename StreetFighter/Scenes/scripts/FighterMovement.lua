@@ -11,7 +11,8 @@ local PLAYER_KEYS = {
         HeavyPunch = 79,
         LightKick = 74,
         MediumKick = 75,
-        HeavyKick = 76
+        HeavyKick = 76,
+        Block = 340 -- Left Shift
     },
     [2] = {
         Left = 324,
@@ -23,7 +24,8 @@ local PLAYER_KEYS = {
         HeavyPunch = 323,
         LightKick = 327,
         MediumKick = 329,
-        HeavyKick = 320
+        HeavyKick = 320,
+        Block = 330 -- Numpad .
     }
 }
 
@@ -124,15 +126,23 @@ function Script:isAction(actionName)
     return false
 end
 
-function Script:playAnim(clipName, restartIfSame)
+-- Plays clipName; if the fighter's prefab has no such clip, plays fallback.
+function Script:playAnim(clipName, fallback, restartIfSame)
     if not Animation or not Animation.play then
         return
     end
-    if self.currentAnim ~= clipName or restartIfSame then
-        Animation.play(self.entity, clipName, restartIfSame or false)
-        self.currentAnim = clipName
-        self.netAnim = clipName
+    if self.requestedAnim == clipName and not restartIfSame then
+        return
     end
+    local played = clipName
+    local ok = Animation.play(self.entity, clipName, restartIfSame or false)
+    if not ok and fallback then
+        played = fallback
+        Animation.play(self.entity, fallback, restartIfSame or false)
+    end
+    self.requestedAnim = clipName
+    self.currentAnim = played
+    self.netAnim = played
 end
 
 function Script:findHitboxEntity()
@@ -272,24 +282,43 @@ function Script:onUpdate(entity, dt)
         return
     end
 
+    -- hit stun, set by FighterHealth when this fighter takes damage
+    FighterHitStun = FighterHitStun or {}
+    FighterHitSeq = FighterHitSeq or {}
+    FighterBlocking = FighterBlocking or {}
+    local stun = FighterHitStun[self.playerId] or 0.0
+    local stunned = stun > 0.0
+    if stunned then
+        FighterHitStun[self.playerId] = math.max(stun - dt, 0.0)
+    end
+
     if not self.groundY then
         self.groundY = pos.y
     end
 
-    local leftActive = self:isAction("Left")
-    local rightActive = self:isAction("Right")
-    local jumpActive = self:isAction("Jump")
-    local crouchActive = self:isAction("Crouch")
+    local canAct = not stunned
+    local leftActive = canAct and self:isAction("Left")
+    local rightActive = canAct and self:isAction("Right")
+    local jumpActive = canAct and self:isAction("Jump")
+    local crouchActive = canAct and self:isAction("Crouch")
+    local blockActive = canAct and self:isAction("Block")
 
-    local lightPunch = self:isAction("LightPunch")
-    local mediumPunch = self:isAction("MediumPunch")
-    local heavyPunch = self:isAction("HeavyPunch")
+    local lightPunch = canAct and self:isAction("LightPunch")
+    local mediumPunch = canAct and self:isAction("MediumPunch")
+    local heavyPunch = canAct and self:isAction("HeavyPunch")
     local anyPunch = lightPunch or mediumPunch or heavyPunch
 
-    local lightKick = self:isAction("LightKick")
-    local mediumKick = self:isAction("MediumKick")
-    local heavyKick = self:isAction("HeavyKick")
+    local lightKick = canAct and self:isAction("LightKick")
+    local mediumKick = canAct and self:isAction("MediumKick")
+    local heavyKick = canAct and self:isAction("HeavyKick")
     local anyKick = lightKick or mediumKick or heavyKick
+
+    -- blocking: grounded, standing still, no attack pressed
+    local isBlocking = blockActive and self.isGrounded and not anyPunch and not anyKick
+    FighterBlocking[self.playerId] = isBlocking
+    if isBlocking then
+        leftActive, rightActive, jumpActive = false, false, false
+    end
 
     if self.isGrounded then
         self.isCrouching = crouchActive
@@ -298,6 +327,7 @@ function Script:onUpdate(entity, dt)
     if self.isGrounded and jumpActive and not self.isCrouching then
         self.vy = self.jumpForce
         self.isGrounded = false
+        self.jumpDirectional = (leftActive ~= rightActive)
     end
 
     local dx = 0.0
@@ -336,14 +366,27 @@ function Script:onUpdate(entity, dt)
 
     local isAttacking = false
 
-    if not self.isGrounded then
+    if stunned then
+        local seq = FighterHitSeq[self.playerId] or 0
+        local restart = seq ~= self.lastHitSeq
+        self.lastHitSeq = seq
+        self:playAnim("hit", "crouch", restart)
+    elseif not self.isGrounded then
         if anyKick then
             self:playAnim("jump_kick")
             self:setHitboxActive(true, 45.0, 10.0, 65.0, 45.0)
             isAttacking = true
+        elseif anyPunch then
+            self:playAnim("jump_punch", "jump_kick")
+            self:setHitboxActive(true, 45.0, 0.0, 60.0, 40.0)
+            isAttacking = true
+        elseif self.jumpDirectional then
+            self:playAnim("jump_forward", "jump")
         else
             self:playAnim("jump")
         end
+    elseif isBlocking then
+        self:playAnim("block", "crouch")
     elseif self.isCrouching then
         if anyPunch then
             self:playAnim("crouch_punch")

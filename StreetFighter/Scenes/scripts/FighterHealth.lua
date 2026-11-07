@@ -11,6 +11,9 @@ local DAMAGE = {
     HeavyKick   = 14
 }
 
+local HIT_STUN = 0.3
+local BLOCK_CHIP = 0.2
+
 local ATTACK_PRIORITY = {
     "HeavyKick", "HeavyPunch", "MediumKick", "MediumPunch", "LightKick", "LightPunch"
 }
@@ -24,6 +27,7 @@ function Script:onCreate(entity)
     self.entity = entity
     self.gameOver = false
     FightState = { over = false, winner = nil }
+    FighterHitStun, FighterHitSeq, FighterBlocking = {}, {}, {}
 
     self.fighters = {}
     for id = 1, 2 do
@@ -99,6 +103,15 @@ function Script:refreshBar(f)
 end
 
 function Script:applyDamage(attacker, victim, amount)
+    local blocked = FighterBlocking and FighterBlocking[victim.id]
+    if blocked then
+        amount = math.floor(amount * BLOCK_CHIP)
+    else
+        FighterHitStun = FighterHitStun or {}
+        FighterHitSeq = FighterHitSeq or {}
+        FighterHitStun[victim.id] = HIT_STUN
+        FighterHitSeq[victim.id] = (FighterHitSeq[victim.id] or 0) + 1
+    end
     victim.health = math.max(victim.health - amount, 0)
     log.info(string.format("[FighterHealth] P%d hits P%d for %d (P%d: %d/%d)",
         attacker.id, victim.id, amount, victim.id, victim.health, MAX_HEALTH))

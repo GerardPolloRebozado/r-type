@@ -9,6 +9,7 @@ local LAYOUT = {
     Left = 65, Right = 68, Jump = 87, Crouch = 83,
     LightPunch = 85, MediumPunch = 73, HeavyPunch = 79,
     LightKick = 74, MediumKick = 75, HeavyKick = 76,
+    Block = 340,
 }
 
 function Script:onCreate(entity)
