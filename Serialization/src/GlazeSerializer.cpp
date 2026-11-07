@@ -38,7 +38,8 @@ void CaptureRegistered(Engine::Registry& registry, Engine::Entity entity, std::o
 
 // Plugins that a game may never load. HasComponent throws if the type is missing.
 template <typename T>
-void CaptureIfRegistered(Engine::Registry& registry, Engine::Entity entity, std::optional<T>& slot) {
+void CaptureIfRegistered(Engine::Registry& registry, Engine::Entity entity,
+                         std::optional<T>& slot) {
     if (!registry.IsComponentRegistered<T>()) {
         return;
     }

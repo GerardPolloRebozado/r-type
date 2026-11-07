@@ -1,7 +1,6 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Assets/AssetManager.hpp"
 #include "Components/Name.hpp"
-#include "UI/UiCatalog.hpp"
 #include "Components/Parent.hpp"
 #include "Components/Position.hpp"
 #include "Components/Rotation.hpp"
@@ -14,6 +13,7 @@
 #include "Plugins/HierarchyPlugin.hpp"
 #include "Systems/CameraSystem.hpp"
 #include "Systems/HierarchySystem.hpp"
+#include "UI/UiCatalog.hpp"
 #include <cmath>
 #include <imgui.h>
 #include <string>
@@ -156,7 +156,8 @@ void HierarchyPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 }
                 const bool hasLiveParent =
                     registry.HasComponent<Engine::Parent>(entity) &&
-                    registry.IsEntityAlive(registry.RequireComponent<Engine::Parent>(entity).parent);
+                    registry.IsEntityAlive(
+                        registry.RequireComponent<Engine::Parent>(entity).parent);
                 if (!hasLiveParent) {
                     RenderEntityNode(registry, entity, selected, visited, 0);
                 }
@@ -414,7 +415,8 @@ void HierarchyPanel::RenderEntityNode(Engine::Registry& registry, Engine::Entity
         }
         if (registry.HasComponent<Engine::Position>(entity)) {
             ImGui::Text("Follow parent: %s",
-                        registry.RequireComponent<Engine::Position>(entity).relative ? "on" : "off");
+                        registry.RequireComponent<Engine::Position>(entity).relative ? "on"
+                                                                                     : "off");
         }
         ImGui::EndTooltip();
     }

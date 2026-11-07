@@ -85,7 +85,11 @@ constexpr UiField kSliderIntFields[] = {
      .type = UiFieldType::Number,
      .integer = true,
      .numberDefault = 1},
-    {.key = "min", .label = "Min", .type = UiFieldType::Number, .integer = true, .numberDefault = 0},
+    {.key = "min",
+     .label = "Min",
+     .type = UiFieldType::Number,
+     .integer = true,
+     .numberDefault = 0},
     {.key = "max",
      .label = "Max",
      .type = UiFieldType::Number,
@@ -433,7 +437,8 @@ bool IsUiScreen(const UiTemplateInfo& info) {
     return !IsUiWidget(info);
 }
 
-std::optional<std::size_t> FindUiPropIndex(const std::vector<UiProp>& props, const std::string& key) {
+std::optional<std::size_t> FindUiPropIndex(const std::vector<UiProp>& props,
+                                           const std::string& key) {
     std::size_t index = 0;
 
     for (index = 0; index < props.size(); ++index) {

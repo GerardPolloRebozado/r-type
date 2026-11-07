@@ -5,10 +5,10 @@
 #include <glaze/glaze.hpp>
 
 template <> struct glz::meta<Engine::UiValueKind> {
-    static constexpr auto value = glz::enumerate(
-        "bool", Engine::UiValueKind::Bool, "number", Engine::UiValueKind::Number, "string",
-        Engine::UiValueKind::String, "stringList", Engine::UiValueKind::StringList, "color",
-        Engine::UiValueKind::Color);
+    static constexpr auto value =
+        glz::enumerate("bool", Engine::UiValueKind::Bool, "number", Engine::UiValueKind::Number,
+                       "string", Engine::UiValueKind::String, "stringList",
+                       Engine::UiValueKind::StringList, "color", Engine::UiValueKind::Color);
 };
 
 template <> struct glz::meta<Engine::UiProp> {

@@ -338,13 +338,13 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             const Engine::UiTemplateInfo* selectedUi = nullptr;
             bool uiGizmo = false;
             bool skipGizmo = false;
-            if (selected.entity != -1 &&
-                registry.IsComponentRegistered<Engine::UiComponent>() &&
+            if (selected.entity != -1 && registry.IsComponentRegistered<Engine::UiComponent>() &&
                 registry.HasComponent<Engine::UiComponent>(selected.entity)) {
                 selectedUi = Engine::FindUiTemplate(
                     registry.RequireComponent<Engine::UiComponent>(selected.entity).templateName);
-                skipGizmo = selectedUi != nullptr && (Engine::IsUiScreen(*selectedUi) ||
-                            Engine::FindUiScreenParent(registry, selected.entity).has_value());
+                skipGizmo = selectedUi != nullptr &&
+                            (Engine::IsUiScreen(*selectedUi) ||
+                             Engine::FindUiScreenParent(registry, selected.entity).has_value());
                 uiGizmo = selectedUi != nullptr && Engine::IsUiWidget(*selectedUi) && !skipGizmo;
             }
             if (!skipGizmo && selected.entity != -1 &&
@@ -365,8 +365,10 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
 
                 // Define hitboxes
                 const float centerPad = uiGizmo ? 14.0f : 10.0f;
-                ImVec2 centerMin = ImVec2(entityScreenPos.x - centerPad, entityScreenPos.y - centerPad);
-                ImVec2 centerMax = ImVec2(entityScreenPos.x + centerPad, entityScreenPos.y + centerPad);
+                ImVec2 centerMin =
+                    ImVec2(entityScreenPos.x - centerPad, entityScreenPos.y - centerPad);
+                ImVec2 centerMax =
+                    ImVec2(entityScreenPos.x + centerPad, entityScreenPos.y + centerPad);
 
                 ImVec2 xMin = ImVec2(entityScreenPos.x + centerPad, entityScreenPos.y - 10);
                 ImVec2 xMax =
@@ -380,9 +382,8 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 bool hoveringX = IsPointInRect(mousePos, xMin, xMax);
                 bool hoveringY = IsPointInRect(mousePos, yMin, yMax);
                 bool hoveringCenter = IsPointInRect(mousePos, centerMin, centerMax);
-                bool hoveringWidget =
-                    uiGizmo && selectedWidgetHit &&
-                    IsPointInRect(mousePos, selectedWidgetMin, selectedWidgetMax);
+                bool hoveringWidget = uiGizmo && selectedWidgetHit &&
+                                      IsPointInRect(mousePos, selectedWidgetMin, selectedWidgetMax);
 
                 // Rotation does nothing on an ImGui widget, and the ring sat on top of the button.
                 float rotRingRadius = 60.0f;
@@ -405,7 +406,8 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                             // Calculate initial angle to mouse
                             float dx = mousePos.x - entityScreenPos.x;
                             float dy = mousePos.y - entityScreenPos.y;
-                            auto& rot = registry.RequireComponent<Engine::Rotation>(selected.entity);
+                            auto& rot =
+                                registry.RequireComponent<Engine::Rotation>(selected.entity);
                             m_InitialDragAngle = std::atan2(dy, dx) * (180.0f / 3.1415926535f);
                             m_InitialEntityAngle = rot.angle;
                         } else if (hoveringCenter || hoveringWidget) {
@@ -464,10 +466,10 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 ImU32 colY = (hoveringY || m_GizmoState == GizmoState::DraggingY)
                                  ? IM_COL32(100, 255, 100, 255)
                                  : IM_COL32(50, 200, 50, 255);
-                ImU32 colC = (hoveringCenter || hoveringWidget ||
-                              m_GizmoState == GizmoState::DraggingBoth)
-                                 ? IM_COL32(255, 255, 100, 255)
-                                 : IM_COL32(200, 200, 50, 255);
+                ImU32 colC =
+                    (hoveringCenter || hoveringWidget || m_GizmoState == GizmoState::DraggingBoth)
+                        ? IM_COL32(255, 255, 100, 255)
+                        : IM_COL32(200, 200, 50, 255);
 
                 // Draw X Arrow (Red)
                 drawList->AddLine(entityScreenPos, xEnd, colX, arrowThickness);

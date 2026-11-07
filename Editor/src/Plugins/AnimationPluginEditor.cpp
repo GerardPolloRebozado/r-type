@@ -272,6 +272,15 @@ bool AnimationPluginEditor::OnImGuiRender(Engine::Entity entity, Engine::Registr
                         drawList->AddRect(dragStart, dragCurrent, IM_COL32(255, 0, 0, 255), 0.0f, 0,
                                           1.5f);
 
+                        float curW = std::abs(dragCurrent.x - dragStart.x) / scale;
+                        float curH = std::abs(dragCurrent.y - dragStart.y) / scale;
+                        char sizeLabel[64];
+                        std::snprintf(sizeLabel, sizeof(sizeLabel), "%.0f x %.0f px", curW, curH);
+
+                        ImVec2 textPos(std::max(dragStart.x, dragCurrent.x) + 6.0f,
+                                       std::min(dragStart.y, dragCurrent.y));
+                        drawList->AddText(textPos, IM_COL32(255, 255, 0, 255), sizeLabel);
+
                         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                             isDragging = false;
 

@@ -28,8 +28,8 @@ void UiPalettePanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
         ImGui::End();
         return;
     }
-    ImGui::TextWrapped(
-        "Drop a screen (Menu, Settings) to make a page, then drop widgets onto it in the hierarchy.");
+    ImGui::TextWrapped("Drop a screen (Menu, Settings) to make a page, then drop widgets onto it "
+                       "in the hierarchy.");
     for (index = 0; index < Engine::UiTemplateCount(); ++index) {
         const Engine::UiTemplateInfo& info = Engine::UiTemplates()[index];
         if (group != info.group) {

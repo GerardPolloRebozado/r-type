@@ -1,4 +1,6 @@
 #include "Panels/PreviewPanel.hpp"
+#include "Assets/AssetManager.hpp"
+#include "Assets/ProjectPaths.hpp"
 #include "Components/AudioSource.hpp"
 #include "Components/CameraComponent.hpp"
 #include "Components/ColliderComponent.hpp"
@@ -17,6 +19,7 @@
 #include "EntitySubtree.hpp"
 #include "GlazeSerializer.hpp"
 #include "Logging/Logger.hpp"
+#include "Plugins/AnimationPluginEditor.hpp"
 #include "Plugins/AudioPluginEditor.hpp"
 #include "Plugins/CameraPluginEditor.hpp"
 #include "Plugins/ColliderPluginEditor.hpp"
@@ -72,6 +75,7 @@ void RegisterPreviewComponents(Engine::Registry& registry) {
     registry.RegisterComponent<Engine::SignalConnections>();
     registry.RegisterComponent<Engine::PrefabInstance>();
     registry.RegisterComponent<Engine::NetworkComponent>();
+    registry.RegisterComponent<Engine::Animation>();
 }
 
 void CollectSubtree(Engine::Registry& registry, Engine::Entity entity,
@@ -169,6 +173,32 @@ void ApplyCopy(Engine::Registry& scene, Engine::Entity entity, const T& source) 
         return;
     }
     scene.RequireComponent<T>(entity) = source;
+}
+
+void ApplyAnimation(Engine::Registry& scene, Engine::Entity entity,
+                    const Engine::Animation& source) {
+    scene.RegisterComponent<Engine::Animation>();
+    if (!scene.HasComponent<Engine::Animation>(entity)) {
+        Engine::Animation copy = source;
+        copy.sprites.clear();
+        copy.timer = 0.0f;
+        copy.currentFrame = 0;
+        scene.AddComponent<Engine::Animation>(entity, std::move(copy));
+        return;
+    }
+    auto& animation = scene.RequireComponent<Engine::Animation>(entity);
+    animation.clips = source.clips;
+    animation.currentAnimation = source.currentAnimation;
+    animation.timer = 0.0f;
+    animation.currentFrame = 0;
+    animation.isPlaying = true;
+    animation.offsetX = source.offsetX;
+    animation.offsetY = source.offsetY;
+    animation.scaleX = source.scaleX;
+    animation.scaleY = source.scaleY;
+    animation.flipX = source.flipX;
+    animation.flipY = source.flipY;
+    animation.sprites.clear();
 }
 
 void ApplyScript(Engine::Registry& scene, Engine::Entity entity,
@@ -303,6 +333,45 @@ void DrawAddComponentMenu(std::vector<std::unique_ptr<IPluginEditor>>& editors,
     }
 }
 
+void LoadAnimationSprites(Engine::Registry& registry, Engine::Animation& animation) {
+    if (!registry.HasResource<Engine::AssetManager>()) {
+        return;
+    }
+    const Engine::AnimationClip* clip = animation.GetCurrentClip();
+    if (clip == nullptr || clip->assetPaths.empty()) {
+        return;
+    }
+    const bool singleSheet =
+        (clip->frameWidth > 0.0f && clip->frameHeight > 0.0f) || !clip->frameData.empty();
+    const std::size_t count = singleSheet ? 1 : clip->assetPaths.size();
+
+    bool loaded = animation.sprites.size() == count;
+    for (const auto& sprite : animation.sprites) {
+        loaded = loaded && sprite != nullptr;
+    }
+    if (loaded) {
+        return;
+    }
+
+    animation.sprites.assign(count, nullptr);
+    auto& assets = registry.GetResource<Engine::AssetManager>();
+    for (std::size_t i = 0; i < count; ++i) {
+        const std::string& path = clip->assetPaths[std::min(i, clip->assetPaths.size() - 1)];
+        if (path.empty()) {
+            continue;
+        }
+        const std::string resolved = ResolveProjectPath(registry, path).string();
+        try {
+            assets.LoadSprite(path, resolved);
+        } catch (...) {
+        }
+        try {
+            animation.sprites[i] = assets.GetSprite(path);
+        } catch (...) {
+        }
+    }
+}
+
 void LoadPrefabSprites(Engine::Registry& registry, Engine::Entity entity,
                        std::unordered_set<Engine::Entity>& seen, int depth) {
     if (depth > 64 || !seen.insert(entity).second || !registry.IsEntityAlive(entity)) {
@@ -313,6 +382,9 @@ void LoadPrefabSprites(Engine::Registry& registry, Engine::Entity entity,
         if (sprite.sprite == nullptr && !sprite.assetPath.empty()) {
             LoadSpriteForComponent(registry, sprite, sprite.assetPath);
         }
+    }
+    if (registry.HasComponent<Engine::Animation>(entity)) {
+        LoadAnimationSprites(registry, registry.RequireComponent<Engine::Animation>(entity));
     }
     std::vector<Engine::Entity> children =
         Engine::HierarchySystem::FindDirectChildren(registry, entity);
@@ -347,6 +419,9 @@ void ApplySnapshot(Engine::Registry& scene, Engine::Entity entity, const Snapsho
     if (source.rotation.has_value()) {
         ApplyCopy(scene, entity, *source.rotation);
     }
+    if (source.animation.has_value()) {
+        ApplyAnimation(scene, entity, *source.animation);
+    }
     if (source.camera.has_value()) {
         ApplyCamera(scene, entity, *source.camera);
     }
@@ -372,6 +447,7 @@ struct PreviewPanel::PrefabPreviewState {
 
 PreviewPanel::PreviewPanel() {
     m_PluginEditors.push_back(std::make_unique<PositionPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<AnimationPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<NetworkComponentPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<TextPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ShapePluginEditor>());
@@ -405,6 +481,9 @@ void PreviewPanel::EnsurePrefabLoaded(Engine::Registry& scene, EditorConfig& con
     }
     m_Prefab->registry->AddResource<ProjectContext>(projectFolder);
     m_Prefab->registry->AddResource<EditorConfig>(config);
+    if (!m_Prefab->registry->HasResource<Engine::AssetManager>()) {
+        m_Prefab->registry->AddResource<Engine::AssetManager>();
+    }
 
     if (!EntitySubtree::ReadPrefabFile(absolutePath, m_Prefab->fileSnapshots)) {
         m_Prefab->loadFailed = true;
@@ -512,6 +591,7 @@ void PreviewPanel::SyncPrefabEdits(Engine::Registry& scene) {
         KeepIfMissing(current[i].text, m_Prefab->fileSnapshots[i].text);
         KeepIfMissing(current[i].opacity, m_Prefab->fileSnapshots[i].opacity);
         KeepIfMissing(current[i].rotation, m_Prefab->fileSnapshots[i].rotation);
+        KeepIfMissing(current[i].animation, m_Prefab->fileSnapshots[i].animation);
         KeepIfMissing(current[i].camera, m_Prefab->fileSnapshots[i].camera);
         KeepIfMissing(current[i].audioSource, m_Prefab->fileSnapshots[i].audioSource);
     }

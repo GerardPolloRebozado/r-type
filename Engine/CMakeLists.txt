@@ -64,6 +64,7 @@ set(SRC_FILES
         src/Scripting/LuaAPI/Plugins/ScriptAPI.cpp
         src/Scripting/LuaAPI/Plugins/InputAPI.cpp
         src/Scripting/LuaAPI/Plugins/AudioAPI.cpp
+        src/Scripting/LuaAPI/Plugins/AnimationAPI.cpp
         src/Systems/AudioSystem.cpp
         src/Systems/CameraSystem.cpp
         src/Systems/CollisionSystem.cpp
@@ -179,6 +180,7 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/ScriptAPI.hpp
         include/Scripting/LuaAPI/Plugins/InputAPI.hpp
         include/Scripting/LuaAPI/Plugins/AudioAPI.hpp
+        include/Scripting/LuaAPI/Plugins/AnimationAPI.hpp
         include/Scripting/LuaAPI/Internal/Helpers.hpp
         include/Scripting/LuaAPI/Internal/LuaValue.hpp
         include/Systems/AudioSystem.hpp

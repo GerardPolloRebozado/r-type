@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <filesystem>
 #include <optional>
-#include <string>
 #include <rlImGui.h>
+#include <string>
 #include <typeindex>
 
 namespace Engine {
@@ -139,7 +139,8 @@ void UiRuntime::ReleaseStyles() {
 
 void UiRuntime::Draw(Registry& registry) {
     const auto& systems = registry.GetSystems();
-    std::unordered_map<std::type_index, std::shared_ptr<System>>::const_iterator system = systems.end();
+    std::unordered_map<std::type_index, std::shared_ptr<System>>::const_iterator system =
+        systems.end();
 
     if (!registry.HasResource<VirtualResolution>()) {
         return;
@@ -220,24 +221,24 @@ void UiRuntime::PushStyle(const sol::table& props) {
     }
     // Primary is already copied from the theme. An unknown name stays there.
     switch (NamedStyleFrom(styleName)) {
-    case NamedStyle::Secondary:
-        button = ImVec4(0.18f, 0.22f, 0.28f, 1.0f);
-        hover = Lighten(button);
-        active = Darken(button);
-        break;
-    case NamedStyle::Ghost:
-        button = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-        hover = ImVec4(m_Theme.accent.x, m_Theme.accent.y, m_Theme.accent.z, 0.18f);
-        active = ImVec4(m_Theme.accent.x, m_Theme.accent.y, m_Theme.accent.z, 0.30f);
-        text = m_Theme.accent;
-        break;
-    case NamedStyle::Danger:
-        button = ImVec4(0.75f, 0.22f, 0.24f, 1.0f);
-        hover = ImVec4(0.86f, 0.30f, 0.32f, 1.0f);
-        active = ImVec4(0.58f, 0.14f, 0.16f, 1.0f);
-        break;
-    case NamedStyle::Primary:
-        break;
+        case NamedStyle::Secondary:
+            button = ImVec4(0.18f, 0.22f, 0.28f, 1.0f);
+            hover = Lighten(button);
+            active = Darken(button);
+            break;
+        case NamedStyle::Ghost:
+            button = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+            hover = ImVec4(m_Theme.accent.x, m_Theme.accent.y, m_Theme.accent.z, 0.18f);
+            active = ImVec4(m_Theme.accent.x, m_Theme.accent.y, m_Theme.accent.z, 0.30f);
+            text = m_Theme.accent;
+            break;
+        case NamedStyle::Danger:
+            button = ImVec4(0.75f, 0.22f, 0.24f, 1.0f);
+            hover = ImVec4(0.86f, 0.30f, 0.32f, 1.0f);
+            active = ImVec4(0.58f, 0.14f, 0.16f, 1.0f);
+            break;
+        case NamedStyle::Primary:
+            break;
     }
     if (color) {
         button = *color;
@@ -390,7 +391,8 @@ bool UiRuntime::BlocksKeyboard() const {
     return m_BlocksKeyboard;
 }
 
-sol::table UiRuntime::UseTemplate(sol::state_view lua, Registry& registry, const std::string& name) {
+sol::table UiRuntime::UseTemplate(sol::state_view lua, Registry& registry,
+                                  const std::string& name) {
     std::unordered_map<std::string, sol::table>::iterator cached = m_Templates.find(name);
     std::filesystem::path path;
     sol::protected_function_result result;
@@ -432,7 +434,8 @@ void UiRuntime::RegisterTemplate(const std::string& name, sol::table table) {
 }
 
 void UiRuntime::DrawImage(Registry& registry, const std::string& path, float width, float height) {
-    std::unordered_map<std::string, std::unique_ptr<GpuTexture>>::iterator found = m_Textures.find(path);
+    std::unordered_map<std::string, std::unique_ptr<GpuTexture>>::iterator found =
+        m_Textures.find(path);
     std::filesystem::path full;
     Texture2D loaded{};
     int drawWidth = 0;

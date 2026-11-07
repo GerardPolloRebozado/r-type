@@ -1,10 +1,10 @@
 #include "Core/Application.hpp"
-#include "Core/UiPass.hpp"
 #include "Components/Name.hpp"
 #include "Components/PrefabInstance.hpp"
 #include "Core/LaunchOptions.hpp"
 #include "Core/QuitRequest.hpp"
 #include "Core/Renderer.hpp"
+#include "Core/UiPass.hpp"
 #include "Logging/Logger.hpp"
 #include "Resources/SceneManager.hpp"
 #include <chrono>

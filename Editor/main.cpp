@@ -25,9 +25,9 @@
 #include "raylib.hpp"
 #include "rlImGui.h"
 
+#include "ProjectFile.hpp"
 #include <extras/FA6FreeSolidFontData.h>
 #include <extras/IconsFontAwesome6.h>
-#include "ProjectFile.hpp"
 #include <filesystem>
 
 #include "Plugins/AnimationPlugin.hpp"

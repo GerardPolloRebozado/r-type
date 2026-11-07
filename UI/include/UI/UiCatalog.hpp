@@ -58,7 +58,8 @@ bool IsUiWidget(const UiTemplateInfo& info);
 /** @brief True for menu, settings, and confirm. */
 bool IsUiScreen(const UiTemplateInfo& info);
 
-std::optional<std::size_t> FindUiPropIndex(const std::vector<UiProp>& props, const std::string& key);
+std::optional<std::size_t> FindUiPropIndex(const std::vector<UiProp>& props,
+                                           const std::string& key);
 
 /** @brief Appends the field when the component does not have it yet. */
 UiProp& EnsureUiProp(std::vector<UiProp>& props, const UiField& field);
