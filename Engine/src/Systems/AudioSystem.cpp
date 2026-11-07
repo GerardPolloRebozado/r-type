@@ -225,8 +225,9 @@ void AudioSystem::Update(Registry& registry, float dt) {
     UpdateAssetAudio(assetManager);
     UpdateSoundInstances();
 
-    for (Entity entity = 1; entity < registry.GetEntityCount(); ++entity) {
-        if (registry.HasComponent<AudioSource>(entity)) {
+    if (registry.IsComponentRegistered<AudioSource>()) {
+        auto arr = registry.GetComponentArray<AudioSource>();
+        for (const auto& [entity, src] : *arr) {
             ProcessSource(entity, registry, assetManager);
         }
     }

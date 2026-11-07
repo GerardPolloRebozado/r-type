@@ -5,6 +5,7 @@
 #include "PathUtils.hpp"
 #include "Reflection/ComponentReflect.hpp"
 #include "SceneConfig.hpp"
+#include "UI/UiComponentReflect.hpp"
 #include <glaze/glaze.hpp>
 
 template <> struct glz::meta<Serialization::SceneConfig> {

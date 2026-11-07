@@ -1,4 +1,5 @@
 #include "Scripting/LuaAPI/ComponentQueryAPI.hpp"
+#include "Components/Animation.hpp"
 #include "Components/AudioSource.hpp"
 #include "Components/ColliderComponent.hpp"
 #include "Components/Name.hpp"
@@ -29,6 +30,7 @@ void registerComponentQuery(sol::state_view lua, Registry& registry) {
         {"Position", std::type_index(typeid(Position))},
         {"Rotation", std::type_index(typeid(Rotation))},
         {"Sprite", std::type_index(typeid(SpriteComponent))},
+        {"Animation", std::type_index(typeid(Animation))},
         {"Shape", std::type_index(typeid(ShapeComponent))},
         {"Text", std::type_index(typeid(Text))},
         {"Name", std::type_index(typeid(Name))},
@@ -57,8 +59,9 @@ void registerComponentQuery(sol::state_view lua, Registry& registry) {
     // Returns every entity carrying the given component, as an array table.
     // Lets scripts iterate the world (e.g. a server snapshotting all positions)
     // without knowing entity ids up front.
-    component["entitiesWith"] = [lua,
+    component["entitiesWith"] = [luaState = lua.lua_state(),
                                  &registry](const std::string& typeName) mutable -> sol::table {
+        sol::state_view lua(luaState);
         sol::table out = lua.create_table();
         const auto it = kComponentTypeIds.find(typeName);
         if (it == kComponentTypeIds.end()) {

@@ -11,7 +11,8 @@ namespace Engine::LuaAPI {
 void registerCamera(sol::state_view lua, Registry& registry) {
     sol::table camera = Internal::ensureNamespace(lua, "Camera");
 
-    camera["viewport"] = [&registry, lua]() mutable -> sol::object {
+    camera["viewport"] = [&registry, luaState = lua.lua_state()]() mutable -> sol::object {
+        sol::state_view lua(luaState);
         float width = static_cast<float>(GetScreenWidth());
         float height = static_cast<float>(GetScreenHeight());
         if (registry.HasResource<VirtualResolution>()) {

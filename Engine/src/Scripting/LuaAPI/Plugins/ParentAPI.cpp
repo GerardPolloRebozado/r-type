@@ -41,14 +41,18 @@ void registerParent(sol::state_view lua, Registry& registry) {
         }
     };
 
-    component["getParent"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getParent"] = [luaState = lua.lua_state(),
+                              &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (registry.HasComponent<Parent>(entity)) {
             return sol::make_object(lua, registry.RequireComponent<Parent>(entity).parent);
         }
         return sol::make_object(lua, sol::lua_nil);
     };
 
-    component["getChildren"] = [lua, &registry](Entity entity) mutable -> sol::table {
+    component["getChildren"] = [luaState = lua.lua_state(),
+                                &registry](Entity entity) mutable -> sol::table {
+        sol::state_view lua(luaState);
         sol::table out = lua.create_table();
         if (!registry.IsEntityAlive(entity)) {
             return out;

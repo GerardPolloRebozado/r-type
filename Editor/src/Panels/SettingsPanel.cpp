@@ -149,6 +149,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Plugins/AnimationPlugin.hpp\"\n"
             << "#include \"Plugins/WavePlugin.hpp\"\n"
             << "#include \"Scripting/ScriptPlugin.hpp\"\n"
+            << "#include \"UI/UiPlugin.hpp\"\n"
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
             << "#include <vector>\n"
@@ -201,6 +202,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    wavePlugin.Init(app.GetRegistry());\n"
             << "    Engine::ScriptPlugin scriptPlugin;\n"
             << "    scriptPlugin.Init(app.GetRegistry());\n"
+            << "    Engine::UiPlugin().Init(app.GetRegistry());\n"
             << "    Engine::Multiplayer::ReplicationPlugin replicationPlugin;\n"
             << "    replicationPlugin.Init(app.GetRegistry());\n"
             << "    Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;\n"
@@ -273,7 +275,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         cmakeOut << "target_include_directories(" << exeNameStr << " PRIVATE \""
                  << projectSystemsDir.string() << "\")\n";
     }
-    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization)\n"
+    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization UI)\n"
              << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
              << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
              << projFolder << "/" << exeFileStr << "\"\n"

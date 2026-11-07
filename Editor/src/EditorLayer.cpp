@@ -37,6 +37,7 @@
 
 #include "BundledAssets.hpp"
 #include "Panels/StatePanel.hpp"
+#include "Panels/UiPalettePanel.hpp"
 #include "Panels/WavePanel.hpp"
 
 namespace Editor {
@@ -55,6 +56,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<InputMappingPanel>());
     AddPanel(std::make_unique<StatePanel>());
     AddPanel(std::make_unique<WavePanel>());
+    AddPanel(std::make_unique<UiPalettePanel>());
     auto scriptEditor = std::make_unique<ScriptEditorPanel>();
     m_ScriptEditorPanel = scriptEditor.get();
     AddPanel(std::move(scriptEditor));
@@ -583,6 +585,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Connections", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
+        ImGui::DockBuilderDockWindow("UI Palette", dock_down_id);
         ImGui::DockBuilderDockWindow("Scene", dock_main_id);
         ImGui::DockBuilderDockWindow(ICON_FA_GAMEPAD " Input Map", dock_main_id);
         ImGui::DockBuilderDockWindow(ICON_FA_GHOST " Waves", dock_main_id);
@@ -606,6 +609,10 @@ void EditorLayer::BeginDockSpace() {
 
         if (ImGui::MenuItem("Waves")) {
             WavePanel::s_IsOpen = true;
+        }
+
+        if (ImGui::MenuItem("UI Palette")) {
+            UiPalettePanel::s_IsOpen = true;
         }
 
         if (ImGui::MenuItem("Settings")) {

@@ -143,6 +143,15 @@ class NetworkHostResource {
     }
 
     /**
+     * @brief Immediately flushes all queued outgoing packets to the socket.
+     */
+    void Flush() {
+        if (m_host != nullptr) {
+            enet_host_flush(m_host);
+        }
+    }
+
+    /**
      * @brief Peer backing a server-side player entity, if still connected.
      */
     std::optional<ENetPeer*> GetPeer(Entity entity) const;
@@ -186,6 +195,12 @@ class NetworkHostResource {
      * @param entity entity to unbind
      */
     void UntrackNetworkEntity(Registry& registry, Entity entity);
+
+    /**
+     * @brief Removes a network binding by id only (when the entity is already
+     * gone). Keeps id->entity and peer maps consistent.
+     */
+    void UntrackNetworkId(std::size_t networkId);
 
     /** @brief A connected player on the server: its peer and network id. */
     struct ConnectedPlayer {

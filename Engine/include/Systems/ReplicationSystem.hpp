@@ -10,11 +10,13 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "Compat/EnetWrapper.hpp"
+#include <glaze/glaze.hpp>
 
 namespace Engine::Multiplayer {
 
@@ -54,6 +56,24 @@ class NetworkHostResource;
  *     Net.input(entity), so movement stays in Lua without scripts ever touching
  *     ENet.
  */
+/**
+ * @struct NetSnapshot
+ * @brief One timestamped transform sample received from the server.
+ */
+struct NetSnapshot {
+    double time = 0.0;
+    float x = 0.0f;
+    float y = 0.0f;
+    float angle = 0.0f;
+};
+
+struct PredictedInput {
+    std::uint32_t seq = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    float angle = 0.0f;
+};
+
 class ReplicationSystem : public System {
   public:
     ReplicationSystem();
@@ -67,6 +87,8 @@ class ReplicationSystem : public System {
      * respawned and clients are told about the switch on the next update.
      */
     void OnSceneUnloaded(Registry& registry) override;
+
+    void Interpolate(Registry& registry);
 
   private:
     void Initialize(Registry& registry, NetworkHostResource& host);
@@ -85,7 +107,8 @@ class ReplicationSystem : public System {
                            Entity entity, std::size_t networkId);
     void BroadcastState(Registry& registry, NetworkHostResource& host,
                         PacketRegistryResource& packetRegistry);
-    void SendSpawn(const Registry& registry, NetworkHostResource& host,
+    void ReconcileLocalPlayer(Registry& registry, Entity entity, const glz::generic::object_t& obj);
+    void SendSpawn(Registry& registry, NetworkHostResource& host,
                    PacketRegistryResource& packetRegistry, Entity entity,
                    const NetworkComponent& network,
                    std::optional<std::uint8_t> slot = std::nullopt);
@@ -95,13 +118,13 @@ class ReplicationSystem : public System {
     void RegisterSpawnHandler(Registry& registry);
     void RegisterDespawnHandler(Registry& registry);
     void RegisterInputHandler(Registry& registry);
-    void ApplyDefaultMovement(Registry& registry, const NetworkHostResource& host, float dt);
     void SendLocalInput(Registry& registry, NetworkHostResource& host,
                         PacketRegistryResource& packetRegistry);
     Entity SpawnFromPrefab(Registry& registry, const std::string& prefabPath);
 
     bool m_initialized = false;
     bool m_handlersRegistered = false;
+    bool m_inSceneUnload = false;
     /** Server: the scene just changed; announce it and respawn players. */
     bool m_sceneChanged = false;
     /** Server: players to respawn in the new scene (peer + network id). */
@@ -119,6 +142,34 @@ class ReplicationSystem : public System {
     /** RTYPE_NET_DEBUG=1 prints player positions once per second. */
     bool m_debug = false;
     std::size_t m_debugTicks = 0;
+    /** Separate counter for BroadcastState so client/server debug cadences don't interfere. */
+    std::size_t m_broadcastTicks = 0;
+    /** Client-side snapshot history for interpolation, keyed by network id. */
+    std::unordered_map<std::size_t, std::vector<NetSnapshot>> m_snapshots;
+
+    /** Last broadcast state per network id, used to emit deltas. */
+    struct LastSentState {
+        bool has = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        int z = 0;
+        float angle = 0.0f;
+        std::string spritePath;
+        std::string varsSignature;
+    };
+    std::unordered_map<std::size_t, LastSentState> m_lastSent;
+    double m_serverTime = 0.0;
+    double m_snapshotAccumulator = 0.0;
+    double m_serverClockOffset = 0.0;
+    bool m_hasServerClock = false;
+    double m_interpDelay = 0.075;
+    /** Snapshot interval in seconds (default 8ms ≈ 125Hz). Override with
+     * RTYPE_NET_SNAPSHOT_INTERVAL_MS. */
+    double m_snapshotInterval = 8.0 / 1000.0;
+    std::uint32_t m_inputSeq = 0;
+    std::uint32_t m_lastAckedSeq = 0;
+    double m_lastAckTime = 0.0;
+    std::vector<PredictedInput> m_predictionHistory;
 };
 
 } // namespace Engine::Multiplayer

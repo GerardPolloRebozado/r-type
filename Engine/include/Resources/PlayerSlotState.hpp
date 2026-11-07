@@ -23,7 +23,7 @@ namespace Engine::Multiplayer {
  */
 struct PlayerSlotState {
     /** Maximum number of concurrent players (and color blocks). */
-    static constexpr std::uint8_t kMaxPlayers = 5;
+    static inline std::uint8_t kMaxPlayers = 5;
 
     /** network id -> slot index in [0, kMaxPlayers). */
     std::unordered_map<std::size_t, std::uint8_t> byNetworkId;

@@ -18,6 +18,7 @@ local SUPER_SHOOT_SPRITE = "assets/player/shoot/megabullet1.png"
 local PROJECTILE_SPEED = 1800.0 -- pixels per second
 local PROJECTILE_LIFETIME = 2.0 -- seconds before auto-remove
 local FIRE_COOLDOWN = 0.15 -- seconds between shots
+local MAX_BULLETS = 24 -- cap active bullets to bound worst case
 local SCREEN_MARGIN = 128.0
 
 local function isNetworked()
@@ -31,33 +32,73 @@ local function shouldSimulate()
     return Net.isServer()
 end
 
+-- Responsive input:
+--   - Single player: controller only
+--   - Server: netInput only (authoritative, ignores local controller)
+--   - Client: controller only (for instant response, server corrects via reconciliation)
 function PlayerGun:readInput()
-    local owner = Component.getParent(self.entity)
-    if Player.active == false then
-        return {}
-    end
-    local input = {
-        SUPER_SHOOT = false,
-        SHOOT = false,
-    }
-    local netInput = Net.input(owner)
-    if netInput == nil then
-        netInput = input
-    end
-    if Controller.isActionActive("SHOOT") or netInput.SHOOT then
-        self.shootCounter = (self.shootCounter or 0) + 1
-        if self.shootCounter >= 30 then
-            input.SUPER_SHOOT = true
-        end
-    else
-        if self.shootCounter and self.shootCounter > 0 then
-            if self.shootCounter < 30 then
-                input.SHOOT = true
-            end
-            self.shootCounter = 0
-        end
-    end
-    return input
+	local owner = Component.getParent(self.entity)
+	if Player == nil or Player.active == false then
+		return {}
+	end
+
+	local input = {
+		SUPER_SHOOT = false,
+		SHOOT = false,
+	}
+
+	-- Single player: controller only
+	if not isNetworked() then
+		if Controller.isActionActive("SHOOT") then
+			self.shootCounter = (self.shootCounter or 0) + 1
+			if self.shootCounter >= 30 then
+				input.SUPER_SHOOT = true
+			end
+		else
+			if self.shootCounter and self.shootCounter > 0 then
+				if self.shootCounter < 30 then
+					input.SHOOT = true
+				end
+				self.shootCounter = 0
+			end
+		end
+		return input
+	end
+
+	-- Server: use network input only (not local controller)
+	if Net.isServer() then
+		local netInput = Net.input(owner)
+		if netInput ~= nil and netInput.SHOOT == true then
+			self.shootCounter = (self.shootCounter or 0) + 1
+			if self.shootCounter >= 30 then
+				input.SUPER_SHOOT = true
+			end
+		else
+			if self.shootCounter and self.shootCounter > 0 then
+				if self.shootCounter < 30 then
+					input.SHOOT = true
+				end
+				self.shootCounter = 0
+			end
+		end
+		return input
+	end
+
+	-- Client: local controller for responsiveness
+	if Controller.isActionActive("SHOOT") then
+		self.shootCounter = (self.shootCounter or 0) + 1
+		if self.shootCounter >= 30 then
+			input.SUPER_SHOOT = true
+		end
+	else
+		if self.shootCounter and self.shootCounter > 0 then
+			if self.shootCounter < 30 then
+				input.SHOOT = true
+			end
+			self.shootCounter = 0
+		end
+	end
+	return input
 end
 
 local function isOutsideScreen(entity)
@@ -109,6 +150,15 @@ function PlayerGun:onUpdate(entity, dt)
     local shootInput = self:readInput()
     local isShooting = shootInput.SHOOT == true or shootInput.SUPER_SHOOT
 
+	-- Block shooting during invulnerability: player cannot shoot while immortal
+    local parent = Component.getParent(entity)
+    if parent ~= nil and Player ~= nil and Player.states ~= nil then
+        local playerState = Player.states[parent]
+        if playerState and playerState.invulnerabilityTimer and playerState.invulnerabilityTimer > 0 then
+            isShooting = false
+        end
+    end
+
     if isShooting and not self.wasShootDown and not self.firing then
         self.firing = true
         self.phase = 1
@@ -139,7 +189,7 @@ function PlayerGun:onUpdate(entity, dt)
 
     self.cooldown = math.max(0, self.cooldown - dt)
 
-    if isShooting and not self.shootDown and self.cooldown <= 0 then
+    if isShooting and not self.shootDown and self.cooldown <= 0 and #self.projectiles < MAX_BULLETS then
         self.cooldown = FIRE_COOLDOWN
         if shootInput.SUPER_SHOOT then
             self:fireSuperProjectile()
@@ -181,10 +231,10 @@ function PlayerGun:fireProjectile()
 
     Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
 
-    -- In multiplayer this assigns a network id and makes ReplicationSystem
-    -- announce the spawn + sync its position/sprite to every client.
+    -- Replicate with syncTransform=true so ReplicationSystem syncs position
+    -- via snapshots. Bullet smoothness comes from snapshot rate tuning.
     if isNetworked() then
-        Net.replicate(projEntity, "Server", true, true)
+        Net.replicate(projEntity, "Server", true, false)
     end
 
     table.insert(self.projectiles, {
@@ -210,10 +260,8 @@ function PlayerGun:fireSuperProjectile()
 
     Component.connect(projEntity, "onCollisionEnter", self.entity, "onProjectileHit")
 
-    -- In multiplayer this assigns a network id and makes ReplicationSystem
-    -- announce the spawn + sync its position/sprite to every client.
     if isNetworked() then
-        Net.replicate(projEntity, "Server", true, true)
+        Net.replicate(projEntity, "Server", true, false)
     end
 
     table.insert(self.projectiles, {

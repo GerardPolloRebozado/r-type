@@ -123,6 +123,7 @@ else ()
 endif ()
 
 add_subdirectory(Engine)
+add_subdirectory(UI)
 add_subdirectory(Serialization)
 add_subdirectory(Plugins)
 

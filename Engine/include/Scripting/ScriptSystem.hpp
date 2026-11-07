@@ -31,6 +31,17 @@ class ScriptSystem : public System {
     void loadScript(Registry& registry, Entity entity);
     void unloadScript(Registry& registry, Entity entity);
 
+    /**
+     * @brief Shared Lua state used by gameplay scripts and later binders.
+     * @return A view of the state. Valid after the first Update outside the editor.
+     */
+    sol::state_view GetLua();
+
+    /**
+     * @brief True once the engine API and LuaBinder modules have been registered.
+     */
+    bool IsApiReady() const;
+
   private:
     sol::state lua; // Single Lua state shared by all scripts
     bool apiRegistered = false;
