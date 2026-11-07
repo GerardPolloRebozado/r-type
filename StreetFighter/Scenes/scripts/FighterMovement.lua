@@ -116,6 +116,8 @@ function Script:onCreate(entity)
     self.currentAnim = ""
     self.facingRight = (self.playerId == 1)
     self.hitboxEntity = nil
+    local flip = Animation and Animation.getFlip and Animation.getFlip(entity)
+    self.sheetFacesRight = flip ~= nil and flip.flipX == true
 
     -- "FighterP2_B" is the reserve opponent: parked until FighterHealth activates it
     local name = Entity.getName and Entity.getName(entity) or ""
@@ -135,6 +137,7 @@ local SPRITE_FACES_RIGHT = { [1] = true, [2] = false }
 function Script:applyFlip()
     local native = SPRITE_FACES_RIGHT[self.playerId]
     if native == nil then native = true end
+    if self.sheetFacesRight then native = true end
     local flip = (self.facingRight ~= native)
     self.netFlip = flip
     if Animation and Animation.setFlip then
