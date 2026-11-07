@@ -29,35 +29,37 @@ void registerWave(sol::state_view lua, Registry& registry) {
 
     sol::table waveTable = lua.create_table();
 
-    waveTable.set_function(
-        "spawnFormation",
-        [lua, &registry, parsePattern](const sol::table& cfg) mutable -> sol::object {
-            WaveConfig config{};
-            const sol::optional<std::string> prefab = cfg["prefabPath"];
-            config.prefabPath = prefab.value_or("");
+    waveTable.set_function("spawnFormation",
+                           [luaState = lua.lua_state(), &registry,
+                            parsePattern](const sol::table& cfg) mutable -> sol::object {
+                               sol::state_view lua(luaState);
+                               WaveConfig config{};
+                               const sol::optional<std::string> prefab = cfg["prefabPath"];
+                               config.prefabPath = prefab.value_or("");
 
-            const sol::optional<std::string> patternStr = cfg["pattern"];
-            config.pattern = parsePattern(patternStr.value_or("line"));
+                               const sol::optional<std::string> patternStr = cfg["pattern"];
+                               config.pattern = parsePattern(patternStr.value_or("line"));
 
-            const sol::optional<unsigned int> count = cfg["count"];
-            config.count = count.value_or(1);
+                               const sol::optional<unsigned int> count = cfg["count"];
+                               config.count = count.value_or(1);
 
-            const sol::optional<float> spacing = cfg["spacing"];
-            config.spacing = spacing.value_or(64.f);
+                               const sol::optional<float> spacing = cfg["spacing"];
+                               config.spacing = spacing.value_or(64.f);
 
-            const sol::optional<bool> attachParent = cfg["attachParent"];
-            config.attachParent = attachParent.value_or(false);
+                               const sol::optional<bool> attachParent = cfg["attachParent"];
+                               config.attachParent = attachParent.value_or(false);
 
-            const sol::optional<std::string> scriptPath = cfg["parentScriptPath"];
-            config.parentScriptPath = scriptPath.value_or("");
+                               const sol::optional<std::string> scriptPath =
+                                   cfg["parentScriptPath"];
+                               config.parentScriptPath = scriptPath.value_or("");
 
-            auto spawned = SpawnWaveFormation(registry, config);
-            sol::table result = lua.create_table();
-            for (std::size_t i = 0; i < spawned.size(); ++i) {
-                result[i + 1] = spawned[i];
-            }
-            return sol::make_object(lua, result);
-        });
+                               auto spawned = SpawnWaveFormation(registry, config);
+                               sol::table result = lua.create_table();
+                               for (std::size_t i = 0; i < spawned.size(); ++i) {
+                                   result[i + 1] = spawned[i];
+                               }
+                               return sol::make_object(lua, result);
+                           });
 
     // Convenience wrappers
     waveTable.set_function(
@@ -83,15 +85,17 @@ void registerWave(sol::state_view lua, Registry& registry) {
         });
 
     // Utility to get size of an entity
-    waveTable.set_function("getEntitySize", [lua, &registry](Entity e) mutable -> sol::table {
-        EntityBounds b = GetEntitySize(registry, e);
-        sol::table t = lua.create_table();
-        t["width"] = b.width;
-        t["height"] = b.height;
-        t["offsetX"] = b.offsetX;
-        t["offsetY"] = b.offsetY;
-        return t;
-    });
+    waveTable.set_function("getEntitySize",
+                           [luaState = lua.lua_state(), &registry](Entity e) mutable -> sol::table {
+                               sol::state_view lua(luaState);
+                               EntityBounds b = GetEntitySize(registry, e);
+                               sol::table t = lua.create_table();
+                               t["width"] = b.width;
+                               t["height"] = b.height;
+                               t["offsetX"] = b.offsetX;
+                               t["offsetY"] = b.offsetY;
+                               return t;
+                           });
 
     // Simple prefab spawn helper (optional position)
     sol::table prefabTable = lua.create_table();

@@ -31,6 +31,8 @@ struct NetworkComponent {
     bool syncTransform = true;
     /** Sync SpriteComponent (path, offset, scale, flip). */
     bool syncSprite = false;
+    /** Snapshot cadence: 0 = every tick, 1 = every tick, 2 = every other tick. */
+    int snapshotPriority = 0;
     /** When set, spawn this prefab instead of a bare entity on connect/spawn. */
     std::string prefabPath;
 };

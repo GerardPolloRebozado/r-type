@@ -40,14 +40,19 @@ void registerOpacity(sol::state_view lua, Registry& registry) {
         return true;
     };
 
-    component["getOpacityInherit"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getOpacityInherit"] = [luaState = lua.lua_state(),
+                                      &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (registry.HasComponent<Opacity>(entity)) {
-            return sol::make_object(lua, registry.RequireComponent<Opacity>(entity).inheritToChildren);
+            return sol::make_object(lua,
+                                    registry.RequireComponent<Opacity>(entity).inheritToChildren);
         }
         return sol::make_object(lua, sol::lua_nil);
     };
 
-    component["getOpacity"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getOpacity"] = [luaState = lua.lua_state(),
+                               &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (registry.HasComponent<Opacity>(entity)) {
             return sol::make_object(lua, registry.RequireComponent<Opacity>(entity).alpha);
         }

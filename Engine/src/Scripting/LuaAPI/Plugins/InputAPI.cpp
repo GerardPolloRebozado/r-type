@@ -14,7 +14,8 @@ void registerInput(sol::state_view lua) {
     input["isKeyPressed"] = [](int key) -> bool { return IsKeyPressed(key); };
     input["isKeyReleased"] = [](int key) -> bool { return IsKeyReleased(key); };
 
-    input["getMousePosition"] = [lua]() mutable -> sol::table {
+    input["getMousePosition"] = [luaState = lua.lua_state()]() mutable -> sol::table {
+        sol::state_view lua(luaState);
         sol::table t = lua.create_table();
         t["x"] = static_cast<float>(GetMouseX());
         t["y"] = static_cast<float>(GetMouseY());

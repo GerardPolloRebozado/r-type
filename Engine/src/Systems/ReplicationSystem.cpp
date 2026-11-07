@@ -1,4 +1,7 @@
 #include "Systems/ReplicationSystem.hpp"
+#ifdef RTYPE_HAVE_ZLIB
+#include <zlib.h>
+#endif
 
 #include "Components/NetworkComponent.hpp"
 #include "Components/Position.hpp"
@@ -18,6 +21,7 @@
 #include "Scripting/ScriptVariableSync.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <glaze/glaze.hpp>
@@ -28,6 +32,18 @@ namespace Engine::Multiplayer {
 ReplicationSystem::ReplicationSystem() {
     const char* debug = std::getenv("RTYPE_NET_DEBUG");
     m_debug = debug != nullptr && std::string(debug) != "0";
+    if (const char* delay = std::getenv("RTYPE_NET_INTERP_DELAY_MS"); delay != nullptr) {
+        const double ms = std::atof(delay);
+        if (ms >= 0.0 && ms <= 1000.0) {
+            m_interpDelay = ms / 1000.0;
+        }
+    }
+    if (const char* interval = std::getenv("RTYPE_NET_SNAPSHOT_INTERVAL_MS"); interval != nullptr) {
+        const double ms = std::atof(interval);
+        if (ms > 0.0 && ms <= 1000.0) {
+            m_snapshotInterval = ms / 1000.0;
+        }
+    }
 }
 
 namespace {
@@ -113,7 +129,9 @@ void ApplySpriteState(Registry& registry, Entity entity, const glz::generic& val
 }
 
 /** Applies one state snapshot entry to a local entity. */
-void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& state) {
+void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& state,
+                      std::unordered_map<std::size_t, std::vector<NetSnapshot>>& snapshots,
+                      std::size_t networkId, double now) {
     if (!state.is_object() || !registry.IsEntityAlive(entity)) {
         return;
     }
@@ -121,19 +139,59 @@ void ApplyEntityState(Registry& registry, Entity entity, const glz::generic& sta
 
     if (registry.HasComponent<Position>(entity)) {
         auto& position = registry.RequireComponent<Position>(entity);
+        float tx = position.x;
+        float ty = position.y;
+        int tz = position.z;
+        bool hasPos = false;
         if (obj.find("x") != obj.end()) {
-            position.x = static_cast<float>(GenericNumber(obj, "x", position.x));
+            tx = static_cast<float>(GenericNumber(obj, "x", 0.0)) / 10.0f;
+            hasPos = true;
         }
         if (obj.find("y") != obj.end()) {
-            position.y = static_cast<float>(GenericNumber(obj, "y", position.y));
+            ty = static_cast<float>(GenericNumber(obj, "y", 0.0)) / 10.0f;
+            hasPos = true;
         }
         if (obj.find("z") != obj.end()) {
-            position.z = static_cast<int>(GenericNumber(obj, "z", position.z));
+            tz = static_cast<int>(GenericNumber(obj, "z", position.z));
         }
-    }
-    if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
-        auto& rotation = registry.RequireComponent<Rotation>(entity);
-        rotation.angle = static_cast<float>(GenericNumber(obj, "angle", rotation.angle));
+        float ta = 0.0f;
+        bool hasAngle = false;
+        if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
+            ta = static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
+            hasAngle = true;
+        }
+        if (hasPos || hasAngle) {
+            auto& buf = snapshots[networkId];
+            NetSnapshot snap;
+            snap.time = now;
+            snap.x = hasPos ? tx : position.x;
+            snap.y = hasPos ? ty : position.y;
+            snap.angle = hasAngle ? ta
+                                  : (registry.HasComponent<Rotation>(entity)
+                                         ? registry.RequireComponent<Rotation>(entity).angle
+                                         : 0.0f);
+            buf.push_back(snap);
+            while (buf.size() > 16) {
+                buf.erase(buf.begin());
+            }
+            while (buf.size() > 1 && (now - buf.front().time) > 1.0) {
+                buf.erase(buf.begin());
+            }
+            // First sample: snap immediately.
+            if (buf.size() == 1) {
+                if (hasPos) {
+                    position.x = tx;
+                    position.y = ty;
+                    position.z = tz;
+                }
+                if (hasAngle) {
+                    registry.RequireComponent<Rotation>(entity).angle = ta;
+                }
+            }
+        }
+        if (obj.find("z") != obj.end()) {
+            position.z = tz;
+        }
     }
     if (const auto it = obj.find("sprite"); it != obj.end()) {
         ApplySpriteState(registry, entity, it->second);
@@ -228,11 +286,15 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
     }
 
     if (host.IsServer()) {
+        m_serverTime += dt;
+        m_snapshotAccumulator += static_cast<double>(dt);
         // Scripted entities move themselves through Net.input(entity). Only
         // script-less network entities fall back to the engine default
         BroadcastState(registry, host, packetRegistry);
+        host.Flush();
     } else if (host.GetLocalNetworkId().has_value()) {
         SendLocalInput(registry, host, packetRegistry);
+        host.Flush();
         if (m_debug) {
             ++m_debugTicks;
             const auto localEntity = host.GetLocalEntity();
@@ -241,16 +303,103 @@ void ReplicationSystem::Update(Registry& registry, float dt) {
                 registry.HasComponent<Position>(*localEntity)) {
                 const auto& position = registry.RequireComponent<Position>(*localEntity);
                 log_info("[NetDebug] client local entity=" + std::to_string(*localEntity) +
-                         " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y));
+                         " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y) +
+                         " ackLag=" + std::to_string(m_inputSeq - m_lastAckedSeq));
             }
         }
     }
 }
 
+void ReplicationSystem::Interpolate(Registry& registry) {
+    if (!registry.HasResource<NetworkHostResource>()) {
+        return;
+    }
+    auto& host = registry.GetResource<NetworkHostResource>();
+    if (host.IsServer()) {
+        return;
+    }
+
+    const double localNow =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    const double sampleTime = m_hasServerClock ? localNow + m_serverClockOffset - m_interpDelay
+                                               : localNow - m_interpDelay;
+
+    const auto localNetworkId = host.GetLocalNetworkId();
+
+    std::vector<std::size_t> staleIds;
+
+    for (auto& [networkId, buf] : m_snapshots) {
+        if (localNetworkId.has_value() && *localNetworkId == networkId) {
+            continue;
+        }
+        const auto entityOpt = host.GetEntityByNetworkId(networkId);
+        if (!entityOpt.has_value()) {
+            staleIds.push_back(networkId);
+            continue;
+        }
+        const Entity entity = *entityOpt;
+        if (!registry.IsEntityAlive(entity)) {
+            staleIds.push_back(networkId);
+            continue;
+        }
+
+        if (buf.size() < 2) {
+            continue;
+        }
+
+        NetSnapshot a = buf.front();
+        NetSnapshot b = buf.front();
+        float frac = 0.0f;
+
+        if (sampleTime >= buf.back().time) {
+            a = buf[buf.size() - 2];
+            b = buf.back();
+            const double span = b.time - a.time;
+            frac = span > 0.0 ? static_cast<float>((sampleTime - a.time) / span) : 1.0f;
+        } else if (sampleTime > buf.front().time) {
+            for (std::size_t i = 0; i + 1 < buf.size(); ++i) {
+                if (buf[i].time <= sampleTime && sampleTime <= buf[i + 1].time) {
+                    a = buf[i];
+                    b = buf[i + 1];
+                    const double span = b.time - a.time;
+                    frac = span > 0.0 ? static_cast<float>((sampleTime - a.time) / span) : 1.0f;
+                    break;
+                }
+            }
+        }
+        frac = std::clamp(frac, 0.0f, 1.0f);
+
+        if (registry.HasComponent<Position>(entity)) {
+            auto& pos = registry.RequireComponent<Position>(entity);
+            pos.x = a.x + (b.x - a.x) * frac;
+            pos.y = a.y + (b.y - a.y) * frac;
+        }
+        if (registry.HasComponent<Rotation>(entity)) {
+            auto& rot = registry.RequireComponent<Rotation>(entity);
+            float diff = b.angle - a.angle;
+            while (diff > 180.0f) {
+                diff -= 360.0f;
+            }
+            while (diff < -180.0f) {
+                diff += 360.0f;
+            }
+            rot.angle = a.angle + diff * frac;
+        }
+    }
+
+    for (const auto staleId : staleIds) {
+        m_snapshots.erase(staleId);
+    }
+}
+
 void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
+    if (m_inSceneUnload) {
+        return; // reentrant call: already tearing down
+    }
     if (!m_initialized || !registry.HasResource<NetworkHostResource>()) {
         return; // single-player, or no session yet: nothing to sync
     }
+    m_inSceneUnload = true;
     if (registry.HasResource<ScriptVariableState>()) {
         registry.GetResource<ScriptVariableState>().Reset();
     }
@@ -268,7 +417,13 @@ void ReplicationSystem::OnSceneUnloaded(Registry& registry) {
     host.ResetEntityBindings();
     host.InvalidateQueuedEventEntities();
     m_announcedIds.clear();
+    m_snapshots.clear();
+    m_hasServerClock = false;
+    m_predictionHistory.clear();
+    m_lastAckedSeq = 0;
+    m_snapshotAccumulator = 0.0;
     m_initialized = false;
+    m_inSceneUnload = false;
 }
 
 void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host) {
@@ -289,17 +444,19 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
     // instances through replication_spawn. This applies to both roles so a
     // client never keeps a duplicate "local" player next to the server one.
     std::vector<Entity> templates;
-    for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        const Entity entity{i};
-        if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
-            continue;
-        }
-        const auto& network = registry.RequireComponent<NetworkComponent>(entity);
-        if (network.authority == "Client") {
-            if (m_playerPrefabPath.empty() && !network.prefabPath.empty()) {
-                m_playerPrefabPath = network.prefabPath;
+    if (registry.IsComponentRegistered<NetworkComponent>()) {
+        auto netArray = registry.GetComponentArray<NetworkComponent>();
+        for (const auto& [entity, networkRef] : *netArray) {
+            if (!registry.IsEntityAlive(entity)) {
+                continue;
             }
-            templates.push_back(entity);
+            const auto& network = registry.RequireComponent<NetworkComponent>(entity);
+            if (network.authority == "Client") {
+                if (m_playerPrefabPath.empty() && !network.prefabPath.empty()) {
+                    m_playerPrefabPath = network.prefabPath;
+                }
+                templates.push_back(entity);
+            }
         }
     }
     for (const Entity entity : templates) {
@@ -314,20 +471,22 @@ void ReplicationSystem::Initialize(Registry& registry, NetworkHostResource& host
     // Server-authority scene entities exist on every machine. Reusing the
     // scene entity id as the network id lets clients match their local copy
     // without a spawn round-trip (and keeps parent/child links intact).
-    for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        const Entity entity{i};
-        if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
-            continue;
-        }
-        auto& network = registry.RequireComponent<NetworkComponent>(entity);
-        if (network.authority == "Server" && network.networkId == 0) {
-            network.networkId = static_cast<std::uint64_t>(entity);
-            host.TrackNetworkEntity(registry, entity, entity);
-        }
-        if (host.IsServer() && network.authority == "Server") {
-            // Clients already have this entity from the shared scene, so it is
-            // already "known": no spawn packet is needed.
-            m_announcedIds.insert(network.networkId);
+    if (registry.IsComponentRegistered<NetworkComponent>()) {
+        auto netArray = registry.GetComponentArray<NetworkComponent>();
+        for (const auto& [entity, networkRef] : *netArray) {
+            if (!registry.IsEntityAlive(entity)) {
+                continue;
+            }
+            auto& network = registry.RequireComponent<NetworkComponent>(entity);
+            if (network.authority == "Server" && network.networkId == 0) {
+                network.networkId = static_cast<std::uint64_t>(entity);
+                host.TrackNetworkEntity(registry, entity, entity);
+            }
+            if (host.IsServer() && network.authority == "Server") {
+                // Clients already have this entity from the shared scene, so it is
+                // already "known": no spawn packet is needed.
+                m_announcedIds.insert(network.networkId);
+            }
         }
     }
 
@@ -427,15 +586,14 @@ void ReplicationSystem::SendSceneLoad(Registry& registry, NetworkHostResource& h
     auto& obj = message.get_object();
     obj["scene"] = scene;
     obj["reload"] = reload;
-    std::string json;
-    if (glz::write_json(message, json)) {
+    Buffer buffer;
+    if (glz::write_beve(message, buffer)) {
         return;
     }
     const auto packetId =
         registry.GetResource<PacketRegistryResource>().GetOrRegister("scene_load");
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        static_cast<std::uint16_t>(packetId), reinterpret_cast<const uint8_t*>(json.data()),
-        json.size(), true);
+    auto* packet =
+        NetworkHostResource::CreateRawPacket(static_cast<std::uint16_t>(packetId), buffer, true);
     if (packet == nullptr) {
         return;
     }
@@ -462,7 +620,7 @@ void ReplicationSystem::RegisterSceneLoadHandler(Registry& registry) {
         }
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic message{};
-        if (glz::read_json(message, raw) || !message.is_object()) {
+        if (glz::read_beve(message, raw) || !message.is_object()) {
             return;
         }
         const auto& obj = message.get_object();
@@ -493,6 +651,8 @@ void ReplicationSystem::ProcessDisconnect(Registry& registry, NetworkHostResourc
     if (entity != kInvalidEntity && registry.IsEntityAlive(entity)) {
         host.UntrackNetworkEntity(registry, entity);
         registry.DestroyEntity(entity);
+    } else if (networkId != 0) {
+        host.UntrackNetworkId(networkId);
     }
 
     if (!host.IsServer() || networkId == 0) {
@@ -502,7 +662,9 @@ void ReplicationSystem::ProcessDisconnect(Registry& registry, NetworkHostResourc
     // Drop the last input so a reused id (or a despawned entity) never keeps
     // moving from stale input.
     if (registry.HasResource<PlayerInputState>()) {
-        registry.GetResource<PlayerInputState>().byNetworkId.erase(networkId);
+        auto& inputs = registry.GetResource<PlayerInputState>();
+        inputs.byNetworkId.erase(networkId);
+        inputs.lastSeq.erase(networkId);
     }
     // Free the color slot so the next player can take it.
     if (registry.HasResource<PlayerSlotState>()) {
@@ -538,13 +700,74 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
             return; // Servers publish state, they never consume it.
         }
 
-        const std::string raw{reinterpret_cast<const char*>(payload), size};
-        glz::generic array{};
-        if (glz::read_json(array, raw) || !array.is_array()) {
+        std::string raw;
+#ifdef RTYPE_HAVE_ZLIB
+        if (size > 1 && payload[0] == 0x01) {
+            // Compressed payload: decompress.
+            uLongf destLen = size * 4 + 1024;
+            std::vector<char> out(destLen);
+            int zres = uncompress(reinterpret_cast<Bytef*>(out.data()), &destLen,
+                                  reinterpret_cast<const Bytef*>(payload + 1), size - 1);
+            if (zres == Z_OK) {
+                raw.assign(out.data(), destLen);
+            } else {
+                raw.assign(reinterpret_cast<const char*>(payload), size);
+            }
+        } else if (size > 1 && payload[0] == 0x00) {
+            raw.assign(reinterpret_cast<const char*>(payload + 1), size - 1);
+        } else {
+            raw.assign(reinterpret_cast<const char*>(payload), size);
+        }
+#else
+        if (size > 1 && payload[0] == 0x00) {
+            raw.assign(reinterpret_cast<const char*>(payload + 1), size - 1);
+        } else {
+            raw.assign(reinterpret_cast<const char*>(payload), size);
+        }
+#endif
+        glz::generic message{};
+        if (glz::read_beve(message, raw)) {
             return;
         }
 
-        for (const auto& entry : array.get_array()) {
+        const glz::generic* entities = nullptr;
+        double serverTime = 0.0;
+        bool hasServerTime = false;
+        if (message.is_array()) {
+            entities = &message;
+        } else if (message.is_object()) {
+            const auto& msgObj = message.get_object();
+            if (const auto it = msgObj.find("entities");
+                it != msgObj.end() && it->second.is_array()) {
+                entities = &it->second;
+            }
+            if (const auto it = msgObj.find("time"); it != msgObj.end() && it->second.is_number()) {
+                serverTime = it->second.get<double>();
+                hasServerTime = true;
+            }
+        }
+        if (entities == nullptr) {
+            return;
+        }
+
+        const double arrival =
+            std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        if (hasServerTime) {
+            const double candidate = serverTime - arrival;
+            if (!m_hasServerClock) {
+                m_serverClockOffset = candidate;
+                m_hasServerClock = true;
+            } else if (candidate > m_serverClockOffset) {
+                m_serverClockOffset = candidate;
+            } else {
+                m_serverClockOffset = std::max(candidate, m_serverClockOffset - 0.001);
+            }
+        }
+        const double snapshotTime = hasServerTime ? serverTime : arrival;
+        const auto localNetworkId = host.GetLocalNetworkId();
+
+        for (const auto& entry : entities->get_array()) {
             if (!entry.is_object()) {
                 continue;
             }
@@ -580,13 +803,105 @@ void ReplicationSystem::RegisterStateHandler(Registry& registry) {
                          " (network id " + std::to_string(networkId) + ")");
             }
 
-            ApplyEntityState(registry, entity, entry);
+            if (localNetworkId.has_value() && *localNetworkId == networkId) {
+                ReconcileLocalPlayer(registry, entity, obj);
+                if (const auto it = obj.find("sprite"); it != obj.end()) {
+                    ApplySpriteState(registry, entity, it->second);
+                }
+            } else {
+                ApplyEntityState(registry, entity, entry, m_snapshots, networkId, snapshotTime);
+            }
             if (const auto vars = obj.find("vars"); vars != obj.end() && vars->second.is_object()) {
                 ApplyReplicatedScriptVariables(registry, networkId, entity,
                                                vars->second.get_object());
             }
         }
     });
+}
+
+void ReplicationSystem::ReconcileLocalPlayer(Registry& registry, Entity entity,
+                                             const glz::generic::object_t& obj) {
+    if (!registry.HasComponent<Position>(entity)) {
+        return;
+    }
+    auto& position = registry.RequireComponent<Position>(entity);
+
+    bool hasPos = false;
+    float serverX = position.x;
+    float serverY = position.y;
+    if (obj.find("x") != obj.end()) {
+        serverX = static_cast<float>(GenericNumber(obj, "x", 0.0)) / 10.0f;
+        hasPos = true;
+    }
+    if (obj.find("y") != obj.end()) {
+        serverY = static_cast<float>(GenericNumber(obj, "y", 0.0)) / 10.0f;
+        hasPos = true;
+    }
+
+    bool hasAngle = false;
+    float serverAngle = 0.0f;
+    if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
+        serverAngle = static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
+        hasAngle = true;
+    }
+
+    bool hasAck = false;
+    std::uint32_t ack = 0;
+    if (const auto it = obj.find("ack"); it != obj.end() && it->second.is_number()) {
+        ack = static_cast<std::uint32_t>(std::lround(it->second.get<double>()));
+        hasAck = true;
+    }
+
+    const double now =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (m_lastAckedSeq != 0 && (now - m_lastAckTime) > 1.0) {
+        m_predictionHistory.clear();
+    }
+
+    if (!hasAck || ack <= m_lastAckedSeq) {
+        return;
+    }
+    m_lastAckedSeq = ack;
+    m_lastAckTime = now;
+
+    const PredictedInput* matched = nullptr;
+    for (const auto& predicted : m_predictionHistory) {
+        if (predicted.seq > ack) {
+            break;
+        }
+        matched = &predicted;
+    }
+    if (matched == nullptr) {
+        return;
+    }
+
+    if (hasPos) {
+        const float errorX = serverX - matched->x;
+        const float errorY = serverY - matched->y;
+        const float distSq = errorX * errorX + errorY * errorY;
+        // Only correct if error exceeds a small threshold (avoids micro-jitter from float rounding)
+        if (distSq > 1.0f) {
+            position.x += errorX * 0.5f;
+            position.y += errorY * 0.5f;
+        }
+    }
+    if (hasAngle) {
+        float error = serverAngle - matched->angle;
+        while (error > 180.0f) {
+            error -= 360.0f;
+        }
+        while (error < -180.0f) {
+            error += 360.0f;
+        }
+        if (std::fabs(error) > 1.0f) {
+            registry.RequireComponent<Rotation>(entity).angle += error * 0.5f;
+        }
+    }
+
+    m_predictionHistory.erase(
+        std::remove_if(m_predictionHistory.begin(), m_predictionHistory.end(),
+                       [ack](const PredictedInput& predicted) { return predicted.seq <= ack; }),
+        m_predictionHistory.end());
 }
 
 void ReplicationSystem::RegisterSpawnHandler(Registry& registry) {
@@ -606,7 +921,7 @@ void ReplicationSystem::RegisterSpawnHandler(Registry& registry) {
 
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic message{};
-        if (glz::read_json(message, raw) || !message.is_object()) {
+        if (glz::read_beve(message, raw) || !message.is_object()) {
             return;
         }
         const auto& obj = message.get_object();
@@ -632,10 +947,27 @@ void ReplicationSystem::RegisterSpawnHandler(Registry& registry) {
         network.networkId = networkId;
         network.authority = GenericString(obj, "authority", "Server");
         network.prefabPath = prefabPath;
-        network.syncTransform = true;
-        network.syncSprite = true;
+        network.syncTransform = GenericBool(obj, "syncTransform", true);
+        network.syncSprite = GenericBool(obj, "syncSprite", true);
         registry.AddComponent<NetworkComponent>(entity, network);
         host.TrackNetworkEntity(registry, entity, networkId);
+
+        if (registry.HasComponent<Position>(entity) && obj.find("x") != obj.end()) {
+            auto& position = registry.RequireComponent<Position>(entity);
+            position.x = static_cast<float>(GenericNumber(obj, "x", 0.0)) / 10.0f;
+            position.y = static_cast<float>(GenericNumber(obj, "y", 0.0)) / 10.0f;
+            position.z = static_cast<int>(GenericNumber(obj, "z", position.z));
+            position.prevX = position.x;
+            position.prevY = position.y;
+            position.prevZ = position.z;
+        }
+        if (registry.HasComponent<Rotation>(entity) && obj.find("angle") != obj.end()) {
+            registry.RequireComponent<Rotation>(entity).angle =
+                static_cast<float>(GenericNumber(obj, "angle", 0.0)) / 10.0f;
+        }
+        if (const auto it = obj.find("sprite"); it != obj.end()) {
+            ApplySpriteState(registry, entity, it->second);
+        }
 
         log_info("[Replication] Spawned " +
                  std::string(prefabPath.empty() ? "entity" : "prefab '" + prefabPath + "'") +
@@ -660,7 +992,7 @@ void ReplicationSystem::RegisterDespawnHandler(Registry& registry) {
 
         const std::string raw{reinterpret_cast<const char*>(payload), size};
         glz::generic message{};
-        if (glz::read_json(message, raw) || !message.is_object()) {
+        if (glz::read_beve(message, raw) || !message.is_object()) {
             return;
         }
         const auto& obj = message.get_object();
@@ -685,6 +1017,7 @@ void ReplicationSystem::RegisterDespawnHandler(Registry& registry) {
         if (registry.IsEntityAlive(entity)) {
             registry.DestroyEntity(entity);
         }
+        m_snapshots.erase(networkId);
         log_info("[Replication] Despawned replica network id " + std::to_string(networkId));
     });
 }
@@ -719,29 +1052,81 @@ void ReplicationSystem::RegisterInputHandler(Registry& registry) {
             return;
         }
 
+        if (const auto peerEntity = host.GetEntityID(peer); peerEntity.has_value()) {
+            const auto ownedId = host.GetNetworkId(registry, *peerEntity);
+            if (ownedId.has_value() && *ownedId != networkId) {
+                return;
+            }
+        }
+
         // Store by network id, not entity: ProcessConnect may replace the
         // placeholder entity after the first input packet arrives.
         if (!registry.HasResource<PlayerInputState>()) {
             registry.AddResource<PlayerInputState>();
         }
-        const auto parsed = ParseNetInput(inputIt->second);
-        registry.GetResource<PlayerInputState>().byNetworkId[networkId] = parsed;
+        auto& playerInput = registry.GetResource<PlayerInputState>();
+
+        if (const auto seqIt = obj.find("seq"); seqIt != obj.end() && seqIt->second.is_number()) {
+            const auto seq = static_cast<std::uint32_t>(std::lround(seqIt->second.get<double>()));
+            const auto last = playerInput.lastSeq.find(networkId);
+            if (last != playerInput.lastSeq.end() && seq <= last->second) {
+                return;
+            }
+            playerInput.lastSeq[networkId] = seq;
+        }
+
+        playerInput.byNetworkId[networkId] = ParseNetInput(inputIt->second);
     });
 }
 
 void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& host,
                                        PacketRegistryResource& packetRegistry) {
     const auto packetId = packetRegistry.GetOrRegister("replication_state");
-    ++m_debugTicks;
-    const bool logThisTick = m_debug && (m_debugTicks % 60 == 0);
+    ++m_broadcastTicks;
+    const bool logThisTick = m_debug && (m_broadcastTicks % 60 == 0);
+    const bool forceFull = (m_broadcastTicks % 100 == 0);
 
     glz::generic array = glz::generic::array_t{};
-    std::vector<std::size_t> currentIds;
-    currentIds.reserve(registry.GetEntityCount());
 
-    for (std::size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        const Entity entity{i};
-        if (!registry.IsEntityAlive(entity) || !registry.HasComponent<NetworkComponent>(entity)) {
+    if (!registry.IsComponentRegistered<NetworkComponent>()) {
+        return;
+    }
+    auto netArray = registry.GetComponentArray<NetworkComponent>();
+
+    std::vector<std::size_t> currentIds;
+    currentIds.reserve(netArray->size());
+
+    // TODO: per-player AOI filtering so each client only
+    // receives entities relevant to its own viewport, but requires per-peer
+    // snapshots and per-peer announced-id tracking
+    float minPlayerX = 0.0f;
+    float maxPlayerX = 0.0f;
+    int playerCount = 0;
+    for (const auto& [e, nr] : *netArray) {
+        if (!registry.IsEntityAlive(e)) {
+            continue;
+        }
+        const auto& n = registry.RequireComponent<NetworkComponent>(e);
+        if (n.authority != "Client") {
+            continue;
+        }
+        if (!registry.HasComponent<Position>(e)) {
+            continue;
+        }
+        const float px = registry.RequireComponent<Position>(e).x;
+        if (playerCount == 0) {
+            minPlayerX = maxPlayerX = px;
+        } else {
+            minPlayerX = std::min(minPlayerX, px);
+            maxPlayerX = std::max(maxPlayerX, px);
+        }
+        ++playerCount;
+    }
+    const bool hasRef = playerCount > 0;
+    constexpr float CULL_MARGIN = 2200.0f;
+
+    for (const auto& [entity, networkRef] : *netArray) {
+        if (!registry.IsEntityAlive(entity)) {
             continue;
         }
         auto& network = registry.RequireComponent<NetworkComponent>(entity);
@@ -766,30 +1151,71 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
 
         currentIds.push_back(network.networkId);
 
+        auto& last = m_lastSent[network.networkId];
+
         glz::generic snapshot = glz::generic::object_t{};
         auto& obj = snapshot.get_object();
         obj["id"] = static_cast<double>(network.networkId);
-        obj["authority"] = network.authority;
-        obj["prefabPath"] = network.prefabPath;
-        if (registry.HasResource<PlayerSlotState>()) {
-            if (const auto slot = registry.GetResource<PlayerSlotState>().Get(network.networkId);
-                slot.has_value()) {
-                obj["slot"] = static_cast<double>(*slot);
+        if (forceFull || !last.has) {
+            obj["authority"] = network.authority;
+            obj["prefabPath"] = network.prefabPath;
+            if (registry.HasResource<PlayerSlotState>()) {
+                if (const auto slot =
+                        registry.GetResource<PlayerSlotState>().Get(network.networkId);
+                    slot.has_value()) {
+                    obj["slot"] = static_cast<double>(*slot);
+                }
+            }
+        }
+        if (network.authority == "Client" && registry.HasResource<PlayerInputState>()) {
+            const auto& inputs = registry.GetResource<PlayerInputState>();
+            if (const auto it = inputs.lastSeq.find(network.networkId);
+                it != inputs.lastSeq.end()) {
+                obj["ack"] = static_cast<double>(it->second);
             }
         }
 
-        if (network.syncTransform && registry.HasComponent<Position>(entity)) {
+        bool posChanged = false;
+        bool angleChanged = false;
+        bool spriteChanged = false;
+
+        const bool onScreen =
+            !hasRef || !registry.HasComponent<Position>(entity) ||
+            (registry.RequireComponent<Position>(entity).x >= minPlayerX - CULL_MARGIN &&
+             registry.RequireComponent<Position>(entity).x <= maxPlayerX + CULL_MARGIN);
+
+        // rateOk: send entities every snapshot tick so motion is fluid
+        const bool rateOk = true;
+
+        if (network.syncTransform && registry.HasComponent<Position>(entity) && onScreen &&
+            rateOk) {
             const auto& position = registry.RequireComponent<Position>(entity);
-            obj["x"] = position.x;
-            obj["y"] = position.y;
-            obj["z"] = static_cast<double>(position.z);
+            posChanged = forceFull || !last.has || std::fabs(position.x - last.x) > 0.01f ||
+                         std::fabs(position.y - last.y) > 0.01f || position.z != last.z;
+            if (posChanged) {
+                obj["x"] = static_cast<int>(std::lround(position.x * 10.0f));
+                obj["y"] = static_cast<int>(std::lround(position.y * 10.0f));
+                obj["z"] = position.z;
+            }
         }
-        if (network.syncTransform && registry.HasComponent<Rotation>(entity)) {
-            obj["angle"] = registry.RequireComponent<Rotation>(entity).angle;
+        if (network.syncTransform && registry.HasComponent<Rotation>(entity) && onScreen &&
+            rateOk) {
+            const float angle = registry.RequireComponent<Rotation>(entity).angle;
+            angleChanged = forceFull || !last.has || std::fabs(angle - last.angle) > 0.01f;
+            if (angleChanged) {
+                obj["angle"] = static_cast<int>(std::lround(angle * 10.0f));
+            }
         }
-        if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity)) {
-            obj["sprite"] = SerializeSpriteState(registry, entity);
+        if (network.syncSprite && registry.HasComponent<SpriteComponent>(entity) && onScreen &&
+            rateOk) {
+            const std::string spritePath =
+                registry.RequireComponent<SpriteComponent>(entity).assetPath;
+            spriteChanged = forceFull || !last.has || spritePath != last.spritePath;
+            if (spriteChanged) {
+                obj["sprite"] = SerializeSpriteState(registry, entity);
+            }
         }
+        bool varsChanged = false;
         if (registry.HasResource<ScriptVariableState>()) {
             auto& variables = registry.GetResource<ScriptVariableState>();
             if (const auto* registration = variables.Find(entity); registration != nullptr) {
@@ -797,10 +1223,52 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
                 auto& varsObj = vars.get_object();
                 if (ReadScriptVariables(registry, entity, registration->fields, varsObj) &&
                     !varsObj.empty()) {
-                    obj["vars"] = std::move(vars);
+                    std::string sig;
+                    for (const auto& [k, v] : varsObj) {
+                        sig += k;
+                        sig += "=";
+                        std::string buf;
+                        glz::write_json(v, buf);
+                        sig += buf;
+                        sig += ";";
+                    }
+                    varsChanged = forceFull || sig != last.varsSignature;
+                    if (varsChanged) {
+                        obj["vars"] = std::move(vars);
+                    }
+                    last.varsSignature = sig;
                 }
             }
         }
+        // Determine if anything changed this tick.
+        const bool dirty =
+            forceFull || !last.has || posChanged || angleChanged || spriteChanged || varsChanged;
+
+        // Update last-sent state for delta emission.
+        last.has = true;
+        if (registry.HasComponent<Position>(entity)) {
+            const auto& position = registry.RequireComponent<Position>(entity);
+            last.x = position.x;
+            last.y = position.y;
+            last.z = position.z;
+        }
+        if (registry.HasComponent<Rotation>(entity)) {
+            last.angle = registry.RequireComponent<Rotation>(entity).angle;
+        }
+        if (registry.HasComponent<SpriteComponent>(entity)) {
+            last.spritePath = registry.RequireComponent<SpriteComponent>(entity).assetPath;
+        }
+
+        if (!dirty && !forceFull && last.has) {
+            if (logThisTick && network.authority == "Client" &&
+                registry.HasComponent<Position>(entity)) {
+                const auto& position = registry.RequireComponent<Position>(entity);
+                log_info("[NetDebug] server player id=" + std::to_string(network.networkId) +
+                         " x=" + std::to_string(position.x) + " y=" + std::to_string(position.y));
+            }
+            continue;
+        }
+
         if (logThisTick && network.authority == "Client" &&
             registry.HasComponent<Position>(entity)) {
             const auto& position = registry.RequireComponent<Position>(entity);
@@ -809,6 +1277,11 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         }
 
         array.get_array().push_back(std::move(snapshot));
+    }
+
+    if (logThisTick) {
+        log_info("[NetDebug] broadcast tick entities=" + std::to_string(currentIds.size()) +
+                 " announced=" + std::to_string(m_announcedIds.size()));
     }
 
     // Anything announced but no longer broadcast has been destroyed (bullet
@@ -831,20 +1304,57 @@ void ReplicationSystem::BroadcastState(Registry& registry, NetworkHostResource& 
         return;
     }
 
-    std::string json;
-    if (glz::write_json(array, json)) {
+    if (m_snapshotAccumulator < m_snapshotInterval) {
+        return;
+    }
+    m_snapshotAccumulator = std::fmod(m_snapshotAccumulator, m_snapshotInterval);
+
+    glz::generic message = glz::generic::object_t{};
+    auto& messageObj = message.get_object();
+    messageObj["time"] = m_serverTime;
+    messageObj["entities"] = std::move(array);
+
+    Buffer buffer;
+    if (glz::write_beve(message, buffer)) {
         log_error("[Replication] Failed to serialize state snapshot");
         return;
     }
 
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), false);
+#ifdef RTYPE_HAVE_ZLIB
+    // Compress the payload to reduce bandwidth on entity-heavy scenes.
+    Buffer compressed;
+    compressed.push_back(static_cast<std::byte>(0x01)); // magic: compressed
+    uLongf destLen = compressBound(buffer.size()) + 1;
+    compressed.resize(1 + destLen);
+    int zres =
+        compress2(reinterpret_cast<Bytef*>(compressed.data() + 1), &destLen,
+                  reinterpret_cast<const Bytef*>(buffer.data()), buffer.size(), Z_BEST_SPEED);
+    if (zres == Z_OK) {
+        compressed.resize(1 + destLen);
+        buffer = std::move(compressed);
+    } else {
+        // Fall back to uncompressed: replace magic byte with 0x00.
+        Buffer fallback;
+        fallback.push_back(static_cast<std::byte>(0x00));
+        fallback.insert(fallback.end(), buffer.begin(), buffer.end());
+        buffer = std::move(fallback);
+    }
+#else
+    {
+        Buffer prefixed;
+        prefixed.push_back(static_cast<std::byte>(0x00)); // magic: uncompressed
+        prefixed.insert(prefixed.end(), buffer.begin(), buffer.end());
+        buffer = std::move(prefixed);
+    }
+#endif
+
+    auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, false);
     if (packet != nullptr) {
         host.SendAllHost(packet, 0);
     }
 }
 
-void ReplicationSystem::SendSpawn(const Registry& registry, NetworkHostResource& host,
+void ReplicationSystem::SendSpawn(Registry& registry, NetworkHostResource& host,
                                   PacketRegistryResource& packetRegistry, Entity entity,
                                   const NetworkComponent& network,
                                   const std::optional<std::uint8_t> slot) {
@@ -858,19 +1368,35 @@ void ReplicationSystem::SendSpawn(const Registry& registry, NetworkHostResource&
     obj["id"] = static_cast<double>(network.networkId);
     obj["authority"] = network.authority;
     obj["prefabPath"] = network.prefabPath;
+    obj["syncTransform"] = network.syncTransform;
+    obj["syncSprite"] = network.syncSprite;
     if (slot.has_value()) {
         obj["slot"] = static_cast<double>(*slot);
     }
+    // Include initial transform so clients can place (and simulate) the
+    // entity even when syncTransform is false (client-side simulation).
+    if (registry.HasComponent<Position>(entity)) {
+        const auto& position = registry.RequireComponent<Position>(entity);
+        obj["x"] = static_cast<int>(std::lround(position.x * 10.0f));
+        obj["y"] = static_cast<int>(std::lround(position.y * 10.0f));
+        obj["z"] = position.z;
+    }
+    if (registry.HasComponent<Rotation>(entity)) {
+        obj["angle"] = static_cast<int>(
+            std::lround(registry.RequireComponent<Rotation>(entity).angle * 10.0f));
+    }
+    if (registry.HasComponent<SpriteComponent>(entity)) {
+        obj["sprite"] = SerializeSpriteState(registry, entity);
+    }
 
-    std::string json;
-    if (glz::write_json(message, json)) {
+    Buffer buffer;
+    if (glz::write_beve(message, buffer)) {
         return;
     }
     const auto packetId = packetRegistry.GetOrRegister("replication_spawn");
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
+    auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, true);
     if (packet != nullptr) {
-        host.SendAllHost(packet, 0);
+        host.SendAllHost(packet, 1);
         m_announcedIds.insert(network.networkId);
     }
 }
@@ -884,17 +1410,21 @@ void ReplicationSystem::SendDespawn(Registry& registry, NetworkHostResource& hos
     glz::generic message = glz::generic::object_t{};
     message.get_object()["id"] = static_cast<double>(networkId);
 
-    std::string json;
-    if (glz::write_json(message, json)) {
+    Buffer buffer;
+    if (glz::write_beve(message, buffer)) {
         return;
     }
     const auto packetId = packetRegistry.GetOrRegister("replication_despawn");
-    auto* packet = NetworkHostResource::CreateRawPacket(
-        packetId, reinterpret_cast<const uint8_t*>(json.data()), json.size(), true);
+    auto* packet = NetworkHostResource::CreateRawPacket(packetId, buffer, true);
     if (packet != nullptr) {
-        host.SendAllHost(packet, 0);
-        m_announcedIds.erase(networkId);
+        // Channel 2: reliable despawns, separate from spawns (channel 1).
+        // A lost despawn won't block spawn packets on channel 1.
+        host.SendAllHost(packet, 2);
+    } else {
+        log_error("[Replication] Failed to allocate despawn packet for network id " +
+                  std::to_string(networkId));
     }
+    m_announcedIds.erase(networkId);
 }
 
 void ReplicationSystem::SendLocalInput(Registry& registry, NetworkHostResource& host,
@@ -908,10 +1438,34 @@ void ReplicationSystem::SendLocalInput(Registry& registry, NetworkHostResource& 
         return;
     }
 
+    ++m_inputSeq;
+
     glz::generic message = glz::generic::object_t{};
     auto& obj = message.get_object();
     obj["id"] = static_cast<double>(*localNetworkId);
+    obj["seq"] = static_cast<double>(m_inputSeq);
     obj["input"] = controller->getNetworkedActiveActions();
+
+    if (const auto localEntity = host.GetLocalEntity();
+        localEntity.has_value() && registry.IsEntityAlive(*localEntity) &&
+        registry.HasComponent<Position>(*localEntity)) {
+        PredictedInput predicted;
+        predicted.seq = m_inputSeq;
+        const auto& position = registry.RequireComponent<Position>(*localEntity);
+        predicted.x = position.x;
+        predicted.y = position.y;
+        if (registry.HasComponent<Rotation>(*localEntity)) {
+            predicted.angle = registry.RequireComponent<Rotation>(*localEntity).angle;
+        }
+        m_predictionHistory.push_back(predicted);
+
+        constexpr std::size_t kMaxPredictionHistory = 120;
+        if (m_predictionHistory.size() > kMaxPredictionHistory) {
+            m_predictionHistory.erase(m_predictionHistory.begin(),
+                                      m_predictionHistory.end() - kMaxPredictionHistory);
+        }
+    }
+
     std::vector<std::byte> buffer{};
 
     if (glz::write_beve(message, buffer)) {

@@ -144,15 +144,17 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         return netHost.Connect(host, static_cast<std::uint16_t>(port)) != nullptr;
     };
 
-    net["on"] = [lua, &registry](const std::string& name, const sol::function& callback) mutable {
+    net["on"] = [luaState = lua.lua_state(), &registry](const std::string& name,
+                                                        const sol::function& callback) mutable {
         auto* packetRegistry = GetPacketRegistry(registry);
         auto* router = GetPacketRouter(registry);
         if (packetRegistry == nullptr || router == nullptr || !callback.valid()) {
             return false;
         }
         const PacketTypeID id = packetRegistry->GetOrRegister(name);
-        router->On(id, [lua, callback](Registry& /*r*/, ENetPeer* peer, const uint8_t* payload,
-                                       const std::size_t size) mutable {
+        router->On(id, [luaState, callback](Registry& /*r*/, ENetPeer* peer, const uint8_t* payload,
+                                            const std::size_t size) mutable {
+            sol::state_view lua(luaState);
             sol::object data = DecodePayload(lua, payload, size);
             auto result = callback(static_cast<void*>(peer), data);
             if (!result.valid()) {
@@ -226,7 +228,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         return true;
     };
 
-    net["onConnect"] = [lua, &registry](sol::object callback) mutable {
+    net["onConnect"] = [&registry](sol::object callback) mutable {
         auto* router = GetPacketRouter(registry);
         if (router == nullptr) {
             return;
@@ -239,7 +241,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!fn.valid()) {
             return;
         }
-        router->m_OnConnect = [lua, fn](Registry& /*r*/, ENetPeer* peer) mutable {
+        router->m_OnConnect = [fn](Registry& /*r*/, ENetPeer* peer) mutable {
             auto result = fn(static_cast<void*>(peer));
             if (!result.valid()) {
                 sol::error err = result;
@@ -248,7 +250,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         };
     };
 
-    net["onDisconnect"] = [lua, &registry](sol::object callback) mutable {
+    net["onDisconnect"] = [&registry](sol::object callback) mutable {
         auto* router = GetPacketRouter(registry);
         if (router == nullptr) {
             return;
@@ -261,7 +263,7 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
         if (!fn.valid()) {
             return;
         }
-        router->m_OnDisconnect = [lua, fn](Registry& /*r*/, ENetPeer* peer) mutable {
+        router->m_OnDisconnect = [fn](Registry& /*r*/, ENetPeer* peer) mutable {
             auto result = fn(static_cast<void*>(peer));
             if (!result.valid()) {
                 sol::error err = result;
@@ -340,6 +342,25 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
 
     // Number of distinct player colors/slots the game supports.
     net["maxPlayers"] = []() { return static_cast<int>(PlayerSlotState::kMaxPlayers); };
+    net["setSnapshotPriority"] = [&registry](Entity entity, int priority) -> bool {
+        if (!registry.IsEntityAlive(entity) ||
+            !registry.IsComponentRegistered<NetworkComponent>()) {
+            return false;
+        }
+        if (!registry.HasComponent<NetworkComponent>(entity)) {
+            return false;
+        }
+        auto& network = registry.RequireComponent<NetworkComponent>(entity);
+        network.snapshotPriority = priority;
+        return true;
+    };
+    net["setMaxPlayers"] = [](int value) {
+        if (value < 1 || value > 255) {
+            return false;
+        }
+        PlayerSlotState::kMaxPlayers = static_cast<std::uint8_t>(value);
+        return true;
+    };
 
     net["entityFromId"] = [&registry](sol::this_state ts, double networkId) -> sol::object {
         sol::state_view lua(ts);
@@ -548,6 +569,10 @@ void registerMultiplayer(const sol::state_view& lua, Registry& registry) {
                                    sol::optional<std::string> prefabPath) -> bool {
         if (!registry.IsEntityAlive(entity) ||
             !registry.IsComponentRegistered<NetworkComponent>()) {
+            return false;
+        }
+        if (registry.HasResource<NetworkHostResource>() &&
+            !registry.GetResource<NetworkHostResource>().IsServer()) {
             return false;
         }
         NetworkComponent network;

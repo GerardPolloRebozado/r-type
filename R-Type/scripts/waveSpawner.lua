@@ -69,6 +69,12 @@ function Script:onCreate(entity)
 end
 
 function Script:onUpdate(entity, dt)
+    if Net ~= nil then
+        if Net.isNetworked() and Net.isServer() == false then
+            return
+        end
+    end
+
     if not dt or dt <= 0 then
         dt = 1.0 / 60.0
     end

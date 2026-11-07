@@ -1,14 +1,11 @@
 -- player.lua
 -- Attached to: Player prefab (networked, authority = Client)
---
 -- One script, three modes:
 --   - Single-player : reads the local controller, moves and animates locally.
 --   - Server        : reads the input received from the owning client through
 --                     Net.input(entity), moves and animates authoritatively.
 --   - Network client: does nothing; the server position/sprite is applied by
 --                     ReplicationSystem. This avoids rubber-banding.
---
--- Shooting lives in playerGun.lua (the Gun child).
 
 Player = {}
 
@@ -69,14 +66,6 @@ local function isNetworked()
     return Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked()
 end
 
--- Only the single-player process and the server simulate the player.
-local function shouldSimulate()
-    if not isNetworked() then
-        return true
-    end
-    return Net.isServer()
-end
-
 local function isLocalPlayer(entity)
     if not isNetworked() then
         return true
@@ -85,6 +74,25 @@ local function isLocalPlayer(entity)
         return Net.isLocal(entity)
     end
     return Net.localEntity ~= nil and Net.localEntity() == entity
+end
+
+-- Single-player and server always simulate. Clients simulate their local
+-- player for responsiveness; server reconciliation corrects any drift.
+local function shouldSimulate(entity)
+    if not isNetworked() then
+        return true
+    end
+    if Net.isServer() then
+        return true
+    end
+    return isLocalPlayer(entity)
+end
+
+local function isAuthority()
+    if not isNetworked() then
+        return true
+    end
+    return Net.isServer()
 end
 
 local function showGameOver()
@@ -148,29 +156,46 @@ local function checkGameOver()
     return true
 end
 
+-- Responsive input: always check local controller OR network input (like main branch)
+-- This ensures the player reacts instantly to keypresses on the client.
+-- Responsive input:
+--   - Single player: controller only
+--   - Server: netInput only (authoritative, ignores local controller)
+--   - Client: controller only (for instant response, server corrects via reconciliation)
 local function readInput(entity)
     local input = {
         UP = false,
         DOWN = false,
         LEFT = false,
-        RIGHT = false
+        RIGHT = false,
     }
-    local netInput = Net.input(entity)
-    if netInput == nil then
-        netInput = input
+
+    -- Single player: controller only
+    if not isNetworked() then
+        if Controller.isActionActive("UP") then input.UP = true end
+        if Controller.isActionActive("DOWN") then input.DOWN = true end
+        if Controller.isActionActive("LEFT") then input.LEFT = true end
+        if Controller.isActionActive("RIGHT") then input.RIGHT = true end
+        return input
     end
-    if Controller.isActionActive("UP") or netInput.UP then
-        input.UP = true
+
+    -- Server: use network input only (not local controller)
+    if Net.isServer() then
+        local netInput = Net.input(entity)
+        if netInput ~= nil then
+            if netInput.UP == true then input.UP = true end
+            if netInput.DOWN == true then input.DOWN = true end
+            if netInput.LEFT == true then input.LEFT = true end
+            if netInput.RIGHT == true then input.RIGHT = true end
+        end
+        return input
     end
-    if Controller.isActionActive("DOWN") or netInput.DOWN then
-        input.DOWN = true
-    end
-    if Controller.isActionActive("LEFT") or netInput.LEFT then
-        input.LEFT = true
-    end
-    if Controller.isActionActive("RIGHT") or netInput.RIGHT then
-        input.RIGHT = true
-    end
+
+    -- Client: local controller for responsiveness
+    if Controller.isActionActive("UP") then input.UP = true end
+    if Controller.isActionActive("DOWN") then input.DOWN = true end
+    if Controller.isActionActive("LEFT") then input.LEFT = true end
+    if Controller.isActionActive("RIGHT") then input.RIGHT = true end
     return input
 end
 
@@ -196,7 +221,7 @@ function Player:onCreate(entity)
     self.lastAppliedActive = self.active
 
     if Net.sync ~= nil then
-        Net.sync(entity, self, { "lives", "active" })
+        Net.sync(entity, self, { "lives", "active", "invulnerabilityTimer" })
     end
 
     Component.setSpritePath(entity, self.sprites.idle)
@@ -205,10 +230,19 @@ function Player:onCreate(entity)
     Component.connect(entity, "onCollisionEnter", entity, "onCollisionEnter")
     Component.setColliderLayer(entity, PLAYER_LAYER)
     Component.setColliderMask(entity, PLAYER_MASK)
+    if isNetworked() and not isAuthority() then
+        Component.setColliderTrigger(entity, true)
+    end
 end
 
 function Player:onUpdate(entity, dt)
     self.isLocal = isLocalPlayer(entity)
+    local simulate = shouldSimulate(entity)
+    local authority = isAuthority()
+
+    if not dt or dt <= 0 then
+        dt = 1.0 / 60.0
+    end
 
     if self.isLocal and self.lives ~= self.lastHudLives then
         if Heart ~= nil and Heart.setLives ~= nil then
@@ -217,38 +251,44 @@ function Player:onUpdate(entity, dt)
         end
     end
 
-    if not shouldSimulate() and self.active ~= self.lastAppliedActive then
-        self.lastAppliedActive = self.active
-        setActive(entity, self.active)
-    end
-
-    -- Networked client: the server owns position and animation for every
-    -- player (including this one). ReplicationSystem applies them.
-    if not shouldSimulate() then
-        return
-    end
-
-    if not dt or dt <= 0 then
-        dt = 1.0 / 60.0
-    end
-
-    if Player.gameOver then
-        return
-    end
-
-    if not self.active then
-        self.respawnTimer = self.respawnTimer - dt
-        local currOpacity = Component.getOpacity(entity)
-        Component.setOpacity(entity, currOpacity == 1.0 and 0.0 or 1.0, true)
-        if self.respawnTimer <= 0.0 and self.lives > 0 then
-            self.active = true
-            self.dead = false
-            self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
-            setActive(entity, true)
+    if authority then
+        if not self.active then
+            self.respawnTimer = self.respawnTimer - dt
+            if self.respawnTimer <= 0.0 and self.lives > 0 then
+                self.active = true
+                self.dead = false
+                self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
+            end
         end
+        self.invulnerabilityTimer = math.max(0.0, self.invulnerabilityTimer - dt)
     end
 
-    self.invulnerabilityTimer = math.max(0.0, self.invulnerabilityTimer - dt)
+    -- Handle client and server visual blinking:
+    -- While inactive (respawning) or invulnerable, blink locally
+    if not self.active then
+        -- Ship is respawning: toggle blinking, cannot move
+        self.blinkTimer = (self.blinkTimer or 0.0) + dt
+        local visible = (math.floor(self.blinkTimer * 10) % 2) == 0
+        Component.setOpacity(entity, visible and 1.0 or 0.0, true)
+        Component.setColliderEnabled(entity, false)
+        return
+    elseif self.invulnerabilityTimer > 0.0 then
+        -- Ship just respawned and is invulnerable: blink quickly
+        -- Player CAN move and shoot during invulnerability
+        -- Timer is synced from server; client only displays it
+        self.blinkTimer = (self.blinkTimer or 0.0) + dt
+        local visible = (math.floor(self.blinkTimer * 12) % 2) == 0
+        Component.setOpacity(entity, visible and 1.0 or 0.3, true)
+        Component.setColliderEnabled(entity, true)
+    else
+        self.blinkTimer = 0.0
+        Component.setOpacity(entity, 1.0, true)
+        Component.setColliderEnabled(entity, true)
+    end
+
+    if not simulate then
+        return
+    end
 
     -- The slot is assigned by the server around spawn time; refresh in case it
     -- was not known yet on the first tick.
@@ -265,7 +305,7 @@ function Player:onUpdate(entity, dt)
     local left = input.LEFT == true
     local right = input.RIGHT == true
 
-    -- Movement
+    -- Movement (always allowed, even during invulnerability)
     local dx, dy = 0.0, 0.0
     if left then
         dx = dx - 1.0
@@ -319,7 +359,7 @@ function Player:collisionTest(one, two)
 end
 
 function Player:onCollisionEnter(this, other)
-    if not shouldSimulate() or not self.active or self.invulnerabilityTimer > 0.0 or Player.gameOver then
+    if not shouldSimulate(this) or not self.active or self.invulnerabilityTimer > 0.0 or Player.gameOver then
         return
     end
 
@@ -328,10 +368,24 @@ function Player:onCollisionEnter(this, other)
         return
     end
 
+    -- Server is authoritative on damage: clients wait for server to apply it
+    if isNetworked() and not Net.isServer() then
+        return
+    end
+
     self.lives = math.max(0, self.lives - 1)
-    self.active = false
-    self.dead = self.lives == 0
-    self.respawnTimer = self.dead and 0.0 or Player.RESPAWN_DELAY
+
+    if self.lives == 0 then
+        -- Player died: cannot move, wait for respawn
+        self.dead = true
+        self.active = false
+        self.respawnTimer = Player.RESPAWN_DELAY
+    else
+        -- Damaged but alive: become invulnerable, keep moving and shooting
+        self.invulnerabilityTimer = Player.INVULNERABILITY_DURATION
+        self.active = true
+    end
+
     setActive(this, false)
 
     if layer == "EnemyBullet" then

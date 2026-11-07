@@ -47,35 +47,6 @@ local function TrailPointAt(trail, dist)
     return nil
 end
 
-local function UpdateProjectiles(self, dt)
-    for i = #self.projectiles, 1, -1 do
-        local projectile = self.projectiles[i]
-        Transform.translate(projectile.entity, -PROJECTILE_SPEED * dt, 0)
-
-        projectile.timer = projectile.timer - dt
-        local position = Transform.getPosition(projectile.entity)
-        local outsideScreen = false
-        if Camera ~= nil and Camera.viewport ~= nil then
-            local viewport = Camera.viewport()
-            outsideScreen = position.x < viewport.x - SCREEN_MARGIN or
-                    position.x > viewport.x + viewport.width + SCREEN_MARGIN or
-                    position.y < viewport.y - SCREEN_MARGIN or
-                    position.y > viewport.y + viewport.height + SCREEN_MARGIN
-        end
-        if projectile.timer <= 0.0 or outsideScreen then
-            Entity.destroy(projectile.entity)
-            table.remove(self.projectiles, i)
-        end
-    end
-end
-
-local function DestroyProjectiles(self)
-    for _, projectile in ipairs(self.projectiles) do
-        Entity.destroy(projectile.entity)
-    end
-    self.projectiles = {}
-end
-
 function Bullet:onCreate(sprites, speed, lifetime, hitsRemaining, direction, startX, startY)
     self.sprites = sprites
     self.speed = speed
@@ -86,7 +57,22 @@ function Bullet:onCreate(sprites, speed, lifetime, hitsRemaining, direction, sta
     self.startY = startY
     self.entity = entity
 
-
+    -- On clients, spawn enemy bullets locally from the server's spawn event.
+    if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() and not Net.isServer() then
+        Net.on("spawn_bullet", function(peer, data)
+            local x = data.x
+            local y = data.y
+            local e = Entity.create()
+            Transform.setPosition(e, x, y)
+            Component.addSprite(e, PROJECTILE_SPRITE, 0, 0, 4.0, 4.0)
+            Component.setSpriteFlip(e, true)
+            Component.addBoxCollider(e, 32, 32)
+            Component.setColliderLayer(e, "EnemyBullet")
+            Component.setColliderMask(e, Layers.bit("Player") + Layers.bit("Wall"))
+            Component.setOpacity(e, 1.0)
+            Component.addScript(e, "scripts/bulletProjectile.lua", true)
+        end)
+    end
 end
 
 function Bullet:onUpdate(entity, dt)
@@ -97,8 +83,6 @@ function Bullet:onUpdate(entity, dt)
     if not dt or dt <= 0 then
         dt = 1.0 / 60.0
     end
-
-    UpdateProjectiles(self, dt)
 
     if self.linkIndex ~= nil and self.trailKey ~= nil then
         local bus = _PataTrails
@@ -168,40 +152,26 @@ function Bullet:onCollisionEnter(this, other)
 end
 
 function Bullet:fireProjectile()
-    local projectileEntity = Entity.create()
     local enemyPos = Transform.getPosition(self.entity)
+    local x = enemyPos.x - 24
+    local y = enemyPos.y
 
-    Transform.setPosition(projectileEntity, enemyPos.x - 24, enemyPos.y)
+    local projectileEntity = Entity.create()
+    Transform.setPosition(projectileEntity, x, y)
     Component.addSprite(projectileEntity, PROJECTILE_SPRITE, 0, 0, 4.0, 4.0)
     Component.setSpriteFlip(projectileEntity, true)
     Component.addBoxCollider(projectileEntity, 32, 32)
     Component.setColliderLayer(projectileEntity, "EnemyBullet")
     Component.setColliderMask(projectileEntity, Layers.bit("Player") + Layers.bit("Wall"))
     Component.setOpacity(projectileEntity, 1.0)
-    Component.connect(projectileEntity, "onCollisionEnter", self.entity, "onProjectileHit")
+    Component.addScript(projectileEntity, "scripts/bulletProjectile.lua", true)
 
-    if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
-        Net.replicate(projectileEntity, "Server", true, true)
-    end
-
-    table.insert(self.projectiles, {
-        entity = projectileEntity,
-        timer = PROJECTILE_LIFETIME,
-    })
-end
-
-function Bullet:onProjectileHit(projectile, other)
-    Entity.queueDestroy(projectile)
-    for i = #self.projectiles, 1, -1 do
-        if self.projectiles[i].entity == projectile then
-            table.remove(self.projectiles, i)
-            break
-        end
+    if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() and Net.isServer() then
+        Net.broadcast("spawn_bullet", { x = x, y = y }, true, 1)
     end
 end
 
 function Bullet:onDestroy(entity)
-    DestroyProjectiles(self)
 end
 
 return Bullet

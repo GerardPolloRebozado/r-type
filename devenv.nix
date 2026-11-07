@@ -9,17 +9,18 @@
 {
   # https://devenv.sh/basics/
   env.GREET = "devenv";
-  env.LD_LIBRARY_PATH = lib.makeLibraryPath [
-    pkgs.libpulseaudio
-    pkgs.alsa-lib
-    pkgs.libGL
-    pkgs.xorg.libX11
-    pkgs.xorg.libXrandr
-    pkgs.xorg.libXi
-    pkgs.xorg.libXcursor
-    pkgs.wayland
-    pkgs.lua5_4
-  ];
+env.LD_LIBRARY_PATH = lib.makeLibraryPath [
+  pkgs.libglvnd
+  pkgs.libpulseaudio
+  pkgs.alsa-lib
+  pkgs.xorg.libX11
+  pkgs.xorg.libXrandr
+  pkgs.xorg.libXi
+  pkgs.xorg.libXcursor
+  pkgs.wayland
+  pkgs.lua5_4
+] + ":/run/opengl-driver/lib";
+
 
   # https://devenv.sh/packages/
   packages = [

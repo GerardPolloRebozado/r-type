@@ -116,6 +116,7 @@ function Enemy:onCreate(entity)
 
     if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
         Net.replicate(entity, "Server", true, true)
+        Net.setSnapshotPriority(entity, 2)
     end
 
     self.linkIndex = nil
@@ -141,6 +142,16 @@ function Enemy:onUpdate(entity, dt)
 
     if not dt or dt <= 0 then
         dt = 1.0 / 60.0
+    end
+
+    -- Despawn enemy when it goes past the right edge of the screen
+    local position = Transform.getPosition(entity)
+    if Camera ~= nil and Camera.viewport ~= nil then
+        local viewport = Camera.viewport()
+        if position.x > viewport.x + viewport.width + SCREEN_MARGIN then
+            Entity.queueDestroy(entity)
+            return
+        end
     end
 
     UpdateProjectiles(self, dt)
