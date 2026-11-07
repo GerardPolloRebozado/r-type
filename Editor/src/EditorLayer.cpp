@@ -272,11 +272,14 @@ void EditorLayer::ClearScene() const {
 
 void EditorLayer::OpenScene(const std::string& path) {
     ClearScene();
-    // No config: the project settings already loaded (window, input map...)
-    // stay as they are instead of being replaced by this scene's copy.
+    const EditorConfig previous = *m_Configuration;
     Serialization::SceneSerializer serializer;
-    if (!serializer.Deserialize(path, *m_Registry, std::nullopt)) {
+    if (!serializer.Deserialize(path, *m_Registry, *m_Configuration)) {
         log_error("[Editor] Could not read scene " + path + ". Opened it empty.");
+    } else {
+        const std::vector<Engine::WaveDefinition> sceneWaves = m_Configuration->m_Waves;
+        *m_Configuration = previous;
+        m_Configuration->m_Waves = sceneWaves;
     }
     m_Configuration->m_ActiveScenePath = path;
     MarkSceneSaved();
