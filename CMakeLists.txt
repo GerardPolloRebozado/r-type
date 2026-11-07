@@ -131,6 +131,7 @@ if (NOT EDITOR_BUILD)
     add_subdirectory(Editor)
     add_subdirectory(Tools)
     add_subdirectory(Games)
+    add_subdirectory(BroomBroomFast)
     add_subdirectory(Tests)
 endif ()
 
