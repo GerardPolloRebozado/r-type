@@ -77,6 +77,8 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Systems/WaveSpawnerSystem.cpp
         src/Resources/NetworkHostResource.cpp
+        src/Network/UdpServer.cpp
+        src/Network/UdpClient.cpp
         src/Resources/SceneManager.cpp
         src/Systems/MultiplayerSystem.cpp
         src/Systems/ReplicationSystem.cpp
@@ -140,6 +142,10 @@ set(INC_FILES
         include/Plugins/OpacityPlugin.hpp
         include/Plugins/SignalPlugin.hpp
         include/Resources/NetworkHostResource.hpp
+        include/Network/UdpServer.hpp
+        include/Network/UdpClient.hpp
+        include/Network/UdpPacket.hpp
+        include/Network/ByteStream.hpp
         include/Resources/PlayerInputState.hpp
         include/Resources/PlayerSlotState.hpp
         include/Resources/PrefabSpawner.hpp
