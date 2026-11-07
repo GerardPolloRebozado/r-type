@@ -31,6 +31,7 @@
 #include "Scripting/LuaAPI/Plugins/ShapeAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/SpriteAPI.hpp"
 #include "Scripting/LuaAPI/Plugins/TextAPI.hpp"
+#include "Scripting/LuaAPI/PoolAPI.hpp"
 #include "Scripting/LuaAPI/SceneAPI.hpp"
 #include "Scripting/LuaAPI/TimeAPI.hpp"
 #include "Scripting/LuaAPI/WaveAPI.hpp"
@@ -62,6 +63,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerPosition(lua, registry);
     registerRotation(lua, registry);
     registerSprite(lua, registry);
+    registerAnimation(lua, registry);
     registerShape(lua, registry);
     registerText(lua, registry);
     registerCollider(lua, registry);
@@ -75,6 +77,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerAudio(lua, registry);
     registerAnimation(lua, registry);
     registerWave(lua, registry);
+    registerPool(lua, registry);
 
     // Command-line arguments, published as the Lua global `arg` (1-indexed) so
     // scripts can pick a run mode without any game logic in C++.

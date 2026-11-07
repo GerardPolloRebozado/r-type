@@ -4,6 +4,7 @@
 #include "Components/Position.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
+#include "Resources/NetworkHostResource.hpp"
 #include "Resources/PrefabSpawner.hpp"
 #include "Resources/WaveSchedule.hpp"
 #include "Utils/WavePatterns.hpp"
@@ -41,6 +42,13 @@ void SetPosition(Registry& registry, Entity entity, float x, float y) {
 } // namespace
 
 void WaveSpawnerSystem::Update(Registry& registry, float dt) {
+    // Waves are server-authoritative. A networked client receives the spawned
+    // entities through replication; spawning them locally too would duplicate
+    // every enemy (and those local copies are never despawned by the server).
+    if (registry.HasResource<Multiplayer::NetworkHostResource>() &&
+        !registry.GetResource<Multiplayer::NetworkHostResource>().IsServer()) {
+        return;
+    }
     if (!registry.HasResource<WaveSchedule>() || !registry.HasResource<PrefabSpawner>()) {
         return;
     }

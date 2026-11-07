@@ -94,8 +94,16 @@ jobs:
 
           cmake "${args[@]}"
 
+      - name: Configure R-Type game
+        run: |
+          set -euo pipefail
+          cmake -S R-Type -B R-Type/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
       - name: Build Engine and RTypeEditor
         run: cmake --build "$BUILD_DIR" --target Engine RTypeEditor --parallel
+
+      - name: Build R-Type game
+        run: cmake --build R-Type/build --parallel
 
       - name: Package
         env:
@@ -133,6 +141,11 @@ jobs:
             if [ -n "$lua_ref" ]; then
               cp -L "$lua_ref" "$DIST_DIR/$editor_pkg/lib/$(basename "$lua_ref")"
             fi
+          fi
+
+          # Copy R-Type game binary
+          if [ -f "R-Type/build/Game" ]; then
+            cp "R-Type/build/Game" "$DIST_DIR/$editor_pkg/bin/"
           fi
 
           tar -czf "$DIST_DIR/$editor_pkg.tar.gz" -C "$DIST_DIR" "$editor_pkg"
@@ -221,6 +234,11 @@ jobs:
           cp "$BUILD_DIR/Engine/libEngine.a" "$DIST_DIR/$engine_pkg/lib/"
           cp -R Engine/include/. "$DIST_DIR/$engine_pkg/include/"
           find "$BUILD_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$DIST_DIR/$editor_pkg/bin/" \;
+
+          # Copy R-Type game binary
+          if [ -f "R-Type/build/Game.exe" ]; then
+            cp "R-Type/build/Game.exe" "$DIST_DIR/$editor_pkg/bin/"
+          fi
 
           (cd "$DIST_DIR" && cmake -E tar cf "$editor_pkg.zip" --format=zip "$editor_pkg")
           (cd "$DIST_DIR" && cmake -E tar cf "$engine_pkg.zip" --format=zip "$engine_pkg")

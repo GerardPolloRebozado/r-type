@@ -2,6 +2,7 @@
 #include "Components/Position.hpp"
 #include "ECS/LayeredRenderSystem.hpp"
 #include "Systems/CameraSystem.hpp"
+#include "Systems/ReplicationSystem.hpp"
 #include <algorithm>
 #include <raylib.h>
 #include <tuple>
@@ -31,15 +32,14 @@ void DrawLayered(Registry& registry, bool screenSpace) {
     }
 
     std::vector<LayeredDraw> draws;
-    for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        Entity entity{i};
-        if (!registry.HasComponent<Position>(entity)) {
-            continue;
-        }
-        int const z = registry.RequireComponent<Position>(entity).z;
-        for (size_t order = 0; order < layeredSystems.size(); ++order) {
-            if (layeredSystems[order]->CanDraw(registry, entity, screenSpace)) {
-                draws.push_back({z, order, entity, layeredSystems[order]});
+    if (registry.IsComponentRegistered<Position>()) {
+        auto posArray = registry.GetComponentArray<Position>();
+        for (const auto& [entity, pos] : *posArray) {
+            int const z = pos.z;
+            for (size_t order = 0; order < layeredSystems.size(); ++order) {
+                if (layeredSystems[order]->CanDraw(registry, entity, screenSpace)) {
+                    draws.push_back({z, order, entity, layeredSystems[order]});
+                }
             }
         }
     }
@@ -63,6 +63,15 @@ void RenderScene(Registry& registry, float viewportWidth, float viewportHeight,
         BeginMode2D(*cameraOverride);
     } else {
         BeginMode2D(CameraSystem::GetActiveCamera(registry, viewportWidth, viewportHeight));
+    }
+    // Interpolate replicated transforms before drawing so 20 Hz snapshots
+    // read as smooth motion at any frame rate.
+    if (registry.GetSystems().contains(typeid(Engine::Multiplayer::ReplicationSystem))) {
+        auto* repl = dynamic_cast<Engine::Multiplayer::ReplicationSystem*>(
+            registry.GetSystems().at(typeid(Engine::Multiplayer::ReplicationSystem)).get());
+        if (repl) {
+            repl->Interpolate(registry);
+        }
     }
     DrawLayered(registry, false);
 

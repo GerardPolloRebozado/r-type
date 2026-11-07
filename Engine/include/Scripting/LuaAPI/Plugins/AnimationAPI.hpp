@@ -1,33 +1,41 @@
-#ifndef ENGINE_SCRIPTING_LUAAPI_PLUGINS_ANIMATIONAPI_HPP_
-#define ENGINE_SCRIPTING_LUAAPI_PLUGINS_ANIMATIONAPI_HPP_
+#ifndef ENGINE_SCRIPTING_LUAAPI_ANIMATIONAPI_HPP_
+#define ENGINE_SCRIPTING_LUAAPI_ANIMATIONAPI_HPP_
 
 namespace sol {
 class state_view;
 }
-
 namespace Engine {
 class Registry;
 }
 
 namespace Engine::LuaAPI {
 /**
- * @brief Registers animation bindings in the `Animation` / `Component` namespace.
- *        Mirrors Engine's AnimationPlugin / Animation component.
+ * @brief Registers the animation bindings in the `Component` namespace.
+ *        Mirrors Engine's AnimationPlugin / AnimationComponent.
  *
- * Exposes:
- *   - `Animation.play(entity, clipName [, restartIfSame])` -> bool
- *   - `Animation.getCurrent(entity)` -> string or nil
- *   - `Animation.isPlaying(entity)` -> bool
- *   - `Animation.pause(entity)` -> bool
- *   - `Animation.resume(entity)` -> bool
- *   - `Animation.setFlip(entity, flipX [, flipY])` -> bool
- *   - `Animation.getFlip(entity)` -> {flipX, flipY} table or nil
+ * Getters return nil (or false) when the entity has no Animation component.
+ * The clip state is advanced by AnimationSystem; scripts only pick a clip and
+ * toggle playback.
+ *
+ *   - `Component.addAnimation(entity, pathsOrSheet [, frameWidth, frameHeight,
+ *     totalFrames, frameDuration, loop])` -> bool
  *   - `Component.playAnimation(entity, clipName [, restartIfSame])` -> bool
+ *   - `Component.getAnimation(entity)` -> clip name or nil
+ *   - `Component.getAnimationClips(entity)` -> `{name1, name2, ...}` or nil
+ *   - `Component.setAnimationPlaying(entity, playing)` -> bool
+ *   - `Component.isAnimationPlaying(entity)` -> bool
+ *   - `Component.getAnimationFrame(entity)` -> frame index or nil
+ *   - `Component.setAnimationFlip(entity, flipX [, flipY])` -> bool
+ *   - `Component.getAnimationFlip(entity)` -> `{flipX = bool, flipY = bool}` or nil
+ *
+ * `pathsOrSheet` is either a table of frame image paths (one clip from
+ * multiple files) or a single spritesheet path sliced with `frameWidth` and
+ * `frameHeight`.
  *
  * @param lua View of the shared Lua state.
- * @param registry ECS registry holding the entities and Animation components.
+ * @param registry ECS registry; also owns the AssetManager resource.
  */
 void registerAnimation(sol::state_view lua, Registry& registry);
 } // namespace Engine::LuaAPI
 
-#endif // ENGINE_SCRIPTING_LUAAPI_PLUGINS_ANIMATIONAPI_HPP_
+#endif // ENGINE_SCRIPTING_LUAAPI_ANIMATIONAPI_HPP_

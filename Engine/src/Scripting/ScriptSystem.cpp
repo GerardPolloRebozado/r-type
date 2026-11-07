@@ -4,7 +4,9 @@
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include "Scripting/LuaAPI.hpp"
+#include "Scripting/LuaBinder.hpp"
 #include "Scripting/ScriptComponent.hpp"
+#include <algorithm>
 #include <filesystem>
 #include <vector>
 
@@ -17,18 +19,40 @@ ScriptSystem::~ScriptSystem() = default;
 std::unordered_set<std::string> ScriptSystem::s_warnedMissingScripts;
 
 void ScriptSystem::Update(Registry& registry, float dt) {
-    if (registry.HasResource<EditorMode>()) {
-        return;
-    }
     if (!apiRegistered) {
         lua.open_libraries();
         LuaAPI::registerEngineAPI(lua.lua_state(), registry);
+        // Plugins such as UI register here, once, after the engine API.
+        // The editor needs this too, so a placed widget can be previewed.
+        if (registry.HasResource<LuaBinder>()) {
+            auto& modules = registry.GetResource<LuaBinder>().modules;
+            for (size_t i = 0; i < modules.size(); ++i) {
+                if (modules[i]) {
+                    modules[i](lua, registry);
+                }
+            }
+        }
         apiRegistered = true;
     }
+    if (registry.HasResource<EditorMode>()) {
+        return;
+    }
 
-    for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
-        Entity entity{i};
-        if (!registry.HasComponent<ScriptComponent>(entity)) {
+    if (!registry.IsComponentRegistered<ScriptComponent>()) {
+        return;
+    }
+    auto scriptArray = registry.GetComponentArray<ScriptComponent>();
+
+    // Collect and sort entity IDs so script load/update order is deterministic across all platforms
+    std::vector<Entity> entities;
+    entities.reserve(scriptArray->size());
+    for (const auto& [entityId, scriptRef] : *scriptArray) {
+        entities.push_back(entityId);
+    }
+    std::sort(entities.begin(), entities.end());
+
+    for (Entity entity : entities) {
+        if (!registry.IsEntityAlive(entity)) {
             continue;
         }
 
@@ -48,7 +72,7 @@ void ScriptSystem::Update(Registry& registry, float dt) {
                 if (!result.valid()) {
                     sol::error err = result;
                     log_user_error(std::string("[ScriptSystem] onUpdate error (entity ") +
-                              std::to_string(entity) + "): " + err.what());
+                                   std::to_string(entity) + "): " + err.what());
                 }
             }
         }
@@ -96,7 +120,7 @@ void ScriptSystem::loadScript(Registry& registry, Entity entity) {
         if (!callResult.valid()) {
             sol::error err = callResult;
             log_user_error(std::string("[ScriptSystem] onCreate error (entity ") +
-                      std::to_string(entity) + "): " + err.what());
+                           std::to_string(entity) + "): " + err.what());
         }
     }
 
@@ -115,12 +139,20 @@ void ScriptSystem::unloadScript(Registry& registry, Entity entity) {
             if (!result.valid()) {
                 sol::error err = result;
                 log_user_error(std::string("[ScriptSystem] onDestroy error (entity ") +
-                          std::to_string(entity) + "): " + err.what());
+                               std::to_string(entity) + "): " + err.what());
             }
         }
         script.scriptTable = sol::lua_nil;
         script.loaded = false;
     }
+}
+
+sol::state_view ScriptSystem::GetLua() {
+    return lua;
+}
+
+bool ScriptSystem::IsApiReady() const {
+    return apiRegistered;
 }
 
 void ScriptSystem::OnSceneUnloaded(Registry& registry) {

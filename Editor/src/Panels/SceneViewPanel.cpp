@@ -6,10 +6,17 @@
 #include "EditorConfig.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include "Systems/CameraSystem.hpp"
+#include "UI/UiCatalog.hpp"
+#include "UI/UiComponent.hpp"
+#include "UI/UiSystem.hpp"
 #include <algorithm>
 #include <cmath>
 #include <imgui.h>
+#include <memory>
 #include <rlImGui.h>
+#include <string>
+#include <typeindex>
+#include <vector>
 
 namespace Editor {
 
@@ -19,6 +26,11 @@ constexpr float kMinEditorZoom = 0.1f;
 constexpr float kMaxEditorZoom = 10.0f;
 constexpr ImU32 kGameViewFillColor = IM_COL32(120, 200, 255, 16);
 constexpr ImU32 kGameViewBorderColor = IM_COL32(140, 210, 255, 200);
+// Child windows draw above the scene and take hover from it. These ignore the mouse,
+// so the camera and the gizmo keep working through them.
+constexpr ImGuiWindowFlags kOverlayFlags =
+    ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
+    ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings;
 } // namespace
 
 void SceneViewPanel::InitEditorCamera(Engine::Registry& registry, float viewWidth,
@@ -134,6 +146,33 @@ static bool IsPointInRect(const ImVec2& pt, const ImVec2& min, const ImVec2& max
     return pt.x >= min.x && pt.x <= max.x && pt.y >= min.y && pt.y <= max.y;
 }
 
+std::string SceneViewPanel::PickPreviewPage(Engine::Registry& registry) {
+    const std::vector<std::string> pages = Engine::ListUiPages(registry);
+    Engine::Entity selected = static_cast<Engine::Entity>(-1);
+    std::string selectedPage;
+
+    if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
+        selected = registry.GetResource<HierarchyPanelSelectedEntity>().entity;
+    }
+    if (selected != static_cast<Engine::Entity>(-1) && registry.IsEntityAlive(selected)) {
+        selectedPage = Engine::UiPageOf(registry, selected);
+        if (!Engine::FindUiPageScreen(registry, selectedPage).has_value()) {
+            selectedPage.clear();
+        }
+    }
+    if (selected != m_PreviewSelection || selectedPage != m_PreviewSelectionPage) {
+        m_PreviewSelection = selected;
+        m_PreviewSelectionPage = selectedPage;
+        if (!selectedPage.empty()) {
+            m_PreviewPage = selectedPage;
+        }
+    }
+    if (std::find(pages.begin(), pages.end(), m_PreviewPage) == pages.end()) {
+        m_PreviewPage = selectedPage.empty() ? Engine::StartUiPage(registry) : selectedPage;
+    }
+    return m_PreviewPage;
+}
+
 void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     if (ImGui::Begin(m_Name.c_str())) {
@@ -178,7 +217,11 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             return GetScreenToWorld2D(
                 {(x - textureScreenPos.x) / scaleX, (y - textureScreenPos.y) / scaleY}, cam);
         };
-        if (ImGui::IsItemHovered()) {
+        // The page preview is a child window, so hovering it does not hover the image item.
+        const bool sceneHovered =
+            ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) &&
+            ImGui::IsMouseHoveringRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+        if (sceneHovered) {
             const float wheel = ImGui::GetIO().MouseWheel;
             if (wheel != 0.0f) {
                 const ImVec2 mouse = ImGui::GetMousePos();
@@ -197,6 +240,10 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
             }
         }
 
+        // Bounding box of the game view, where the previewed page is drawn.
+        bool hasGameView = false;
+        ImVec2 gameViewMin{0.0f, 0.0f};
+        ImVec2 gameViewMax{0.0f, 0.0f};
         if (registry.HasResource<Engine::VirtualResolution>()) {
             const auto& canvas = registry.GetResource<Engine::VirtualResolution>();
             const int canvasWidth = canvas.GetWidth();
@@ -212,11 +259,96 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 ImDrawList* overlay = ImGui::GetWindowDrawList();
                 overlay->AddConvexPolyFilled(gameView, 4, kGameViewFillColor);
                 overlay->AddPolyline(gameView, 4, kGameViewBorderColor, 2.0f, ImDrawFlags_Closed);
+                gameViewMin = gameView[0];
+                gameViewMax = gameView[0];
+                for (const ImVec2& corner : gameView) {
+                    gameViewMin = ImVec2(std::min(gameViewMin.x, corner.x),
+                                         std::min(gameViewMin.y, corner.y));
+                    gameViewMax = ImVec2(std::max(gameViewMax.x, corner.x),
+                                         std::max(gameViewMax.y, corner.y));
+                }
+                hasGameView = gameViewMax.x > gameViewMin.x && gameViewMax.y > gameViewMin.y;
+            }
+        }
+        std::shared_ptr<Engine::UiSystem> uiSystem;
+        std::vector<std::string> pages;
+        std::string previewPage;
+        if (registry.IsComponentRegistered<Engine::UiComponent>()) {
+            const auto& systems = registry.GetSystems();
+            const auto found = systems.find(typeid(Engine::UiSystem));
+            if (found != systems.end()) {
+                uiSystem = std::static_pointer_cast<Engine::UiSystem>(found->second);
+            }
+            pages = Engine::ListUiPages(registry);
+            previewPage = PickPreviewPage(registry);
+        }
+        if (uiSystem && hasGameView && !previewPage.empty()) {
+            ImGui::SetCursorScreenPos(textureScreenPos);
+            ImGui::BeginChild("##ui-page-preview", drawSize, ImGuiChildFlags_None, kOverlayFlags);
+            uiSystem->DrawPagePreview(registry, previewPage, gameViewMin.x, gameViewMin.y,
+                                      gameViewMax.x - gameViewMin.x, gameViewMax.y - gameViewMin.y);
+            ImGui::EndChild();
+        }
+        // Standalone widgets and the gizmo go in a later child, so they stay above the page.
+        ImGui::SetCursorScreenPos(textureScreenPos);
+        ImGui::BeginChild("##scene-overlay", drawSize, ImGuiChildFlags_None, kOverlayFlags);
+        Engine::Entity selectedEntity = static_cast<Engine::Entity>(-1);
+        ImVec2 selectedWidgetMin{0.0f, 0.0f};
+        ImVec2 selectedWidgetMax{0.0f, 0.0f};
+        bool selectedWidgetHit = false;
+        if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
+            selectedEntity = registry.GetResource<HierarchyPanelSelectedEntity>().entity;
+        }
+        if (uiSystem) {
+            std::size_t index = 0;
+
+            for (index = 0; index < registry.GetEntityCount(); ++index) {
+                Engine::Entity uiEntity{static_cast<Engine::Entity>(index)};
+                const Engine::UiTemplateInfo* info = nullptr;
+
+                if (!registry.IsEntityAlive(uiEntity) ||
+                    !registry.HasComponent<Engine::UiComponent>(uiEntity) ||
+                    !registry.HasComponent<Engine::Position>(uiEntity)) {
+                    continue;
+                }
+                const auto& ui = registry.RequireComponent<Engine::UiComponent>(uiEntity);
+                info = Engine::FindUiTemplate(ui.templateName);
+                if (info == nullptr || !Engine::IsUiWidget(*info) ||
+                    Engine::FindUiScreenParent(registry, uiEntity).has_value() ||
+                    (!ui.showOn.empty() && ui.showOn != previewPage)) {
+                    continue;
+                }
+                ImGui::SetCursorScreenPos(
+                    worldToView(camera, registry.RequireComponent<Engine::Position>(uiEntity).x,
+                                registry.RequireComponent<Engine::Position>(uiEntity).y));
+                uiSystem->DrawInPlace(registry, uiEntity);
+                if (uiEntity == selectedEntity) {
+                    selectedWidgetMin = ImGui::GetItemRectMin();
+                    selectedWidgetMax = ImGui::GetItemRectMax();
+                    selectedWidgetHit = selectedWidgetMax.x > selectedWidgetMin.x &&
+                                        selectedWidgetMax.y > selectedWidgetMin.y;
+                }
+                // A template that failed to draw submitted no item, and ImGui asserts on
+                // a cursor moved past the content with nothing after it.
+                ImGui::Dummy(ImVec2(0.0f, 0.0f));
             }
         }
         if (registry.HasResource<HierarchyPanelSelectedEntity>()) {
             auto& selected = registry.GetResource<HierarchyPanelSelectedEntity>();
-            if (selected.entity != -1 && registry.HasComponent<Engine::Position>(selected.entity)) {
+            const Engine::UiTemplateInfo* selectedUi = nullptr;
+            bool uiGizmo = false;
+            bool skipGizmo = false;
+            if (selected.entity != -1 && registry.IsComponentRegistered<Engine::UiComponent>() &&
+                registry.HasComponent<Engine::UiComponent>(selected.entity)) {
+                selectedUi = Engine::FindUiTemplate(
+                    registry.RequireComponent<Engine::UiComponent>(selected.entity).templateName);
+                skipGizmo = selectedUi != nullptr &&
+                            (Engine::IsUiScreen(*selectedUi) ||
+                             Engine::FindUiScreenParent(registry, selected.entity).has_value());
+                uiGizmo = selectedUi != nullptr && Engine::IsUiWidget(*selectedUi) && !skipGizmo;
+            }
+            if (!skipGizmo && selected.entity != -1 &&
+                registry.HasComponent<Engine::Position>(selected.entity)) {
                 auto& pos = registry.RequireComponent<Engine::Position>(selected.entity);
 
                 // Map game coordinates to screen coordinates inside the Scene view
@@ -232,14 +364,17 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 ImVec2 yEnd = ImVec2(entityScreenPos.x, entityScreenPos.y + arrowLen);
 
                 // Define hitboxes
-                ImVec2 centerMin = ImVec2(entityScreenPos.x - 10, entityScreenPos.y - 10);
-                ImVec2 centerMax = ImVec2(entityScreenPos.x + 10, entityScreenPos.y + 10);
+                const float centerPad = uiGizmo ? 14.0f : 10.0f;
+                ImVec2 centerMin =
+                    ImVec2(entityScreenPos.x - centerPad, entityScreenPos.y - centerPad);
+                ImVec2 centerMax =
+                    ImVec2(entityScreenPos.x + centerPad, entityScreenPos.y + centerPad);
 
-                ImVec2 xMin = ImVec2(entityScreenPos.x + 10, entityScreenPos.y - 10);
+                ImVec2 xMin = ImVec2(entityScreenPos.x + centerPad, entityScreenPos.y - 10);
                 ImVec2 xMax =
                     ImVec2(entityScreenPos.x + arrowLen + headSize, entityScreenPos.y + 10);
 
-                ImVec2 yMin = ImVec2(entityScreenPos.x - 10, entityScreenPos.y + 10);
+                ImVec2 yMin = ImVec2(entityScreenPos.x - 10, entityScreenPos.y + centerPad);
                 ImVec2 yMax =
                     ImVec2(entityScreenPos.x + 10, entityScreenPos.y + arrowLen + headSize);
 
@@ -247,21 +382,23 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 bool hoveringX = IsPointInRect(mousePos, xMin, xMax);
                 bool hoveringY = IsPointInRect(mousePos, yMin, yMax);
                 bool hoveringCenter = IsPointInRect(mousePos, centerMin, centerMax);
+                bool hoveringWidget = uiGizmo && selectedWidgetHit &&
+                                      IsPointInRect(mousePos, selectedWidgetMin, selectedWidgetMax);
 
-                // Check rotation ring hitbox
+                // Rotation does nothing on an ImGui widget, and the ring sat on top of the button.
                 float rotRingRadius = 60.0f;
                 float rotRingThickness = 5.0f;
                 float distToCenter =
                     std::hypot(mousePos.x - entityScreenPos.x, mousePos.y - entityScreenPos.y);
                 bool hoveringRot = false;
-                if (registry.HasComponent<Engine::Rotation>(selected.entity)) {
+                if (!uiGizmo && registry.HasComponent<Engine::Rotation>(selected.entity)) {
                     if (distToCenter >= rotRingRadius - rotRingThickness &&
                         distToCenter <= rotRingRadius + rotRingThickness) {
                         hoveringRot = true;
                     }
                 }
 
-                if (ImGui::IsWindowHovered()) {
+                if (sceneHovered) {
                     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                         m_DragCamera = camera;
                         if (hoveringRot) {
@@ -269,10 +406,11 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                             // Calculate initial angle to mouse
                             float dx = mousePos.x - entityScreenPos.x;
                             float dy = mousePos.y - entityScreenPos.y;
-                            auto& rot = registry.RequireComponent<Engine::Rotation>(selected.entity);
+                            auto& rot =
+                                registry.RequireComponent<Engine::Rotation>(selected.entity);
                             m_InitialDragAngle = std::atan2(dy, dx) * (180.0f / 3.1415926535f);
                             m_InitialEntityAngle = rot.angle;
-                        } else if (hoveringCenter) {
+                        } else if (hoveringCenter || hoveringWidget) {
                             m_GizmoState = GizmoState::DraggingBoth;
                             m_DragOffset[0] = entityScreenPos.x - mousePos.x;
                             m_DragOffset[1] = entityScreenPos.y - mousePos.y;
@@ -328,9 +466,10 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 ImU32 colY = (hoveringY || m_GizmoState == GizmoState::DraggingY)
                                  ? IM_COL32(100, 255, 100, 255)
                                  : IM_COL32(50, 200, 50, 255);
-                ImU32 colC = (hoveringCenter || m_GizmoState == GizmoState::DraggingBoth)
-                                 ? IM_COL32(255, 255, 100, 255)
-                                 : IM_COL32(200, 200, 50, 255);
+                ImU32 colC =
+                    (hoveringCenter || hoveringWidget || m_GizmoState == GizmoState::DraggingBoth)
+                        ? IM_COL32(255, 255, 100, 255)
+                        : IM_COL32(200, 200, 50, 255);
 
                 // Draw X Arrow (Red)
                 drawList->AddLine(entityScreenPos, xEnd, colX, arrowThickness);
@@ -348,8 +487,8 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                 drawList->AddRectFilled(ImVec2(entityScreenPos.x - 5, entityScreenPos.y - 5),
                                         ImVec2(entityScreenPos.x + 5, entityScreenPos.y + 5), colC);
 
-                // Draw Rotation Ring (Blue)
-                if (registry.HasComponent<Engine::Rotation>(selected.entity)) {
+                // Draw Rotation Ring (Blue). UI widgets ignore rotation, so they skip it.
+                if (!uiGizmo && registry.HasComponent<Engine::Rotation>(selected.entity)) {
                     ImU32 colRot = (hoveringRot || m_GizmoState == GizmoState::DraggingRotation)
                                        ? IM_COL32(100, 100, 255, 255)
                                        : IM_COL32(50, 50, 200, 255);
@@ -371,6 +510,28 @@ void SceneViewPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& con
                     drawList->AddLine(notchStart, notchEnd, IM_COL32(255, 255, 255, 255), 3.0f);
                 }
             }
+        }
+        ImGui::EndChild();
+        if (!pages.empty()) {
+            ImGui::SetCursorScreenPos(
+                ImVec2(viewportBoundsMin.x + 8.0f, viewportBoundsMin.y + 8.0f));
+            ImGui::BeginChild("##scene-page-picker", ImVec2(0.0f, 0.0f),
+                              ImGuiChildFlags_FrameStyle | ImGuiChildFlags_AutoResizeX |
+                                  ImGuiChildFlags_AutoResizeY,
+                              ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted("Page");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(160.0f);
+            if (ImGui::BeginCombo("##preview-page", previewPage.c_str())) {
+                for (const std::string& page : pages) {
+                    if (ImGui::Selectable(page.c_str(), page == previewPage)) {
+                        m_PreviewPage = page;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::EndChild();
         }
     }
     ImGui::End();

@@ -10,6 +10,7 @@
 #include "GlazeReflect.hpp"
 #include "Reflection/ComponentReflect.hpp"
 #include "Scripting/ScriptComponent.hpp"
+#include "UI/UiComponent.hpp"
 #include <cstddef>
 #include <cstring>
 #include <fstream>
@@ -64,6 +65,7 @@ class GlazeSerializer {
         std::optional<Engine::AudioSource> audioSource;
         std::optional<Engine::CameraComponent> camera;
         std::optional<Engine::ScriptComponent> script;
+        std::optional<Engine::UiComponent> ui;
         std::optional<Engine::NetworkComponent> network;
         std::optional<Engine::Animation> animation;
         // Absent on old scenes. Present only on a subtree root tied to a .prefab.

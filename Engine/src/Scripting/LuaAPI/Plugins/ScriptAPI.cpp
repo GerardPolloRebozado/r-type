@@ -37,7 +37,9 @@ void registerScript(const sol::state_view& lua, Registry& registry) {
         return true;
     };
 
-    component["getScriptPath"] = [lua, &registry](Entity entity) mutable -> sol::object {
+    component["getScriptPath"] = [luaState = lua.lua_state(),
+                                  &registry](Entity entity) mutable -> sol::object {
+        sol::state_view lua(luaState);
         if (registry.HasComponent<ScriptComponent>(entity)) {
             const std::string& path = registry.RequireComponent<ScriptComponent>(entity).scriptPath;
             if (!path.empty()) {

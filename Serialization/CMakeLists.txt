@@ -11,6 +11,7 @@ add_library(Serialization STATIC ${SRC_FILES} ${INC_FILES})
 
 target_include_directories(Serialization PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/UI/include
 )
 
 target_link_libraries(Serialization PUBLIC

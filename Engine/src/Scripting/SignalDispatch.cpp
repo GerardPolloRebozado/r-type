@@ -4,6 +4,7 @@
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include "Scripting/ScriptComponent.hpp"
+#include <array>
 #include <sol/sol.hpp>
 #include <string>
 #include <unordered_set>
@@ -27,9 +28,13 @@ void WarnOnce(const std::string& key, const std::string& message) {
 
 std::vector<SignalProvider> GetSignalProviders() {
     std::vector<SignalProvider> providers;
+    constexpr std::array<std::string_view, 2> uiSignals = {"onClick", "onChange"};
+
     providers.push_back(
         SignalProvider{"Collider", std::vector<std::string_view>(kCollisionSignals.begin(),
                                                                  kCollisionSignals.end())});
+    providers.push_back(
+        SignalProvider{"UI", std::vector<std::string_view>(uiSignals.begin(), uiSignals.end())});
     return providers;
 }
 
@@ -71,7 +76,8 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
         if (!result.valid()) {
             sol::error err = result;
             log_user_error("[Signals] '" + signal + "' handler '" + connection.method +
-                      "' error (target " + std::to_string(connection.target) + "): " + err.what());
+                           "' error (target " + std::to_string(connection.target) +
+                           "): " + err.what());
         }
     }
 }

@@ -13,6 +13,7 @@
 #include "Components/SpriteComponent.hpp"
 #include "Components/Text.hpp"
 #include "Scripting/ScriptComponent.hpp"
+#include "UI/UiComponent.hpp"
 #include <unordered_map>
 
 namespace Serialization {
@@ -27,6 +28,41 @@ void GlazeSerializer::SetFormat(SerializationFormat format) {
 }
 
 namespace {
+
+template <typename T>
+void CaptureRegistered(Engine::Registry& registry, Engine::Entity entity, std::optional<T>& slot) {
+    if (registry.HasComponent<T>(entity)) {
+        slot = registry.RequireComponent<T>(entity);
+    }
+}
+
+// Plugins that a game may never load. HasComponent throws if the type is missing.
+template <typename T>
+void CaptureIfRegistered(Engine::Registry& registry, Engine::Entity entity,
+                         std::optional<T>& slot) {
+    if (!registry.IsComponentRegistered<T>()) {
+        return;
+    }
+    CaptureRegistered(registry, entity, slot);
+}
+
+template <typename T>
+void Restore(Engine::Registry& registry, Engine::Entity entity, const std::optional<T>& slot) {
+    if (slot.has_value()) {
+        registry.AddComponent<T>(entity, slot.value());
+    }
+}
+
+template <typename T>
+void RestoreAndRegister(Engine::Registry& registry, Engine::Entity entity,
+                        const std::optional<T>& slot) {
+    if (!slot.has_value()) {
+        return;
+    }
+    registry.RegisterComponent<T>();
+    registry.AddComponent<T>(entity, slot.value());
+}
+
 bool SnapshotHasData(const GlazeSerializer::EntitySnapshot& entitySnapshot) {
     return entitySnapshot.name.has_value() || entitySnapshot.position.has_value() ||
            entitySnapshot.rotation.has_value() || entitySnapshot.sprite.has_value() ||
@@ -35,70 +71,35 @@ bool SnapshotHasData(const GlazeSerializer::EntitySnapshot& entitySnapshot) {
            entitySnapshot.connections.has_value() || entitySnapshot.parent.has_value() ||
            entitySnapshot.input.has_value() || entitySnapshot.audioSource.has_value() ||
            entitySnapshot.camera.has_value() || entitySnapshot.script.has_value() ||
-           entitySnapshot.prefab.has_value();
+           entitySnapshot.ui.has_value() || entitySnapshot.prefab.has_value();
 }
 } // namespace
 
 GlazeSerializer::EntitySnapshot GlazeSerializer::CaptureEntity(Engine::Registry& registry,
                                                                Engine::Entity entity) {
     EntitySnapshot entitySnapshot;
-    entitySnapshot.entityId = entity;
 
-    if (registry.HasComponent<Engine::Name>(entity)) {
-        entitySnapshot.name = registry.RequireComponent<Engine::Name>(entity);
-    }
-    if (registry.HasComponent<Engine::Position>(entity)) {
-        entitySnapshot.position = registry.RequireComponent<Engine::Position>(entity);
-    }
-    if (registry.HasComponent<Engine::Rotation>(entity)) {
-        entitySnapshot.rotation = registry.RequireComponent<Engine::Rotation>(entity);
-    }
-    if (registry.HasComponent<Engine::SpriteComponent>(entity)) {
-        entitySnapshot.sprite = registry.RequireComponent<Engine::SpriteComponent>(entity);
-    }
-    if (registry.HasComponent<Engine::ShapeComponent>(entity)) {
-        entitySnapshot.shape = registry.RequireComponent<Engine::ShapeComponent>(entity);
-    }
-    if (registry.HasComponent<Engine::Text>(entity)) {
-        entitySnapshot.text = registry.RequireComponent<Engine::Text>(entity);
-    }
-    if (registry.HasComponent<Engine::ColliderComponent>(entity)) {
-        entitySnapshot.collider = registry.RequireComponent<Engine::ColliderComponent>(entity);
-    }
-    if (registry.HasComponent<Engine::Opacity>(entity)) {
-        entitySnapshot.opacity = registry.RequireComponent<Engine::Opacity>(entity);
-    }
-    if (registry.HasComponent<Engine::SignalConnections>(entity)) {
-        entitySnapshot.connections = registry.RequireComponent<Engine::SignalConnections>(entity);
-    }
-    if (registry.HasComponent<Engine::Parent>(entity)) {
-        entitySnapshot.parent = registry.RequireComponent<Engine::Parent>(entity);
-    }
-    if (registry.HasComponent<Engine::Input>(entity)) {
-        entitySnapshot.input = registry.RequireComponent<Engine::Input>(entity);
-    }
-    if (registry.HasComponent<Engine::AudioSource>(entity)) {
-        entitySnapshot.audioSource = registry.RequireComponent<Engine::AudioSource>(entity);
-    }
-    if (registry.HasComponent<Engine::CameraComponent>(entity)) {
-        entitySnapshot.camera = registry.RequireComponent<Engine::CameraComponent>(entity);
-    }
-    if (registry.HasComponent<Engine::ScriptComponent>(entity)) {
-        entitySnapshot.script = registry.RequireComponent<Engine::ScriptComponent>(entity);
-    }
-    if (registry.IsComponentRegistered<Engine::NetworkComponent>() &&
-        registry.HasComponent<Engine::NetworkComponent>(entity)) {
-        entitySnapshot.network = registry.RequireComponent<Engine::NetworkComponent>(entity);
-    }
-    if (registry.IsComponentRegistered<Engine::Animation>() &&
-        registry.HasComponent<Engine::Animation>(entity)) {
-        entitySnapshot.animation = registry.RequireComponent<Engine::Animation>(entity);
-    }
+    entitySnapshot.entityId = entity;
+    CaptureRegistered(registry, entity, entitySnapshot.name);
+    CaptureRegistered(registry, entity, entitySnapshot.position);
+    CaptureRegistered(registry, entity, entitySnapshot.rotation);
+    CaptureRegistered(registry, entity, entitySnapshot.sprite);
+    CaptureRegistered(registry, entity, entitySnapshot.shape);
+    CaptureRegistered(registry, entity, entitySnapshot.text);
+    CaptureRegistered(registry, entity, entitySnapshot.collider);
+    CaptureRegistered(registry, entity, entitySnapshot.opacity);
+    CaptureRegistered(registry, entity, entitySnapshot.connections);
+    CaptureRegistered(registry, entity, entitySnapshot.parent);
+    CaptureRegistered(registry, entity, entitySnapshot.input);
+    CaptureRegistered(registry, entity, entitySnapshot.audioSource);
+    CaptureRegistered(registry, entity, entitySnapshot.camera);
+    CaptureRegistered(registry, entity, entitySnapshot.script);
+    // Games that never load the UI plugin have no such component type.
+    CaptureIfRegistered(registry, entity, entitySnapshot.ui);
+    CaptureIfRegistered(registry, entity, entitySnapshot.network);
+    CaptureIfRegistered(registry, entity, entitySnapshot.animation);
     // Tests and tools that never register this type must still capture a scene.
-    if (registry.IsComponentRegistered<Engine::PrefabInstance>() &&
-        registry.HasComponent<Engine::PrefabInstance>(entity)) {
-        entitySnapshot.prefab = registry.RequireComponent<Engine::PrefabInstance>(entity);
-    }
+    CaptureIfRegistered(registry, entity, entitySnapshot.prefab);
 
     return entitySnapshot;
 }
@@ -136,9 +137,7 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
         Engine::Entity entity = registry.CreateEntity();
         idRemap[entitySnapshot.entityId] = entity;
 
-        if (entitySnapshot.name.has_value()) {
-            registry.AddComponent<Engine::Name>(entity, entitySnapshot.name.value());
-        }
+        Restore(registry, entity, entitySnapshot.name);
         if (entitySnapshot.position.has_value()) {
             // Fresh baseline: a loaded scene did not "move", so prev must
             // equal the restored position. Stale file values would inject a
@@ -150,53 +149,28 @@ Engine::Entity GlazeSerializer::SpawnEntities(Engine::Registry& registry,
             restored.moved = false;
             registry.AddComponent<Engine::Position>(entity, restored);
         }
-        if (entitySnapshot.rotation.has_value()) {
-            registry.AddComponent<Engine::Rotation>(entity, entitySnapshot.rotation.value());
+        Restore(registry, entity, entitySnapshot.rotation);
+        Restore(registry, entity, entitySnapshot.sprite);
+        Restore(registry, entity, entitySnapshot.shape);
+        Restore(registry, entity, entitySnapshot.text);
+        Restore(registry, entity, entitySnapshot.collider);
+        Restore(registry, entity, entitySnapshot.opacity);
+        Restore(registry, entity, entitySnapshot.connections);
+        Restore(registry, entity, entitySnapshot.input);
+        Restore(registry, entity, entitySnapshot.audioSource);
+        Restore(registry, entity, entitySnapshot.camera);
+        Restore(registry, entity, entitySnapshot.script);
+        if (entitySnapshot.ui.has_value()) {
+            Engine::UiComponent ui = entitySnapshot.ui.value();
+            // loaded and the Lua table are runtime only. The next frame loads the script again.
+            ui.loaded = false;
+            ui.scriptTable = sol::lua_nil;
+            registry.RegisterComponent<Engine::UiComponent>();
+            registry.AddComponent<Engine::UiComponent>(entity, ui);
         }
-        if (entitySnapshot.sprite.has_value()) {
-            registry.AddComponent<Engine::SpriteComponent>(entity, entitySnapshot.sprite.value());
-        }
-        if (entitySnapshot.shape.has_value()) {
-            registry.AddComponent<Engine::ShapeComponent>(entity, entitySnapshot.shape.value());
-        }
-        if (entitySnapshot.text.has_value()) {
-            registry.AddComponent<Engine::Text>(entity, entitySnapshot.text.value());
-        }
-        if (entitySnapshot.collider.has_value()) {
-            registry.AddComponent<Engine::ColliderComponent>(entity,
-                                                             entitySnapshot.collider.value());
-        }
-        if (entitySnapshot.opacity.has_value()) {
-            registry.AddComponent<Engine::Opacity>(entity, entitySnapshot.opacity.value());
-        }
-        if (entitySnapshot.connections.has_value()) {
-            registry.AddComponent<Engine::SignalConnections>(entity,
-                                                             entitySnapshot.connections.value());
-        }
-        if (entitySnapshot.input.has_value()) {
-            registry.AddComponent<Engine::Input>(entity, entitySnapshot.input.value());
-        }
-        if (entitySnapshot.audioSource.has_value()) {
-            registry.AddComponent<Engine::AudioSource>(entity, entitySnapshot.audioSource.value());
-        }
-        if (entitySnapshot.camera.has_value()) {
-            registry.AddComponent<Engine::CameraComponent>(entity, entitySnapshot.camera.value());
-        }
-        if (entitySnapshot.script.has_value()) {
-            registry.AddComponent<Engine::ScriptComponent>(entity, entitySnapshot.script.value());
-        }
-        if (entitySnapshot.network.has_value()) {
-            registry.AddComponent<Engine::NetworkComponent>(entity, entitySnapshot.network.value());
-        }
-        if (entitySnapshot.prefab.has_value()) {
-            registry.RegisterComponent<Engine::PrefabInstance>();
-            registry.AddComponent<Engine::PrefabInstance>(entity, entitySnapshot.prefab.value());
-        }
-
-        if (entitySnapshot.animation.has_value()) {
-            registry.RegisterComponent<Engine::Animation>();
-            registry.AddComponent<Engine::Animation>(entity, entitySnapshot.animation.value());
-        }
+        Restore(registry, entity, entitySnapshot.network);
+        RestoreAndRegister(registry, entity, entitySnapshot.prefab);
+        RestoreAndRegister(registry, entity, entitySnapshot.animation);
     }
 
     for (const auto& entitySnapshot : entities) {

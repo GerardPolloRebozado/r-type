@@ -31,6 +31,7 @@
 #include "Plugins/ShapePluginEditor.hpp"
 #include "Plugins/SpritePluginEditor.hpp"
 #include "Plugins/TextPluginEditor.hpp"
+#include "Plugins/UiPluginEditor.hpp"
 #include "Scripting/ScriptComponent.hpp"
 #include "Systems/HierarchySystem.hpp"
 #include <algorithm>
@@ -310,6 +311,10 @@ void DrawAddComponentMenu(std::vector<std::unique_ptr<IPluginEditor>>& editors,
                           Engine::Entity entity, Engine::Registry& registry) {
     bool anyAvailable = false;
     for (auto& editor : editors) {
+        if (TryDrawUiAddMenu(*editor, entity, registry)) {
+            anyAvailable = true;
+            continue;
+        }
         if (!editor->HasComponent(entity, registry)) {
             anyAvailable = true;
             const std::string menuItem =
@@ -448,6 +453,7 @@ PreviewPanel::PreviewPanel() {
     m_PluginEditors.push_back(std::make_unique<ColliderPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<CameraPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<ScriptPluginEditor>());
+    m_PluginEditors.push_back(std::make_unique<UiPluginEditor>());
     m_PluginEditors.push_back(std::make_unique<AudioPluginEditor>());
 }
 

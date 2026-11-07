@@ -3,6 +3,7 @@
 
 #include "Inputs/IController.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <set>
 #include <unordered_map>
 
@@ -18,6 +19,7 @@ namespace Engine::Multiplayer {
  */
 struct PlayerInputState {
     std::unordered_map<std::size_t, std::set<Action>> byNetworkId;
+    std::unordered_map<std::size_t, std::uint32_t> lastSeq;
     std::unordered_map<Action, ScriptComponent> keyHandlers;
 };
 } // namespace Engine::Multiplayer

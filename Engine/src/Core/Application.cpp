@@ -2,7 +2,9 @@
 #include "Components/Name.hpp"
 #include "Components/PrefabInstance.hpp"
 #include "Core/LaunchOptions.hpp"
+#include "Core/QuitRequest.hpp"
 #include "Core/Renderer.hpp"
+#include "Core/UiPass.hpp"
 #include "Logging/Logger.hpp"
 #include "Resources/SceneManager.hpp"
 #include <chrono>
@@ -87,6 +89,11 @@ void Application::Run() {
         m_Registry.FlushQueues();
         // After FlushQueues: switch scenes only once the frame is fully done.
         ApplyPendingScene();
+
+        if (m_Registry.HasResource<QuitRequest>() &&
+            m_Registry.GetResource<QuitRequest>().requested) {
+            m_IsRunning = false;
+        }
     }
 }
 
@@ -150,6 +157,12 @@ void Application::PostUpdate(float dt) {
         // UI stays in window space, drawn on top of the letterboxed canvas.
         if (m_Config.onUI) {
             m_Config.onUI();
+        }
+        if (m_Registry.HasResource<UiPass>()) {
+            UiPass& pass = m_Registry.GetResource<UiPass>();
+            if (pass.draw) {
+                pass.draw(m_Registry);
+            }
         }
 
         EndDrawing();

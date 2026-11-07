@@ -19,6 +19,7 @@
 #include "Plugins/WavePlugin.hpp"
 #include "SceneFiles.hpp"
 #include "Scripting/ScriptPlugin.hpp"
+#include "UI/UiPlugin.hpp"
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -72,6 +73,7 @@ int main(int argc, char* argv[]) {
     wavePlugin.Init(app.GetRegistry());
     Engine::ScriptPlugin scriptPlugin;
     scriptPlugin.Init(app.GetRegistry());
+    Engine::UiPlugin().Init(app.GetRegistry());
     Engine::Multiplayer::ReplicationPlugin replicationPlugin;
     replicationPlugin.Init(app.GetRegistry());
     Engine::Multiplayer::MultiplayerPlugin multiplayerPlugin;
