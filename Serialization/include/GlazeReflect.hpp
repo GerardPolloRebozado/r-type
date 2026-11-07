@@ -20,7 +20,8 @@ template <> struct glz::meta<Serialization::SceneConfig> {
                &Serialization::SceneConfig::m_ProjectFolder, "buildExecutableName",
                &Serialization::SceneConfig::m_BuildExecutableName, "buildWindowTitle",
                &Serialization::SceneConfig::m_BuildWindowTitle, "buildDebugSymbols",
-               &Serialization::SceneConfig::m_BuildDebugSymbols, "initialScenePath",
+               &Serialization::SceneConfig::m_BuildDebugSymbols, "buildWasm",
+               &Serialization::SceneConfig::m_BuildWasm, "initialScenePath",
                &Serialization::SceneConfig::m_InitialScenePath, "inputMap",
                &Serialization::SceneConfig::m_InputMap);
 };

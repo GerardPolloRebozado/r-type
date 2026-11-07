@@ -675,50 +675,68 @@ void EditorLayer::BeginDockSpace() {
             if (scriptsReady && m_Configuration) {
                 // Save first: the game reads the scene file, not the editor's memory.
                 SaveActiveScene();
+                if (m_Configuration->m_BuildWasm) {
+                    std::string htmlPath = m_Configuration->m_ProjectFolder + "/index.html";
+                    if (!std::filesystem::exists(htmlPath)) {
+                        htmlPath = m_Configuration->m_ProjectFolder + "/build/index.html";
+                    }
+                    if (std::filesystem::exists(htmlPath)) {
+                        const std::string projectFolder = m_Configuration->m_ProjectFolder;
 #ifdef _WIN32
-                const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
+                        std::string cmd =
+                            "cd \"" + projectFolder + "\" && start \"\" emrun index.html";
 #else
-                const std::string exeFile = m_Configuration->m_BuildExecutableName;
+                        std::string cmd = "cd \"" + projectFolder + "\" && emrun index.html &";
 #endif
-                std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
-                if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
-                }
-                if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/build/Games/R-Type/" + exeFile;
-                }
-                // Multi-config generators (e.g. Visual Studio) place the binary
-                // in a <Config> subfolder.
-                if (!std::filesystem::exists(exePath)) {
-                    for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
-                        const std::string cand =
-                            m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
-                        if (std::filesystem::exists(cand)) {
-                            exePath = cand;
-                            break;
-                        }
-                        const std::string cand2 = m_Configuration->m_ProjectFolder +
-                                                  "/build/Games/R-Type/" + cfg + "/" + exeFile;
-                        if (std::filesystem::exists(cand2)) {
-                            exePath = cand2;
-                            break;
+                        std::system(cmd.c_str());
+                    }
+                } else {
+#ifdef _WIN32
+                    const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
+#else
+                    const std::string exeFile = m_Configuration->m_BuildExecutableName;
+#endif
+                    std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
+                    if (!std::filesystem::exists(exePath)) {
+                        exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
+                    }
+                    if (!std::filesystem::exists(exePath)) {
+                        exePath =
+                            m_Configuration->m_ProjectFolder + "/build/Games/R-Type/" + exeFile;
+                    }
+                    // Multi-config generators (e.g. Visual Studio) place the binary
+                    // in a <Config> subfolder.
+                    if (!std::filesystem::exists(exePath)) {
+                        for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
+                            const std::string cand =
+                                m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
+                            if (std::filesystem::exists(cand)) {
+                                exePath = cand;
+                                break;
+                            }
+                            const std::string cand2 = m_Configuration->m_ProjectFolder +
+                                                      "/build/Games/R-Type/" + cfg + "/" + exeFile;
+                            if (std::filesystem::exists(cand2)) {
+                                exePath = cand2;
+                                break;
+                            }
                         }
                     }
-                }
-                if (std::filesystem::exists(exePath)) {
-                    // The game starts on the scene being edited (see
-                    // Serialization::PickStartupScene in the generated main.cpp).
-                    const std::string sceneArg = ActiveSceneRelativePath();
+                    if (std::filesystem::exists(exePath)) {
+                        // The game starts on the scene being edited (see
+                        // Serialization::PickStartupScene in the generated main.cpp).
+                        const std::string sceneArg = ActiveSceneRelativePath();
 #ifdef _WIN32
-                    // start detaches: system() returns immediately instead of
-                    // freezing the editor while the game runs.
-                    std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
-                                      "\" \"" + exePath + "\" \"" + sceneArg + "\"";
+                        // start detaches: system() returns immediately instead of
+                        // freezing the editor while the game runs.
+                        std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
+                                          "\" \"" + exePath + "\" \"" + sceneArg + "\"";
 #else
-                    std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" +
-                                      exePath + "\" \"" + sceneArg + "\" &";
+                        std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" +
+                                          exePath + "\" \"" + sceneArg + "\" &";
 #endif
-                    std::system(cmd.c_str());
+                        std::system(cmd.c_str());
+                    }
                 }
             }
         }

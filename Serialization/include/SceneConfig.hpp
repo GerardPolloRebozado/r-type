@@ -14,6 +14,7 @@ struct SceneConfig : public Engine::ApplicationConfig {
     std::string m_BuildExecutableName = "Game";
     std::string m_BuildWindowTitle = "Game";
     bool m_BuildDebugSymbols = false;
+    bool m_BuildWasm = false;
     std::string m_InitialScenePath;
 
     /** @brief Enemy waves configured from the editor panel **/
