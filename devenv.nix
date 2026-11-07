@@ -19,6 +19,8 @@ env.LD_LIBRARY_PATH = lib.makeLibraryPath [
   pkgs.xorg.libXcursor
   pkgs.wayland
   pkgs.lua5_4
+  pkgs.zlib
+
 ] + ":/run/opengl-driver/lib";
 
 
@@ -51,6 +53,7 @@ env.LD_LIBRARY_PATH = lib.makeLibraryPath [
     pkgs.lefthook
     pkgs.lua5_4
     pkgs.wasmtime
+    pkgs.zlib
 
     pkgs.emscripten
   ];
