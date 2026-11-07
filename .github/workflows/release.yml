@@ -36,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cpm_cache
           key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
@@ -177,12 +177,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
-          path: ${{ github.workspace }}.cpm_cache
+          path: ${{ github.workspace }}/.cpm_cache
           key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: |
             cpm-v1-${{ runner.os }}-${{ runner.arch }}-
@@ -266,25 +266,31 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cpm_cache
           key: cpm-wasm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: |
             cpm-wasm-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Install dependencies
+      - name: Install dependencies & Latest CMake
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential \
-            cmake \
             ninja-build \
             pkg-config \
-            liblua5.4-dev
+            wget
+          
+          CMAKE_VERSION="3.31.5"
+          wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz
+          tar -xzf cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz
+          sudo cp -r cmake-${CMAKE_VERSION}-linux-x86_64/bin/* /usr/local/bin/
+          sudo cp -r cmake-${CMAKE_VERSION}-linux-x86_64/share/* /usr/local/share/
+          cmake --version
 
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
@@ -293,24 +299,74 @@ jobs:
 
       - name: Cache Lua WASM
         id: cache-lua
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/lua-wasm-install
-          key: lua-wasm-v5.4.7-${{ runner.os }}
+          key: lua-wasm-v5.4.7-static-${{ runner.os }}
 
-      - name: Build Lua for WebAssembly
+      - name: Build Lua 5.4 for WebAssembly
         if: steps.cache-lua.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
+          mkdir -p lua-build-src && cd lua-build-src
+          
           git clone --depth 1 --branch v5.4.7 https://github.com/walterschell/Lua.git lua-src
           cd lua-src
-          mkdir build-wasm && cd build-wasm
-          emcmake cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/lua-wasm-install"
-          cmake --build . --parallel
-          cmake --install .
-
+          
+          LUA_SRC_DIR="."
+          LUA_INCLUDE_DIR="."
+          if [ -f "lapi.c" ]; then
+            LUA_SRC_DIR="."
+            LUA_INCLUDE_DIR="."
+          elif [ -d "src" ] && [ -f "src/lapi.c" ]; then
+            LUA_SRC_DIR="src"
+            LUA_INCLUDE_DIR="."
+          elif [ -d "lua-5.4.7/src" ] && [ -f "lua-5.4.7/src/lapi.c" ]; then
+            LUA_SRC_DIR="lua-5.4.7/src"
+            LUA_INCLUDE_DIR="lua-5.4.7/include"
+          fi
+          
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/include"
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/lib"
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig"
+          
+          # Compile each C source file explicitly using emcc in C mode (-x c).
+          # Exclude lua.c and luac.c (the standalone interpreters) — we only need the static lib + headers.
+          for src in lapi.c lauxlib.c lbaselib.c lcode.c lcorolib.c lctype.c ldblib.c ldump.c lfunc.c lgc.c linit.c liolib.c llex.c lmathlib.c lmem.c loadlib.c lobject.c lopcodes.c loslib.c lparser.c lstate.c lstring.c lstrlib.c ltable.c ltablib.c ltm.c lundump.c lutf8lib.c lvm.c lzio.c; do
+            emcc -O2 -x c -c "$LUA_SRC_DIR/$src" -I"$LUA_SRC_DIR" -I"$LUA_INCLUDE_DIR" -DLUA_USE_POSIX
+          done
+          
+          emar rcs liblua.a *.o
+          
+          # Copy library
+          cp liblua.a "${{ github.workspace }}/lua-wasm-install/lib/"
+          
+          # Wrap Lua public headers in extern "C" for C++ compatibility
+          for header in lua.h luaconf.h lualib.h lauxlib.h; do
+            echo '#ifdef __cplusplus' > "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo 'extern "C" {' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '#endif' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            cat "$LUA_INCLUDE_DIR/$header" >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '#ifdef __cplusplus' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '}' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '#endif' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+          done
+          
+          # Generate custom pkg-config .pc file for CMake
+          cat <<EOF > "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua5.4.pc"
+          prefix=${{ github.workspace }}/lua-wasm-install
+          exec_prefix=\${prefix}
+          libdir=\${exec_prefix}/lib
+          includedir=\${prefix}/include
+          
+          Name: Lua
+          Description: An Extensible Programming Language (C library for C++ projects)
+          Version: 5.4.7
+          Libs: -L\${libdir} -llua -lm
+          Cflags: -I\${includedir}
+          EOF
+          
+          cp "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua5.4.pc" "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua.pc"
       - name: Stage WASM runtime files
         run: |
           set -euo pipefail
@@ -339,7 +395,7 @@ jobs:
             -DEDITOR_BUILD=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Build R-Type (WASM)
-        run: cmake --build "${{ github.workspace }}/build-wasm" --target Game --parallel
+        run: cmake --build "${{ github.workspace }}/build-wasm" --target R-Type --parallel
 
       - name: Stage WASM outputs
         run: |
@@ -347,9 +403,13 @@ jobs:
           ROOT="${{ github.workspace }}"
           BUILD="$ROOT/build-wasm"
           PROJ="$ROOT/R-Type"
-          for name in index.js index.wasm index.data; do
-            cp "$BUILD/$name" "$PROJ/$name"
-          done
+          cp "$BUILD/R-Type.js" "$PROJ/R-Type.js"
+          cp "$BUILD/R-Type.wasm" "$PROJ/R-Type.wasm"
+          # Emscripten 6.x inlines embedded data into R-Type.js, so R-Type.data
+          # is only produced on older versions — copy it if present.
+          if [ -f "$BUILD/R-Type.data" ]; then
+            cp "$BUILD/R-Type.data" "$PROJ/R-Type.data"
+          fi
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@v4
@@ -357,16 +417,19 @@ jobs:
           name: r-type-wasm
           path: |
             R-Type/index.html
-            R-Type/index.js
-            R-Type/index.wasm
-            R-Type/index.data
-          if-no-files-found: error
+            R-Type/R-Type.js
+            R-Type/R-Type.wasm
+            R-Type/R-Type.data
+          if-no-files-found: warn
 
       - name: Package WASM bundle
         run: |
           set -euo pipefail
           cd R-Type
-          zip -r ../r-type-wasm.zip index.html index.js index.wasm index.data
+          zip -r ../r-type-wasm.zip index.html R-Type.js R-Type.wasm
+          if [ -f R-Type.data ]; then
+            zip -r ../r-type-wasm.zip R-Type.data
+          fi
 
       - name: Attach WASM bundle to release
         if: github.event_name == 'release'
@@ -389,7 +452,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download WASM artifact
         uses: actions/download-artifact@v4
@@ -417,7 +480,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p Documentation/site/game
-          cp R-Type/index.html R-Type/index.js R-Type/index.wasm R-Type/index.data Documentation/site/game/
+          cp R-Type/index.html R-Type/R-Type.js R-Type/R-Type.wasm Documentation/site/game/
+          if [ -f R-Type/R-Type.data ]; then
+            cp R-Type/R-Type.data Documentation/site/game/
+          fi
           cp CNAME Documentation/site/CNAME
 
       - name: Upload Pages artifact
