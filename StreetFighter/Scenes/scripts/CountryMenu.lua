@@ -6,6 +6,7 @@ local COUNTRIES = {
     { name = "Thailand", flag = { x = 422, y = 241, w = 96, h = 64 }, scene = "thailand.scene", secret = "secret_thailand.scene" },
     { name = "Japan",    flag = { x = 370, y = 97,  w = 96, h = 64 }, scene = "japan.scene",    secret = "secret_japan.scene" },
     { name = "USA",      flag = { x = 474, y = 97,  w = 96, h = 64 }, scene = "fighters.scene", secret = "secret_usa.scene" },
+    { name = "Credits",  flag = { x = 0, y = 0, w = 0, h = 0 }, scene = "credits.scene", credits = true },
 }
 -- voice announcing the country when the cursor lands on it
 local VOICES = {
@@ -41,7 +42,7 @@ function Script:onCreate(entity)
     for _, c in ipairs(COUNTRIES) do
         c.marker = Entity.find("Marker_" .. c.name)
         c.flagEntity = Entity.find("Flag_" .. c.name)
-        if not c.marker or not c.flagEntity then
+        if not c.marker or (not c.flagEntity and not c.credits) then
             log.error("[CountryMenu] missing Marker_/Flag_ entity for " .. c.name)
         end
     end
@@ -212,6 +213,11 @@ function Script:choose(country)
         return
     end
     log.info("[CountryMenu] selected " .. country.name)
+    if country.credits then
+        self.done = true
+        Scene.load(country.scene) -- keeps the menu music playing
+        return
+    end
     if SecretMode and country.secret then
         SecretMode = false
         GameMode = "solo"
