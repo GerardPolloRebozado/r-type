@@ -2,6 +2,7 @@
 #include "Assets/AssetManager.hpp"
 #include "Assets/ProjectPaths.hpp"
 #include "Components/AudioSource.hpp"
+#include "Core/EditorMode.hpp"
 #include "ECS/Registry.hpp"
 #include "Logging/Logger.hpp"
 #include <exception>
@@ -183,6 +184,11 @@ void AudioSystem::RefreshSourceState(Entity entity, AudioSource& source,
 }
 
 void AudioSystem::ProcessSource(Entity entity, Registry& registry, AssetManager& assetManager) {
+    // Skip audio processing in editor mode
+    if (registry.HasResource<Engine::EditorMode>()) {
+        return;
+    }
+
     auto& source = registry.RequireComponent<AudioSource>(entity);
 
     if (source.shouldStop) {

@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
 
     // Startup scene: a .scene argument wins (e.g. ./Game Level2.scene),
     // otherwise the project's startup scene.
-    const std::string startupScene = Serialization::PickStartupScene(config.args, "test.scene");
+    const std::string startupScene = Serialization::PickStartupScene(config.args, "menu.scene");
     Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);
 
     app.Run();

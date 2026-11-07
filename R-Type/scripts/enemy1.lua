@@ -214,7 +214,8 @@ function Enemy:onCollisionEnter(this, other)
         return
     end
 
-    DestroyProjectiles(self)
+    -- NOTE: intentionally do NOT destroy the enemy's projectiles here so that
+    -- bullets already in flight keep traveling after the enemy is destroyed.
     self.exploding = true
     self.frame = 1
     self.elapsed = 0.0
@@ -257,7 +258,8 @@ function Enemy:onProjectileHit(projectile, other)
 end
 
 function Enemy:onDestroy(entity)
-    DestroyProjectiles(self)
+    -- Projectiles are intentionally left alive: they despawn on their own
+    -- lifetime / off-screen in bulletProjectile.lua.
 end
 
 return Enemy
