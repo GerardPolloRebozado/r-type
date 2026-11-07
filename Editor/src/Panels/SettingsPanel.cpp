@@ -334,15 +334,15 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     const std::filesystem::path projectSystemsDir =
         Editor::ProjectSystemsDirectory(std::filesystem::path(projFolder));
 
-    std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
+    std::ofstream cmakeOut(projFolder + "/CMakeLists.txt");
     const std::string exeFileStr = buildWasm ? std::string("index.html")
 #ifdef _WIN32
                                              : (exeNameStr + ".exe");
 #else
                                              : exeNameStr;
 #endif
-    cmakeOut << projectSystemsCmake << "add_executable(" << exeNameStr << " \"" << projFolder
-             << "/main.cpp\" " << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
+    cmakeOut << projectSystemsCmake << "add_executable(" << exeNameStr << " \"main.cpp\" "
+             << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
     if (buildWasm) {
         cmakeOut << "set_target_properties(" << exeNameStr
                  << " PROPERTIES OUTPUT_NAME index SUFFIX \".html\")\n";
@@ -421,16 +421,14 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     const std::string wasmToolchainArgs = buildWasm ? std::string() : toolchainArgs;
 #ifdef _WIN32
     std::string cmd = "(" + configureProgram + " -B \"" + buildDir + "\" -S \"" + rootPath + "\"" +
-                      wasmToolchainArgs + " -DEDITOR_BUILD=ON" + buildTypeArg +
-                      " && cmake --build \"" + buildDir + "\" --target \"" + exeNameStr + "\"" +
-                      buildConfigArg + parallelArgs + ") 2>&1 & cmake -E rm -f \"" + rootPath +
-                      "/.editor_build.cmake\"";
+                      wasmToolchainArgs + " -DEDITOR_BUILD=ON -DGAME_PROJECT_DIR=\"" + projFolder +
+                      "\"" + buildTypeArg + " && cmake --build \"" + buildDir + "\" --target \"" +
+                      exeNameStr + "\"" + buildConfigArg + parallelArgs + ") 2>&1";
 #else
     std::string cmd = "(" + configureProgram + " -B \"" + buildDir + "\" -S \"" + rootPath + "\"" +
-                      wasmToolchainArgs + " -DEDITOR_BUILD=ON" + buildTypeArg +
-                      " && cmake --build \"" + buildDir + "\" --target \"" + exeNameStr + "\"" +
-                      buildConfigArg + parallelArgs + ") 2>&1; cmake -E rm -f \"" + rootPath +
-                      "/.editor_build.cmake\"";
+                      wasmToolchainArgs + " -DEDITOR_BUILD=ON -DGAME_PROJECT_DIR=\"" + projFolder +
+                      "\"" + buildTypeArg + " && cmake --build \"" + buildDir + "\" --target \"" +
+                      exeNameStr + "\"" + buildConfigArg + parallelArgs + ") 2>&1";
 #endif
 
     if (s_BuildThread.joinable()) {
