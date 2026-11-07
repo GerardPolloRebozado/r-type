@@ -355,11 +355,13 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         cmakeOut << "target_include_directories(" << exeNameStr << " PRIVATE \""
                  << projectSystemsDir.string() << "\")\n";
     }
-    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization UI)\n"
-             << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
-             << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
-             << projFolder << "/" << exeFileStr << "\"\n"
-             << ")\n";
+    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization UI)\n";
+    if (!buildWasm) {
+        cmakeOut << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
+                 << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
+                 << projFolder << "/" << exeFileStr << "\"\n"
+                 << ")\n";
+    }
     cmakeOut.close();
 
     std::string buildDir = projFolder + "/build";
