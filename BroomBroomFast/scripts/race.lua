@@ -11,6 +11,7 @@ local Race = {}
 local LAPS = 3
 local CELL = 256 -- size of one track cell in the scenes
 local WAYPOINT_RADIUS = 230
+local WAYPOINT_LOOKAHEAD = 4 -- waypoints a car may skip; small enough to block shortcuts
 local COUNTDOWN = 3.0
 local CAR_RADIUS = 24 -- cars closer than 2 * CAR_RADIUS get pushed apart
 local VIEW_W, VIEW_H = 1920, 1080
@@ -139,13 +140,27 @@ function Race:onDestroy(entity)
     RaceState = nil
 end
 
--- Moves cars to their next waypoint and counts laps.
+-- Index of the waypoint `ahead` steps after `index`, wrapping around the lap.
+local function waypointAhead(index, ahead, count)
+    return (index - 1 + ahead) % count + 1
+end
+
+-- Moves cars past the waypoints they reach and counts laps. A car can reach
+-- any of the next few waypoints, so missing one (cutting a corner, going wide
+-- or off the track) doesn't block its progress for the rest of the race.
 function Race:updateProgress(rs)
     local count = #rs.waypoints
+    local window = math.min(WAYPOINT_LOOKAHEAD, count)
     for _, car in ipairs(rs.cars) do
-        local wp = rs.waypoints[car.nextWaypoint]
-        local dx, dy = wp.x - car.x, wp.y - car.y
-        if dx * dx + dy * dy < WAYPOINT_RADIUS * WAYPOINT_RADIUS then
+        local reached = nil
+        for ahead = 0, window - 1 do
+            local wp = rs.waypoints[waypointAhead(car.nextWaypoint, ahead, count)]
+            local dx, dy = wp.x - car.x, wp.y - car.y
+            if dx * dx + dy * dy < WAYPOINT_RADIUS * WAYPOINT_RADIUS then
+                reached = ahead
+            end
+        end
+        for _ = 0, reached or -1 do
             car.nextWaypoint = car.nextWaypoint + 1
             if car.nextWaypoint > count then
                 car.nextWaypoint = 1
