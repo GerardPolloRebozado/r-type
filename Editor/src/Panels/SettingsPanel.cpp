@@ -364,8 +364,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     cmakeOut << "        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin\n";
     cmakeOut << "    )\n";
     cmakeOut << "    add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n";
-    cmakeOut << "        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
-             << projFolder << "/" << exeFileStr << "\"\n";
+    cmakeOut << "        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr
+             << "> \"${CMAKE_CURRENT_SOURCE_DIR}/" << exeFileStr << "\"\n";
     cmakeOut << "    )\n";
     cmakeOut << "endif()\n";
     cmakeOut.close();
