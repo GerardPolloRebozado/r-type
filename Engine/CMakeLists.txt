@@ -238,6 +238,11 @@ check_cxx_compiler_flag("-Wtemplate-body" HAS_TEMPLATE_BODY)
 if (HAS_TEMPLATE_BODY)
     target_compile_options(Engine PUBLIC -Wno-template-body -Wno-error=template-body)
 endif ()
+# raylib.h defines RL_FREE as free(ptr) but never includes <stdlib.h>.
+# Force-include cstdlib so free() is declared before raylib-cpp.hpp is parsed.
+if (NOT MSVC)
+    target_compile_options(Engine PUBLIC -include cstdlib)
+endif ()
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     CPMAddPackage(
             NAME lua
