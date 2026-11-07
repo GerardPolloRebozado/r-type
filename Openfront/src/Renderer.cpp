@@ -1,0 +1,1519 @@
+#include "Renderer.hpp"
+#include "Assets/AssetManager.hpp"
+#include "Inputs/Controller.hpp"
+#include "NetworkManager.hpp"
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <raymath.h>
+
+namespace Openfront {
+
+Renderer::Renderer(int screenWidth, int screenHeight)
+    : screenWidth_(screenWidth), screenHeight_(screenHeight) {
+    camera_.offset = {screenWidth_ * 0.5f, screenHeight_ * 0.5f};
+    camera_.target = {kMapWidth * kTileSize * 0.5f, kMapHeight * kTileSize * 0.5f};
+    camera_.rotation = 0.0f;
+    camera_.zoom = 1.0f;
+
+    minimapRect_ = {static_cast<float>(screenWidth_ - 260), static_cast<float>(screenHeight_ - 180),
+                    240.0f, 150.0f};
+}
+
+Renderer::~Renderer() {
+    if (mapTexture_.id != 0) {
+        UnloadTexture(mapTexture_);
+    }
+    if (mapImage_.data != nullptr) {
+        UnloadImage(mapImage_);
+    }
+    if (pixelBuffer_ != nullptr) {
+        delete[] pixelBuffer_;
+        pixelBuffer_ = nullptr;
+    }
+}
+
+void Renderer::PlaySoundEffect(const std::string& name) {
+    if (!assetManager_) {
+        return;
+    }
+    try {
+        auto snd = assetManager_->GetSound(name);
+        if (snd) {
+            snd->Play();
+        }
+    } catch (...) {
+    }
+}
+
+void Renderer::Init(Simulation& sim, PlayerId localPlayerId) {
+    if (!pixelBuffer_) {
+        pixelBuffer_ = new Color[kMapWidth * kMapHeight];
+        mapImage_ = GenImageColor(kMapWidth, kMapHeight, BLACK);
+        mapTexture_ = LoadTextureFromImage(mapImage_);
+        SetTextureFilter(mapTexture_, TEXTURE_FILTER_POINT);
+    }
+
+    UpdateMapTexture(sim);
+    CenterOnPlayer(sim, localPlayerId);
+}
+
+void Renderer::CenterOnPlayer(const Simulation& sim, PlayerId pid) {
+    const WorldMap& map = sim.GetMap();
+    for (int y = 0; y < map.GetHeight(); ++y) {
+        for (int x = 0; x < map.GetWidth(); ++x) {
+            const Tile& t = map.GetTile(x, y);
+            if (t.ownerId == pid && t.building == BuildingType::City) {
+                CenterCameraOn(x, y);
+                return;
+            }
+        }
+    }
+    for (int y = 0; y < map.GetHeight(); ++y) {
+        for (int x = 0; x < map.GetWidth(); ++x) {
+            if (map.GetTile(x, y).ownerId == pid) {
+                CenterCameraOn(x, y);
+                return;
+            }
+        }
+    }
+}
+
+void Renderer::CenterCameraOn(int tileX, int tileY) {
+    camera_.target = {(tileX + 0.5f) * kTileSize, (tileY + 0.5f) * kTileSize};
+}
+
+TileCoord Renderer::ScreenToTile(Vector2 screenPos) const {
+    Vector2 worldPos = GetScreenToWorld2D(screenPos, camera_);
+    int tx = static_cast<int>(std::floor(worldPos.x / kTileSize));
+    int ty = static_cast<int>(std::floor(worldPos.y / kTileSize));
+    return {tx, ty};
+}
+
+Vector2 Renderer::TileToScreen(int x, int y) const {
+    Vector2 worldPos = {(x + 0.5f) * kTileSize, (y + 0.5f) * kTileSize};
+    return GetWorldToScreen2D(worldPos, camera_);
+}
+
+void Renderer::Update(Simulation& sim, NetworkManager& net, float /*dt*/) {
+    screenWidth_ = GetScreenWidth();
+    screenHeight_ = GetScreenHeight();
+    minimapRect_ = {static_cast<float>(screenWidth_ - 260), static_cast<float>(screenHeight_ - 180),
+                    240.0f, 150.0f};
+
+    if (sim.GetExplosions().size() > prevExplosionsCount_) {
+        PlaySoundEffect("explosion");
+    }
+    prevExplosionsCount_ = sim.GetExplosions().size();
+
+    if (sim.GetMissiles().size() > prevMissilesCount_) {
+        PlaySoundEffect("nuke_launch");
+    }
+    prevMissilesCount_ = sim.GetMissiles().size();
+
+    HandleInput(sim, net);
+    UpdateMapTexture(sim);
+}
+
+void Renderer::HandleTextInput(char* buffer, size_t maxLen) {
+    int key = GetCharPressed();
+    while (key > 0) {
+        size_t len = std::strlen(buffer);
+        if (len < maxLen && (key >= 32 && key <= 126)) {
+            buffer[len] = static_cast<char>(key);
+            buffer[len + 1] = '\0';
+        }
+        key = GetCharPressed();
+    }
+    if (IsKeyPressed(KEY_BACKSPACE)) {
+        size_t len = std::strlen(buffer);
+        if (len > 0) {
+            buffer[len - 1] = '\0';
+        }
+    }
+}
+
+void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
+    float dt = GetFrameTime();
+    Vector2 mousePos = GetMousePosition();
+    const WorldMap& map = sim.GetMap();
+    PlayerId localId = net.GetLocalPlayerId();
+
+    // Menu States text typing
+    if (uiState_ == UIState::HostLobby) {
+        if (activeInputBox_ == 1) {
+            HandleTextInput(playerNameBuffer_, sizeof(playerNameBuffer_) - 1);
+        }
+        if (activeInputBox_ == 2) {
+            HandleTextInput(hostPortBuffer_, sizeof(hostPortBuffer_) - 1);
+        }
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            net.Stop();
+            uiState_ = UIState::StartMenu;
+        }
+        if ((IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) && activeInputBox_ == 0) {
+            if (net.GetMode() == GameMode::Host) {
+                net.StartHostMatch(sim);
+                Init(sim, 1);
+                uiState_ = UIState::InGame;
+            }
+        }
+        return;
+    }
+    if (uiState_ == UIState::JoinLobby) {
+        if (activeInputBox_ == 1) {
+            HandleTextInput(playerNameBuffer_, sizeof(playerNameBuffer_) - 1);
+        }
+        if (activeInputBox_ == 3) {
+            HandleTextInput(joinIpBuffer_, sizeof(joinIpBuffer_) - 1);
+        }
+        if (activeInputBox_ == 4) {
+            HandleTextInput(joinPortBuffer_, sizeof(joinPortBuffer_) - 1);
+        }
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            net.Stop();
+            uiState_ = UIState::StartMenu;
+        }
+        return;
+    }
+    if (uiState_ == UIState::HowToPlay) {
+        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_SPACE)) {
+            uiState_ = UIState::StartMenu;
+        }
+        return;
+    }
+    if (uiState_ == UIState::StartMenu) {
+        // In start menu, slowly rotate or pan camera across the living map!
+        camera_.target.x += 12.0f * dt;
+        camera_.target.y += 6.0f * dt;
+        if (camera_.target.x > kMapWidth * kTileSize - 300) {
+            camera_.target.x = 300;
+        }
+        if (camera_.target.y > kMapHeight * kTileSize - 300) {
+            camera_.target.y = 300;
+        }
+        return;
+    }
+
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        if (activeBuildMode_ != BuildingType::None || isTargetingNuke_ || selectedTile_.x >= 0) {
+            activeBuildMode_ = BuildingType::None;
+            isTargetingNuke_ = false;
+            selectedTile_ = {-1, -1};
+            isDraggingAttack_ = false;
+        } else {
+            uiState_ = (uiState_ == UIState::InGame) ? UIState::InGamePause : UIState::InGame;
+        }
+    }
+
+    if (uiState_ == UIState::InGamePause) {
+        return;
+    }
+
+    float panSpeed = 650.0f / camera_.zoom * dt;
+    bool panUp = false, panDown = false, panLeft = false, panRight = false;
+    if (controller_) {
+        panUp = controller_->isActionActive("PAN_UP");
+        panDown = controller_->isActionActive("PAN_DOWN");
+        panLeft = controller_->isActionActive("PAN_LEFT");
+        panRight = controller_->isActionActive("PAN_RIGHT");
+    } else {
+        panUp = IsKeyDown(KEY_W) || IsKeyDown(KEY_UP);
+        panDown = IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN);
+        panLeft = IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT);
+        panRight = IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT);
+    }
+    if (panUp) {
+        camera_.target.y -= panSpeed;
+    }
+    if (panDown) {
+        camera_.target.y += panSpeed;
+    }
+    if (panLeft) {
+        camera_.target.x -= panSpeed;
+    }
+    if (panRight) {
+        camera_.target.x += panSpeed;
+    }
+
+    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
+        Vector2 delta = GetMouseDelta();
+        camera_.target.x -= delta.x / camera_.zoom;
+        camera_.target.y -= delta.y / camera_.zoom;
+    }
+
+    float wheel = GetMouseWheelMove();
+    if (wheel != 0.0f) {
+        Vector2 mouseWorldBefore = GetScreenToWorld2D(mousePos, camera_);
+        camera_.zoom = std::clamp(camera_.zoom + wheel * 0.15f * camera_.zoom, 0.35f, 4.0f);
+        Vector2 mouseWorldAfter = GetScreenToWorld2D(mousePos, camera_);
+        camera_.target.x += (mouseWorldBefore.x - mouseWorldAfter.x);
+        camera_.target.y += (mouseWorldBefore.y - mouseWorldAfter.y);
+    }
+
+    if (CheckCollisionPointRec(mousePos, minimapRect_)) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            float normX = (mousePos.x - minimapRect_.x) / minimapRect_.width;
+            float normY = (mousePos.y - minimapRect_.y) / minimapRect_.height;
+            camera_.target.x = normX * kMapWidth * kTileSize;
+            camera_.target.y = normY * kMapHeight * kTileSize;
+        }
+        return;
+    }
+
+    if (mousePos.y < 50.0f || mousePos.y > screenHeight_ - 80.0f) {
+        return;
+    }
+
+    TileCoord tile = ScreenToTile(mousePos);
+    if (map.InBounds(tile.x, tile.y)) {
+        hoveredTile_ = tile;
+    } else {
+        hoveredTile_ = {-1, -1};
+    }
+
+    if (IsKeyPressed(KEY_Z)) {
+        net.QueueSetAttackRatio(sim, localId, 0.10f);
+    }
+    if (IsKeyPressed(KEY_X)) {
+        net.QueueSetAttackRatio(sim, localId, 0.20f);
+    }
+    if (IsKeyPressed(KEY_C)) {
+        net.QueueSetAttackRatio(sim, localId, 0.50f);
+    }
+    if (IsKeyPressed(KEY_V)) {
+        net.QueueSetAttackRatio(sim, localId, 1.00f);
+    }
+
+    if (IsKeyPressed(KEY_ONE)) {
+        activeBuildMode_ = BuildingType::City;
+    }
+    if (IsKeyPressed(KEY_TWO)) {
+        activeBuildMode_ = BuildingType::Port;
+    }
+    if (IsKeyPressed(KEY_THREE)) {
+        activeBuildMode_ = BuildingType::Factory;
+    }
+    if (IsKeyPressed(KEY_FOUR)) {
+        activeBuildMode_ = BuildingType::DefensePost;
+    }
+    if (IsKeyPressed(KEY_FIVE)) {
+        activeBuildMode_ = BuildingType::SamLauncher;
+    }
+    if (IsKeyPressed(KEY_SIX)) {
+        activeBuildMode_ = BuildingType::MissileSilo;
+    }
+
+    if (IsKeyPressed(KEY_N)) {
+        for (const auto& b : sim.GetBuildings()) {
+            if (b.ownerId == localId && b.type == BuildingType::MissileSilo && b.active) {
+                isTargetingNuke_ = true;
+                nukeBombType_ = BombType::AtomBomb;
+                nukeSiloTile_ = {b.x, b.y};
+                break;
+            }
+        }
+    }
+    if (IsKeyPressed(KEY_H)) {
+        for (const auto& b : sim.GetBuildings()) {
+            if (b.ownerId == localId && b.type == BuildingType::MissileSilo && b.active) {
+                isTargetingNuke_ = true;
+                nukeBombType_ = BombType::HydrogenBomb;
+                nukeSiloTile_ = {b.x, b.y};
+                break;
+            }
+        }
+    }
+
+    // Reinforce front on click
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 worldMouse = GetScreenToWorld2D(mousePos, camera_);
+        for (const auto& front : sim.GetAttackFronts()) {
+            if (front.attackerId == localId && !front.finished) {
+                if (Vector2Distance(worldMouse, front.frontCenter) < kTileSize * 2.0f) {
+                    net.QueueReinforce(sim, localId, front.id);
+                    return;
+                }
+            }
+        }
+    }
+
+    // Right-click cancels front or selection
+    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+        Vector2 worldMouse = GetScreenToWorld2D(mousePos, camera_);
+        for (const auto& front : sim.GetAttackFronts()) {
+            if (front.attackerId == localId && !front.finished) {
+                if (Vector2Distance(worldMouse, front.frontCenter) < kTileSize * 2.0f) {
+                    sim.CancelFront(localId, front.id);
+                    return;
+                }
+            }
+        }
+        selectedTile_ = {-1, -1};
+        activeBuildMode_ = BuildingType::None;
+        isTargetingNuke_ = false;
+        return;
+    }
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && map.InBounds(tile.x, tile.y)) {
+        // Build mode
+        if (activeBuildMode_ != BuildingType::None) {
+            net.QueueBuild(sim, localId, tile.x, tile.y, activeBuildMode_);
+            PlaySoundEffect("capture");
+            activeBuildMode_ = BuildingType::None;
+            return;
+        }
+
+        // Nuclear targeting
+        if (isTargetingNuke_) {
+            net.QueueLaunchNuke(sim, localId, nukeSiloTile_.x, nukeSiloTile_.y, tile.x, tile.y,
+                                nukeBombType_);
+            PlaySoundEffect("nuke_launch");
+            isTargetingNuke_ = false;
+            return;
+        }
+
+        const Tile& clicked = map.GetTile(tile.x, tile.y);
+
+        if (clicked.ownerId != localId && clicked.terrain != TerrainType::Water) {
+            Player* p = sim.GetPlayer(localId);
+            float ratio = p ? p->attackRatio : 0.20f;
+            net.QueueAttack(sim, localId, tile.x, tile.y, tile.x, tile.y, ratio);
+        } else if (clicked.ownerId == localId) {
+            selectedTile_ = tile;
+            isDraggingAttack_ = true;
+        }
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && isDraggingAttack_) {
+        if (map.InBounds(tile.x, tile.y) && selectedTile_.x >= 0 &&
+            (tile.x != selectedTile_.x || tile.y != selectedTile_.y)) {
+            const Tile& target = map.GetTile(tile.x, tile.y);
+            if (target.ownerId != localId && target.terrain != TerrainType::Water) {
+                Player* p = sim.GetPlayer(localId);
+                float ratio = p ? p->attackRatio : 0.20f;
+                net.QueueAttack(sim, localId, selectedTile_.x, selectedTile_.y, tile.x, tile.y,
+                                ratio);
+            }
+        }
+        isDraggingAttack_ = false;
+    }
+}
+
+void Renderer::UpdateMapTexture(const Simulation& sim) {
+    const WorldMap& map = sim.GetMap();
+    int width = map.GetWidth();
+    int height = map.GetHeight();
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const Tile& t = map.GetTile(x, y);
+            int idx = y * width + x;
+            Color c;
+
+            if (t.terrain == TerrainType::Water) {
+                c = map.IsCoastal(x, y) ? Color{28, 58, 98, 255} : Color{16, 36, 68, 255};
+            } else if (t.ownerId != kNeutralPlayerId) {
+                const Player* p = sim.GetPlayer(t.ownerId);
+                Color base = p ? p->color : GRAY;
+
+                if (t.terrain == TerrainType::Highlands) {
+                    base.r = static_cast<unsigned char>(std::min(255, base.r + 25));
+                    base.g = static_cast<unsigned char>(std::min(255, base.g + 25));
+                    base.b = static_cast<unsigned char>(std::min(255, base.b + 25));
+                } else if (t.terrain == TerrainType::Mountains) {
+                    base.r = static_cast<unsigned char>((base.r + 140) / 2);
+                    base.g = static_cast<unsigned char>((base.g + 140) / 2);
+                    base.b = static_cast<unsigned char>((base.b + 140) / 2);
+                }
+
+                if (t.falloutTimer > 0.0f) {
+                    base = Color{75, 45, 80, 255};
+                }
+
+                if (t.isBorder) {
+                    base.r = static_cast<unsigned char>((base.r * 7) / 10);
+                    base.g = static_cast<unsigned char>((base.g * 7) / 10);
+                    base.b = static_cast<unsigned char>((base.b * 7) / 10);
+                }
+
+                // SATISFYING TILE CAPTURE FLASH WAVE!
+                if (t.captureFlashTimer > 0.0f) {
+                    float flash = t.captureFlashTimer / 0.35f;
+                    base.r = static_cast<unsigned char>(base.r + (255 - base.r) * flash);
+                    base.g = static_cast<unsigned char>(base.g + (255 - base.g) * flash);
+                    base.b = static_cast<unsigned char>(base.b + (230 - base.b) * flash);
+                }
+
+                c = base;
+            } else {
+                if (t.falloutTimer > 0.0f) {
+                    c = Color{60, 50, 65, 255};
+                } else if (t.terrain == TerrainType::Plains) {
+                    c = Color{135, 148, 122, 255};
+                } else if (t.terrain == TerrainType::Highlands) {
+                    c = Color{160, 142, 108, 255};
+                } else {
+                    c = Color{120, 122, 128, 255};
+                }
+
+                if (t.captureFlashTimer > 0.0f) {
+                    c = Color{255, 255, 240, 255};
+                }
+            }
+
+            pixelBuffer_[idx] = c;
+        }
+    }
+
+    UpdateTexture(mapTexture_, pixelBuffer_);
+}
+
+void Renderer::Render(Simulation& sim, const NetworkManager& net) {
+    BeginDrawing();
+    ClearBackground(Color{10, 15, 25, 255});
+
+    BeginMode2D(camera_);
+    DrawWorld(sim);
+    EndMode2D();
+
+    switch (uiState_) {
+        case UIState::StartMenu:
+            DrawStartMenu(sim, const_cast<NetworkManager&>(net));
+            break;
+        case UIState::HostLobby:
+            DrawHostLobby(sim, const_cast<NetworkManager&>(net));
+            break;
+        case UIState::JoinLobby:
+            DrawJoinLobby(sim, const_cast<NetworkManager&>(net));
+            break;
+        case UIState::HowToPlay:
+            DrawHowToPlay();
+            break;
+        case UIState::InGame:
+            DrawHUD(sim, net);
+            break;
+        case UIState::InGamePause:
+            DrawHUD(sim, net);
+            DrawPauseMenu(sim, const_cast<NetworkManager&>(net));
+            break;
+    }
+
+    EndDrawing();
+}
+
+void Renderer::DrawWorld(Simulation& sim) {
+    Rectangle src = {0.0f, 0.0f, static_cast<float>(kMapWidth), static_cast<float>(kMapHeight)};
+    Rectangle dst = {0.0f, 0.0f, kMapWidth * kTileSize, kMapHeight * kTileSize};
+    DrawTexturePro(mapTexture_, src, dst, {0.0f, 0.0f}, 0.0f, WHITE);
+
+    DrawBuildings(sim);
+    DrawSelectionHighlights(sim);
+    DrawFrontLines(sim);
+    DrawMissiles(sim);
+    DrawExplosions(sim);
+    DrawParticlesAndFloatingText(sim);
+}
+
+void Renderer::DrawBuildings(const Simulation& sim) {
+    for (const auto& b : sim.GetBuildings()) {
+        if (!b.active) {
+            continue;
+        }
+
+        float bx = (b.x + 0.5f) * kTileSize;
+        float by = (b.y + 0.5f) * kTileSize;
+
+        switch (b.type) {
+            case BuildingType::City: {
+                DrawRectangle(bx - 5, by - 6, 4, 10, WHITE);
+                DrawRectangle(bx, by - 8, 5, 12, Color{240, 240, 240, 255});
+                DrawRectangle(bx - 3, by - 2, 2, 2, YELLOW);
+                DrawRectangle(bx + 2, by - 4, 2, 2, YELLOW);
+                break;
+            }
+            case BuildingType::Port: {
+                DrawCircle(bx, by, 5.0f, Color{40, 160, 220, 255});
+                DrawRectangle(bx - 2, by - 1, 4, 6, WHITE);
+                DrawRectangle(bx - 4, by + 3, 8, 2, WHITE);
+                break;
+            }
+            case BuildingType::Factory: {
+                DrawRectangle(bx - 6, by - 3, 12, 7, Color{80, 80, 90, 255});
+                DrawRectangle(bx - 4, by - 7, 3, 5, Color{60, 60, 70, 255});
+                DrawRectangle(bx + 1, by - 7, 3, 5, Color{60, 60, 70, 255});
+                DrawCircle(bx - 2.5f, by - 8.0f, 2.0f, Color{200, 200, 200, 160});
+                break;
+            }
+            case BuildingType::DefensePost: {
+                DrawCircle(bx, by, 5.5f, Color{220, 60, 60, 255});
+                DrawCircleLines(bx, by, 6.5f, WHITE);
+                DrawRectangle(bx - 2, by - 2, 4, 4, WHITE);
+                break;
+            }
+            case BuildingType::SamLauncher: {
+                DrawCircle(bx, by, 4.5f, Color{50, 180, 190, 255});
+                DrawLine(bx, by, bx + 4, by - 5, WHITE);
+                DrawLine(bx, by, bx - 4, by - 5, WHITE);
+                break;
+            }
+            case BuildingType::MissileSilo: {
+                DrawCircle(bx, by, 5.5f, Color{40, 40, 40, 255});
+                DrawCircleLines(bx, by, 6.0f, YELLOW);
+                DrawCircle(bx, by, 2.5f, RED);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+}
+
+void Renderer::DrawSelectionHighlights(const Simulation& sim) {
+    if (hoveredTile_.x >= 0) {
+        Rectangle r = {hoveredTile_.x * kTileSize, hoveredTile_.y * kTileSize, kTileSize,
+                       kTileSize};
+        DrawRectangleLinesEx(r, 1.5f, Color{255, 255, 255, 180});
+    }
+
+    if (selectedTile_.x >= 0) {
+        Rectangle r = {selectedTile_.x * kTileSize, selectedTile_.y * kTileSize, kTileSize,
+                       kTileSize};
+        DrawRectangleLinesEx(r, 2.0f, GOLD);
+
+        if (hoveredTile_.x >= 0 &&
+            (hoveredTile_.x != selectedTile_.x || hoveredTile_.y != selectedTile_.y)) {
+            Vector2 p1 = {(selectedTile_.x + 0.5f) * kTileSize,
+                          (selectedTile_.y + 0.5f) * kTileSize};
+            Vector2 p2 = {(hoveredTile_.x + 0.5f) * kTileSize, (hoveredTile_.y + 0.5f) * kTileSize};
+            DrawLineEx(p1, p2, 2.5f, Color{255, 220, 50, 200});
+            DrawCircleV(p2, 5.0f, RED);
+        }
+    }
+
+    if (isTargetingNuke_ && hoveredTile_.x >= 0) {
+        Vector2 sPos = {(nukeSiloTile_.x + 0.5f) * kTileSize, (nukeSiloTile_.y + 0.5f) * kTileSize};
+        Vector2 tPos = {(hoveredTile_.x + 0.5f) * kTileSize, (hoveredTile_.y + 0.5f) * kTileSize};
+
+        DrawLineEx(sPos, tPos, 2.0f, Color{255, 50, 50, 180});
+        float blast = BombRadius(nukeBombType_) * kTileSize;
+        DrawCircleLines(tPos.x, tPos.y, blast, RED);
+        DrawCircle(tPos.x, tPos.y, blast, Color{255, 50, 50, 40});
+    }
+}
+
+void Renderer::DrawFrontLines(const Simulation& sim) {
+    float time = static_cast<float>(GetTime());
+
+    for (const auto& front : sim.GetAttackFronts()) {
+        if (front.finished) {
+            continue;
+        }
+
+        const Player* att = sim.GetPlayer(front.attackerId);
+        Color attCol = att ? att->color : WHITE;
+
+        Vector2 targetWorld = {(front.targetX + 0.5f) * kTileSize,
+                               (front.targetY + 0.5f) * kTileSize};
+
+        DrawLineEx(front.frontCenter, targetWorld, 2.0f, Color{attCol.r, attCol.g, attCol.b, 120});
+
+        float pulse = std::sin(time * 6.0f) * 2.0f;
+        DrawCircleLines(targetWorld.x, targetWorld.y, 8.0f + pulse, attCol);
+        DrawCircle(targetWorld.x, targetWorld.y, 3.0f, RED);
+
+        char troopBuf[32];
+        if (front.troops >= 1000.0) {
+            std::snprintf(troopBuf, sizeof(troopBuf), "%.1fk ⚔", front.troops / 1000.0);
+        } else {
+            std::snprintf(troopBuf, sizeof(troopBuf), "%d ⚔", static_cast<int>(front.troops));
+        }
+
+        int textW = MeasureText(troopBuf, 11);
+        Rectangle pill = {front.frontCenter.x - (textW + 10) * 0.5f, front.frontCenter.y - 16.0f,
+                          static_cast<float>(textW + 10), 15.0f};
+        DrawRectangleRounded(pill, 0.4f, 4, Color{15, 20, 30, 230});
+        DrawRectangleRoundedLines(pill, 0.4f, 4, attCol);
+        DrawText(troopBuf, static_cast<int>(pill.x + 5), static_cast<int>(pill.y + 2), 11, WHITE);
+    }
+}
+
+void Renderer::DrawMissiles(const Simulation& sim) {
+    for (const auto& beam : sim.GetBeams()) {
+        if (beam.finished) {
+            continue;
+        }
+        DrawLineEx(beam.samPos, beam.missilePos, 2.5f, Color{60, 220, 255, 230});
+    }
+
+    for (const auto& m : sim.GetMissiles()) {
+        if (m.exploded) {
+            continue;
+        }
+        DrawLineEx(m.startPos, m.targetPos, 1.0f, Color{255, 255, 255, 70});
+        DrawCircleV(m.currentPos, 4.0f, (m.type == BombType::HydrogenBomb) ? RED : ORANGE);
+        DrawCircleLines(m.currentPos.x, m.currentPos.y, 4.5f, WHITE);
+        DrawCircle(m.currentPos.x - 2, m.currentPos.y + 2, 2.0f, Color{200, 200, 200, 180});
+    }
+}
+
+void Renderer::DrawExplosions(const Simulation& sim) {
+    for (const auto& exp : sim.GetExplosions()) {
+        if (exp.finished) {
+            continue;
+        }
+
+        float alpha = 1.0f - (exp.elapsed / exp.duration);
+        Color fillCol = exp.color;
+        fillCol.a = static_cast<unsigned char>(alpha * 120.0f);
+
+        Color ringCol = WHITE;
+        ringCol.a = static_cast<unsigned char>(alpha * 240.0f);
+
+        DrawCircle(exp.pos.x, exp.pos.y, exp.currentRadius, fillCol);
+        DrawCircleLines(exp.pos.x, exp.pos.y, exp.currentRadius, ringCol);
+    }
+}
+
+void Renderer::DrawParticlesAndFloatingText(const Simulation& sim) {
+    for (const auto& p : sim.GetClashParticles()) {
+        DrawCircleV(p.pos, 2.0f, p.color);
+    }
+
+    for (const auto& ft : sim.GetFloatingTexts()) {
+        float alpha = 1.0f - (ft.age / ft.duration);
+        Color col = ft.color;
+        col.a = static_cast<unsigned char>(alpha * 255.0f);
+        DrawText(ft.text.c_str(), static_cast<int>(ft.pos.x - 30), static_cast<int>(ft.pos.y), 12,
+                 col);
+    }
+}
+
+void Renderer::DrawHUD(Simulation& sim, const NetworkManager& net) {
+    DrawTopBar(sim, net);
+    DrawBottomDock(sim, const_cast<NetworkManager&>(net));
+    DrawLeaderboard(sim, net.GetLocalPlayerId());
+    DrawMinimap(sim);
+
+    if (sim.IsGameOver()) {
+        DrawGameOver(sim);
+    }
+}
+
+void Renderer::DrawTopBar(const Simulation& sim, const NetworkManager& net) {
+    DrawRectangle(0, 0, screenWidth_, 46, Color{15, 20, 30, 240});
+    DrawLine(0, 46, screenWidth_, 46, Color{40, 50, 70, 255});
+
+    PlayerId localId = net.GetLocalPlayerId();
+    const Player* localPlayer = sim.GetPlayer(localId);
+    if (!localPlayer) {
+        return;
+    }
+
+    // Faction Badge
+    DrawRectangle(15, 10, 26, 26, localPlayer->color);
+    DrawRectangleLines(15, 10, 26, 26, WHITE);
+    DrawText("OPENFRONT", 50, 13, 20, WHITE);
+
+    // Troops Status
+    char troopText[64];
+    std::snprintf(troopText, sizeof(troopText), "TROOPS: %s / %s",
+                  TextFormat("%d", static_cast<int>(localPlayer->troops)),
+                  TextFormat("%d", static_cast<int>(localPlayer->maxTroops)));
+    DrawText(troopText, 200, 14, 15, Color{120, 220, 140, 255});
+
+    float troopPct =
+        static_cast<float>(localPlayer->troops / std::max(1.0, localPlayer->maxTroops));
+    DrawRectangle(410, 16, 100, 14, Color{40, 50, 60, 255});
+    DrawRectangle(410, 16, static_cast<int>(100 * std::clamp(troopPct, 0.0f, 1.0f)), 14,
+                  Color{50, 200, 100, 255});
+    DrawRectangleLines(410, 16, 100, 14, Color{80, 90, 110, 255});
+
+    // Gold Status
+    char goldText[32];
+    std::snprintf(goldText, sizeof(goldText), "GOLD: $%s",
+                  TextFormat("%d", static_cast<int>(localPlayer->gold)));
+    DrawText(goldText, 530, 14, 15, Color{255, 215, 50, 255});
+
+    // Territory %
+    int totalLand = sim.GetMap().GetLandTilesCount();
+    float landPct =
+        (totalLand > 0) ? (static_cast<float>(localPlayer->tileCount) / totalLand * 100.0f) : 0.0f;
+    char landText[32];
+    std::snprintf(landText, sizeof(landText), "LAND: %d (%.1f%%)", localPlayer->tileCount, landPct);
+    DrawText(landText, 720, 14, 15, Color{100, 190, 255, 255});
+
+    // Match Timer
+    int matchSec = static_cast<int>(sim.GetMatchTime());
+    int remSec = std::max(0, static_cast<int>(sim.GetMatchDuration()) - matchSec);
+    char timerText[32];
+    std::snprintf(timerText, sizeof(timerText), "%02d:%02d", remSec / 60, remSec % 60);
+    DrawText(timerText, 890, 14, 15, Color{230, 230, 240, 255});
+
+    // Multiplayer Status Badge
+    Rectangle netBadge = {static_cast<float>(screenWidth_ - 290), 8.0f, 160.0f, 30.0f};
+    char netStatus[64];
+    Color badgeCol = GREEN;
+    if (net.GetMode() == GameMode::SinglePlayer) {
+        std::snprintf(netStatus, sizeof(netStatus), "[SP] LOCAL");
+        badgeCol = Color{80, 180, 90, 255};
+    } else if (net.GetMode() == GameMode::Host) {
+        std::snprintf(netStatus, sizeof(netStatus), "[HOST] P:%d", net.GetServer().GetPort());
+        badgeCol = GOLD;
+    } else if (net.GetMode() == GameMode::Client) {
+        std::snprintf(netStatus, sizeof(netStatus), "[ONLINE] %dms", net.GetPing());
+        badgeCol = Color{40, 180, 240, 255};
+    }
+    DrawRectangleRec(netBadge, Color{25, 35, 50, 200});
+    DrawRectangleLinesEx(netBadge, 1.0f, badgeCol);
+    DrawText(netStatus, netBadge.x + 10, netBadge.y + 7, 13, badgeCol);
+
+    // [ESC] Menu Button
+    Rectangle menuBtn = {static_cast<float>(screenWidth_ - 110), 8.0f, 95.0f, 30.0f};
+    bool hoverMenu = CheckCollisionPointRec(GetMousePosition(), menuBtn);
+    DrawRectangleRec(menuBtn, hoverMenu ? Color{50, 140, 220, 240} : Color{35, 45, 65, 220});
+    DrawRectangleLinesEx(menuBtn, 1.0f, hoverMenu ? WHITE : Color{70, 90, 130, 255});
+    DrawText("[ESC] Menu", menuBtn.x + 12, menuBtn.y + 7, 13, WHITE);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverMenu) {
+        PlaySoundEffect("ui_click");
+        uiState_ = UIState::InGamePause;
+    }
+}
+
+void Renderer::DrawBottomDock(Simulation& sim, NetworkManager& net) {
+    float dockH = 68.0f;
+    float dockY = screenHeight_ - dockH;
+
+    DrawRectangle(0, dockY, screenWidth_, dockH, Color{15, 20, 30, 240});
+    DrawLine(0, dockY, screenWidth_, dockY, Color{40, 50, 70, 255});
+
+    PlayerId localId = net.GetLocalPlayerId();
+    Player* localPlayer = sim.GetPlayer(localId);
+    if (!localPlayer) {
+        return;
+    }
+
+    // Attack Slider
+    DrawText("PUSH ARMY:", 15, dockY + 12, 12, GRAY);
+
+    const float ratios[] = {0.10f, 0.20f, 0.50f, 1.00f};
+    const char* ratioLabels[] = {"[Z] 10%", "[X] 20%", "[C] 50%", "[V] 100%"};
+
+    for (int i = 0; i < 4; ++i) {
+        Rectangle btn = {90.0f + i * 66.0f, dockY + 8.0f, 60.0f, 24.0f};
+        bool isActive = (std::abs(localPlayer->attackRatio - ratios[i]) < 0.03f);
+
+        Color bg = isActive ? Color{40, 140, 250, 220} : Color{35, 45, 60, 220};
+        DrawRectangleRec(btn, bg);
+        DrawRectangleLinesEx(btn, 1.0f, isActive ? WHITE : Color{70, 80, 100, 255});
+        DrawText(ratioLabels[i], btn.x + 5, btn.y + 6, 11, WHITE);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+            CheckCollisionPointRec(GetMousePosition(), btn)) {
+            PlaySoundEffect("ui_click");
+            net.QueueSetAttackRatio(sim, localId, ratios[i]);
+        }
+    }
+
+    // Build Buttons
+    struct BuildBtn {
+        BuildingType type;
+        const char* label;
+        const char* cost;
+    };
+
+    BuildBtn bBtns[] = {{BuildingType::City, "[1] City", "$40k"},
+                        {BuildingType::Port, "[2] Port", "$35k"},
+                        {BuildingType::Factory, "[3] Factory", "$30k"},
+                        {BuildingType::DefensePost, "[4] Defense", "$25k"},
+                        {BuildingType::SamLauncher, "[5] SAM", "$45k"},
+                        {BuildingType::MissileSilo, "[6] Silo", "$75k"}};
+
+    float startX = 380.0f;
+    for (int i = 0; i < 6; ++i) {
+        Rectangle btn = {startX + i * 105.0f, dockY + 8.0f, 98.0f, 48.0f};
+        bool isSelected = (activeBuildMode_ == bBtns[i].type);
+        bool canAfford = (localPlayer->gold >= BuildingCost(bBtns[i].type));
+
+        Color bg = isSelected ? Color{50, 160, 100, 220}
+                              : (canAfford ? Color{30, 40, 55, 220} : Color{25, 25, 30, 200});
+        DrawRectangleRec(btn, bg);
+        DrawRectangleLinesEx(
+            btn, 1.0f,
+            isSelected ? WHITE : (canAfford ? Color{60, 80, 110, 255} : Color{50, 50, 60, 255}));
+
+        DrawText(bBtns[i].label, btn.x + 8, btn.y + 6, 12, canAfford ? WHITE : GRAY);
+        DrawText(bBtns[i].cost, btn.x + 8, btn.y + 24, 13,
+                 canAfford ? GOLD : Color{120, 110, 70, 255});
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+            CheckCollisionPointRec(GetMousePosition(), btn)) {
+            PlaySoundEffect("ui_click");
+            if (activeBuildMode_ == bBtns[i].type) {
+                activeBuildMode_ = BuildingType::None;
+            } else {
+                activeBuildMode_ = bBtns[i].type;
+                isTargetingNuke_ = false;
+            }
+        }
+    }
+
+    // Nuke Button
+    Rectangle nukeBtn = {startX + 6 * 105.0f + 15.0f, dockY + 8.0f, 105.0f, 48.0f};
+    bool hasSilo = (localPlayer->siloCount > 0);
+    bool canAffordNuke = hasSilo && (localPlayer->gold >= BombCost(BombType::AtomBomb));
+    bool isNukeActive = isTargetingNuke_;
+
+    Color nukeBg = isNukeActive ? Color{220, 50, 50, 240}
+                                : (canAffordNuke ? Color{60, 30, 35, 220} : Color{30, 25, 25, 200});
+    DrawRectangleRec(nukeBtn, nukeBg);
+    DrawRectangleLinesEx(nukeBtn, 1.0f,
+                         isNukeActive ? WHITE : (canAffordNuke ? RED : Color{70, 50, 50, 255}));
+    DrawText("[N] Atom Bomb", nukeBtn.x + 6, nukeBtn.y + 6, 11, canAffordNuke ? WHITE : GRAY);
+    DrawText("$100k", nukeBtn.x + 6, nukeBtn.y + 24, 13, canAffordNuke ? GOLD : GRAY);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(GetMousePosition(), nukeBtn) && hasSilo) {
+        if (isTargetingNuke_) {
+            isTargetingNuke_ = false;
+        } else {
+            for (const auto& b : sim.GetBuildings()) {
+                if (b.ownerId == localId && b.type == BuildingType::MissileSilo && b.active) {
+                    isTargetingNuke_ = true;
+                    nukeBombType_ = BombType::AtomBomb;
+                    nukeSiloTile_ = {b.x, b.y};
+                    activeBuildMode_ = BuildingType::None;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
+    float boardW = 220.0f;
+    float boardH = 260.0f;
+    float boardX = screenWidth_ - boardW - 15.0f;
+    float boardY = 56.0f;
+
+    DrawRectangle(boardX, boardY, boardW, boardH, Color{15, 20, 30, 220});
+    DrawRectangleLines(boardX, boardY, boardW, boardH, Color{40, 50, 70, 255});
+    DrawText("FACTION RANKINGS", boardX + 12, boardY + 10, 14, Color{200, 220, 240, 255});
+    DrawLine(boardX + 10, boardY + 28, boardX + boardW - 10, boardY + 28, Color{50, 60, 80, 255});
+
+    std::vector<const Player*> sorted;
+    for (const auto& p : sim.GetPlayers()) {
+        sorted.push_back(&p);
+    }
+    std::sort(sorted.begin(), sorted.end(),
+              [](const Player* a, const Player* b) { return a->tileCount > b->tileCount; });
+
+    int totalLand = sim.GetMap().GetLandTilesCount();
+
+    int rowY = boardY + 36;
+    for (size_t i = 0; i < sorted.size() && i < 8; ++i) {
+        const Player* p = sorted[i];
+
+        DrawCircle(boardX + 18, rowY + 8, 5.0f, p->color);
+
+        Color nameCol =
+            p->isAlive ? (p->id == localId
+                              ? GOLD
+                              : (p->type == FactionType::Human ? Color{80, 220, 255, 255} : WHITE))
+                       : GRAY;
+        std::string displayName =
+            (p->type == FactionType::Human && p->id != localId) ? (p->name + " [P]") : p->name;
+        DrawText(displayName.c_str(), boardX + 30, rowY + 2, 12, nameCol);
+
+        float pct =
+            (totalLand > 0) ? (static_cast<float>(p->tileCount) / totalLand * 100.0f) : 0.0f;
+        char statsBuf[32];
+        if (p->isAlive) {
+            std::snprintf(statsBuf, sizeof(statsBuf), "%.1f%% (%dk)", pct,
+                          static_cast<int>(p->troops / 1000.0));
+        } else {
+            std::snprintf(statsBuf, sizeof(statsBuf), "ELIMINATED");
+        }
+        DrawText(statsBuf, boardX + 130, rowY + 2, 11,
+                 p->isAlive ? Color{180, 200, 220, 255} : RED);
+
+        rowY += 24;
+    }
+}
+
+void Renderer::DrawMinimap(const Simulation& sim) {
+    DrawRectangleRec(minimapRect_, Color{10, 15, 25, 240});
+    DrawRectangleLinesEx(minimapRect_, 1.5f, Color{40, 60, 90, 255});
+
+    Rectangle src = {0.0f, 0.0f, static_cast<float>(kMapWidth), static_cast<float>(kMapHeight)};
+    DrawTexturePro(mapTexture_, src, minimapRect_, {0.0f, 0.0f}, 0.0f, WHITE);
+
+    Vector2 topLeftWorld = GetScreenToWorld2D({0.0f, 46.0f}, camera_);
+    Vector2 botRightWorld = GetScreenToWorld2D(
+        {static_cast<float>(screenWidth_), static_cast<float>(screenHeight_ - 68)}, camera_);
+
+    float minX = (topLeftWorld.x / (kMapWidth * kTileSize)) * minimapRect_.width;
+    float minY = (topLeftWorld.y / (kMapHeight * kTileSize)) * minimapRect_.height;
+    float maxX = (botRightWorld.x / (kMapWidth * kTileSize)) * minimapRect_.width;
+    float maxY = (botRightWorld.y / (kMapHeight * kTileSize)) * minimapRect_.height;
+
+    Rectangle vpRect = {minimapRect_.x + minX, minimapRect_.y + minY, maxX - minX, maxY - minY};
+    DrawRectangleLinesEx(vpRect, 1.5f, WHITE);
+}
+
+void Renderer::DrawGameOver(Simulation& sim) {
+    DrawRectangle(0, 0, screenWidth_, screenHeight_, Color{0, 0, 0, 200});
+
+    PlayerId winId = sim.GetWinnerId();
+    const Player* win = sim.GetPlayer(winId);
+
+    const char* title = (winId == 1) ? "VICTORY! WORLD CONQUERED" : "DEFEAT! WORLD DOMINATION LOST";
+    Color titleCol = (winId == 1) ? GOLD : RED;
+
+    int tw = MeasureText(title, 36);
+    DrawText(title, (screenWidth_ - tw) / 2, screenHeight_ / 2 - 80, 36, titleCol);
+
+    char winnerMsg[128];
+    std::snprintf(winnerMsg, sizeof(winnerMsg), "Dominant Power: %s with %d tiles",
+                  win ? win->name.c_str() : "Nobody", win ? win->tileCount : 0);
+    int mw = MeasureText(winnerMsg, 20);
+    DrawText(winnerMsg, (screenWidth_ - mw) / 2, screenHeight_ / 2 - 20, 20, WHITE);
+
+    const char* sub = "Press [R] or [SPACE] to Restart Match";
+    int sw = MeasureText(sub, 18);
+    DrawText(sub, (screenWidth_ - sw) / 2, screenHeight_ / 2 + 40, 18, Color{180, 220, 255, 255});
+
+    if (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_SPACE)) {
+        sim.Init(4, 4, static_cast<uint32_t>(GetTime() * 1000.0));
+        Init(sim, 1);
+    }
+}
+
+void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
+    // Semi-transparent glassmorphism backdrop
+    DrawRectangle(0, 0, screenWidth_, screenHeight_, Color{5, 10, 20, 180});
+
+    float menuW = 480.0f;
+    float menuH = 500.0f;
+    float menuX = (screenWidth_ - menuW) * 0.5f;
+    float menuY = (screenHeight_ - menuH) * 0.5f;
+
+    Rectangle card = {menuX, menuY, menuW, menuH};
+    DrawRectangleRec(card, Color{18, 24, 38, 240});
+    DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
+
+    // Animated Title
+    const char* title = "OPENFRONT";
+    int tw = MeasureText(title, 48);
+    DrawText(title, menuX + (menuW - tw) * 0.5f, menuY + 28, 48, GOLD);
+
+    const char* sub = "REAL-TIME TERRITORY STRATEGY";
+    int sw = MeasureText(sub, 13);
+    DrawText(sub, menuX + (menuW - sw) * 0.5f, menuY + 84, 13, Color{160, 200, 240, 255});
+
+    DrawLine(menuX + 30, menuY + 110, menuX + menuW - 30, menuY + 110, Color{40, 60, 90, 255});
+
+    Vector2 mousePos = GetMousePosition();
+
+    struct MenuBtn {
+        const char* label;
+        Color col;
+        UIState next;
+    };
+
+    MenuBtn btns[] = {{"PLAY SINGLEPLAYER", Color{40, 150, 90, 230}, UIState::InGame},
+                      {"HOST MULTIPLAYER", Color{35, 100, 180, 230}, UIState::HostLobby},
+                      {"JOIN MULTIPLAYER", Color{30, 80, 160, 230}, UIState::JoinLobby},
+                      {"HOW TO PLAY", Color{40, 50, 75, 230}, UIState::HowToPlay}};
+
+    float startY = menuY + 130.0f;
+    for (int i = 0; i < 4; ++i) {
+        Rectangle btn = {menuX + 40.0f, startY + i * 62.0f, menuW - 80.0f, 48.0f};
+        bool hover = CheckCollisionPointRec(mousePos, btn);
+
+        Color fill = hover ? Color{static_cast<unsigned char>(btns[i].col.r + 30),
+                                   static_cast<unsigned char>(btns[i].col.g + 30),
+                                   static_cast<unsigned char>(btns[i].col.b + 30), 255}
+                           : btns[i].col;
+        DrawRectangleRec(btn, fill);
+        DrawRectangleLinesEx(btn, 1.5f, hover ? WHITE : Color{70, 120, 190, 255});
+
+        int lw = MeasureText(btns[i].label, 16);
+        DrawText(btns[i].label, btn.x + (btn.width - lw) * 0.5f, btn.y + 15, 16, WHITE);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hover) {
+            PlaySoundEffect("ui_click");
+            if (btns[i].next == UIState::InGame) {
+                net.StartSinglePlayer(sim);
+                Init(sim, 1);
+                uiState_ = UIState::InGame;
+            } else {
+                uiState_ = btns[i].next;
+            }
+        }
+    }
+
+    // Quit button
+    Rectangle quitBtn = {menuX + 40.0f, startY + 4 * 62.0f, menuW - 80.0f, 40.0f};
+    bool hoverQuit = CheckCollisionPointRec(mousePos, quitBtn);
+    DrawRectangleRec(quitBtn, hoverQuit ? Color{180, 40, 50, 220} : Color{30, 35, 45, 200});
+    DrawRectangleLinesEx(quitBtn, 1.0f, hoverQuit ? WHITE : Color{60, 60, 70, 255});
+    int qw = MeasureText("EXIT GAME", 14);
+    DrawText("EXIT GAME", quitBtn.x + (quitBtn.width - qw) * 0.5f, quitBtn.y + 13, 14, GRAY);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverQuit) {
+        CloseWindow();
+    }
+}
+
+void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
+    DrawRectangle(0, 0, screenWidth_, screenHeight_, Color{5, 10, 20, 210});
+
+    float menuW = 540.0f;
+    float menuH = 520.0f;
+    float menuX = (screenWidth_ - menuW) * 0.5f;
+    float menuY = (screenHeight_ - menuH) * 0.5f;
+
+    Rectangle card = {menuX, menuY, menuW, menuH};
+    DrawRectangleRec(card, Color{18, 24, 38, 248});
+    DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
+
+    DrawText("HOST MULTIPLAYER ROOM", menuX + 30, menuY + 22, 22, GOLD);
+    DrawLine(menuX + 25, menuY + 54, menuX + menuW - 25, menuY + 54, Color{40, 60, 90, 255});
+
+    Vector2 mousePos = GetMousePosition();
+    bool isHosting = (net.GetMode() == GameMode::Host);
+
+    // Player Name
+    DrawText("Host Commander Name:", menuX + 30, menuY + 68, 13, WHITE);
+    Rectangle nameBox = {menuX + 30, menuY + 86, menuW - 60, 30};
+    DrawRectangleRec(nameBox,
+                     (activeInputBox_ == 1) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
+    DrawRectangleLinesEx(nameBox, 1.0f, (activeInputBox_ == 1) ? GOLD : Color{60, 80, 110, 255});
+    DrawText(playerNameBuffer_, nameBox.x + 10, nameBox.y + 7, 14, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, nameBox)) {
+        activeInputBox_ = 1;
+    }
+
+    // Server Port & Host Toggle
+    DrawText("UDP Port:", menuX + 30, menuY + 124, 13, WHITE);
+    Rectangle portBox = {menuX + 30, menuY + 142, 130, 30};
+    DrawRectangleRec(portBox,
+                     (activeInputBox_ == 2) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
+    DrawRectangleLinesEx(portBox, 1.0f, (activeInputBox_ == 2) ? GOLD : Color{60, 80, 110, 255});
+    DrawText(hostPortBuffer_, portBox.x + 10, portBox.y + 7, 14, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, portBox)) {
+        activeInputBox_ = 2;
+    }
+
+    if (!isHosting) {
+        Rectangle createBtn = {menuX + 175, menuY + 142, menuW - 205, 30};
+        bool hoverCreate = CheckCollisionPointRec(mousePos, createBtn);
+        DrawRectangleRec(createBtn,
+                         hoverCreate ? Color{40, 120, 220, 255} : Color{30, 90, 180, 230});
+        DrawRectangleLinesEx(createBtn, 1.0f, hoverCreate ? WHITE : Color{60, 140, 240, 255});
+        int cw = MeasureText("CREATE ROOM & LISTEN", 13);
+        DrawText("CREATE ROOM & LISTEN", createBtn.x + (createBtn.width - cw) * 0.5f,
+                 createBtn.y + 8, 13, WHITE);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverCreate) {
+            PlaySoundEffect("ui_click");
+            int port = std::atoi(hostPortBuffer_);
+            if (port <= 0) {
+                port = 7777;
+            }
+            net.StartHost(sim, static_cast<uint16_t>(port), playerNameBuffer_);
+        }
+    } else {
+        char portStatus[64];
+        std::snprintf(portStatus, sizeof(portStatus), "● LISTENING ON PORT %s", hostPortBuffer_);
+        DrawText(portStatus, menuX + 180, menuY + 150, 13, GREEN);
+    }
+
+    // Connected Players in Lobby box
+    Rectangle lobbyBox = {menuX + 30, menuY + 185, menuW - 60, 175};
+    DrawRectangleRec(lobbyBox, Color{12, 16, 26, 220});
+    DrawRectangleLinesEx(lobbyBox, 1.0f, Color{45, 60, 85, 255});
+
+    DrawText("LOBBY COMMANDERS (HUMAN & AI):", lobbyBox.x + 12, lobbyBox.y + 8, 12,
+             Color{140, 180, 230, 255});
+    DrawLine(lobbyBox.x + 10, lobbyBox.y + 24, lobbyBox.x + lobbyBox.width - 10, lobbyBox.y + 24,
+             Color{30, 45, 70, 255});
+
+    if (isHosting) {
+        auto lobbyPlayers = net.GetServer().GetLobbyPlayers();
+        float py = lobbyBox.y + 32;
+
+        for (size_t i = 0; i < lobbyPlayers.size(); ++i) {
+            const auto& lp = lobbyPlayers[i];
+            Color dotCol = (lp.id == 1) ? Color{40, 140, 250, 255} : Color{230, 45, 50, 255};
+            DrawCircle(lobbyBox.x + 20, py + 8, 5.0f, dotCol);
+
+            char pDesc[128];
+            if (lp.isHost) {
+                std::snprintf(pDesc, sizeof(pDesc), "Slot %u: %s (Host) [READY]", lp.id,
+                              lp.name.c_str());
+            } else {
+                std::snprintf(pDesc, sizeof(pDesc), "Slot %u: %s (Guest) [READY]", lp.id,
+                              lp.name.c_str());
+            }
+            DrawText(pDesc, lobbyBox.x + 35, py + 2, 13, WHITE);
+            py += 22;
+        }
+
+        // Show remaining slots as AI
+        const char* aiSlots[] = {"Aethelgard (AI Nation)", "Novaria (AI Nation)",
+                                 "Valerius (AI Nation)", "Zephyria (AI Nation)"};
+        for (size_t s = lobbyPlayers.size(); s < 4; ++s) {
+            DrawCircle(lobbyBox.x + 20, py + 8, 4.0f, GRAY);
+            char aiDesc[64];
+            std::snprintf(aiDesc, sizeof(aiDesc), "Slot %zu: %s", s + 1, aiSlots[s % 4]);
+            DrawText(aiDesc, lobbyBox.x + 35, py + 2, 12, Color{130, 140, 160, 255});
+            py += 20;
+        }
+
+        char countBuf[64];
+        std::snprintf(countBuf, sizeof(countBuf), "Total Humans Connected: %zu",
+                      lobbyPlayers.size());
+        DrawText(countBuf, lobbyBox.x + 12, lobbyBox.y + lobbyBox.height - 20, 12,
+                 Color{100, 220, 140, 255});
+    } else {
+        DrawText("Click [CREATE ROOM & LISTEN] to begin hosting.", lobbyBox.x + 25, lobbyBox.y + 70,
+                 13, GRAY);
+    }
+
+    // Action button: [START MATCH]
+    Rectangle actionBtn = {menuX + 30, menuY + 380, menuW - 60, 50};
+    bool hoverAction = CheckCollisionPointRec(mousePos, actionBtn);
+
+    if (isHosting) {
+        DrawRectangleRec(actionBtn,
+                         hoverAction ? Color{40, 175, 95, 255} : Color{30, 140, 75, 235});
+        DrawRectangleLinesEx(actionBtn, 2.0f, hoverAction ? WHITE : Color{80, 210, 120, 255});
+        const char* startLabel = "⚔  START MATCH (SPACE / ENTER)  ⚔";
+        int slw = MeasureText(startLabel, 16);
+        DrawText(startLabel, actionBtn.x + (actionBtn.width - slw) * 0.5f, actionBtn.y + 16, 16,
+                 WHITE);
+
+        if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverAction) ||
+            ((IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) && activeInputBox_ == 0)) {
+            PlaySoundEffect("ui_click");
+            net.StartHostMatch(sim);
+            Init(sim, 1);
+            uiState_ = UIState::InGame;
+        }
+    } else {
+        DrawRectangleRec(actionBtn, Color{30, 35, 45, 180});
+        DrawRectangleLinesEx(actionBtn, 1.0f, Color{60, 70, 85, 255});
+        const char* waitLabel = "ROOM NOT ACTIVE";
+        int wlw = MeasureText(waitLabel, 14);
+        DrawText(waitLabel, actionBtn.x + (actionBtn.width - wlw) * 0.5f, actionBtn.y + 17, 14,
+                 GRAY);
+    }
+
+    // Back button
+    Rectangle backBtn = {menuX + 30, menuY + 448, menuW - 60, 38};
+    bool hoverBack = CheckCollisionPointRec(mousePos, backBtn);
+    DrawRectangleRec(backBtn, hoverBack ? Color{50, 60, 80, 220} : Color{28, 35, 48, 200});
+    DrawRectangleLinesEx(backBtn, 1.0f, hoverBack ? WHITE : Color{55, 70, 95, 255});
+    int bw = MeasureText("BACK TO MAIN MENU", 14);
+    DrawText("BACK TO MAIN MENU", backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 14,
+             GRAY);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverBack) {
+        PlaySoundEffect("ui_click");
+        net.Stop();
+        uiState_ = UIState::StartMenu;
+    }
+}
+
+void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
+    DrawRectangle(0, 0, screenWidth_, screenHeight_, Color{5, 10, 20, 210});
+
+    float menuW = 540.0f;
+    float menuH = 520.0f;
+    float menuX = (screenWidth_ - menuW) * 0.5f;
+    float menuY = (screenHeight_ - menuH) * 0.5f;
+
+    Rectangle card = {menuX, menuY, menuW, menuH};
+    DrawRectangleRec(card, Color{18, 24, 38, 248});
+    DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
+
+    DrawText("JOIN MULTIPLAYER ROOM", menuX + 30, menuY + 22, 22, GOLD);
+    DrawLine(menuX + 25, menuY + 54, menuX + menuW - 25, menuY + 54, Color{40, 60, 90, 255});
+
+    Vector2 mousePos = GetMousePosition();
+    bool isConnected = net.GetClient().IsConnected();
+    bool isInLobby = net.GetClient().IsInLobby();
+
+    // Player Name
+    DrawText("Your Commander Name:", menuX + 30, menuY + 68, 13, WHITE);
+    Rectangle nameBox = {menuX + 30, menuY + 86, menuW - 60, 30};
+    DrawRectangleRec(nameBox,
+                     (activeInputBox_ == 1) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
+    DrawRectangleLinesEx(nameBox, 1.0f, (activeInputBox_ == 1) ? GOLD : Color{60, 80, 110, 255});
+    DrawText(playerNameBuffer_, nameBox.x + 10, nameBox.y + 7, 14, WHITE);
+    if (!isConnected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, nameBox)) {
+        activeInputBox_ = 1;
+    }
+
+    // Server IP & Port
+    DrawText("Host IP Address:", menuX + 30, menuY + 124, 13, WHITE);
+    Rectangle ipBox = {menuX + 30, menuY + 142, 260, 30};
+    DrawRectangleRec(ipBox,
+                     (activeInputBox_ == 3) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
+    DrawRectangleLinesEx(ipBox, 1.0f, (activeInputBox_ == 3) ? GOLD : Color{60, 80, 110, 255});
+    DrawText(joinIpBuffer_, ipBox.x + 10, ipBox.y + 7, 14, WHITE);
+    if (!isConnected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, ipBox)) {
+        activeInputBox_ = 3;
+    }
+
+    DrawText("Port:", menuX + 310, menuY + 124, 13, WHITE);
+    Rectangle portBox = {menuX + 310, menuY + 142, 170, 30};
+    DrawRectangleRec(portBox,
+                     (activeInputBox_ == 4) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
+    DrawRectangleLinesEx(portBox, 1.0f, (activeInputBox_ == 4) ? GOLD : Color{60, 80, 110, 255});
+    DrawText(joinPortBuffer_, portBox.x + 10, portBox.y + 7, 14, WHITE);
+    if (!isConnected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, portBox)) {
+        activeInputBox_ = 4;
+    }
+
+    // Lobby / Status box
+    Rectangle statusBox = {menuX + 30, menuY + 185, menuW - 60, 175};
+    DrawRectangleRec(statusBox, Color{12, 16, 26, 220});
+    DrawRectangleLinesEx(statusBox, 1.0f, Color{45, 60, 85, 255});
+
+    if (isConnected) {
+        DrawText("CONNECTED TO HOST LOBBY:", statusBox.x + 12, statusBox.y + 8, 12, GREEN);
+        DrawLine(statusBox.x + 10, statusBox.y + 24, statusBox.x + statusBox.width - 10,
+                 statusBox.y + 24, Color{30, 45, 70, 255});
+
+        const auto& lobbyPlayers = net.GetClient().GetLobbyPlayers();
+        float py = statusBox.y + 32;
+
+        if (!lobbyPlayers.empty()) {
+            for (const auto& lp : lobbyPlayers) {
+                Color dotCol = (lp.id == net.GetLocalPlayerId()) ? Color{230, 45, 50, 255}
+                                                                 : Color{40, 140, 250, 255};
+                DrawCircle(statusBox.x + 20, py + 8, 5.0f, dotCol);
+
+                char pDesc[128];
+                if (lp.id == net.GetLocalPlayerId()) {
+                    std::snprintf(pDesc, sizeof(pDesc), "Slot %u: %s (You) [READY]", lp.id,
+                                  lp.name.c_str());
+                } else if (lp.isHost) {
+                    std::snprintf(pDesc, sizeof(pDesc), "Slot %u: %s (Host) [READY]", lp.id,
+                                  lp.name.c_str());
+                } else {
+                    std::snprintf(pDesc, sizeof(pDesc), "Slot %u: %s (Guest) [READY]", lp.id,
+                                  lp.name.c_str());
+                }
+                DrawText(pDesc, statusBox.x + 35, py + 2, 13, WHITE);
+                py += 22;
+            }
+        } else {
+            char selfDesc[128];
+            std::snprintf(selfDesc, sizeof(selfDesc), "Slot %u: %s (You) [CONNECTED]",
+                          net.GetLocalPlayerId(), playerNameBuffer_);
+            DrawText(selfDesc, statusBox.x + 20, py + 4, 13, WHITE);
+        }
+
+        // Animated pulsing wait text
+        float time = static_cast<float>(GetTime());
+        float pulseAlpha = 0.5f + 0.5f * std::sin(time * 4.0f);
+        Color pulseCol = Color{255, 220, 50, static_cast<unsigned char>(pulseAlpha * 255)};
+        const char* waitText = ">>> WAITING FOR HOST TO START MATCH... <<<";
+        int wtw = MeasureText(waitText, 14);
+        DrawText(waitText, statusBox.x + (statusBox.width - wtw) * 0.5f,
+                 statusBox.y + statusBox.height - 30, 14, pulseCol);
+    } else {
+        DrawText("STATUS: NOT CONNECTED", statusBox.x + 12, statusBox.y + 8, 12, GRAY);
+        DrawLine(statusBox.x + 10, statusBox.y + 24, statusBox.x + statusBox.width - 10,
+                 statusBox.y + 24, Color{30, 45, 70, 255});
+        DrawText("Enter Host IP and Port, then click [CONNECT TO HOST].", statusBox.x + 25,
+                 statusBox.y + 60, 13, Color{160, 180, 210, 255});
+        DrawText(connectionStatusText_.c_str(), statusBox.x + 25, statusBox.y + 90, 13,
+                 Color{230, 180, 60, 255});
+    }
+
+    // Connect button
+    Rectangle connectBtn = {menuX + 30, menuY + 380, menuW - 60, 50};
+    bool hoverConnect = CheckCollisionPointRec(mousePos, connectBtn);
+
+    if (!isConnected) {
+        DrawRectangleRec(connectBtn,
+                         hoverConnect ? Color{40, 140, 240, 255} : Color{30, 100, 200, 235});
+        DrawRectangleLinesEx(connectBtn, 2.0f, hoverConnect ? WHITE : Color{70, 160, 255, 255});
+        const char* connLabel = "CONNECT TO HOST";
+        int clw = MeasureText(connLabel, 16);
+        DrawText(connLabel, connectBtn.x + (connectBtn.width - clw) * 0.5f, connectBtn.y + 16, 16,
+                 WHITE);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverConnect) {
+            PlaySoundEffect("ui_click");
+            int port = std::atoi(joinPortBuffer_);
+            if (port <= 0) {
+                port = 7777;
+            }
+            connectionStatusText_ = "Connecting to server...";
+            net.StartClient(sim, joinIpBuffer_, static_cast<uint16_t>(port), playerNameBuffer_);
+
+            net.GetClient().SetOnGameStartedCallback([this, &sim, &net]() {
+                Init(sim, net.GetLocalPlayerId());
+                uiState_ = UIState::InGame;
+            });
+        }
+    } else {
+        DrawRectangleRec(connectBtn, Color{25, 35, 50, 180});
+        DrawRectangleLinesEx(connectBtn, 1.0f, Color{50, 80, 120, 255});
+        const char* connLabel = "● CONNECTED (WAITING FOR LAUNCH)";
+        int clw = MeasureText(connLabel, 14);
+        DrawText(connLabel, connectBtn.x + (connectBtn.width - clw) * 0.5f, connectBtn.y + 17, 14,
+                 GREEN);
+    }
+
+    // Back / Disconnect button
+    Rectangle backBtn = {menuX + 30, menuY + 448, menuW - 60, 38};
+    bool hoverBack = CheckCollisionPointRec(mousePos, backBtn);
+    DrawRectangleRec(backBtn, hoverBack ? Color{50, 60, 80, 220} : Color{28, 35, 48, 200});
+    DrawRectangleLinesEx(backBtn, 1.0f, hoverBack ? WHITE : Color{55, 70, 95, 255});
+
+    const char* backText = isConnected ? "DISCONNECT & RETURN TO MENU" : "BACK TO MAIN MENU";
+    int bw = MeasureText(backText, 14);
+    DrawText(backText, backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 14, GRAY);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverBack) {
+        PlaySoundEffect("ui_click");
+        net.Stop();
+        connectionStatusText_ = "Ready to connect";
+        uiState_ = UIState::StartMenu;
+    }
+}
+
+void Renderer::DrawHowToPlay() {
+    DrawRectangle(0, 0, screenWidth_, screenHeight_, Color{5, 10, 20, 230});
+
+    float menuW = 760.0f;
+    float menuH = 580.0f;
+    float menuX = (screenWidth_ - menuW) * 0.5f;
+    float menuY = (screenHeight_ - menuH) * 0.5f;
+
+    Rectangle card = {menuX, menuY, menuW, menuH};
+    DrawRectangleRec(card, Color{18, 24, 38, 250});
+    DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
+
+    DrawText("HOW TO PLAY OPENFRONT", menuX + 30, menuY + 24, 24, GOLD);
+    DrawLine(menuX + 25, menuY + 60, menuX + menuW - 25, menuY + 60, Color{40, 60, 90, 255});
+
+    int y = menuY + 75;
+
+    DrawText("1. BORDER-DRIVEN EXPANSION (NO DIRECT UNIT MOVEMENT)", menuX + 30, y, 16,
+             Color{120, 220, 140, 255});
+    y += 24;
+    DrawText("• Left-click ANY tile outside your borders to launch an expanding front wave.",
+             menuX + 45, y, 14, WHITE);
+    y += 20;
+    DrawText("• Your committed army flows outward across your border, capturing tiles one by one.",
+             menuX + 45, y, 14, WHITE);
+    y += 20;
+    DrawText("• Left-click an active front badge to REINFORCE it; Right-click to CANCEL.",
+             menuX + 45, y, 14, WHITE);
+
+    y += 35;
+    DrawText("2. ARMY COMMITMENT & COMBAT SLIDER", menuX + 30, y, 16, Color{255, 215, 50, 255});
+    y += 24;
+    DrawText("• Choose how much of your total army is sent into each push: [Z] 10%, [X] 20%, [C] "
+             "50%, [V] 100%.",
+             menuX + 45, y, 14, WHITE);
+    y += 20;
+    DrawText("• Defender's shield is their troop density (troops / tiles owned * 10).", menuX + 45,
+             y, 14, WHITE);
+    y += 20;
+    DrawText(
+        "• Terrain matters: Plains (1.0x), Highlands (1.5x), Mountains (2.5x defense multiplier).",
+        menuX + 45, y, 14, WHITE);
+
+    y += 35;
+    DrawText("3. ECONOMY & BUILDINGS", menuX + 30, y, 16, Color{100, 190, 255, 255});
+    y += 24;
+    DrawText("• [1] City ($40k): Boosts max population capacity by 25,000 per level.", menuX + 45,
+             y, 14, WHITE);
+    y += 20;
+    DrawText("• [2] Port ($35k) & [3] Factory ($30k): Coastal trade ships and trains generate "
+             "massive gold income.",
+             menuX + 45, y, 14, WHITE);
+    y += 20;
+    DrawText("• [4] Defense Post ($25k): Fortifies territory with a 5x attacker casualty aura "
+             "within 30 tiles!",
+             menuX + 45, y, 14, WHITE);
+    y += 20;
+    DrawText(
+        "• [5] SAM ($45k) & [6] Silo ($75k): Intercept and launch devastating nuclear weapons.",
+        menuX + 45, y, 14, WHITE);
+
+    // Back button
+    Rectangle backBtn = {menuX + 30, menuY + menuH - 60, menuW - 60, 40};
+    bool hoverBack = CheckCollisionPointRec(GetMousePosition(), backBtn);
+    DrawRectangleRec(backBtn, hoverBack ? Color{40, 140, 240, 240} : Color{30, 80, 160, 220});
+    DrawRectangleLinesEx(backBtn, 1.5f, hoverBack ? WHITE : Color{70, 140, 240, 255});
+    int bw = MeasureText("BACK TO MAIN MENU", 15);
+    DrawText("BACK TO MAIN MENU", backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 15,
+             WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverBack) {
+        uiState_ = UIState::StartMenu;
+    }
+}
+
+void Renderer::DrawPauseMenu(Simulation& sim, NetworkManager& net) {
+    DrawRectangle(0, 0, screenWidth_, screenHeight_, Color{5, 10, 20, 180});
+
+    float menuW = 340.0f;
+    float menuH = 320.0f;
+    float menuX = (screenWidth_ - menuW) * 0.5f;
+    float menuY = (screenHeight_ - menuH) * 0.5f;
+
+    Rectangle card = {menuX, menuY, menuW, menuH};
+    DrawRectangleRec(card, Color{18, 24, 38, 245});
+    DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
+
+    DrawText("PAUSE MENU", menuX + 105, menuY + 24, 22, GOLD);
+    DrawLine(menuX + 25, menuY + 56, menuX + menuW - 25, menuY + 56, Color{40, 60, 90, 255});
+
+    Vector2 mousePos = GetMousePosition();
+
+    Rectangle resBtn = {menuX + 30, menuY + 75, menuW - 60, 42};
+    bool hoverRes = CheckCollisionPointRec(mousePos, resBtn);
+    DrawRectangleRec(resBtn, hoverRes ? Color{40, 150, 90, 240} : Color{30, 120, 70, 220});
+    DrawRectangleLinesEx(resBtn, 1.0f, hoverRes ? WHITE : Color{60, 180, 100, 255});
+    DrawText("RESUME BATTLE", resBtn.x + 65, resBtn.y + 13, 15, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverRes) {
+        PlaySoundEffect("ui_click");
+        uiState_ = UIState::InGame;
+    }
+
+    Rectangle restartBtn = {menuX + 30, menuY + 130, menuW - 60, 42};
+    bool hoverRest = CheckCollisionPointRec(mousePos, restartBtn);
+    DrawRectangleRec(restartBtn, hoverRest ? Color{40, 100, 180, 240} : Color{30, 75, 140, 220});
+    DrawRectangleLinesEx(restartBtn, 1.0f, hoverRest ? WHITE : Color{60, 140, 220, 255});
+    DrawText("RESTART MATCH", restartBtn.x + 65, restartBtn.y + 13, 15, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverRest) {
+        PlaySoundEffect("ui_click");
+        net.StartSinglePlayer(sim);
+        Init(sim, 1);
+        uiState_ = UIState::InGame;
+    }
+
+    Rectangle mmBtn = {menuX + 30, menuY + 185, menuW - 60, 42};
+    bool hoverMM = CheckCollisionPointRec(mousePos, mmBtn);
+    DrawRectangleRec(mmBtn, hoverMM ? Color{180, 40, 50, 240} : Color{130, 30, 40, 220});
+    DrawRectangleLinesEx(mmBtn, 1.0f, hoverMM ? WHITE : Color{220, 60, 70, 255});
+    DrawText("MAIN MENU", mmBtn.x + 85, mmBtn.y + 13, 15, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverMM) {
+        PlaySoundEffect("ui_click");
+        net.Stop();
+        uiState_ = UIState::StartMenu;
+    }
+}
+
+} // namespace Openfront
