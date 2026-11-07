@@ -196,6 +196,8 @@ void ApplyText(Engine::Registry& scene, Engine::Entity entity, const Engine::Tex
                                          Engine::Text(source.text, source.fontsize, source.color));
         auto& text = scene.RequireComponent<Engine::Text>(entity);
         text.spacing = source.spacing;
+        text.fontPath = source.fontPath;
+        text.font = source.font;
         return;
     }
     auto& text = scene.RequireComponent<Engine::Text>(entity);
@@ -203,6 +205,8 @@ void ApplyText(Engine::Registry& scene, Engine::Entity entity, const Engine::Tex
     text.fontsize = source.fontsize;
     text.spacing = source.spacing;
     text.color = source.color;
+    text.fontPath = source.fontPath;
+    text.font = source.font;
 }
 
 void ApplyNetwork(Engine::Registry& scene, Engine::Entity entity,

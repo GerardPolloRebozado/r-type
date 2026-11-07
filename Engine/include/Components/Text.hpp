@@ -23,6 +23,9 @@ struct Text {
     /** @brief Content string to display. */
     std::string text = "";
 
+    /** @brief Path to custom font file (relative to project). */
+    std::string fontPath = "";
+
     /** @brief Raylib Font asset used for rendering (default font if texture.id == 0). */
     Font font = {};
 
@@ -40,9 +43,11 @@ struct Text {
      * @param Text The text string to be displayed.
      * @param Fontsize The size of the text in pixels.
      * @param tint The color tint for rendering.
+     * @param FontPath Optional path to custom font file.
      */
-    Text(std::string Text = "", float Fontsize = 10.0f, Color tint = WHITE)
-        : text(std::move(Text)), fontsize(Fontsize), color(tint) {}
+    Text(std::string Text = "", float Fontsize = 10.0f, Color tint = WHITE,
+         std::string FontPath = "")
+        : text(std::move(Text)), fontPath(std::move(FontPath)), fontsize(Fontsize), color(tint) {}
 
     /**
      * @brief Constructs a Text component with a custom font and character spacing.
@@ -51,10 +56,12 @@ struct Text {
      * @param Fontsize The size of the text in pixels.
      * @param Spacing The space between characters in pixels.
      * @param tint The color tint for rendering.
+     * @param FontPath Optional path to custom font file.
      */
-    Text(Font font, std::string Text, float Fontsize, float Spacing, Color tint)
-        : text(std::move(Text)), font(std::move(font)), fontsize(Fontsize), spacing(Spacing),
-          color(tint) {}
+    Text(Font font, std::string Text, float Fontsize, float Spacing, Color tint,
+         std::string FontPath = "")
+        : text(std::move(Text)), fontPath(std::move(FontPath)), font(std::move(font)),
+          fontsize(Fontsize), spacing(Spacing), color(tint) {}
 };
 } // namespace Engine
 #endif // G_ING_500_BAR_5_1_RTYPE_1_TEXT_HPP

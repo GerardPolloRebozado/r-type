@@ -57,9 +57,9 @@ template <> struct glz::meta<Engine::SpriteComponent> {
 
 template <> struct glz::meta<Engine::Text> {
     // NB: the runtime `font` handle is intentionally excluded.
-    static constexpr auto value =
-        glz::object("text", &Engine::Text::text, "fontsize", &Engine::Text::fontsize, "spacing",
-                    &Engine::Text::spacing, "color", &Engine::Text::color);
+    static constexpr auto value = glz::object(
+        "text", &Engine::Text::text, "fontsize", &Engine::Text::fontsize, "spacing",
+        &Engine::Text::spacing, "color", &Engine::Text::color, "fontPath", &Engine::Text::fontPath);
 };
 
 template <> struct glz::meta<Engine::ShapeComponent> {
