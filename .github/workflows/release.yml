@@ -276,16 +276,6 @@ jobs:
           restore-keys: |
             cpm-wasm-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            cmake \
-            ninja-build \
-            pkg-config \
-            liblua5.4-dev
-
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
@@ -296,20 +286,48 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/lua-wasm-install
-          key: lua-wasm-v5.4.7-${{ runner.os }}
+          key: lua-wasm-v5.4.7-static-${{ runner.os }}
 
-      - name: Build Lua for WebAssembly
+      - name: Build Lua 5.4 for WebAssembly
         if: steps.cache-lua.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          git clone --depth 1 --branch v5.4.7 https://github.com/walterschell/Lua.git lua-src
-          cd lua-src
-          mkdir build-wasm && cd build-wasm
-          emcmake cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/lua-wasm-install"
-          cmake --build . --parallel
-          cmake --install .
+          mkdir -p lua-build-src && cd lua-build-src
+          
+          # Download official Lua 5.4.7 source tarball
+          curl -R -O https://www.lua.org/ftp/lua-5.4.7.tar.gz
+          tar zxf lua-5.4.7.tar.gz
+          cd lua-5.4.7
+          
+          # Compile Lua source files into WebAssembly object files using emcc
+          # We exclude lua.c and luac.c because we only want the static library and headers for the engine
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/include"
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/lib"
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig"
+          
+          emcc -O2 -c *.c -I. -DLUA_USE_POSIX
+          emar rcs liblua.a *.o
+          
+          # Copy headers and library
+          cp *.h "${{ github.workspace }}/lua-wasm-install/include/"
+          cp liblua.a "${{ github.workspace }}/lua-wasm-install/lib/"
+          
+          # Generate a custom pkg-config .pc file so CMake finds it automatically
+          cat <<EOF > "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua5.4.pc"
+          prefix=${{ github.workspace }}/lua-wasm-install
+          exec_prefix=\${prefix}
+          libdir=\${exec_prefix}/lib
+          includedir=\${prefix}/include
+          
+          Name: Lua
+          Description: An Extensible Programming Language
+          Version: 5.4.7
+          Libs: -L\${libdir} -llua -lm
+          Cflags: -I\${includedir}
+          EOF
+          
+          # Also symlink/alias to lua5.5 or general lua if needed by custom FindLua modules
+          cp "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua5.4.pc" "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua.pc"
 
       - name: Stage WASM runtime files
         run: |
