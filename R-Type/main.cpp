@@ -1,29 +1,29 @@
 #include "Core/Application.hpp"
-#include "Inputs/Controller.hpp"
-#include "Inputs/InputManager.hpp"
-#include "Plugins/AnimationPlugin.hpp"
+#include "SceneFiles.hpp"
+#include <string>
 #include "Plugins/AudioPlugin.hpp"
-#include "Plugins/CameraPlugin.hpp"
-#include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/HierarchyPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
 #include "Plugins/MultiplayerPlugin.hpp"
-#include "Plugins/OpacityPlugin.hpp"
-#include "Plugins/PositionPlugin.hpp"
 #include "Plugins/ReplicationPlugin.hpp"
-#include "Plugins/RotationPlugin.hpp"
-#include "Plugins/ShapePlugin.hpp"
+#include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/SignalPlugin.hpp"
-#include "Plugins/SpritePlugin.hpp"
+#include "Plugins/PositionPlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
+#include "Plugins/SpritePlugin.hpp"
+#include "Plugins/ShapePlugin.hpp"
+#include "Plugins/RotationPlugin.hpp"
+#include "Plugins/ColliderPlugin.hpp"
+#include "Plugins/CameraPlugin.hpp"
+#include "Plugins/AnimationPlugin.hpp"
 #include "Plugins/WavePlugin.hpp"
-#include "SceneFiles.hpp"
 #include "Scripting/ScriptPlugin.hpp"
-#include <raylib.h>
-#include <string>
+#include "Inputs/InputManager.hpp"
+#include "Inputs/Controller.hpp"
 #include <vector>
+#include <raylib.h>
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     ChangeDirectory(GetApplicationDirectory());
     Engine::ApplicationConfig config;
     config.windowTitle = "Game";
@@ -35,9 +35,7 @@ int main(int argc, char* argv[]) {
 
     config.args = std::vector<std::string>(argv + 1, argv + argc);
     for (const auto& a : config.args) {
-        if (a == "--headless") {
-            config.headless = true;
-        }
+        if (a == "--headless") config.headless = true;
     }
     Engine::Application app(config);
     // HierarchyPlugin before PositionPlugin: parent deltas must
@@ -79,15 +77,15 @@ int main(int argc, char* argv[]) {
 
     auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();
     auto controller = std::make_unique<Engine::Controller>();
-    controller->addKeybind("SHOOT", {32, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("RIGHT", {68, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("RIGHT", {262, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("LEFT", {65, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("LEFT", {263, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("DOWN", {83, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("DOWN", {264, 0, static_cast<Engine::DeviceType>(0)}, true);
     controller->addKeybind("UP", {87, 0, static_cast<Engine::DeviceType>(0)}, true);
     controller->addKeybind("UP", {265, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("DOWN", {83, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("DOWN", {264, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("LEFT", {65, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("LEFT", {263, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("RIGHT", {68, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("RIGHT", {262, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("SHOOT", {32, 0, static_cast<Engine::DeviceType>(0)}, true);
     inputManager.AddPlayer(1, std::move(controller));
 
     // Startup scene: a .scene argument wins (e.g. ./Game Level2.scene),
