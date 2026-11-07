@@ -145,8 +145,8 @@ jobs:
             fi
           fi
 
-          if [ -f "R-Type/build/Game" ]; then
-            cp "R-Type/build/Game" "$DIST_DIR/$editor_pkg/bin/"
+          if [ -f "R-Type/build/bin/R-Type" ]; then
+            cp "R-Type/build/bin/R-Type" "$DIST_DIR/$editor_pkg/bin/"
           fi
 
           tar -czf "$DIST_DIR/$editor_pkg.tar.gz" -C "$DIST_DIR" "$editor_pkg"
@@ -236,8 +236,8 @@ jobs:
           cp -R Engine/include/. "$DIST_DIR/$engine_pkg/include/"
           find "$BUILD_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$DIST_DIR/$editor_pkg/bin/" \;
 
-          if [ -f "R-Type/build/Game.exe" ]; then
-            cp "R-Type/build/Game.exe" "$DIST_DIR/$editor_pkg/bin/"
+          if [ -f "R-Type/build/bin/R-Type.exe" ]; then
+            cp "R-Type/build/bin/R-Type.exe" "$DIST_DIR/$editor_pkg/bin/"
           fi
 
           (cd "$DIST_DIR" && cmake -E tar cf "$editor_pkg.zip" --format=zip "$editor_pkg")
