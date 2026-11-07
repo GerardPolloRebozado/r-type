@@ -91,6 +91,14 @@ function Script:onCreate(entity)
     self.facingRight = (self.playerId == 1)
     self.hitboxEntity = nil
 
+    -- "FighterP2_B" is the reserve opponent: parked until FighterHealth activates it
+    local name = Entity.getName and Entity.getName(entity) or ""
+    self.isReserve = name:match("_B$") ~= nil
+    local home = Transform.getPosition(entity)
+    if home then
+        self.homeX, self.homeY, self.homeZ = home.x, home.y, home.z
+    end
+
     self:setupKeybinds()
 end
 
@@ -202,7 +210,8 @@ function Script:updateFireballs(dt)
                     fb.frame = fb.frame % #FB_FLY + 1
                     Component.setSpriteRect(fb.entity, FB_FLY[fb.frame][1], FB_FLY[fb.frame][2], FB_W, FB_H)
                 end
-                local victim = Entity.find("FighterP" .. (fb.owner == 1 and 2 or 1))
+                local other = fb.owner == 1 and 2 or 1
+                local victim = (FighterEntities and FighterEntities[other]) or Entity.find("FighterP" .. other)
                 if victim then
                     local vp = Transform.getPosition(victim)
                     local vs = Component.getColliderSize(victim)
@@ -293,6 +302,22 @@ function Script:onUpdate(entity, dt)
             self.appliedFlip = self.netFlip
         end
         return
+    end
+
+    -- single player: only the active opponent (A, then B) is on stage
+    if self.playerId == 2 and (self.isReserve and "B" or "A") ~= (ActiveOpponent or "A") then
+        Transform.setPosition(entity, PARK_X, PARK_Y)
+        self:setHitboxActive(false)
+        self.retired = true
+        return
+    elseif self.retired then
+        self.retired = false
+        if self.homeX then
+            Transform.setPosition(entity, self.homeX, self.homeY, self.homeZ)
+            self.groundY = self.homeY
+        end
+        self.vy, self.isGrounded = 0.0, true
+        self.requestedAnim = nil
     end
 
     self.slot = nil

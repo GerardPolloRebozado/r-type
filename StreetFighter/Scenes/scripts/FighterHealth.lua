@@ -18,6 +18,12 @@ local ATTACK_PRIORITY = {
     "HeavyKick", "HeavyPunch", "MediumKick", "MediumPunch", "LightKick", "LightPunch"
 }
 
+-- Single player: second opponent of each country (entity "FighterP2_B")
+local SWAP_DELAY = 2.0
+local SECOND_OPPONENT = {
+    England = "CAMMY", USA = "KEN", China = "DHALSIM", Thailand = "BLANKA", Japan = "ZANGIEF"
+}
+
 local P2_PATH = "assets/misc/koYell_p2.png"
 local YELLOW_W, YELLOW_H = 324, 14
 local HALF_W = 147
@@ -28,6 +34,8 @@ function Script:onCreate(entity)
     self.gameOver = false
     FightState = { over = false, winner = nil }
     FighterHitStun, FighterHitSeq, FighterBlocking = {}, {}, {}
+    ActiveOpponent = "A"
+    FighterEntities = {}
     -- called by FighterMovement when a fireball touches the opponent
     FireballHit = function(attackerId, amount)
         if self.gameOver then return end
@@ -58,6 +66,21 @@ function Script:onCreate(entity)
             health = MAX_HEALTH,
             hasHit = false,
             bar = nil
+        }
+    end
+
+    for id = 1, 2 do
+        FighterEntities[id] = self.fighters[id].body
+    end
+
+    local online = Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked()
+    local reserveBody = (not online) and Entity.find("FighterP2_B") or nil
+    if reserveBody then
+        local children = Component.getChildren and Component.getChildren(reserveBody)
+        self.reserve = {
+            body = reserveBody,
+            hitbox = children and #children > 0 and children[1] or nil,
+            label = SECOND_OPPONENT[SelectedCountry and SelectedCountry.name or ""],
         }
     end
 
@@ -97,6 +120,7 @@ function Script:refreshBar(f)
         Component.setOpacity(f.bar, 0.0)
         return true
     end
+    Component.setOpacity(f.bar, 1.0)
 
     if f.id == 1 then
         -- anchored to the KO logo, left edge
@@ -135,6 +159,29 @@ function Script:onKO(winner, loser)
     self.gameOver = true
     log.info(string.format("[FighterHealth] KO! P%d wins", winner.id))
     FightState = { over = true, winner = winner.id }
+    if winner.id == 1 and self.reserve then
+        self.swapTimer = SWAP_DELAY
+    end
+end
+
+function Script:nextOpponent()
+    local r = self.reserve
+    self.reserve = nil
+    self.swapTimer = nil
+    ActiveOpponent = "B"
+    local f = self.fighters[2]
+    f.body, f.hitbox, f.health, f.hasHit = r.body, r.hitbox, MAX_HEALTH, false
+    FighterEntities[2] = r.body
+    FighterHitStun[2] = 0.0
+    FighterBlocking[2] = false
+    self:refreshBar(f)
+    local label = Entity.find("P2_Text")
+    if label and r.label then
+        Component.setText(label, r.label)
+    end
+    self.gameOver = false
+    FightState = { over = false, winner = nil }
+    log.info("[FighterHealth] next opponent")
 end
 
 function Script:checkHit(attacker, victim)
@@ -165,6 +212,12 @@ end
 
 function Script:onUpdate(entity, dt)
     if self.gameOver then
+        if self.swapTimer then
+            self.swapTimer = self.swapTimer - dt
+            if self.swapTimer <= 0.0 then
+                self:nextOpponent()
+            end
+        end
         return
     end
     local p1, p2 = self.fighters[1], self.fighters[2]

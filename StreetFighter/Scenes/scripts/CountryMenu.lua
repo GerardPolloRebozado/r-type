@@ -1,10 +1,10 @@
 local Script = {}
 
 local COUNTRIES = {
-    { name = "England",  flag = { x = 474, y = 169, w = 96, h = 64 } },
-    { name = "China",    flag = { x = 370, y = 169, w = 96, h = 64 } },
-    { name = "Thailand", flag = { x = 422, y = 241, w = 96, h = 64 } },
-    { name = "Japan",    flag = { x = 370, y = 97,  w = 96, h = 64 } },
+    { name = "England",  flag = { x = 474, y = 169, w = 96, h = 64 }, scene = "england.scene" },
+    { name = "China",    flag = { x = 370, y = 169, w = 96, h = 64 }, scene = "china.scene" },
+    { name = "Thailand", flag = { x = 422, y = 241, w = 96, h = 64 }, scene = "thailand.scene" },
+    { name = "Japan",    flag = { x = 370, y = 97,  w = 96, h = 64 }, scene = "japan.scene" },
     { name = "USA",      flag = { x = 474, y = 97,  w = 96, h = 64 }, scene = "fighters.scene" },
 }
 local MAP_CROP = { x = 0, y = 0, w = 356, h = 228 }
