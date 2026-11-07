@@ -81,6 +81,10 @@ function Script:onCreate(entity)
 
     self.moveSpeed = 220.0
     self.jumpForce = -420.0
+    self.doubleJumpForce = -380.0 -- slightly weaker than the first jump
+    self.maxJumps = 2
+    self.jumpsUsed = 0
+    self.jumpHeld = false
     self.gravity = 980.0
 
     self.vy = 0.0
@@ -457,10 +461,20 @@ function Script:onUpdate(entity, dt)
         self.isCrouching = crouchActive
     end
 
+    local jumpPressed = jumpActive and not self.jumpHeld
+    self.jumpHeld = jumpActive
+    self.airJumped = false
+
     if self.isGrounded and jumpActive and not self.isCrouching then
         self.vy = self.jumpForce
         self.isGrounded = false
+        self.jumpsUsed = 1
         self.jumpDirectional = (leftActive ~= rightActive)
+    elseif not self.isGrounded and jumpPressed and self.jumpsUsed < self.maxJumps then
+        self.vy = self.doubleJumpForce
+        self.jumpsUsed = self.jumpsUsed + 1
+        self.jumpDirectional = (leftActive ~= rightActive)
+        self.airJumped = true
     end
 
     local dx = 0.0
@@ -493,6 +507,7 @@ function Script:onUpdate(entity, dt)
         newY = self.groundY
         self.vy = 0.0
         self.isGrounded = true
+        self.jumpsUsed = 0
     end
 
     Transform.setPosition(entity, newX, newY, pos.z)
@@ -515,10 +530,11 @@ function Script:onUpdate(entity, dt)
             self:playAnim("jump_punch", "jump_kick")
             self:setHitboxActive(true, 45.0, 0.0, 60.0, 40.0)
             isAttacking = true
-        elseif self.jumpDirectional then
-            self:playAnim("jump_forward", "jump")
+        elseif self.jumpDirectional and self.jumpsUsed >= 2 then
+            -- the somersault only plays on the air (second) jump
+            self:playAnim("jump_forward", "jump", self.airJumped)
         else
-            self:playAnim("jump")
+            self:playAnim("jump", nil, self.airJumped)
         end
     elseif isBlocking then
         self:playAnim("block", "crouch")
