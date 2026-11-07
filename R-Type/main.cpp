@@ -27,7 +27,7 @@
 int main(int argc, char* argv[]) {
     ChangeDirectory(GetApplicationDirectory());
     Engine::ApplicationConfig config;
-    config.windowTitle = "Game";
+    config.windowTitle = "R-Type";
     config.windowWidth = 1920;
     config.windowHeight = 1080;
     config.virtualWidth = 1920;
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
 
     // Startup scene: a .scene argument wins (e.g. ./Game Level2.scene),
     // otherwise the project's startup scene.
-    const std::string startupScene = Serialization::PickStartupScene(config.args, "test.scene");
+    const std::string startupScene = Serialization::PickStartupScene(config.args, "menu.scene");
     Serialization::EnableSceneFiles(app.GetRegistry()).Load(startupScene);
 
     app.Run();

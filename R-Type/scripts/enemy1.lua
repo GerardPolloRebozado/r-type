@@ -154,7 +154,8 @@ function Enemy:onUpdate(entity, dt)
         end
     end
 
-    UpdateProjectiles(self, dt)
+    -- Projectiles now move themselves via bulletProjectile.lua, so they
+    -- keep travelling even after this enemy dies.
 
     if self.linkIndex ~= nil and self.trailKey ~= nil then
         local bus = _PataTrails
@@ -214,7 +215,8 @@ function Enemy:onCollisionEnter(this, other)
         return
     end
 
-    DestroyProjectiles(self)
+    -- NOTE: intentionally do NOT destroy the enemy's projectiles here so that
+    -- bullets already in flight keep traveling after the enemy is destroyed.
     self.exploding = true
     self.frame = 1
     self.elapsed = 0.0
@@ -234,16 +236,13 @@ function Enemy:fireProjectile()
     Component.setColliderLayer(projectileEntity, "EnemyBullet")
     Component.setColliderMask(projectileEntity, Layers.bit("Player") + Layers.bit("Wall"))
     Component.setOpacity(projectileEntity, 1.0)
-    Component.connect(projectileEntity, "onCollisionEnter", self.entity, "onProjectileHit")
+    -- Give the bullet its own script so it is not tied to (and frozen by)
+    -- this enemy's lifetime. It must NOT be parented to the enemy.
+    Component.addScript(projectileEntity, "scripts/bulletProjectile.lua", true)
 
     if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
         Net.replicate(projectileEntity, "Server", true, true)
     end
-
-    table.insert(self.projectiles, {
-        entity = projectileEntity,
-        timer = PROJECTILE_LIFETIME,
-    })
 end
 
 function Enemy:onProjectileHit(projectile, other)
@@ -257,7 +256,8 @@ function Enemy:onProjectileHit(projectile, other)
 end
 
 function Enemy:onDestroy(entity)
-    DestroyProjectiles(self)
+    -- Projectiles are intentionally left alive: they despawn on their own
+    -- lifetime / off-screen in bulletProjectile.lua.
 end
 
 return Enemy

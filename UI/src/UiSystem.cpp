@@ -121,39 +121,41 @@ void RunUiAction(Registry& registry, Entity entity, const UiAction& action) {
     }
     UiNavigation& navigation = Navigation(registry);
     switch (action.type) {
-    case UiActionType::GoToPage:
-        if (!action.target.empty()) {
-            navigation.history.push_back(navigation.current);
-            navigation.current = action.target;
-            navigation.started = true;
-        }
-        break;
-    case UiActionType::Back:
-        if (!navigation.history.empty()) {
-            navigation.current = navigation.history.back();
-            navigation.history.pop_back();
-        }
-        break;
-    case UiActionType::CallMethod:
-        CallMethod(registry, entity, action.target);
-        break;
-    case UiActionType::LoadScene:
-        if (action.target.empty()) {
-            log_user_error("[UI] Load scene: no scene set (entity " + std::to_string(entity) + ")");
-        } else if (registry.HasResource<SceneManager>()) {
-            registry.GetResource<SceneManager>().Load(action.target);
-        } else {
-            log_user_error("[UI] Load scene " + action.target + ": no SceneManager in this game");
-        }
-        break;
-    case UiActionType::Quit:
-        if (!registry.HasResource<QuitRequest>()) {
-            registry.AddResource<QuitRequest>();
-        }
-        registry.GetResource<QuitRequest>().requested = true;
-        break;
-    case UiActionType::None:
-        break;
+        case UiActionType::GoToPage:
+            if (!action.target.empty()) {
+                navigation.history.push_back(navigation.current);
+                navigation.current = action.target;
+                navigation.started = true;
+            }
+            break;
+        case UiActionType::Back:
+            if (!navigation.history.empty()) {
+                navigation.current = navigation.history.back();
+                navigation.history.pop_back();
+            }
+            break;
+        case UiActionType::CallMethod:
+            CallMethod(registry, entity, action.target);
+            break;
+        case UiActionType::LoadScene:
+            if (action.target.empty()) {
+                log_user_error("[UI] Load scene: no scene set (entity " + std::to_string(entity) +
+                               ")");
+            } else if (registry.HasResource<SceneManager>()) {
+                registry.GetResource<SceneManager>().Load(action.target);
+            } else {
+                log_user_error("[UI] Load scene " + action.target +
+                               ": no SceneManager in this game");
+            }
+            break;
+        case UiActionType::Quit:
+            if (!registry.HasResource<QuitRequest>()) {
+                registry.AddResource<QuitRequest>();
+            }
+            registry.GetResource<QuitRequest>().requested = true;
+            break;
+        case UiActionType::None:
+            break;
     }
     Signals::EmitSignal(registry, entity, "onClick", entity);
 }
@@ -512,6 +514,11 @@ void UiSystem::Draw(Registry& registry) {
     }
     current = CurrentPage(registry);
 
+    // Reset per-frame hover state so backgrounds can fall back to stage 1.
+    if (scripts && scripts->IsApiReady()) {
+        scripts->GetLua()["hoveredThisFrame"] = false;
+    }
+
     // Screens and custom scripts first, so standalone widgets sit on top.
     for (size_t i = 0; i < registry.GetEntityCount(); ++i) {
         Entity entity{i};
@@ -550,6 +557,22 @@ void UiSystem::Draw(Registry& registry) {
     for (const Entity entity : widgets) {
         if (HasUi(registry, entity)) {
             DrawWidgetWindow(registry, entity);
+        }
+    }
+
+    // If no level button was hovered this frame, restore the stage 1 background.
+    if (scripts && scripts->IsApiReady()) {
+        sol::state_view lua = scripts->GetLua();
+        bool hovered = false;
+        sol::object hoveredObj = lua["hoveredThisFrame"];
+        if (hoveredObj.is<bool>()) {
+            hovered = hoveredObj.as<bool>();
+        }
+        if (!hovered) {
+            sol::optional<sol::function> fn = lua["setLevelBackground"];
+            if (fn && fn->valid()) {
+                (*fn)(1);
+            }
         }
     }
 }

@@ -20,6 +20,18 @@ function Button.draw(props)
     end
     UI.popStyle()
 
+    local hovered = ImGui.IsItemHovered()
+    if hovered then
+        hoveredThisFrame = true
+        local level = p.level
+        if type(level) ~= "number" then
+            level = tonumber(tostring(p.label):match("(%d+)"))
+        end
+        if type(level) == "number" and type(setLevelBackground) == "function" then
+            setLevelBackground(level)
+        end
+    end
+
     if clicked and type(p.onClick) == "function" then
         p.onClick()
     end
