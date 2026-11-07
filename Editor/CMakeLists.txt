@@ -24,7 +24,9 @@ set(SRC_FILES
         src/EditorStyle.cpp
         src/EntitySubtree.cpp
         src/Panels/AssetsPanel.cpp
+        src/Panels/ChatPanel.cpp
         src/Panels/ConnectionsPanel.cpp
+        src/Chat/OpenRouter.cpp
         src/Panels/ConsolePanel.cpp
         src/Panels/HierarchyPanel.cpp
         src/Panels/InspectorPanel.cpp
@@ -66,7 +68,9 @@ set(INC_FILES
         include/EditorStyle.hpp
         include/EntitySubtree.hpp
         include/Panels/AssetsPanel.hpp
+        include/Panels/ChatPanel.hpp
         include/Panels/ConnectionsPanel.hpp
+        include/Chat/OpenRouter.hpp
         include/Panels/ConsolePanel.hpp
         include/Panels/HierarchyPanel.hpp
         include/Panels/IEditorPanel.hpp
@@ -122,7 +126,7 @@ if (NOT EXISTS "${PFD_DEST}")
 endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-target_link_libraries(RTypeEditor PRIVATE Engine Serialization UI rlImGui imgui_textedit imgui glaze::glaze)
+target_link_libraries(RTypeEditor PRIVATE Engine Serialization UI Author rlImGui imgui_textedit imgui glaze::glaze)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_compile_options(RTypeEditor PRIVATE -s ASYNCIFY)

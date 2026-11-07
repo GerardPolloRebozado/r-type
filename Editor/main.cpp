@@ -18,6 +18,7 @@
 #include "Plugins/SignalPlugin.hpp"
 #include "Plugins/SpritePlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
+#include "Author/Commands.hpp"
 #include "Scaffold.hpp"
 #include "Scripting/ScriptPlugin.hpp"
 #include "UI/UiPlugin.hpp"
@@ -215,7 +216,10 @@ int main(int argc, char** argv) {
         if (command == "create") {
             return RunCreate(argc, argv);
         }
-        log_error("Unknown command: " + command + ". Expected new or create");
+        if (command == "mcp" || command == "--mcp") {
+            return Author::RunMcpStdio();
+        }
+        log_error("Unknown command: " + command + ". Expected new, create, or mcp");
         return 1;
     }
 

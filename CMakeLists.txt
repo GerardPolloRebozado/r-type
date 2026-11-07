@@ -128,8 +128,9 @@ add_subdirectory(Serialization)
 add_subdirectory(Plugins)
 
 if (NOT EDITOR_BUILD)
-    add_subdirectory(Editor)
+    # Tools before Editor so RTypeEditor can link the Author library.
     add_subdirectory(Tools)
+    add_subdirectory(Editor)
     add_subdirectory(Games)
     add_subdirectory(Tests)
 endif ()
