@@ -12,7 +12,8 @@ local PLAYER_KEYS = {
         LightKick = 74,
         MediumKick = 75,
         HeavyKick = 76,
-        Block = 340 -- Left Shift
+        Block = 340, -- Left Shift
+        Hadouken = 72 -- H
     },
     [2] = {
         Left = 324,
@@ -25,7 +26,8 @@ local PLAYER_KEYS = {
         LightKick = 327,
         MediumKick = 329,
         HeavyKick = 320,
-        Block = 330 -- Numpad .
+        Block = 330, -- Numpad .
+        Hadouken = 335 -- Numpad Enter
     }
 }
 
@@ -56,6 +58,15 @@ end
 
 
 NetInputs = NetInputs or {}
+Fireballs = Fireballs or {}
+
+local FB_SHEET = "assets/fighters/sprites_hadouken.png"
+local FB_FLY = { {10, 59}, {66, 59}, {120, 59}, {175, 59}, {230, 59}, {284, 59} }
+local FB_W, FB_H = 46, 25
+local FB_HIT = { 66, 6, 48, 46 }       -- impact burst
+local FB_SPEED, FB_DAMAGE, FB_MAX_X = 420.0, 10, 1500.0
+local FB_SCALE = 1.66
+local CAST_TIME, CAST_FIRE_AT, CAST_COOLDOWN = 0.3, 0.15, 0.6
 local P1_START_X = 346.45
 local PARK_X, PARK_Y = -2000.0, -2000.0
 
@@ -143,6 +154,74 @@ function Script:playAnim(clipName, fallback, restartIfSame)
     self.requestedAnim = clipName
     self.currentAnim = played
     self.netAnim = played
+end
+
+function Script:spawnFireball(pos)
+    local body = Component.getColliderSize(self.entity)
+    local bodyW = body and body.w or 60.0
+    local e = Entity.create()
+    if not Component.addSprite(e, FB_SHEET, 0, 0, FB_SCALE, FB_SCALE) then
+        Entity.destroy(e)
+        return
+    end
+    Component.setSpriteRect(e, FB_FLY[1][1], FB_FLY[1][2], FB_W, FB_H)
+    -- the sheet draws the fireball flying left
+    Component.setSpriteFlip(e, self.facingRight)
+    local w = FB_W * FB_SCALE
+    local x = self.facingRight and (pos.x + bodyW) or (pos.x - w)
+    local y = pos.y + 30.0
+    Transform.setPosition(e, x, y, pos.z)
+    table.insert(Fireballs, { owner = self.playerId, entity = e, x = x, y = y, z = pos.z,
+        dir = self.facingRight and 1 or -1, frame = 1, timer = 0.0, impact = nil })
+end
+
+function Script:clearFireballs()
+    for i = #Fireballs, 1, -1 do
+        local fb = Fireballs[i]
+        if fb.owner == self.playerId then
+            Entity.destroy(fb.entity)
+            table.remove(Fireballs, i)
+        end
+    end
+end
+
+function Script:updateFireballs(dt)
+    for i = #Fireballs, 1, -1 do
+        local fb = Fireballs[i]
+        if fb.owner == self.playerId then
+            local remove = false
+            if fb.impact then
+                fb.impact = fb.impact - dt
+                remove = fb.impact <= 0
+            else
+                fb.x = fb.x + fb.dir * FB_SPEED * dt
+                Transform.setPosition(fb.entity, fb.x, fb.y, fb.z)
+                fb.timer = fb.timer + dt
+                if fb.timer >= 0.06 then
+                    fb.timer = 0.0
+                    fb.frame = fb.frame % #FB_FLY + 1
+                    Component.setSpriteRect(fb.entity, FB_FLY[fb.frame][1], FB_FLY[fb.frame][2], FB_W, FB_H)
+                end
+                local victim = Entity.find("FighterP" .. (fb.owner == 1 and 2 or 1))
+                if victim then
+                    local vp = Transform.getPosition(victim)
+                    local vs = Component.getColliderSize(victim)
+                    local fw, fh = FB_W * FB_SCALE, FB_H * FB_SCALE
+                    if vp and vs and fb.x < vp.x + vs.w and fb.x + fw > vp.x
+                        and fb.y < vp.y + vs.h and fb.y + fh > vp.y then
+                        if FireballHit then FireballHit(fb.owner, FB_DAMAGE) end
+                        fb.impact = 0.12
+                        Component.setSpriteRect(fb.entity, FB_HIT[1], FB_HIT[2], FB_HIT[3], FB_HIT[4])
+                    end
+                end
+                if math.abs(fb.x) > FB_MAX_X then remove = true end
+            end
+            if remove then
+                Entity.destroy(fb.entity)
+                table.remove(Fireballs, i)
+            end
+        end
+    end
 end
 
 function Script:findHitboxEntity()
@@ -268,6 +347,7 @@ function Script:onUpdate(entity, dt)
 
     --  the end pose
     if FightState and FightState.over then
+        self:clearFireballs()
         self:setHitboxActive(false)
         if FightState.winner == self.playerId then
             self:playAnim("victory")
@@ -296,7 +376,22 @@ function Script:onUpdate(entity, dt)
         self.groundY = pos.y
     end
 
-    local canAct = not stunned
+    self:updateFireballs(dt)
+    if self.castTimer and self.castTimer > 0.0 then
+        self.castTimer = self.castTimer - dt
+        if not self.castFired and self.castTimer <= CAST_TIME - CAST_FIRE_AT then
+            self.castFired = true
+            self:spawnFireball(pos)
+        end
+    end
+    self.fireCooldown = math.max((self.fireCooldown or 0.0) - dt, 0.0)
+    local casting = (self.castTimer or 0.0) > 0.0
+    if stunned then
+        self.castTimer = 0.0
+        casting = false
+    end
+
+    local canAct = not stunned and not casting
     local leftActive = canAct and self:isAction("Left")
     local rightActive = canAct and self:isAction("Right")
     local jumpActive = canAct and self:isAction("Jump")
@@ -312,6 +407,19 @@ function Script:onUpdate(entity, dt)
     local mediumKick = canAct and self:isAction("MediumKick")
     local heavyKick = canAct and self:isAction("HeavyKick")
     local anyKick = lightKick or mediumKick or heavyKick
+
+    -- hadouken: only fighters whose prefab has a "hadouken" clip (Ryu)
+    if canAct and self.isGrounded and not crouchActive and self.fireCooldown <= 0.0
+        and self:isAction("Hadouken")
+        and Animation and Animation.play(self.entity, "hadouken", true) then
+        self.requestedAnim, self.currentAnim, self.netAnim = "hadouken", "hadouken", "hadouken"
+        self.castTimer, self.castFired = CAST_TIME, false
+        self.fireCooldown = CAST_COOLDOWN
+        casting = true
+        canAct = false
+        leftActive, rightActive, jumpActive = false, false, false
+        anyPunch, anyKick = false, false
+    end
 
     -- blocking: grounded, standing still, no attack pressed
     local isBlocking = blockActive and self.isGrounded and not anyPunch and not anyKick
@@ -371,6 +479,8 @@ function Script:onUpdate(entity, dt)
         local restart = seq ~= self.lastHitSeq
         self.lastHitSeq = seq
         self:playAnim("hit", "crouch", restart)
+    elseif casting then
+        self:playAnim("hadouken")
     elseif not self.isGrounded then
         if anyKick then
             self:playAnim("jump_kick")

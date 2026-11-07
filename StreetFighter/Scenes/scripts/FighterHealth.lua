@@ -28,6 +28,15 @@ function Script:onCreate(entity)
     self.gameOver = false
     FightState = { over = false, winner = nil }
     FighterHitStun, FighterHitSeq, FighterBlocking = {}, {}, {}
+    -- called by FighterMovement when a fireball touches the opponent
+    FireballHit = function(attackerId, amount)
+        if self.gameOver then return end
+        local victim = self.fighters[attackerId == 1 and 2 or 1]
+        local attacker = self.fighters[attackerId]
+        if victim and attacker then
+            self:applyDamage(attacker, victim, amount)
+        end
+    end
 
     self.fighters = {}
     for id = 1, 2 do
