@@ -27,7 +27,7 @@
 int main(int argc, char* argv[]) {
     ChangeDirectory(GetApplicationDirectory());
     Engine::ApplicationConfig config;
-    config.windowTitle = "Game";
+    config.windowTitle = "R-Type";
     config.windowWidth = 1920;
     config.windowHeight = 1080;
     config.virtualWidth = 1920;
