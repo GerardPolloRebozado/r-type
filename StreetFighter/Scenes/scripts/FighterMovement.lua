@@ -67,6 +67,10 @@ local FB_HIT = { 66, 6, 48, 46 }       -- impact burst
 local FB_SPEED, FB_DAMAGE, FB_MAX_X = 420.0, 10, 1500.0
 local FB_SCALE = 1.66
 local CAST_TIME, CAST_FIRE_AT, CAST_COOLDOWN = 0.3, 0.15, 0.6
+
+-- anti-spam: an attack needs a fresh key press, lasts ATTACK_ACTIVE seconds and
+-- the next one can only start ATTACK_DELAY seconds after it ends
+local ATTACK_ACTIVE, ATTACK_DELAY = 0.3, 0.25
 local P1_START_X = 346.45
 local PARK_X, PARK_Y = -2000.0, -2000.0
 
@@ -142,6 +146,11 @@ function Script:isAction(actionName)
             input = NetInputs[self.playerId]
         end
         return input ~= nil and input[actionName] == true
+    end
+    -- single player: FighterAI.lua drives player 2 instead of the keyboard
+    if self.playerId == 2 and AIEnabled and AIEnabled[2] then
+        local inputs = AIInputs and AIInputs[2]
+        return inputs ~= nil and inputs[actionName] == true
     end
     if Controller and Controller.isActionActive then
         return Controller.isActionActive(actionName, self.playerId)
@@ -436,6 +445,25 @@ function Script:onUpdate(entity, dt)
     local mediumKick = canAct and self:isAction("MediumKick")
     local heavyKick = canAct and self:isAction("HeavyKick")
     local anyKick = lightKick or mediumKick or heavyKick
+
+    self.attackTimer = math.max((self.attackTimer or 0.0) - dt, 0.0)
+    self.attackCd = math.max((self.attackCd or 0.0) - dt, 0.0)
+    if stunned then
+        self.attackTimer = 0.0 -- being hit cancels the attack
+    end
+    local attackHeld = anyPunch or anyKick
+    local attackPressed = attackHeld and not self.attackWasHeld
+    self.attackWasHeld = attackHeld
+    if self.attackTimer > 0.0 then
+        -- committed attack keeps going even if the key is released
+        anyPunch, anyKick = self.latchPunch == true, self.latchKick == true
+    elseif attackPressed and self.attackCd <= 0.0 then
+        self.latchPunch, self.latchKick = anyPunch, anyKick
+        self.attackTimer = ATTACK_ACTIVE
+        self.attackCd = ATTACK_ACTIVE + ATTACK_DELAY
+    else
+        anyPunch, anyKick = false, false
+    end
 
     -- hadouken: only fighters whose prefab has a "hadouken" clip (Ryu)
     if canAct and self.isGrounded and not crouchActive and self.fireCooldown <= 0.0
