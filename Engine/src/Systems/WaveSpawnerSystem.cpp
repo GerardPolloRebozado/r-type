@@ -7,6 +7,7 @@
 #include "Resources/NetworkHostResource.hpp"
 #include "Resources/PrefabSpawner.hpp"
 #include "Resources/WaveSchedule.hpp"
+#include "Systems/HierarchySystem.hpp"
 #include "Utils/WavePatterns.hpp"
 #include <optional>
 
@@ -100,7 +101,10 @@ void WaveSpawnerSystem::Update(Registry& registry, float dt) {
                 continue;
             }
             const Position position = registry.RequireComponent<Position>(child);
-            SetPosition(registry, child, startX + position.x, wave.baseY + position.y);
+            // Brings the prefab's own child parts along (e.g. a boss built
+            // from many entities); a plain teleport would leave them behind.
+            HierarchySystem::TeleportWithChildren(registry, child, startX + position.x,
+                                                  wave.baseY + position.y);
         }
 
         if (wave.attachParent && !spawned.empty() &&

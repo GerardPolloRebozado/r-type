@@ -6,6 +6,10 @@
 --     of the stage, or
 --   * the camera pans past that same StageEnd X (backup).
 --
+-- Boss stages (BOSS_BY_SCENE) ignore StageEnd: they are complete once the
+-- boss has appeared and then been destroyed. While the boss is alive the
+-- camera stops scrolling (camera.lua reads CameraScrollPaused).
+--
 -- When completed, a big "STAGE CLEAR" text is shown and, after SHOW_TIME
 -- seconds, the game returns to the level selection menu (level_selector.scene).
 --
@@ -26,6 +30,12 @@ local FONT_SIZE = 120
 local TEXT_OFFSET_X = -360.0
 local TEXT_OFFSET_Y = -60.0
 
+-- Name of the boss's root entity, for stages that end with a boss. The boss
+-- itself is spawned by the scene's last wave.
+local BOSS_BY_SCENE = {
+    ["Level1.scene"] = "Warship",
+}
+
 function LevelComplete:onCreate(entity)
     self.entity = entity
     self.cameraEntity = Entity.find("Camera")
@@ -34,8 +44,15 @@ function LevelComplete:onCreate(entity)
     self.timer = 0.0
     self.textEntity = nil
     self.gameOverTimer = 0.0
+    self.bossName = BOSS_BY_SCENE[Scene.current() or ""]
+    self.bossSeen = false
+    CameraScrollPaused = false
 
     self.endX = DEFAULT_END_X
+    if self.bossName ~= nil then
+        log.info(string.format("[level_complete] scene=%s boss=%s", Scene.current() or "", self.bossName))
+        return
+    end
     if self.stageEnd ~= nil then
         self.endX = Transform.getPosition(self.stageEnd).x
         -- When the player touches StageEnd, call this LevelManager's
@@ -71,12 +88,35 @@ function LevelComplete:onUpdate(entity, dt)
     end
     self.gameOverTimer = 0.0
 
+    if self.bossName ~= nil then
+        self:updateBoss()
+        return
+    end
+
     -- Camera-based completion (backup to the StageEnd trigger).
     if self.cameraEntity ~= nil then
         local pos = Transform.getPosition(self.cameraEntity)
         if pos.x >= self.endX then
             self:triggerComplete()
         end
+    end
+end
+
+-- Boss stage: stop the camera when the boss shows up, and finish the stage
+-- once it is gone (its script destroys it after its death explosions).
+function LevelComplete:updateBoss()
+    local boss = Entity.find(self.bossName)
+    if not self.bossSeen then
+        if boss ~= nil then
+            self.bossSeen = true
+            CameraScrollPaused = true
+            log.info("[level_complete] Boss " .. self.bossName .. " appeared")
+        end
+        return
+    end
+    if boss == nil then
+        CameraScrollPaused = false
+        self:triggerComplete()
     end
 end
 

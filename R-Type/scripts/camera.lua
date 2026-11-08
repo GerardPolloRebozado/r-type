@@ -24,6 +24,11 @@ function Script:onUpdate(entity, dt)
         dt = 1.0 / 60.0
     end
 
+    -- Set by level_complete.lua while a boss is on screen.
+    if CameraScrollPaused then
+        return
+    end
+
     -- Ease in so the pan does not start with a jolt.
     self.elapsed = self.elapsed + dt
     local speed = SPEED
