@@ -147,6 +147,24 @@ int main(int argc, char* argv[]) {
     controller->addKeybind("PAN_LEFT", {KEY_LEFT, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("PAN_RIGHT", {KEY_D, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("PAN_RIGHT", {KEY_RIGHT, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("ATTACK_10", {KEY_Z, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("ATTACK_20", {KEY_X, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("ATTACK_50", {KEY_C, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("ATTACK_100", {KEY_V, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("BUILD_CITY", {KEY_ONE, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("BUILD_PORT", {KEY_TWO, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("BUILD_FACTORY", {KEY_THREE, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("BUILD_DEFENSE", {KEY_FOUR, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("BUILD_SAM", {KEY_FIVE, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("BUILD_SILO", {KEY_SIX, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("LAUNCH_ATOM", {KEY_N, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("LAUNCH_H", {KEY_H, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("CANCEL", {KEY_ESCAPE, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("CONFIRM", {KEY_ENTER, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("CONFIRM", {KEY_SPACE, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("RESTART", {KEY_R, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("RESTART", {KEY_SPACE, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("BACKSPACE", {KEY_BACKSPACE, 0, Engine::DeviceType::KEYBOARD}, false);
     inputManager.AddPlayer(1, std::move(controller));
 
     Engine::AudioPlugin audioPlugin;

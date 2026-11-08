@@ -126,7 +126,7 @@ void Renderer::HandleTextInput(char* buffer, size_t maxLen) {
         }
         key = GetCharPressed();
     }
-    if (IsKeyPressed(KEY_BACKSPACE)) {
+    if (controller_ && controller_->isActionPressed("BACKSPACE")) {
         size_t len = std::strlen(buffer);
         if (len > 0) {
             buffer[len - 1] = '\0';
@@ -148,11 +148,11 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         if (activeInputBox_ == 2) {
             HandleTextInput(hostPortBuffer_, sizeof(hostPortBuffer_) - 1);
         }
-        if (IsKeyPressed(KEY_ESCAPE)) {
+        if (controller_ && controller_->isActionPressed("CANCEL")) {
             net.Stop();
             uiState_ = UIState::StartMenu;
         }
-        if ((IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) && activeInputBox_ == 0) {
+        if ((controller_ && controller_->isActionPressed("CONFIRM")) && activeInputBox_ == 0) {
             if (net.GetMode() == GameMode::Host) {
                 net.StartHostMatch(sim);
                 Init(sim, 1);
@@ -171,14 +171,15 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         if (activeInputBox_ == 4) {
             HandleTextInput(joinPortBuffer_, sizeof(joinPortBuffer_) - 1);
         }
-        if (IsKeyPressed(KEY_ESCAPE)) {
+        if (controller_ && controller_->isActionPressed("CANCEL")) {
             net.Stop();
             uiState_ = UIState::StartMenu;
         }
         return;
     }
     if (uiState_ == UIState::HowToPlay) {
-        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_SPACE)) {
+        if ((controller_ && controller_->isActionPressed("CANCEL")) ||
+            (controller_ && controller_->isActionPressed("CONFIRM"))) {
             uiState_ = UIState::StartMenu;
         }
         return;
@@ -196,7 +197,7 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         return;
     }
 
-    if (IsKeyPressed(KEY_ESCAPE)) {
+    if (controller_ && controller_->isActionPressed("CANCEL")) {
         if (activeBuildMode_ != BuildingType::None || isTargetingNuke_ || selectedTile_.x >= 0) {
             activeBuildMode_ = BuildingType::None;
             isTargetingNuke_ = false;
@@ -273,39 +274,39 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         hoveredTile_ = {-1, -1};
     }
 
-    if (IsKeyPressed(KEY_Z)) {
+    if (controller_ && controller_->isActionPressed("ATTACK_10")) {
         net.QueueSetAttackRatio(sim, localId, 0.10f);
     }
-    if (IsKeyPressed(KEY_X)) {
+    if (controller_ && controller_->isActionPressed("ATTACK_20")) {
         net.QueueSetAttackRatio(sim, localId, 0.20f);
     }
-    if (IsKeyPressed(KEY_C)) {
+    if (controller_ && controller_->isActionPressed("ATTACK_50")) {
         net.QueueSetAttackRatio(sim, localId, 0.50f);
     }
-    if (IsKeyPressed(KEY_V)) {
+    if (controller_ && controller_->isActionPressed("ATTACK_100")) {
         net.QueueSetAttackRatio(sim, localId, 1.00f);
     }
 
-    if (IsKeyPressed(KEY_ONE)) {
+    if (controller_ && controller_->isActionPressed("BUILD_CITY")) {
         activeBuildMode_ = BuildingType::City;
     }
-    if (IsKeyPressed(KEY_TWO)) {
+    if (controller_ && controller_->isActionPressed("BUILD_PORT")) {
         activeBuildMode_ = BuildingType::Port;
     }
-    if (IsKeyPressed(KEY_THREE)) {
+    if (controller_ && controller_->isActionPressed("BUILD_FACTORY")) {
         activeBuildMode_ = BuildingType::Factory;
     }
-    if (IsKeyPressed(KEY_FOUR)) {
+    if (controller_ && controller_->isActionPressed("BUILD_DEFENSE")) {
         activeBuildMode_ = BuildingType::DefensePost;
     }
-    if (IsKeyPressed(KEY_FIVE)) {
+    if (controller_ && controller_->isActionPressed("BUILD_SAM")) {
         activeBuildMode_ = BuildingType::SamLauncher;
     }
-    if (IsKeyPressed(KEY_SIX)) {
+    if (controller_ && controller_->isActionPressed("BUILD_SILO")) {
         activeBuildMode_ = BuildingType::MissileSilo;
     }
 
-    if (IsKeyPressed(KEY_N)) {
+    if (controller_ && controller_->isActionPressed("LAUNCH_ATOM")) {
         for (const auto& b : sim.GetBuildings()) {
             if (b.ownerId == localId && b.type == BuildingType::MissileSilo && b.active) {
                 isTargetingNuke_ = true;
@@ -315,7 +316,7 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
             }
         }
     }
-    if (IsKeyPressed(KEY_H)) {
+    if (controller_ && controller_->isActionPressed("LAUNCH_H")) {
         for (const auto& b : sim.GetBuildings()) {
             if (b.ownerId == localId && b.type == BuildingType::MissileSilo && b.active) {
                 isTargetingNuke_ = true;
@@ -985,7 +986,7 @@ void Renderer::DrawGameOver(Simulation& sim) {
     int sw = MeasureText(sub, 18);
     DrawText(sub, (screenWidth_ - sw) / 2, screenHeight_ / 2 + 40, 18, Color{180, 220, 255, 255});
 
-    if (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_SPACE)) {
+    if (controller_ && (controller_->isActionPressed("RESTART"))) {
         sim.Init(4, 4, static_cast<uint32_t>(GetTime() * 1000.0));
         Init(sim, 1);
     }
@@ -1196,7 +1197,7 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
                  WHITE);
 
         if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverAction) ||
-            ((IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) && activeInputBox_ == 0)) {
+            ((controller_ && controller_->isActionPressed("CONFIRM")) && activeInputBox_ == 0)) {
             PlaySoundEffect("ui_click");
             net.StartHostMatch(sim);
             Init(sim, 1);
