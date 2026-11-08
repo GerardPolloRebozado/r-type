@@ -63,6 +63,21 @@ class NetworkClient {
         onDisconnected_ = std::move(cb);
     }
 
+    struct ScannedRoom {
+        RoomInfo info;
+        uint16_t port{0};
+        bool reachable{false};
+    };
+
+    [[nodiscard]] static std::vector<ScannedRoom> ScanRooms(const std::string& hostAddress,
+                                                            uint16_t basePort,
+                                                            uint16_t roomCount = 8,
+                                                            float perProbeTimeoutMs = 350.0f);
+
+    [[nodiscard]] MapType GetServerMapType() const {
+        return serverMapType_;
+    }
+
   private:
     Engine::Network::UdpClient udpClient_;
     ClientState state_{ClientState::Disconnected};
@@ -71,6 +86,7 @@ class NetworkClient {
     PlayerId localPlayerId_{kNeutralPlayerId};
     uint32_t currentTurn_{0};
     float pingTimer_{0.0f};
+    MapType serverMapType_{MapType::Procedural};
 
     std::vector<LobbyPlayerInfo> lobbyPlayers_;
     std::function<void()> onJoined_;

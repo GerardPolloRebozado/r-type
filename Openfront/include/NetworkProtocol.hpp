@@ -2,6 +2,7 @@
 #define OPENFRONT_NETWORK_PROTOCOL_HPP_
 
 #include "Common.hpp"
+#include "Map.hpp"
 #include "Network/ByteStream.hpp"
 #include <cstdint>
 #include <cstring>
@@ -24,7 +25,49 @@ enum class PacketType : uint8_t {
     Ping = 8,
     Pong = 9,
     LobbyState = 10,
-    StartGame = 11
+    StartGame = 11,
+    RoomInfo = 12
+};
+
+inline const char* MapTypeName(MapType type) {
+    switch (type) {
+        case MapType::Europe:
+            return "Europe";
+        case MapType::World:
+            return "World";
+        case MapType::Pangaea:
+            return "Pangaea";
+        case MapType::Archipelago:
+            return "Archipelago";
+        default:
+            return "Procedural";
+    }
+}
+
+inline bool ParseMapTypeName(const std::string& name, MapType& out) {
+    if (name == "procedural" || name == "Procedural") {
+        out = MapType::Procedural;
+    } else if (name == "europe" || name == "Europe") {
+        out = MapType::Europe;
+    } else if (name == "world" || name == "World") {
+        out = MapType::World;
+    } else if (name == "pangaea" || name == "Pangaea") {
+        out = MapType::Pangaea;
+    } else if (name == "archipelago" || name == "Archipelago") {
+        out = MapType::Archipelago;
+    } else {
+        return false;
+    }
+    return true;
+}
+
+struct RoomInfo {
+    std::string name;
+    MapType mapType{MapType::Procedural};
+    uint16_t players{0};
+    uint16_t maxPlayers{0};
+    bool gameStarted{false};
+    uint32_t turn{0};
 };
 
 enum class IntentType : uint8_t {
@@ -79,6 +122,15 @@ class ByteWriter : public Engine::Network::ByteWriter {
         Write(p.isHost);
         Write(p.isReady);
     }
+
+    void WriteRoomInfo(const RoomInfo& room) {
+        WriteString(room.name);
+        Write(static_cast<uint8_t>(room.mapType));
+        Write(room.players);
+        Write(room.maxPlayers);
+        Write(room.gameStarted);
+        Write(room.turn);
+    }
 };
 
 // Specialized Binary Buffer Reader derived from Engine::Network::ByteReader
@@ -102,6 +154,16 @@ class ByteReader : public Engine::Network::ByteReader {
 
     bool ReadLobbyPlayer(LobbyPlayerInfo& out) {
         return Read(out.id) && ReadString(out.name) && Read(out.isHost) && Read(out.isReady);
+    }
+
+    bool ReadRoomInfo(RoomInfo& out) {
+        uint8_t mapType = 0;
+        if (!ReadString(out.name) || !Read(mapType) || !Read(out.players) ||
+            !Read(out.maxPlayers) || !Read(out.gameStarted) || !Read(out.turn)) {
+            return false;
+        }
+        out.mapType = static_cast<MapType>(mapType);
+        return true;
     }
 };
 

@@ -10,24 +10,33 @@ NetworkServer::~NetworkServer() {
     Stop();
 }
 
-bool NetworkServer::Start(uint16_t port, int maxClients) {
+bool NetworkServer::Start(uint16_t port, int maxClients, ServerRole role) {
     if (udpServer_.IsRunning()) {
         return true;
     }
+    if (maxClients < 1) {
+        maxClients = 1;
+    }
 
-    if (!udpServer_.Start(port, maxClients, 2, true)) {
+    if (!udpServer_.Start(port, static_cast<size_t>(maxClients), 2, true)) {
         log_error("[NetworkServer] Failed to create multi-threaded server on port " +
                   std::to_string(port));
         return false;
     }
 
+    role_ = role;
+    maxPlayers_ = static_cast<uint16_t>(maxClients);
     turnNumber_ = 0;
-    nextPlayerId_ = 2; // Player 1 is Host
     isGameStarted_ = false;
     pendingIntents_.clear();
     clients_.clear();
+    lobbyTimer_ = 0.0f;
+    gameOverTimer_ = 0.0f;
 
-    log_info("[NetworkServer] Multi-threaded server started on port " + std::to_string(port));
+    log_info("[NetworkServer] Multi-threaded server started on port " + std::to_string(port) +
+             (role_ == ServerRole::Dedicated ? " (dedicated room '" + roomName_ + "', " +
+                                                   std::to_string(maxClients) + " slots)"
+                                             : " (lobby host mode)"));
     return true;
 }
 
@@ -44,11 +53,40 @@ void NetworkServer::Stop() {
     log_info("[NetworkServer] Server stopped.");
 }
 
+void NetworkServer::ConfigureRoom(const std::string& roomName, uint16_t maxPlayers, uint8_t bots,
+                                  MapType mapType, float autoStartDelay) {
+    roomName_ = roomName;
+    maxPlayers_ = (maxPlayers < 1) ? 1 : maxPlayers;
+    bots_ = bots;
+    mapType_ = mapType;
+    autoStartDelay_ = (autoStartDelay < 0.0f) ? 0.0f : autoStartDelay;
+    nations_ = 4;
+    if (maxPlayers_ > 12) {
+        maxPlayers_ = 12;
+    }
+}
+
 void NetworkServer::QueueLocalIntent(const ClientIntent& intent) {
     pendingIntents_.push_back(intent);
 }
 
-void NetworkServer::PollNetwork(Simulation& sim, float /*dt*/) {
+PlayerId NetworkServer::AllocatePlayerId() {
+    for (uint16_t id = 2; id <= maxPlayers_ + 1; ++id) {
+        bool taken = false;
+        for (const auto& [peer, info] : clients_) {
+            if (info.joined && info.playerId == id) {
+                taken = true;
+                break;
+            }
+        }
+        if (!taken) {
+            return id;
+        }
+    }
+    return kNeutralPlayerId;
+}
+
+void NetworkServer::PollNetwork(Simulation& sim, float dt) {
     if (!udpServer_.IsRunning()) {
         return;
     }
@@ -61,6 +99,11 @@ void NetworkServer::PollNetwork(Simulation& sim, float /*dt*/) {
                 info.playerId = kNeutralPlayerId;
                 info.joined = false;
                 clients_[event.peer] = info;
+
+                ByteWriter room;
+                room.Write(static_cast<uint8_t>(PacketType::RoomInfo));
+                room.WriteRoomInfo(GetRoomInfo());
+                SendPacket(event.peer, room);
 
                 char hostIp[64] = {0};
                 enet_address_get_host_ip(&event.peer->address, hostIp, sizeof(hostIp));
@@ -75,13 +118,14 @@ void NetworkServer::PollNetwork(Simulation& sim, float /*dt*/) {
                 auto it = clients_.find(event.peer);
                 if (it != clients_.end()) {
                     PlayerId pid = it->second.playerId;
+                    bool wasJoined = it->second.joined;
                     log_info("[NetworkServer] Client " + std::to_string(pid) + " (" +
                              it->second.name + ") disconnected.");
 
                     clients_.erase(it);
 
-                    if (isGameStarted_) {
-                        if (pid != kNeutralPlayerId) {
+                    if (wasJoined) {
+                        if (isGameStarted_ && pid != kNeutralPlayerId) {
                             Player* p = sim.GetPlayer(pid);
                             if (p) {
                                 p->type = FactionType::Bot;
@@ -90,9 +134,9 @@ void NetworkServer::PollNetwork(Simulation& sim, float /*dt*/) {
                             writer.Write(static_cast<uint8_t>(PacketType::PlayerLeft));
                             writer.Write(pid);
                             BroadcastPacket(writer);
+                        } else {
+                            BroadcastLobbyState();
                         }
-                    } else {
-                        BroadcastLobbyState();
                     }
                 }
                 break;
@@ -101,6 +145,60 @@ void NetworkServer::PollNetwork(Simulation& sim, float /*dt*/) {
                 break;
         }
     });
+
+    UpdateRoom(sim, dt);
+}
+
+void NetworkServer::UpdateRoom(Simulation& sim, float dt) {
+    if (!udpServer_.IsRunning() || role_ != ServerRole::Dedicated) {
+        return;
+    }
+
+    lobbyTimer_ += dt;
+    size_t joined = GetJoinedPlayersCount();
+
+    if (!isGameStarted_) {
+        bool roomFull = (joined >= maxPlayers_);
+        bool waited = (joined >= 1 && lobbyTimer_ >= autoStartDelay_);
+        if (roomFull || waited) {
+            StartMatch(sim);
+            lobbyTimer_ = 0.0f;
+        }
+        return;
+    }
+
+    if (sim.IsGameOver()) {
+        gameOverTimer_ += dt;
+        if (gameOverTimer_ >= 15.0f) {
+            ResetRoomToLobby();
+            BroadcastLobbyState();
+            log_info("[NetworkServer] Room '" + roomName_ + "' reset to lobby.");
+        }
+        return;
+    }
+    gameOverTimer_ = 0.0f;
+}
+
+RoomInfo NetworkServer::GetRoomInfo() const {
+    RoomInfo info;
+    info.name = (role_ == ServerRole::Dedicated) ? roomName_
+                                                 : (hostName_.empty() ? "Hosted Game" : hostName_);
+    info.mapType = mapType_;
+    info.players = static_cast<uint16_t>(GetJoinedPlayersCount());
+    info.maxPlayers = maxPlayers_;
+    info.gameStarted = isGameStarted_;
+    info.turn = turnNumber_;
+    return info;
+}
+
+uint16_t NetworkServer::GetJoinedPlayersCount() const {
+    uint16_t count = 0;
+    for (const auto& [peer, info] : clients_) {
+        if (info.joined) {
+            count++;
+        }
+    }
+    return count;
 }
 
 void NetworkServer::HandlePacket(Simulation& sim, ENetPeer* peer, const uint8_t* data,
@@ -129,13 +227,19 @@ void NetworkServer::HandlePacket(Simulation& sim, ENetPeer* peer, const uint8_t*
                 return;
             }
 
-            PlayerId assignedId = nextPlayerId_++;
+            PlayerId assignedId = AllocatePlayerId();
+            if (assignedId == kNeutralPlayerId) {
+                ByteWriter resp;
+                resp.Write(static_cast<uint8_t>(PacketType::JoinResponse));
+                resp.Write(false);
+                SendPacket(peer, resp);
+                return;
+            }
             it->second.playerId = assignedId;
             it->second.name = playerName;
             it->second.joined = true;
 
             if (!isGameStarted_) {
-                // Send JoinResponse
                 ByteWriter resp;
                 resp.Write(static_cast<uint8_t>(PacketType::JoinResponse));
                 resp.Write(true); // accepted
@@ -145,19 +249,18 @@ void NetworkServer::HandlePacket(Simulation& sim, ENetPeer* peer, const uint8_t*
                 resp.Write(bots_);
                 resp.Write(duration_);
                 resp.Write(static_cast<uint32_t>(0));
+                resp.Write(static_cast<uint8_t>(mapType_));
                 SendPacket(peer, resp);
 
-                // Broadcast LobbyState to all connected peers
                 BroadcastLobbyState();
 
-                log_info("[NetworkServer] Client '" + playerName + "' joined lobby as Player " +
-                         std::to_string(assignedId));
+                log_info("[NetworkServer] Client '" + playerName + "' joined " + roomName_ +
+                         " as Player " + std::to_string(assignedId));
             } else {
                 // Late join mid-game
                 sim.CancelAllFrontsForPlayer(assignedId);
                 sim.AssignPlayerSlot(assignedId, playerName, FactionType::Human);
 
-                // Send JoinResponse
                 ByteWriter resp;
                 resp.Write(static_cast<uint8_t>(PacketType::JoinResponse));
                 resp.Write(true);
@@ -167,12 +270,11 @@ void NetworkServer::HandlePacket(Simulation& sim, ENetPeer* peer, const uint8_t*
                 resp.Write(bots_);
                 resp.Write(duration_);
                 resp.Write(turnNumber_);
+                resp.Write(static_cast<uint8_t>(mapType_));
                 SendPacket(peer, resp);
 
-                // Send FullSync
                 SendFullSync(peer, sim);
 
-                // Broadcast PlayerJoined to others
                 const Player* p = sim.GetPlayer(assignedId);
                 ByteWriter joined;
                 joined.Write(static_cast<uint8_t>(PacketType::PlayerJoined));
@@ -182,7 +284,7 @@ void NetworkServer::HandlePacket(Simulation& sim, ENetPeer* peer, const uint8_t*
                 BroadcastPacket(joined);
 
                 log_info("[NetworkServer] Mid-match join: Player " + std::to_string(assignedId) +
-                         " ('" + playerName + "') took over slot.");
+                         " ('" + playerName + "') took over a slot in " + roomName_);
             }
             break;
         }
@@ -205,13 +307,20 @@ void NetworkServer::HandlePacket(Simulation& sim, ENetPeer* peer, const uint8_t*
             SendPacket(peer, pong, false);
             break;
         }
+        case PacketType::RoomInfo: {
+            ByteWriter room;
+            room.Write(static_cast<uint8_t>(PacketType::RoomInfo));
+            room.WriteRoomInfo(GetRoomInfo());
+            SendPacket(peer, room);
+            break;
+        }
         default:
             break;
     }
 }
 
 void NetworkServer::TickTurn(Simulation& sim) {
-    if (!udpServer_.IsRunning() || !isGameStarted_) {
+    if (!udpServer_.IsRunning() || !isGameStarted_ || sim.IsGameOver()) {
         return;
     }
 
@@ -244,15 +353,26 @@ void NetworkServer::StartMatch(Simulation& sim) {
     turnNumber_ = 0;
     pendingIntents_.clear();
 
-    sim.Init(nations_, bots_, seed_);
-
-    sim.AssignPlayerSlot(1, hostName_.empty() ? "Commander" : hostName_, FactionType::Human);
-
     auto lobby = GetLobbyPlayers();
-    for (const auto& p : lobby) {
-        if (!p.isHost) {
+    if (role_ == ServerRole::Dedicated) {
+        uint8_t humans = static_cast<uint8_t>(lobby.empty() ? 0 : lobby.size());
+        sim.Init(static_cast<uint8_t>(humans + 1), bots_, seed_, mapType_);
+        if (Player* leftover = sim.GetPlayer(1)) {
+            leftover->name = "Bot Zero";
+            leftover->type = FactionType::Nation;
+        }
+        for (const auto& p : lobby) {
             sim.CancelAllFrontsForPlayer(p.id);
             sim.AssignPlayerSlot(p.id, p.name, FactionType::Human);
+        }
+    } else {
+        sim.Init(nations_, bots_, seed_, mapType_);
+        sim.AssignPlayerSlot(1, hostName_.empty() ? "Commander" : hostName_, FactionType::Human);
+        for (const auto& p : lobby) {
+            if (!p.isHost) {
+                sim.CancelAllFrontsForPlayer(p.id);
+                sim.AssignPlayerSlot(p.id, p.name, FactionType::Human);
+            }
         }
     }
 
@@ -262,14 +382,15 @@ void NetworkServer::StartMatch(Simulation& sim) {
     startMsg.Write(nations_);
     startMsg.Write(bots_);
     startMsg.Write(duration_);
+    startMsg.Write(static_cast<uint8_t>(mapType_));
     startMsg.Write(static_cast<uint16_t>(lobby.size()));
     for (const auto& p : lobby) {
         startMsg.WriteLobbyPlayer(p);
     }
 
     BroadcastPacket(startMsg, true);
-    log_info("[NetworkServer] Match started with " + std::to_string(lobby.size()) +
-             " human players!");
+    log_info("[NetworkServer] Match started in '" + roomName_ + "' with " +
+             std::to_string(lobby.size()) + " human players on " + MapTypeName(mapType_));
 }
 
 void NetworkServer::BroadcastLobbyState() {
@@ -294,8 +415,9 @@ void NetworkServer::BroadcastLobbyState() {
 
 std::vector<LobbyPlayerInfo> NetworkServer::GetLobbyPlayers() const {
     std::vector<LobbyPlayerInfo> list;
-    // Host is always Player 1
-    list.push_back({1, hostName_.empty() ? "Host" : hostName_, true, true});
+    if (role_ != ServerRole::Dedicated) {
+        list.push_back({1, hostName_.empty() ? "Host" : hostName_, true, true});
+    }
 
     for (const auto& [peer, info] : clients_) {
         if (info.joined) {
@@ -303,6 +425,14 @@ std::vector<LobbyPlayerInfo> NetworkServer::GetLobbyPlayers() const {
         }
     }
     return list;
+}
+
+void NetworkServer::ResetRoomToLobby() {
+    isGameStarted_ = false;
+    turnNumber_ = 0;
+    pendingIntents_.clear();
+    lobbyTimer_ = 0.0f;
+    gameOverTimer_ = 0.0f;
 }
 
 void NetworkServer::SendFullSync(ENetPeer* peer, const Simulation& sim) {
@@ -317,6 +447,7 @@ void NetworkServer::SendFullSync(ENetPeer* peer, const Simulation& sim) {
     writer.Write(seed_);
     writer.Write(nations_);
     writer.Write(bots_);
+    writer.Write(static_cast<uint8_t>(mapType_));
 
     // Players
     const auto& players = sim.GetPlayers();

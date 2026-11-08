@@ -22,7 +22,10 @@ class NetworkServer {
     NetworkServer();
     ~NetworkServer();
 
-    bool Start(uint16_t port = kDefaultPort, int maxClients = 16);
+    enum class ServerRole { Lobby, Dedicated };
+
+    bool Start(uint16_t port = kDefaultPort, int maxClients = 16,
+               ServerRole role = ServerRole::Lobby);
     void Stop();
     [[nodiscard]] bool IsRunning() const {
         return udpServer_.IsRunning();
@@ -38,10 +41,15 @@ class NetworkServer {
         return hostName_;
     }
 
+    void ConfigureRoom(const std::string& roomName, uint16_t maxPlayers, uint8_t bots,
+                       MapType mapType, float autoStartDelay = 8.0f);
+
     void StartMatch(Simulation& sim);
     void BroadcastLobbyState();
+    void UpdateRoom(Simulation& sim, float dt);
     [[nodiscard]] std::vector<LobbyPlayerInfo> GetLobbyPlayers() const;
     void SendFullSync(ENetPeer* peer, const Simulation& sim);
+    [[nodiscard]] uint16_t GetJoinedPlayersCount() const;
 
     void QueueLocalIntent(const ClientIntent& intent);
     void PollNetwork(Simulation& sim, float dt);
@@ -56,6 +64,7 @@ class NetworkServer {
     [[nodiscard]] const std::unordered_map<ENetPeer*, ServerClientInfo>& GetClients() const {
         return clients_;
     }
+    [[nodiscard]] RoomInfo GetRoomInfo() const;
 
     void SetMatchSettings(uint32_t seed, uint8_t nations, uint8_t bots, float duration) {
         seed_ = seed;
@@ -74,13 +83,22 @@ class NetworkServer {
     uint8_t bots_{4};
     float duration_{1800.0f};
     uint32_t turnNumber_{0};
-    PlayerId nextPlayerId_{2}; // Player 1 is Host/Server
     bool isGameStarted_{false};
     std::string hostName_{"Host"};
+
+    ServerRole role_{ServerRole::Lobby};
+    std::string roomName_{"Room"};
+    uint16_t maxPlayers_{16};
+    MapType mapType_{MapType::Procedural};
+    float autoStartDelay_{8.0f};
+    float lobbyTimer_{0.0f};
+    float gameOverTimer_{0.0f};
 
     void HandlePacket(Simulation& sim, ENetPeer* peer, const uint8_t* data, size_t size);
     void SendPacket(ENetPeer* peer, const ByteWriter& writer, bool reliable = true);
     void BroadcastPacket(const ByteWriter& writer, bool reliable = true);
+    void ResetRoomToLobby();
+    PlayerId AllocatePlayerId();
 };
 
 } // namespace Openfront

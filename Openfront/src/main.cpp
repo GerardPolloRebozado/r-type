@@ -4,6 +4,7 @@
 #include <thread>
 
 #include "Common.hpp"
+#include "MultiRoomServer.hpp"
 #include "NetworkManager.hpp"
 #include "OpenfrontComponents.hpp"
 #include "Renderer.hpp"
@@ -20,53 +21,18 @@
 
 #include <sol/sol.hpp>
 
-// uses Engine::Application in headless mode
-int RunDedicatedServer(uint16_t port, uint32_t seed,
-                       Openfront::MapType mapType = Openfront::MapType::Procedural) {
-    Engine::ApplicationConfig cfg;
-    cfg.headless = true;
-
-    Engine::Application app(cfg);
-
-    app.GetRegistry().RegisterComponent<Openfront::TacticalUnitComponent>();
-    app.GetRegistry().RegisterComponent<Openfront::WarheadComponent>();
-    app.GetRegistry().RegisterComponent<Openfront::FrontLineComponent>();
-
-    Openfront::Simulation sim;
-    Openfront::NetworkServer server;
-
-    sim.SetEcsRegistry(&app.GetRegistry());
-    sim.Init(6, 6, seed, mapType);
-    server.SetMatchSettings(seed, 6, 6, sim.GetMatchDuration());
-
-    if (!server.Start(port, 32)) {
-        log_error("[Openfront] Failed to bind server on port " + std::to_string(port));
+int RunMultiRoomServer(uint16_t basePort, const std::vector<Openfront::RoomConfig>& configs) {
+    Openfront::MultiRoomServer server;
+    if (!server.Start(configs)) {
+        log_error("[Openfront] One or more rooms failed to bind");
         return 1;
     }
 
-    server.StartMatch(sim);
-    log_info("[Openfront] Server listening on port " + std::to_string(port) +
-             " (Seed: " + std::to_string(seed) + ")");
+    log_info("[Openfront] Dedicated multi-room server: " + std::to_string(configs.size()) +
+             " room(s), ports " + std::to_string(basePort) + ".." +
+             std::to_string(basePort + configs.size() - 1));
 
-    auto lastTick = std::chrono::steady_clock::now();
-    float accumulator = 0.0f;
-
-    while (true) {
-        auto now = std::chrono::steady_clock::now();
-        float dt = std::chrono::duration<float>(now - lastTick).count();
-        lastTick = now;
-
-        server.PollNetwork(sim, dt);
-
-        accumulator += dt;
-        while (accumulator >= Openfront::kSimulationTickDt) {
-            server.TickTurn(sim);
-            accumulator -= Openfront::kSimulationTickDt;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    }
-
+    server.Run();
     server.Stop();
     return 0;
 }
@@ -80,6 +46,49 @@ int main(int argc, char* argv[]) {
     uint32_t seed = 1337;
     Openfront::MapType mapType = Openfront::MapType::Procedural;
 
+    int roomCount = 0;
+    std::vector<uint16_t> roomCaps;
+    std::vector<std::string> roomMaps;
+    std::vector<std::string> roomNames;
+    std::vector<int> roomBots;
+
+    auto splitCsvInts = [](const std::string& s) {
+        std::vector<int> out;
+        std::string cur;
+        for (char c : s) {
+            if (c == ',') {
+                if (!cur.empty()) {
+                    out.push_back(std::atoi(cur.c_str()));
+                    cur.clear();
+                }
+            } else {
+                cur += c;
+            }
+        }
+        if (!cur.empty()) {
+            out.push_back(std::atoi(cur.c_str()));
+        }
+        return out;
+    };
+    auto splitCsvStrings = [](const std::string& s) {
+        std::vector<std::string> out;
+        std::string cur;
+        for (char c : s) {
+            if (c == ',') {
+                if (!cur.empty()) {
+                    out.push_back(cur);
+                    cur.clear();
+                }
+            } else {
+                cur += c;
+            }
+        }
+        if (!cur.empty()) {
+            out.push_back(cur);
+        }
+        return out;
+    };
+
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--server") {
@@ -87,6 +96,18 @@ int main(int argc, char* argv[]) {
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 port = static_cast<uint16_t>(std::atoi(argv[++i]));
             }
+        } else if (arg == "--rooms" && i + 1 < argc) {
+            roomCount = std::atoi(argv[++i]);
+        } else if (arg == "--room-cap" && i + 1 < argc) {
+            for (int v : splitCsvInts(argv[++i])) {
+                roomCaps.push_back(static_cast<uint16_t>(std::max(1, v)));
+            }
+        } else if (arg == "--room-maps" && i + 1 < argc) {
+            roomMaps = splitCsvStrings(argv[++i]);
+        } else if (arg == "--room-name" && i + 1 < argc) {
+            roomNames = splitCsvStrings(argv[++i]);
+        } else if (arg == "--room-bots" && i + 1 < argc) {
+            roomBots = splitCsvInts(argv[++i]);
         } else if (arg == "--host") {
             runMode = "host";
             if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -119,7 +140,37 @@ int main(int argc, char* argv[]) {
     }
 
     if (runMode == "server") {
-        return RunDedicatedServer(port, seed);
+        if (roomCount < 1) {
+            roomCount = 1;
+        }
+        std::vector<Openfront::RoomConfig> configs;
+        configs.reserve(roomCount);
+        for (int r = 0; r < roomCount; ++r) {
+            Openfront::RoomConfig cfg;
+            cfg.name = roomNames.empty() ? ("Room " + std::to_string(r + 1))
+                                         : roomNames[static_cast<size_t>(r) % roomNames.size()];
+            ;
+            cfg.port = static_cast<uint16_t>(port + r);
+            size_t ci = roomCaps.empty()        ? 8
+                        : (r < roomCaps.size()) ? static_cast<size_t>(r)
+                                                : roomCaps.size() - 1;
+            cfg.maxPlayers = roomCaps.empty() ? 8 : roomCaps[ci];
+            size_t mi = roomMaps.empty()        ? 0
+                        : (r < roomMaps.size()) ? static_cast<size_t>(r)
+                                                : roomMaps.size() - 1;
+            if (!roomMaps.empty()) {
+                Openfront::ParseMapTypeName(roomMaps[mi], cfg.mapType);
+            }
+            size_t bi = roomBots.empty()        ? 0
+                        : (r < roomBots.size()) ? static_cast<size_t>(r)
+                                                : roomBots.size() - 1;
+            if (!roomBots.empty()) {
+                cfg.bots = static_cast<uint8_t>(std::clamp(roomBots[bi], 0, 6));
+            }
+            cfg.seed = seed;
+            configs.push_back(cfg);
+        }
+        return RunMultiRoomServer(port, configs);
     }
 
     Openfront::Simulation sim;

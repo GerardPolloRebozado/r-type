@@ -2,7 +2,9 @@
 #define OPENFRONT_RENDERER_HPP_
 
 #include "Common.hpp"
+#include "NetworkClient.hpp"
 #include "Simulation.hpp"
+#include <future>
 #include <raylib.h>
 #include <string>
 
@@ -120,6 +122,13 @@ class Renderer {
     char joinIpBuffer_[64]{"127.0.0.1"};
     char joinPortBuffer_[16]{"7777"};
     std::string connectionStatusText_{"Ready to connect"};
+
+    std::future<std::vector<NetworkClient::ScannedRoom>> roomScanFuture_;
+    std::vector<NetworkClient::ScannedRoom> joinRooms_;
+    bool scanningRooms_{false};
+    void PollRoomScan();
+    void BeginRoomScan(NetworkManager& net);
+    void JoinRoom(Simulation& sim, NetworkManager& net, uint16_t port);
 
     // Render subroutines
     void UpdateMapTexture(const Simulation& sim);

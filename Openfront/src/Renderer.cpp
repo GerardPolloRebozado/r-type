@@ -1367,8 +1367,9 @@ void Renderer::DrawGameOver(Simulation& sim) {
     PlayerId winId = sim.GetWinnerId();
     const Player* win = sim.GetPlayer(winId);
 
-    const char* title = (winId == 1) ? "VICTORY! WORLD CONQUERED" : "DEFEAT! WORLD DOMINATION LOST";
-    Color titleCol = (winId == 1) ? GOLD : RED;
+    const char* title =
+        (winId == localPlayerId_) ? "VICTORY! WORLD CONQUERED" : "DEFEAT! WORLD DOMINATION LOST";
+    Color titleCol = (winId == localPlayerId_) ? GOLD : RED;
 
     int tw = MeasureText(title, 36);
     DrawTextCustom(title, (screenWidth_ - tw) / 2, screenHeight_ / 2 - 80, 36, titleCol);
@@ -1715,6 +1716,7 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
     Vector2 mousePos = GetMousePosition();
     bool isConnected = net.GetClient().IsConnected();
     bool isInLobby = net.GetClient().IsInLobby();
+    PollRoomScan();
 
     // Player Name
     DrawTextCustom("Your Commander Name:", menuX + 30, menuY + 68, 13, WHITE);
@@ -1757,7 +1759,7 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
     DrawRectangleLinesEx(statusBox, 1.0f, Color{45, 60, 85, 255});
 
     if (isConnected) {
-        DrawTextCustom("CONNECTED TO HOST LOBBY:", statusBox.x + 12, statusBox.y + 8, 12, GREEN);
+        DrawTextCustom("CONNECTED TO SERVER LOBBY:", statusBox.x + 12, statusBox.y + 8, 12, GREEN);
         DrawLine(statusBox.x + 10, statusBox.y + 24, statusBox.x + statusBox.width - 10,
                  statusBox.y + 24, Color{30, 45, 70, 255});
 
@@ -1803,38 +1805,90 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
         DrawTextCustom("STATUS: NOT CONNECTED", statusBox.x + 12, statusBox.y + 8, 12, GRAY);
         DrawLine(statusBox.x + 10, statusBox.y + 24, statusBox.x + statusBox.width - 10,
                  statusBox.y + 24, Color{30, 45, 70, 255});
-        DrawTextCustom("Enter Host IP and Port, then click [CONNECT TO HOST].", statusBox.x + 25,
-                       statusBox.y + 60, 13, Color{160, 180, 210, 255});
-        DrawTextCustom(connectionStatusText_.c_str(), statusBox.x + 25, statusBox.y + 90, 13,
-                       Color{230, 180, 60, 255});
+
+        if (scanningRooms_) {
+            float time = static_cast<float>(GetTime());
+            std::string dots = std::string(1 + (static_cast<int>(time * 3.0f) % 4), '.');
+            DrawTextCustom(("Scanning dedicated server rooms" + dots).c_str(), statusBox.x + 12,
+                           statusBox.y + 40, 14, Color{120, 200, 255, 255});
+        } else if (joinRooms_.empty()) {
+            DrawTextCustom("Enter server IP and base port, then click [SCAN ROOMS].",
+                           statusBox.x + 25, statusBox.y + 40, 13, Color{160, 180, 210, 255});
+            DrawTextCustom(connectionStatusText_.c_str(), statusBox.x + 25, statusBox.y + 90, 13,
+                           Color{230, 180, 60, 255});
+        } else {
+            DrawTextCustom("AVAILABLE SERVER ROOMS:", statusBox.x + 12, statusBox.y + 10, 12,
+                           Color{120, 200, 255, 255});
+            float rowY = statusBox.y + 32;
+            for (auto& room : joinRooms_) {
+                if (!room.reachable) {
+                    continue;
+                }
+                Rectangle rowRect = {statusBox.x + 8, rowY - 2, statusBox.width - 16, 20};
+                bool hover = CheckCollisionPointRec(mousePos, rowRect);
+                if (hover) {
+                    DrawRectangleRec(rowRect, Color{40, 80, 140, 120});
+                }
+
+                char title[96];
+                std::snprintf(title, sizeof(title), "%s", room.info.name.c_str());
+                char sub[96];
+                std::snprintf(sub, sizeof(sub), "%s  %d/%d players", MapTypeName(room.info.mapType),
+                              room.info.players, room.info.maxPlayers);
+                const char* state = room.info.gameStarted ? "IN GAME" : "IN LOBBY";
+
+                DrawTextCustom(title, statusBox.x + 16, rowY, 10, WHITE);
+                DrawTextCustom(sub, statusBox.x + 180, rowY, 10, Color{160, 190, 220, 255});
+                DrawTextCustom(state, statusBox.x + 400, rowY, 10,
+                               room.info.gameStarted ? Color{255, 200, 60, 255}
+                                                     : Color{110, 220, 140, 255});
+
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+                    CheckCollisionPointRec(mousePos, rowRect)) {
+                    JoinRoom(sim, net, room.port);
+                }
+                rowY += 22.0f;
+            }
+            if (rowY < statusBox.y + statusBox.height - 6) {
+                connectionStatusText_ = (connectionStatusText_ == "Ready to connect")
+                                            ? "Click a room to join it as a faction."
+                                            : connectionStatusText_;
+                DrawTextCustom(connectionStatusText_.c_str(), statusBox.x + 25,
+                               statusBox.y + statusBox.height - 26, 12, Color{230, 180, 60, 255});
+            }
+        }
     }
 
-    // Connect button
-    Rectangle connectBtn = {menuX + 30, menuY + 380, menuW - 60, 50};
+    Rectangle connectBtn = {menuX + menuW / 2 - 20, menuY + 380, menuW / 2 - 10, 50};
+    Rectangle scanBtn = {menuX + 30, menuY + 380, menuW / 2 - 20, 50};
     bool hoverConnect = CheckCollisionPointRec(mousePos, connectBtn);
+    bool hoverScan = CheckCollisionPointRec(mousePos, scanBtn);
 
     if (!isConnected) {
+        DrawRectangleRec(scanBtn, hoverScan ? Color{90, 110, 160, 255} : Color{60, 80, 110, 239});
+        DrawRectangleLinesEx(scanBtn, 2.0f, hoverScan ? WHITE : Color{100, 120, 160, 255});
+        const char* scanLabel = "SCAN ROOMS";
+        int slw = MeasureText(scanLabel, 16);
+        DrawTextCustom(scanLabel, scanBtn.x + (scanBtn.width - slw) * 0.5f, scanBtn.y + 16, 16,
+                       WHITE);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverScan && !scanningRooms_) {
+            BeginRoomScan(net);
+        }
+
         DrawRectangleRec(connectBtn,
                          hoverConnect ? Color{40, 140, 240, 255} : Color{30, 100, 200, 235});
         DrawRectangleLinesEx(connectBtn, 2.0f, hoverConnect ? WHITE : Color{70, 160, 255, 255});
-        const char* connLabel = "CONNECT TO HOST";
+        const char* connLabel = "CONNECT";
         int clw = MeasureText(connLabel, 16);
         DrawTextCustom(connLabel, connectBtn.x + (connectBtn.width - clw) * 0.5f, connectBtn.y + 16,
                        16, WHITE);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverConnect) {
-            PlaySoundEffect("ui_click");
             int port = std::atoi(joinPortBuffer_);
             if (port <= 0) {
                 port = 7777;
             }
-            connectionStatusText_ = "Connecting to server...";
-            net.StartClient(sim, joinIpBuffer_, static_cast<uint16_t>(port), playerNameBuffer_);
-
-            net.GetClient().SetOnGameStartedCallback([this, &sim, &net]() {
-                Init(sim, net.GetLocalPlayerId());
-                uiState_ = UIState::InGame;
-            });
+            JoinRoom(sim, net, static_cast<uint16_t>(port));
         }
     } else {
         DrawRectangleRec(connectBtn, Color{25, 35, 50, 180});
@@ -1860,6 +1914,50 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
         connectionStatusText_ = "Ready to connect";
         uiState_ = UIState::StartMenu;
     }
+}
+
+void Renderer::PollRoomScan() {
+    if (roomScanFuture_.valid()) {
+        auto status = roomScanFuture_.wait_for(std::chrono::seconds(0));
+        if (status == std::future_status::ready) {
+            joinRooms_ = roomScanFuture_.get();
+            scanningRooms_ = false;
+        }
+    }
+}
+
+void Renderer::BeginRoomScan(NetworkManager& net) {
+    if (scanningRooms_) {
+        return;
+    }
+    PlaySoundEffect("ui_click");
+    scanningRooms_ = true;
+    joinRooms_.clear();
+    connectionStatusText_ = "Ready to connect";
+
+    int port = std::atoi(joinPortBuffer_);
+    if (port <= 0) {
+        port = 7777;
+    }
+    std::string ip = joinIpBuffer_;
+
+    roomScanFuture_ = std::async(std::launch::async, [ip, port]() {
+        return NetworkClient::ScanRooms(ip, static_cast<uint16_t>(port), 8, 300.0f);
+    });
+}
+
+void Renderer::JoinRoom(Simulation& sim, NetworkManager& net, uint16_t port) {
+    std::snprintf(joinPortBuffer_, sizeof(joinPortBuffer_), "%u", static_cast<unsigned>(port));
+    connectionStatusText_ = "Connecting to room...";
+    if (!net.StartClient(sim, joinIpBuffer_, port, playerNameBuffer_)) {
+        connectionStatusText_ = "Connection failed";
+        return;
+    }
+    PlaySoundEffect("ui_click");
+    net.GetClient().SetOnGameStartedCallback([this, &sim, &net]() {
+        Init(sim, net.GetLocalPlayerId());
+        uiState_ = UIState::InGame;
+    });
 }
 
 void Renderer::DrawHowToPlay() {

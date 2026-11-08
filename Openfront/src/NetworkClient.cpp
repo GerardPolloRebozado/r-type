@@ -1,6 +1,8 @@
 #include "NetworkClient.hpp"
 #include "Logging/Logger.hpp"
+#include <chrono>
 #include <iostream>
+#include <thread>
 
 namespace Openfront {
 
@@ -119,6 +121,7 @@ void NetworkClient::HandlePacket(Simulation& sim, const uint8_t* data, size_t si
             uint8_t bots = 0;
             float duration = 1800.0f;
             uint32_t srvTurn = 0;
+            uint8_t mapType = 0;
 
             if (!reader.Read(accepted) || !accepted) {
                 log_error("[NetworkClient] Join rejected by server.");
@@ -132,9 +135,11 @@ void NetworkClient::HandlePacket(Simulation& sim, const uint8_t* data, size_t si
             reader.Read(bots);
             reader.Read(duration);
             reader.Read(srvTurn);
+            reader.Read(mapType);
 
             localPlayerId_ = assignedId;
             currentTurn_ = srvTurn;
+            serverMapType_ = static_cast<MapType>(mapType);
             state_ = ClientState::InLobby;
 
             log_info("[NetworkClient] Joined lobby! Assigned PlayerId " +
@@ -176,9 +181,10 @@ void NetworkClient::HandlePacket(Simulation& sim, const uint8_t* data, size_t si
             uint8_t nations = 0;
             uint8_t bots = 0;
             float duration = 1800.0f;
+            uint8_t mapType = 0;
             uint16_t count = 0;
             if (!reader.Read(seed) || !reader.Read(nations) || !reader.Read(bots) ||
-                !reader.Read(duration) || !reader.Read(count)) {
+                !reader.Read(duration) || !reader.Read(mapType) || !reader.Read(count)) {
                 return;
             }
 
@@ -190,7 +196,7 @@ void NetworkClient::HandlePacket(Simulation& sim, const uint8_t* data, size_t si
                 }
             }
 
-            sim.Init(nations, bots, seed);
+            sim.Init(nations, bots, seed, static_cast<MapType>(mapType));
             for (const auto& p : lobbyPlayers_) {
                 sim.AssignPlayerSlot(p.id, p.name, FactionType::Human);
             }
@@ -211,13 +217,14 @@ void NetworkClient::HandlePacket(Simulation& sim, const uint8_t* data, size_t si
             uint32_t seed = 0;
             uint8_t nations = 0;
             uint8_t bots = 0;
+            uint8_t mapType = 0;
 
             if (!reader.Read(srvTurn) || !reader.Read(matchTime) || !reader.Read(seed) ||
-                !reader.Read(nations) || !reader.Read(bots)) {
+                !reader.Read(nations) || !reader.Read(bots) || !reader.Read(mapType)) {
                 return;
             }
 
-            sim.Init(nations, bots, seed);
+            sim.Init(nations, bots, seed, static_cast<MapType>(mapType));
             sim.SetCurrentTurn(srvTurn);
             currentTurn_ = srvTurn;
 
@@ -369,6 +376,75 @@ void NetworkClient::HandlePacket(Simulation& sim, const uint8_t* data, size_t si
 
 void NetworkClient::SendPacket(const ByteWriter& writer, bool reliable) {
     udpClient_.SendPacket(writer, reliable);
+}
+
+std::vector<NetworkClient::ScannedRoom> NetworkClient::ScanRooms(const std::string& hostAddress,
+                                                                 uint16_t basePort,
+                                                                 uint16_t roomCount,
+                                                                 float perProbeTimeoutMs) {
+    std::vector<ScannedRoom> rooms;
+    rooms.reserve(roomCount);
+
+    for (uint16_t i = 0; i < roomCount; ++i) {
+        uint16_t port = static_cast<uint16_t>(basePort + i);
+        ScannedRoom entry;
+        entry.port = port;
+
+        Engine::Network::UdpClient probe;
+        if (!probe.Connect(hostAddress, port, 2)) {
+            rooms.push_back(entry);
+            continue;
+        }
+
+        bool gotRoom = false;
+        bool probeFailed = false;
+        auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(static_cast<long long>(perProbeTimeoutMs));
+
+        while (std::chrono::steady_clock::now() < deadline && !gotRoom && !probeFailed) {
+            probe.PollEvents([&](const Engine::Network::NetworkEvent& event) {
+                switch (event.type) {
+                    case Engine::Network::NetworkEventType::Connect: {
+                        ByteWriter req;
+                        req.Write(static_cast<uint8_t>(PacketType::RoomInfo));
+                        probe.SendPacket(req, true);
+                        break;
+                    }
+                    case Engine::Network::NetworkEventType::Receive: {
+                        ByteReader reader(event.data.data(), event.data.size());
+                        uint8_t pktType = 0;
+                        if (reader.Read(pktType) &&
+                            pktType == static_cast<uint8_t>(PacketType::RoomInfo)) {
+                            RoomInfo info;
+                            if (reader.ReadRoomInfo(info)) {
+                                entry.info = info;
+                                entry.reachable = true;
+                                gotRoom = true;
+                            }
+                        }
+                        break;
+                    }
+                    case Engine::Network::NetworkEventType::Disconnect: {
+                        probeFailed = true;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            });
+            if (gotRoom || probeFailed) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(4));
+        }
+
+        if (gotRoom) {
+            probe.Disconnect();
+        }
+        rooms.push_back(entry);
+    }
+
+    return rooms;
 }
 
 } // namespace Openfront
