@@ -69,6 +69,13 @@ end
 
 function Heart:onDestroy(entity)
     log.info("[" .. tostring(entity) .. "] Heart destroyed")
+    -- Forget this level's HUD. player.lua runs before heart.lua in a new
+    -- level's first frame; if the old table were still global it would
+    -- recreate hearts no one owns (they never disappear) and could destroy
+    -- reused entity ids. With Heart nil, player.lua waits for the new one.
+    if Heart == self then
+        Heart = nil
+    end
 end
 
 return Heart
