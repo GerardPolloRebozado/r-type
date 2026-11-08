@@ -325,6 +325,7 @@ int main(int argc, char* argv[]) {
     renderer.SetSelectedMapType(mapType);
 
     app.Run();
+    renderer.Shutdown();
     net.Stop();
     return 0;
 }
