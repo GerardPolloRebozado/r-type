@@ -2,6 +2,7 @@
 #include "Assets/AssetManager.hpp"
 #include "Components/CameraComponent.hpp"
 #include "Components/Position.hpp"
+#include "Core/QuitRequest.hpp"
 #include "ECS/Registry.hpp"
 #include "Inputs/Controller.hpp"
 #include "NetworkManager.hpp"
@@ -28,11 +29,17 @@ Renderer::Renderer(int screenWidth, int screenHeight)
 }
 
 Renderer::~Renderer() {
+    Shutdown();
+}
+
+void Renderer::Shutdown() {
     if (mapTexture_.id != 0) {
         UnloadTexture(mapTexture_);
+        mapTexture_ = {};
     }
     if (mapImage_.data != nullptr) {
         UnloadImage(mapImage_);
+        mapImage_ = {};
     }
     if (pixelBuffer_ != nullptr) {
         delete[] pixelBuffer_;
@@ -1515,7 +1522,14 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
     int qw = MeasureText("EXIT GAME", 14);
     DrawTextCustom("EXIT GAME", quitBtn.x + (quitBtn.width - qw) * 0.5f, quitBtn.y + 13, 14, GRAY);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverQuit) {
-        CloseWindow();
+        // Don't CloseWindow() mid-frame: EndDrawing would then crash. Ask the
+        // engine loop to stop and let Application tear everything down.
+        if (registry_ != nullptr) {
+            if (!registry_->HasResource<Engine::QuitRequest>()) {
+                registry_->AddResource<Engine::QuitRequest>();
+            }
+            registry_->GetResource<Engine::QuitRequest>().requested = true;
+        }
     }
 }
 

@@ -438,6 +438,18 @@ class Registry {
         return m_Resources.contains(typeid(T));
     }
 
+    /**
+     * @brief Destroys every entity and every resource now.
+     *
+     * Lets the application free GPU/audio-backed data (textures, sounds, fonts)
+     * while the window and audio device are still alive, instead of during
+     * member destruction after CloseWindow().
+     */
+    void Shutdown() {
+        ClearEntities();
+        m_Resources.clear();
+    }
+
   private:
     /**
      * @brief Recursively destroys descendants first (Parent scan), then strips @p entity

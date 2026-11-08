@@ -772,8 +772,7 @@ ScaffoldResult EnsureProjectSceneImpl(const ProjectRequest& request) {
     // Older projects have no project.json: write one pointing at that scene.
     if (!std::filesystem::exists(folder / Serialization::kProjectFileName)) {
         Serialization::ProjectFile project;
-        project.startupScene =
-            std::filesystem::relative(scenePath, folder, error).generic_string();
+        project.startupScene = std::filesystem::relative(scenePath, folder, error).generic_string();
         if (error || project.startupScene.empty()) {
             project.startupScene = Serialization::kDefaultStartupScene;
         }

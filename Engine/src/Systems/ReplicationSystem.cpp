@@ -982,6 +982,7 @@ void ReplicationSystem::RegisterDespawnHandler(Registry& registry) {
 
     router.On(packetId, [this, &registry](Registry& /*r*/, ENetPeer* /*peer*/,
                                           const uint8_t* payload, std::size_t size) {
+        log_info("[Replication] Received despawn packet, size=" + std::to_string(size));
         if (size == 0 || payload == nullptr) {
             return;
         }
@@ -1420,6 +1421,7 @@ void ReplicationSystem::SendDespawn(Registry& registry, NetworkHostResource& hos
         // Channel 2: reliable despawns, separate from spawns (channel 1).
         // A lost despawn won't block spawn packets on channel 1.
         host.SendAllHost(packet, 2);
+        log_info("[Replication] Sent despawn for network id " + std::to_string(networkId));
     } else {
         log_error("[Replication] Failed to allocate despawn packet for network id " +
                   std::to_string(networkId));
