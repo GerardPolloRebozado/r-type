@@ -4,11 +4,14 @@ local FRAME_DIR = "assets/enemies/shell/"
 
 local ARMOUR_FIRST, ARMOUR_COUNT = 0, 16
 local CORE_FIRST, CORE_COUNT = 16, 16
+local FRAME0_ANGLE = -90.0
+local FRAME_DIRECTION = 1
 local GAP = 2
 
 local RADIUS = 250.0
 local ROT_SPEED = 1.0
 local CORE_HP = 5
+local ARMOUR_HP = 3
 
 local SPEED_X = 0.0
 local SCREEN_MARGIN = 400.0
@@ -47,7 +50,6 @@ end
 
 function Shell:onCreate(entity)
 	self.entity = entity
-	self.time = 0.0
 	self.angle = 0.0
 	self.exploding = false
 	self.frame = 1
@@ -91,7 +93,7 @@ function Shell:onCreate(entity)
 			first, count = CORE_FIRST, CORE_COUNT
 		end
 		Component.setSpritePath(seg, framePath(first, count, i))
-
+		Component.setColliderTrigger(seg, true)
 		Component.setColliderLayer(seg, BODY_LAYER)
 		Component.setColliderMask(seg, BODY_MASK)
 		Component.connect(seg, "onCollisionEnter", entity, "onCollisionEnter")
@@ -100,7 +102,14 @@ function Shell:onCreate(entity)
 			Net.replicate(seg, "Server", true, true)
 		end
 
-		self.segments[i] = { entity = seg, isCore = isCore, first = first, count = count }
+		self.segments[i] = {
+			entity = seg,
+			isCore = isCore,
+			first = first,
+			count = count,
+			slot = i,
+			hp = ARMOUR_HP,
+		}
 	end
 	self:PlaceSegments()
 end
@@ -108,9 +117,15 @@ end
 -- Segment use angle + i * (2pi / number of segments), around the pivot
 function Shell:PlaceSegments()
 	local step = self.step
-	for i, seg in ipairs(self.segments) do
-		local a = self.angle + (i - 1) * step
+	for _, seg in ipairs(self.segments) do
+		local a = self.angle + (seg.slot - 1) * step
 		Transform.setPosition(seg.entity, self.x + math.cos(a) * RADIUS, self.y + math.sin(a) * RADIUS)
+		local deg = math.deg(a) * FRAME_DIRECTION + FRAME0_ANGLE
+		local idx = math.floor(deg / (360.0 / seg.count) + 0.5) % seg.count
+		if idx ~= seg.frameIdx then
+			seg.frameIdx = idx
+			Component.setSpritePath(seg.entity, framePath(seg.first, seg.count, idx))
+		end
 	end
 end
 
@@ -127,7 +142,6 @@ function Shell:onUpdate(entity, dt)
 		return
 	end
 
-	self.time = self.time + dt
 	self.angle = self.angle + ROT_SPEED * dt
 	self.x = self.x - SPEED_X * dt
 	Transform.setPosition(entity, self.x, self.y)
@@ -147,14 +161,22 @@ function Shell:onCollisionEnter(this, other)
 		return
 	end
 
-	local seg = nil
-	for _, s in ipairs(self.segments) do
+	local seg, index = nil, nil
+	for n, s in ipairs(self.segments) do
 		if s.entity == this then
-			seg = s
+			seg, index = s, n
 			break
 		end
 	end
-	if seg == nil or not seg.isCore then
+	if seg == nil then
+		return
+	end
+	if not seg.isCore then
+		seg.hp = seg.hp - 1
+		if seg.hp <= 0 then
+			Entity.queueDestroy(seg.entity)
+			table.remove(self.segments, index)
+		end
 		return
 	end
 
