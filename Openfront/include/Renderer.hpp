@@ -25,6 +25,9 @@ class Renderer {
     Renderer(int screenWidth, int screenHeight);
     ~Renderer();
 
+    /// Frees GPU resources. Call before the window is closed (idempotent).
+    void Shutdown();
+
     void Init(Simulation& sim, PlayerId localPlayerId = 1);
     void Update(Simulation& sim, NetworkManager& net, float dt);
     void Render(Simulation& sim, const NetworkManager& net);
