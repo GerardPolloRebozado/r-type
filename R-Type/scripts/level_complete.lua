@@ -2,30 +2,24 @@
 -- Attached to: LevelManager (one per level scene)
 --
 -- A stage is complete when either:
---   * the camera pans past the level's end X, or
 --   * the player touches the "StageEnd" trigger collider placed at the end
---     of the stage.
+--     of the stage, or
+--   * the camera pans past that same StageEnd X (backup).
 --
--- When completed, a big "NEXT STAGE" text is shown and, after SHOW_TIME
+-- When completed, a big "STAGE CLEAR" text is shown and, after SHOW_TIME
 -- seconds, the game returns to the level selection menu (level_selector.scene).
 
 local LevelComplete = {}
 
--- End-of-level camera X per scene. The camera pans right; once it passes this
--- value the level is considered complete.
-local END_X_BY_SCENE = {
-    ["Level1.scene"] = 2200.0,
-    ["Level2.scene"] = 4300.0,
-    ["Level3.scene"] = 6100.0,
-    ["Level4.scene"] = 8000.0,
-    ["Level5.scene"] = 10000.0,
-    ["Level6.scene"] = 12000.0,
-    ["Level7.scene"] = 14000.0,
-    ["Level8.scene"] = 16000.0,
-}
-
-local SHOW_TIME = 3.0   -- seconds to show "NEXT STAGE"
+local SHOW_TIME = 3.0          -- seconds to show "STAGE CLEAR"
 local NEXT_SCENE = "level_selector.scene"
+local DEFAULT_END_X = 6000.0   -- used only if the scene has no StageEnd
+local MESSAGE = "STAGE CLEAR"
+local FONT_SIZE = 120
+-- Text is drawn in world space from its top-left corner, so it is moved with
+-- the camera each frame using this offset to keep it centred on screen.
+local TEXT_OFFSET_X = -360.0
+local TEXT_OFFSET_Y = -60.0
 
 function LevelComplete:onCreate(entity)
     self.entity = entity
@@ -35,16 +29,14 @@ function LevelComplete:onCreate(entity)
     self.timer = 0.0
     self.textEntity = nil
 
-    local sceneName = Scene.current() or ""
-    self.endX = END_X_BY_SCENE[sceneName] or 6000.0
-    log.info(string.format("[level_complete] scene=%s endX=%.1f", sceneName, self.endX))
-
-    -- Connect the end-of-stage trigger collider: when the player touches it,
-    -- the stage is complete. The signal is emitted on StageEnd and routed to
-    -- this LevelManager's onStageEndEnter handler.
+    self.endX = DEFAULT_END_X
     if self.stageEnd ~= nil then
+        self.endX = Transform.getPosition(self.stageEnd).x
+        -- When the player touches StageEnd, call this LevelManager's
+        -- onStageEndEnter handler.
         Component.connect(self.stageEnd, "onTriggerEnter", self.entity, "onStageEndEnter")
     end
+    log.info(string.format("[level_complete] scene=%s endX=%.1f", Scene.current() or "", self.endX))
 end
 
 function LevelComplete:onUpdate(entity, dt)
@@ -53,6 +45,7 @@ function LevelComplete:onUpdate(entity, dt)
     end
 
     if self.completed then
+        self:followCamera()
         self.timer = self.timer + dt
         if self.timer >= SHOW_TIME then
             Scene.load(NEXT_SCENE)
@@ -69,8 +62,8 @@ function LevelComplete:onUpdate(entity, dt)
     end
 end
 
--- Called when something enters the StageEnd trigger. Only the player should
--- be able to finish the stage this way.
+-- Called when something enters the StageEnd trigger. Only the player can
+-- finish the stage this way.
 function LevelComplete:onStageEndEnter(this, other)
     if self.completed then
         return
@@ -80,18 +73,25 @@ function LevelComplete:onStageEndEnter(this, other)
     end
 end
 
+function LevelComplete:followCamera()
+    if self.textEntity == nil or self.cameraEntity == nil then
+        return
+    end
+    local cam = Transform.getPosition(self.cameraEntity)
+    Transform.setPosition(self.textEntity, cam.x + TEXT_OFFSET_X, cam.y + TEXT_OFFSET_Y, 100)
+end
+
 function LevelComplete:triggerComplete()
     self.completed = true
     self.timer = 0.0
 
-    -- Spawn big centered "NEXT STAGE" text
     self.textEntity = Entity.create()
-    Entity.setName(self.textEntity, "NextStageText")
-    Transform.setPosition(self.textEntity, 0, 0, 100)
-    Component.addText(self.textEntity, "NEXT STAGE", 120, 255, 255, 255, 255)
+    Entity.setName(self.textEntity, "StageClearText")
+    Component.addText(self.textEntity, MESSAGE, FONT_SIZE, 255, 255, 255, 255)
     Component.setOpacity(self.textEntity, 1.0)
+    self:followCamera()
 
-    log.info("[level_complete] Level complete! NEXT STAGE")
+    log.info("[level_complete] Level complete! Returning to level select")
 end
 
 return LevelComplete
