@@ -78,9 +78,9 @@ local function UpdateProjectiles(self, dt)
         if Camera ~= nil and Camera.viewport ~= nil then
             local viewport = Camera.viewport()
             outsideScreen = position.x < viewport.x - SCREEN_MARGIN or
-                position.x > viewport.x + viewport.width + SCREEN_MARGIN or
-                position.y < viewport.y - SCREEN_MARGIN or
-                position.y > viewport.y + viewport.height + SCREEN_MARGIN
+                    position.x > viewport.x + viewport.width + SCREEN_MARGIN or
+                    position.y < viewport.y - SCREEN_MARGIN or
+                    position.y > viewport.y + viewport.height + SCREEN_MARGIN
         end
         if projectile.timer <= 0.0 or outsideScreen then
             Entity.destroy(projectile.entity)
@@ -112,7 +112,7 @@ function Enemy:onCreate(entity)
     Component.addBoxCollider(entity, 32, 32)
     Component.setColliderLayer(entity, BODY_LAYER)
     Component.setColliderMask(entity, BODY_MASK)
-    Component.addAudioSource(entity, "assets/effects/explosion.mp3", false, false, 1)
+    Component.addAudioSource(entity, "assets/audio/explosion.mp3", false, false, 1)
 
     if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
         Net.replicate(entity, "Server", true, true)

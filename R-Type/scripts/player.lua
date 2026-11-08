@@ -95,9 +95,27 @@ local function isAuthority()
     return Net.isServer()
 end
 
+-- Plays the "GAME OVER" text and the game-over sound exactly once for the
+-- local player when the game ends.
 local function showGameOver()
+    if Player.gameOverSoundPlayed then
+        local textEntity = Entity.find("GameOver")
+        if textEntity ~= nil then
+            Component.setOpacity(textEntity, 1.0)
+        end
+        return
+    end
+    Player.gameOverSoundPlayed = true
+
     local textEntity = Entity.find("GameOver")
-    Component.setOpacity(textEntity, 1.0)
+    if textEntity ~= nil then
+        Component.setOpacity(textEntity, 1.0)
+    end
+
+    -- Play game-over.mp3 a single time when the text appears.
+    if Audio ~= nil and Audio.playSound ~= nil then
+        Audio.playSound("assets/audio/game-over.mp3", 1.0, false)
+    end
 end
 
 local function registerNetworkHandlers()
@@ -203,6 +221,7 @@ function Player:onCreate(entity)
     registerNetworkHandlers()
     if next(Player.states) == nil then
         Player.gameOver = false
+        Player.gameOverSoundPlayed = false
     end
 
     self.entity = entity
