@@ -84,11 +84,26 @@ glz::generic RunCommand(const AuthorRequest& request)
     if (request.command == "set_component") {
         return SetComponentCmd(request);
     }
+    if (request.command == "get_component") {
+        return GetComponentCmd(request);
+    }
     if (request.command == "attach_script") {
         return AttachScript(request);
     }
     if (request.command == "add_wave") {
         return AddWave(request);
+    }
+    if (request.command == "set_wave") {
+        return SetWave(request);
+    }
+    if (request.command == "remove_wave") {
+        return RemoveWave(request);
+    }
+    if (request.command == "create_prefab") {
+        return CreatePrefab(request);
+    }
+    if (request.command == "set_prefab_component") {
+        return SetPrefabComponent(request);
     }
     if (request.command == "validate_scene") {
         return ValidateScene(request);

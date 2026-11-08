@@ -155,6 +155,197 @@ bool LooksSafeTopic(const std::string& topic)
     return true;
 }
 
+glz::generic ColorArray(Color color)
+{
+    glz::generic array = glz::generic::array_t{};
+    auto& items = array.get_array();
+
+    items.emplace_back(static_cast<double>(color.r));
+    items.emplace_back(static_cast<double>(color.g));
+    items.emplace_back(static_cast<double>(color.b));
+    items.emplace_back(static_cast<double>(color.a));
+    return array;
+}
+
+const char* ShapeTypeName(Engine::ShapeType type)
+{
+    if (type == Engine::ShapeType::CIRCLE) {
+        return "circle";
+    }
+    if (type == Engine::ShapeType::POLYGON) {
+        return "polygon";
+    }
+    if (type == Engine::ShapeType::LINE) {
+        return "line";
+    }
+    return "rectangle";
+}
+
+const char* FormationName(Engine::WavePatternType type)
+{
+    if (type == Engine::WavePatternType::VFormation) {
+        return "vformation";
+    }
+    if (type == Engine::WavePatternType::Sine) {
+        return "sine";
+    }
+    if (type == Engine::WavePatternType::Grid) {
+        return "grid";
+    }
+    return "line";
+}
+
+bool ReadComponent(Engine::Registry& registry, Engine::Entity entity, const std::string& component,
+                   glz::generic& fields)
+{
+    fields = glz::generic::object_t{};
+    auto& obj = fields.get_object();
+
+    if (component == "position") {
+        if (!registry.IsComponentRegistered<Engine::Position>() ||
+            !registry.HasComponent<Engine::Position>(entity)) {
+            return false;
+        }
+        const Engine::Position& position = registry.RequireComponent<Engine::Position>(entity);
+        obj["x"] = position.x;
+        obj["y"] = position.y;
+        obj["z"] = static_cast<double>(position.z);
+        obj["relative"] = position.relative;
+        return true;
+    }
+    if (component == "rotation") {
+        if (!registry.IsComponentRegistered<Engine::Rotation>() ||
+            !registry.HasComponent<Engine::Rotation>(entity)) {
+            return false;
+        }
+        obj["angle"] = registry.RequireComponent<Engine::Rotation>(entity).angle;
+        return true;
+    }
+    if (component == "name") {
+        if (!registry.IsComponentRegistered<Engine::Name>() ||
+            !registry.HasComponent<Engine::Name>(entity)) {
+            return false;
+        }
+        obj["value"] = registry.RequireComponent<Engine::Name>(entity).value;
+        return true;
+    }
+    if (component == "sprite") {
+        if (!registry.IsComponentRegistered<Engine::SpriteComponent>() ||
+            !registry.HasComponent<Engine::SpriteComponent>(entity)) {
+            return false;
+        }
+        const Engine::SpriteComponent& sprite =
+            registry.RequireComponent<Engine::SpriteComponent>(entity);
+        obj["assetPath"] = sprite.assetPath;
+        obj["offsetX"] = sprite.offsetX;
+        obj["offsetY"] = sprite.offsetY;
+        obj["scaleX"] = sprite.scaleX;
+        obj["scaleY"] = sprite.scaleY;
+        obj["flipX"] = sprite.flipX;
+        obj["flipY"] = sprite.flipY;
+        return true;
+    }
+    if (component == "collider") {
+        if (!registry.IsComponentRegistered<Engine::ColliderComponent>() ||
+            !registry.HasComponent<Engine::ColliderComponent>(entity)) {
+            return false;
+        }
+        const Engine::ColliderComponent& collider =
+            registry.RequireComponent<Engine::ColliderComponent>(entity);
+        obj["enabled"] = collider.enabled;
+        obj["isTrigger"] = collider.isTrigger;
+        obj["isStatic"] = collider.isStatic;
+        obj["layer"] = static_cast<double>(collider.layer);
+        obj["mask"] = static_cast<double>(collider.mask);
+        return true;
+    }
+    if (component == "shape") {
+        if (!registry.IsComponentRegistered<Engine::ShapeComponent>() ||
+            !registry.HasComponent<Engine::ShapeComponent>(entity)) {
+            return false;
+        }
+        const Engine::ShapeComponent& shape = registry.RequireComponent<Engine::ShapeComponent>(entity);
+        obj["type"] = std::string(ShapeTypeName(shape.type));
+        obj["width"] = shape.width;
+        obj["height"] = shape.height;
+        obj["radius"] = shape.radius;
+        obj["sides"] = static_cast<double>(shape.sides);
+        obj["filled"] = shape.filled;
+        obj["color"] = ColorArray(shape.color);
+        return true;
+    }
+    if (component == "text") {
+        if (!registry.IsComponentRegistered<Engine::Text>() ||
+            !registry.HasComponent<Engine::Text>(entity)) {
+            return false;
+        }
+        const Engine::Text& text = registry.RequireComponent<Engine::Text>(entity);
+        obj["text"] = text.text;
+        obj["fontsize"] = text.fontsize;
+        obj["spacing"] = text.spacing;
+        obj["color"] = ColorArray(text.color);
+        return true;
+    }
+    if (component == "opacity") {
+        if (!registry.IsComponentRegistered<Engine::Opacity>() ||
+            !registry.HasComponent<Engine::Opacity>(entity)) {
+            return false;
+        }
+        const Engine::Opacity& opacity = registry.RequireComponent<Engine::Opacity>(entity);
+        obj["alpha"] = opacity.alpha;
+        obj["inheritToChildren"] = opacity.inheritToChildren;
+        return true;
+    }
+    if (component == "camera") {
+        if (!registry.IsComponentRegistered<Engine::CameraComponent>() ||
+            !registry.HasComponent<Engine::CameraComponent>(entity)) {
+            return false;
+        }
+        const Engine::CameraComponent& camera =
+            registry.RequireComponent<Engine::CameraComponent>(entity);
+        obj["zoom"] = camera.zoom;
+        obj["primary"] = camera.primary;
+        obj["followSpeed"] = camera.followSpeed;
+        return true;
+    }
+    if (component == "audio") {
+        if (!registry.IsComponentRegistered<Engine::AudioSource>() ||
+            !registry.HasComponent<Engine::AudioSource>(entity)) {
+            return false;
+        }
+        const Engine::AudioSource& audio = registry.RequireComponent<Engine::AudioSource>(entity);
+        obj["assetId"] = audio.assetId;
+        obj["isMusic"] = audio.isMusic;
+        obj["loop"] = audio.loop;
+        obj["volume"] = audio.volume;
+        return true;
+    }
+    if (component == "input") {
+        if (!registry.IsComponentRegistered<Engine::Input>() ||
+            !registry.HasComponent<Engine::Input>(entity)) {
+            return false;
+        }
+        const Engine::Input& input = registry.RequireComponent<Engine::Input>(entity);
+        obj["playerIdx"] = static_cast<double>(input.playerIdx);
+        obj["isActive"] = input.isActive;
+        return true;
+    }
+    if (component == "network") {
+        if (!registry.IsComponentRegistered<Engine::NetworkComponent>() ||
+            !registry.HasComponent<Engine::NetworkComponent>(entity)) {
+            return false;
+        }
+        const Engine::NetworkComponent& network =
+            registry.RequireComponent<Engine::NetworkComponent>(entity);
+        obj["authority"] = network.authority;
+        obj["syncTransform"] = network.syncTransform;
+        obj["syncSprite"] = network.syncSprite;
+        obj["prefabPath"] = network.prefabPath;
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 std::string FieldTypeName(Engine::UiFieldType type)
@@ -330,6 +521,13 @@ glz::generic SceneOutline(const AuthorRequest& request)
             rowObj["parentName"] = EntityDisplayName(*registry, parent.value());
         }
         PushStringList(rowObj["components"], ComponentNames(*registry, entity));
+        if (registry->IsComponentRegistered<Engine::Position>() &&
+            registry->HasComponent<Engine::Position>(entity)) {
+            const Engine::Position& position = registry->RequireComponent<Engine::Position>(entity);
+            rowObj["x"] = position.x;
+            rowObj["y"] = position.y;
+            rowObj["z"] = static_cast<double>(position.z);
+        }
         if (registry->IsComponentRegistered<Engine::ScriptComponent>() &&
             registry->HasComponent<Engine::ScriptComponent>(entity)) {
             rowObj["scriptPath"] =
@@ -350,16 +548,73 @@ glz::generic SceneOutline(const AuthorRequest& request)
         entities.get_array().push_back(std::move(row));
     }
     (*obj)["entities"] = std::move(entities);
-    for (const Engine::WaveDefinition& wave : session.Config().m_Waves) {
+    for (index = 0; index < session.Config().m_Waves.size(); ++index) {
+        const Engine::WaveDefinition& wave = session.Config().m_Waves[index];
         glz::generic row = glz::generic::object_t{};
         auto& rowObj = row.get_object();
+        rowObj["index"] = static_cast<double>(index);
         rowObj["name"] = wave.name;
         rowObj["triggerX"] = wave.triggerX;
         rowObj["prefabPath"] = wave.prefabPath;
+        rowObj["formation"] = std::string(FormationName(wave.formation));
         rowObj["count"] = static_cast<double>(wave.count);
+        rowObj["spacing"] = wave.spacing;
+        rowObj["baseY"] = wave.baseY;
+        rowObj["spawnOffsetX"] = wave.spawnOffsetX;
+        rowObj["attachParent"] = wave.attachParent;
+        rowObj["groupScriptPath"] = wave.groupScriptPath;
         waves.get_array().push_back(std::move(row));
     }
     (*obj)["waves"] = std::move(waves);
+    return result;
+}
+
+glz::generic GetComponentCmd(const AuthorRequest& request)
+{
+    Session session;
+    std::string error = OpenSession(request, session);
+    std::optional<Engine::Entity> entity;
+    glz::generic result;
+    glz::generic fields;
+    static const char* kReadable[] = {"position", "rotation", "name",    "sprite", "collider",
+                                      "shape",    "text",     "opacity", "camera", "audio",
+                                      "input",    "network"};
+    std::size_t index = 0;
+
+    if (!error.empty()) {
+        return MakeResult(false, error);
+    }
+    entity = FindEntity(session.Registry(), request.entity);
+    if (!entity.has_value()) {
+        return MakeResult(false, "entity not found: " + request.entity);
+    }
+    result = MakeResult(true, "");
+    result.get_object()["id"] = static_cast<double>(entity.value());
+    result.get_object()["name"] = EntityDisplayName(session.Registry(), entity.value());
+    if (request.component.empty()) {
+        glz::generic all = glz::generic::object_t{};
+        for (index = 0; index < sizeof(kReadable) / sizeof(kReadable[0]); ++index) {
+            if (ReadComponent(session.Registry(), entity.value(), kReadable[index], fields)) {
+                all.get_object()[kReadable[index]] = std::move(fields);
+            }
+        }
+        result.get_object()["components"] = std::move(all);
+        return result;
+    }
+    for (index = 0; index < sizeof(kReadable) / sizeof(kReadable[0]); ++index) {
+        if (request.component == kReadable[index]) {
+            break;
+        }
+    }
+    if (index == sizeof(kReadable) / sizeof(kReadable[0])) {
+        return MakeResult(false, "unknown component '" + request.component + "'. allowed: " +
+                                     AllowedComponents());
+    }
+    if (!ReadComponent(session.Registry(), entity.value(), request.component, fields)) {
+        return MakeResult(false, "entity has no " + request.component + " component");
+    }
+    result.get_object()["component"] = request.component;
+    result.get_object()["fields"] = std::move(fields);
     return result;
 }
 

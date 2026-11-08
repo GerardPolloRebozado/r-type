@@ -1,5 +1,7 @@
 #include "Author/CommandsInternal.hpp"
 #include "Assets/ProjectPaths.hpp"
+#include "GlazeSerializer.hpp"
+#include "Systems/HierarchySystem.hpp"
 #include "Components/Animation.hpp"
 #include "Components/AudioSource.hpp"
 #include "Components/CameraComponent.hpp"
@@ -22,7 +24,9 @@
 #include "Utils/WavePatterns.hpp"
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <sol/sol.hpp>
 #include <sstream>
 #include <unordered_map>
@@ -1142,6 +1146,419 @@ glz::generic AddWave(const AuthorRequest& request)
     glz::generic result = MakeResult(true, "");
     result.get_object()["name"] = wave.name;
     result.get_object()["index"] = static_cast<double>(session.Config().m_Waves.size() - 1);
+    return result;
+}
+
+int FindWaveIndex(const std::vector<Engine::WaveDefinition>& waves, const glz::generic::object_t& obj)
+{
+    int index = 0;
+    std::string name;
+    int found = -1;
+    std::size_t cursor = 0;
+
+    if (GenericHas(obj, "index")) {
+        index = static_cast<int>(GenericNumber(obj, "index", -1.0));
+        if (index < 0 || static_cast<std::size_t>(index) >= waves.size()) {
+            return -1;
+        }
+        return index;
+    }
+    name = GenericString(obj, "name");
+    if (name.empty()) {
+        return -1;
+    }
+    for (cursor = 0; cursor < waves.size(); ++cursor) {
+        if (waves[cursor].name != name) {
+            continue;
+        }
+        if (found >= 0) {
+            return -2;
+        }
+        found = static_cast<int>(cursor);
+    }
+    return found;
+}
+
+void ApplyWaveFields(Engine::WaveDefinition& wave, const glz::generic::object_t& obj, bool create)
+{
+    if (create || GenericHas(obj, "name")) {
+        if (GenericHas(obj, "name") || create) {
+            std::string name = GenericString(obj, "name", wave.name);
+            if (!name.empty()) {
+                wave.name = name;
+            }
+        }
+    }
+    if (GenericHas(obj, "triggerX")) {
+        wave.triggerX = static_cast<float>(GenericNumber(obj, "triggerX", wave.triggerX));
+    }
+    if (GenericHas(obj, "prefabPath")) {
+        wave.prefabPath = GenericString(obj, "prefabPath", wave.prefabPath);
+    }
+    if (GenericHas(obj, "formation")) {
+        wave.formation = ParseFormation(GenericString(obj, "formation", "line"));
+    }
+    if (GenericHas(obj, "count")) {
+        wave.count = static_cast<unsigned int>(GenericNumber(obj, "count", wave.count));
+    }
+    if (GenericHas(obj, "spacing")) {
+        wave.spacing = static_cast<float>(GenericNumber(obj, "spacing", wave.spacing));
+    }
+    if (GenericHas(obj, "baseY")) {
+        wave.baseY = static_cast<float>(GenericNumber(obj, "baseY", wave.baseY));
+    }
+    if (GenericHas(obj, "spawnOffsetX")) {
+        wave.spawnOffsetX = static_cast<float>(GenericNumber(obj, "spawnOffsetX", wave.spawnOffsetX));
+    }
+    if (GenericHas(obj, "attachParent")) {
+        wave.attachParent = GenericBool(obj, "attachParent", wave.attachParent);
+    }
+    if (GenericHas(obj, "groupScriptPath")) {
+        wave.groupScriptPath = GenericString(obj, "groupScriptPath", wave.groupScriptPath);
+    }
+}
+
+void SyncWaves(Session& session)
+{
+    if (!session.Registry().HasResource<Engine::WaveSchedule>()) {
+        session.Registry().AddResource<Engine::WaveSchedule>();
+    }
+    session.Registry().GetResource<Engine::WaveSchedule>().waves = session.Config().m_Waves;
+}
+
+struct PrefabFile {
+    std::vector<Serialization::GlazeSerializer::EntitySnapshot> entities;
+};
+
+void CollectPrefab(Engine::Registry& registry, Engine::Entity entity,
+                   Serialization::GlazeSerializer& serializer,
+                   std::vector<Serialization::GlazeSerializer::EntitySnapshot>& out,
+                   std::vector<Engine::Entity>& seen, int depth)
+{
+    std::size_t index = 0;
+    std::vector<Engine::Entity> children;
+
+    if (depth > 64 || !registry.IsEntityAlive(entity)) {
+        return;
+    }
+    for (index = 0; index < seen.size(); ++index) {
+        if (seen[index] == entity) {
+            return;
+        }
+    }
+    seen.push_back(entity);
+    out.push_back(serializer.CaptureEntity(registry, entity));
+    children = Engine::HierarchySystem::FindDirectChildren(registry, entity);
+    for (Engine::Entity child : children) {
+        CollectPrefab(registry, child, serializer, out, seen, depth + 1);
+    }
+}
+
+bool WritePrefabFile(const std::filesystem::path& path,
+                     const std::vector<Serialization::GlazeSerializer::EntitySnapshot>& snapshots)
+{
+    PrefabFile file;
+    Serialization::GlazeSerializer serializer;
+
+    file.entities = snapshots;
+    return serializer.SerializeToFile(path.string(), file);
+}
+
+std::optional<Engine::Entity> FindNamedDescendant(Engine::Registry& registry, Engine::Entity root,
+                                                  const std::string& name, int depth)
+{
+    std::vector<Engine::Entity> children;
+    std::optional<Engine::Entity> found;
+
+    if (depth > 64 || !registry.IsEntityAlive(root)) {
+        return std::nullopt;
+    }
+    if (EntityDisplayName(registry, root) == name) {
+        return root;
+    }
+    children = Engine::HierarchySystem::FindDirectChildren(registry, root);
+    for (Engine::Entity child : children) {
+        found = FindNamedDescendant(registry, child, name, depth + 1);
+        if (found.has_value()) {
+            return found;
+        }
+    }
+    return std::nullopt;
+}
+
+bool SamePrefabPath(const std::string& left, const std::string& right)
+{
+    std::filesystem::path a = left;
+    std::filesystem::path b = right;
+
+    return a.lexically_normal().generic_string() == b.lexically_normal().generic_string();
+}
+
+void RememberFile(const std::filesystem::path& path)
+{
+    LiveBinding* live = CurrentLiveBinding();
+    ScriptFileChange change;
+    std::ifstream in;
+    std::error_code error;
+
+    if (live == nullptr || live->files == nullptr) {
+        return;
+    }
+    change.path = path.string();
+    change.existed = std::filesystem::is_regular_file(path, error) && !error;
+    if (change.existed) {
+        in.open(path, std::ios::binary);
+        change.previous.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    live->files->push_back(std::move(change));
+}
+
+glz::generic SetWave(const AuthorRequest& request)
+{
+    Session session;
+    std::string error = OpenSession(request, session);
+    const glz::generic::object_t* obj = nullptr;
+    int index = 0;
+    std::string saveError;
+    glz::generic result;
+
+    if (!error.empty()) {
+        return MakeResult(false, error);
+    }
+    if (!GenericIsObject(request.wave)) {
+        return MakeResult(false, "wave object is required");
+    }
+    obj = &request.wave.get_object();
+    if (!GenericHas(*obj, "index")) {
+        return MakeResult(false, "wave.index is required");
+    }
+    index = FindWaveIndex(session.Config().m_Waves, *obj);
+    if (index < 0) {
+        return MakeResult(false, "wave not found");
+    }
+    ApplyWaveFields(session.Config().m_Waves[static_cast<std::size_t>(index)], *obj, false);
+    if (session.Config().m_Waves[static_cast<std::size_t>(index)].prefabPath.empty()) {
+        return MakeResult(false, "wave.prefabPath is required");
+    }
+    SyncWaves(session);
+    saveError = session.Save();
+    if (!saveError.empty()) {
+        return MakeResult(false, saveError);
+    }
+    result = MakeResult(true, "");
+    result.get_object()["index"] = static_cast<double>(index);
+    result.get_object()["name"] =
+        session.Config().m_Waves[static_cast<std::size_t>(index)].name;
+    return result;
+}
+
+glz::generic RemoveWave(const AuthorRequest& request)
+{
+    Session session;
+    std::string error = OpenSession(request, session);
+    const glz::generic::object_t* obj = nullptr;
+    int index = 0;
+    std::string removed;
+    std::string saveError;
+    glz::generic result;
+
+    if (!error.empty()) {
+        return MakeResult(false, error);
+    }
+    if (!GenericIsObject(request.wave)) {
+        return MakeResult(false, "wave object is required");
+    }
+    obj = &request.wave.get_object();
+    index = FindWaveIndex(session.Config().m_Waves, *obj);
+    if (index == -2) {
+        return MakeResult(false, "more than one wave has that name; pass wave.index");
+    }
+    if (index < 0) {
+        return MakeResult(false, "wave not found");
+    }
+    removed = session.Config().m_Waves[static_cast<std::size_t>(index)].name;
+    session.Config().m_Waves.erase(session.Config().m_Waves.begin() + index);
+    SyncWaves(session);
+    saveError = session.Save();
+    if (!saveError.empty()) {
+        return MakeResult(false, saveError);
+    }
+    result = MakeResult(true, "");
+    result.get_object()["index"] = static_cast<double>(index);
+    result.get_object()["name"] = removed;
+    return result;
+}
+
+glz::generic CreatePrefab(const AuthorRequest& request)
+{
+    Session session;
+    std::string error = OpenSession(request, session);
+    std::optional<Engine::Entity> entity;
+    std::filesystem::path file;
+    std::filesystem::path folder;
+    std::error_code fsError;
+    Serialization::GlazeSerializer serializer;
+    std::vector<Serialization::GlazeSerializer::EntitySnapshot> snapshots;
+    std::vector<Engine::Entity> seen;
+    std::string relative;
+    std::string saveError;
+    glz::generic result;
+
+    if (!error.empty()) {
+        return MakeResult(false, error);
+    }
+    entity = FindEntity(session.Registry(), request.entity);
+    if (!entity.has_value()) {
+        return MakeResult(false, "entity not found: " + request.entity);
+    }
+    folder = session.ProjectFolder() / "Prefabs";
+    std::filesystem::create_directories(folder, fsError);
+    if (request.prefabPath.empty()) {
+        file = folder / (SanitizeFileStem(request.name.empty()
+                                              ? EntityDisplayName(session.Registry(), entity.value())
+                                              : request.name) +
+                         ".prefab");
+    } else {
+        file = request.prefabPath;
+        if (!file.is_absolute()) {
+            file = session.ProjectFolder() / file;
+        }
+        if (file.extension().empty()) {
+            file += ".prefab";
+        }
+    }
+    if (std::filesystem::exists(file)) {
+        return MakeResult(false, "prefab already exists: " + file.string());
+    }
+    CollectPrefab(session.Registry(), entity.value(), serializer, snapshots, seen, 0);
+    if (snapshots.empty()) {
+        return MakeResult(false, "failed to capture prefab");
+    }
+    snapshots.front().parent.reset();
+    snapshots.front().prefab.reset();
+    if (snapshots.front().position.has_value()) {
+        snapshots.front().position->relative = false;
+    }
+    RememberFile(file);
+    if (!WritePrefabFile(file, snapshots)) {
+        return MakeResult(false, "failed to write prefab: " + file.string());
+    }
+    relative = Engine::ToProjectRelativePath(session.Registry(), file.string());
+    if (session.Registry().HasComponent<Engine::PrefabInstance>(entity.value())) {
+        session.Registry().RequireComponent<Engine::PrefabInstance>(entity.value()).prefabPath =
+            relative;
+    } else {
+        session.Registry().AddComponent(entity.value(), Engine::PrefabInstance::Create(relative));
+    }
+    saveError = session.Save();
+    if (!saveError.empty()) {
+        return MakeResult(false, saveError);
+    }
+    result = MakeResult(true, "");
+    result.get_object()["prefabPath"] = relative;
+    result.get_object()["entity"] = EntityDisplayName(session.Registry(), entity.value());
+    return result;
+}
+
+glz::generic SetPrefabComponent(const AuthorRequest& request)
+{
+    Session session;
+    std::string error = OpenSession(request, session);
+    Engine::Registry prefabRegistry;
+    Engine::Entity root = static_cast<Engine::Entity>(-1);
+    std::optional<Engine::Entity> edited;
+    std::string editedName;
+    bool editedRoot = false;
+    Serialization::GlazeSerializer serializer;
+    std::vector<Serialization::GlazeSerializer::EntitySnapshot> snapshots;
+    std::vector<Engine::Entity> seen;
+    std::filesystem::path file;
+    std::string relative;
+    std::string saveError;
+    std::size_t index = 0;
+    glz::generic result;
+
+    if (!error.empty()) {
+        return MakeResult(false, error);
+    }
+    if (request.prefabPath.empty()) {
+        return MakeResult(false, "prefabPath is required");
+    }
+    if (request.component.empty()) {
+        return MakeResult(false, "component is required");
+    }
+    RegisterAuthorComponents(prefabRegistry);
+    Serialization::RegisterRuntimePrefabSpawner(prefabRegistry);
+    if (!prefabRegistry.HasResource<Engine::ProjectContext>()) {
+        prefabRegistry.AddResource<Engine::ProjectContext>(session.ProjectFolder().string());
+    }
+    root = Serialization::SpawnPrefabRuntime(prefabRegistry, request.prefabPath);
+    if (root == static_cast<Engine::Entity>(-1)) {
+        return MakeResult(false, "failed to read prefab: " + request.prefabPath);
+    }
+    if (request.entity.empty()) {
+        edited = root;
+    } else {
+        edited = FindEntity(prefabRegistry, request.entity);
+    }
+    if (!edited.has_value()) {
+        return MakeResult(false, "entity not found in prefab: " + request.entity);
+    }
+    error = SetComponent(prefabRegistry, edited.value(), request.component, request.fields);
+    if (!error.empty()) {
+        return MakeResult(false, error);
+    }
+    editedName = EntityDisplayName(prefabRegistry, edited.value());
+    editedRoot = edited.value() == root;
+    CollectPrefab(prefabRegistry, root, serializer, snapshots, seen, 0);
+    if (snapshots.empty()) {
+        return MakeResult(false, "failed to capture prefab");
+    }
+    snapshots.front().parent.reset();
+    snapshots.front().prefab.reset();
+    file = Engine::ResolveAssetPath(prefabRegistry, request.prefabPath);
+    RememberFile(file);
+    if (!WritePrefabFile(file, snapshots)) {
+        return MakeResult(false, "failed to write prefab: " + file.string());
+    }
+    relative = Engine::ToProjectRelativePath(session.Registry(), file.string());
+    if (session.Registry().IsComponentRegistered<Engine::PrefabInstance>()) {
+        for (index = 1; index < session.Registry().GetEntityCount(); ++index) {
+            Engine::Entity instance = Engine::Entity{index};
+            std::optional<Engine::Entity> target;
+            if (!session.Registry().IsEntityAlive(instance) ||
+                !session.Registry().HasComponent<Engine::PrefabInstance>(instance)) {
+                continue;
+            }
+            if (!SamePrefabPath(
+                    session.Registry().RequireComponent<Engine::PrefabInstance>(instance).prefabPath,
+                    relative)) {
+                continue;
+            }
+            session.Registry().RequireComponent<Engine::PrefabInstance>(instance).prefabPath =
+                relative;
+            if (editedRoot) {
+                target = instance;
+            } else {
+                target = FindNamedDescendant(session.Registry(), instance, editedName, 0);
+            }
+            if (!target.has_value()) {
+                continue;
+            }
+            error = SetComponent(session.Registry(), target.value(), request.component, request.fields);
+            if (!error.empty()) {
+                return MakeResult(false, error);
+            }
+        }
+    }
+    saveError = session.Save();
+    if (!saveError.empty()) {
+        return MakeResult(false, saveError);
+    }
+    result = MakeResult(true, "");
+    result.get_object()["prefabPath"] = relative;
+    result.get_object()["entity"] = editedName;
+    result.get_object()["component"] = request.component;
     return result;
 }
 

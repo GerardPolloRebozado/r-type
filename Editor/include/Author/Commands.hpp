@@ -15,7 +15,7 @@ namespace Author {
  * @brief Runs one authoring command and returns a JSON object with apiVersion.
  */
 /**
- * @brief One Lua file a live command created or replaced, so the editor can undo it.
+ * @brief One script or prefab file a live command created or replaced, so the editor can undo it.
  */
 struct ScriptFileChange {
     std::string path;
@@ -26,9 +26,10 @@ struct ScriptFileChange {
 glz::generic RunCommand(const AuthorRequest& request);
 
 /**
- * @brief Runs @p request on an open registry and does not write the scene file.
+ * @brief Runs @p request on an open registry.
  *
- * Script files may still be created. Each one is appended to @p files.
+ * Write commands save that scene file. Script files may still be created.
+ * Each one is appended to @p files.
  */
 glz::generic RunLiveCommand(const AuthorRequest& request, Engine::Registry& registry,
                             Serialization::SceneConfig& config,

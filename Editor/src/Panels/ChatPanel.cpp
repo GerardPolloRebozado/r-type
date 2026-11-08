@@ -1,8 +1,12 @@
 #include "Panels/ChatPanel.hpp"
 #include "Author/Protocol.hpp"
+#include "Author/Session.hpp"
 #include "EditorConfig.hpp"
+#include "Logging/Logger.hpp"
 #include <algorithm>
+#include <functional>
 #include "GlazeSerializer.hpp"
+#include "SceneSerializer.hpp"
 #include "Panels/HierarchyPanel.hpp"
 #include <cctype>
 #include <extras/IconsFontAwesome6.h>
@@ -87,6 +91,40 @@ std::string Trim(const std::string& value)
     return value.substr(begin, end - begin);
 }
 
+std::string NormalizeAsk(const std::string& value)
+{
+    std::string text = Trim(value);
+    std::string out;
+    std::size_t index = 0;
+
+    out.reserve(text.size());
+    for (index = 0; index < text.size(); ++index) {
+        unsigned char letter = static_cast<unsigned char>(text[index]);
+        if (letter == '.' || letter == '!' || letter == '?') {
+            continue;
+        }
+        if (letter < 128) {
+            out.push_back(static_cast<char>(std::tolower(letter)));
+        } else {
+            out.push_back(static_cast<char>(letter));
+        }
+    }
+    return Trim(out);
+}
+
+bool IsKeepRequest(const std::string& value)
+{
+    std::string text = NormalizeAsk(value);
+
+    return text == "keep" || text == "keep it" || text == "keep them" ||
+           text == "keep the changes" || text == "keep the edit" || text == "keep changes" ||
+           text == "save" || text == "save it" || text == "save them" ||
+           text == "save the changes" || text == "save the scene" || text == "save changes" ||
+           text == "guardar" || text == "guarda" || text == "guarda los cambios" ||
+           text == "guardar los cambios" || text == "quedate con los cambios" ||
+           text == "quédate con los cambios";
+}
+
 std::string CompactKey(const std::string& value)
 {
     std::string key;
@@ -145,13 +183,43 @@ bool ChatPanel::SceneChanged(Engine::Registry& registry, EditorConfig& config) c
            WavesText(config.m_Waves) != WavesText(m_WaveSnapshot) || !m_Files.empty();
 }
 
-void ChatPanel::Keep()
+void ChatPanel::ClearSnapshot()
 {
     m_HasSnapshot = false;
     m_Entities.clear();
     m_WaveSnapshot.clear();
     m_Files.clear();
     m_Review = false;
+}
+
+bool ChatPanel::SaveScene(Engine::Registry& registry, EditorConfig& config)
+{
+    Author::Session session;
+    std::string error;
+
+    error = session.Attach(registry, config, config.m_ProjectFolder, config.m_ActiveScenePath);
+    if (error.empty()) {
+        error = session.Save();
+    }
+    if (!error.empty()) {
+        m_Lines.push_back({"error", "Could not save the scene: " + error});
+        log_user_error("[Chat] Could not save the scene: " + error);
+        return false;
+    }
+    config.m_RequestMarkSaved = true;
+    log_info("[Chat] Saved scene " + config.m_ActiveScenePath);
+    return true;
+}
+
+bool ChatPanel::AcceptEdit(Engine::Registry& registry, EditorConfig& config)
+{
+    bool changed = SceneChanged(registry, config);
+
+    if (changed && !SaveScene(registry, config)) {
+        return false;
+    }
+    ClearSnapshot();
+    return true;
 }
 
 void ChatPanel::Undo(Engine::Registry& registry, EditorConfig& config)
@@ -180,8 +248,17 @@ void ChatPanel::Undo(Engine::Registry& registry, EditorConfig& config)
         registry.GetResource<HierarchyPanelSelectedEntity>().entity =
             static_cast<Engine::Entity>(-1);
     }
-    m_Lines.push_back({"info", "Undid the last chat edit."});
-    Keep();
+    if (!SaveScene(registry, config)) {
+        Serialization::SceneSerializer serializer;
+        std::optional<std::reference_wrapper<Serialization::SceneConfig>> sceneConfig(config);
+
+        serializer.Deserialize(config.m_ActiveScenePath, registry, sceneConfig);
+        m_Lines.push_back(
+            {"info", "Could not save the undo. Reloaded the scene from the file."});
+        return;
+    }
+    m_Lines.push_back({"info", "Undid the last chat edit and saved the scene."});
+    ClearSnapshot();
 }
 
 std::string ChatPanel::BuildMessages(Engine::Registry& registry, EditorConfig& config) const
@@ -208,7 +285,8 @@ std::string ChatPanel::BuildMessages(Engine::Registry& registry, EditorConfig& c
         outlineJson.resize(kOutlineLimit);
     }
     prompt = "You edit the scene that is already open in this editor. Call the tools. Do not write "
-             "scene JSON yourself. Nothing is saved to disk until the user presses Save.\n"
+             "scene JSON yourself. Successful edits are written to the open scene file. If the "
+             "user asks to keep the changes, leave that saved scene as it is.\n"
              "Project folder: " +
              config.m_ProjectFolder + "\nScene: " + config.m_ActiveScenePath + "\nOutline:\n" +
              outlineJson;
@@ -302,10 +380,13 @@ void ChatPanel::FinishTurn(Engine::Registry& registry, EditorConfig& config, con
     m_Waiting = false;
     m_Rounds = 0;
     if (SceneChanged(registry, config)) {
+        if (SaveScene(registry, config)) {
+            m_Lines.push_back(
+                {"info", "Saved the scene. Undo puts it back. Keep leaves this version."});
+        }
         m_Review = true;
-        m_Lines.push_back({"info", "Review this edit. Undo puts the scene back. Keep leaves it. Save is still manual."});
     } else {
-        Keep();
+        ClearSnapshot();
     }
 }
 
@@ -368,16 +449,23 @@ void ChatPanel::Poll(Engine::Registry& registry, EditorConfig& config)
 void ChatPanel::Send(Engine::Registry& registry, EditorConfig& config)
 {
     std::string text = m_Input;
+    bool starting = false;
 
     if (m_Waiting) {
         return;
     }
-    if (m_Review) {
-        Keep();
-    }
     if (text.empty()) {
         return;
     }
+    if (m_Review && IsKeepRequest(text)) {
+        m_Input.clear();
+        m_Lines.push_back({"user", text});
+        if (AcceptEdit(registry, config)) {
+            m_Lines.push_back({"info", "Kept the edit and saved the scene."});
+        }
+        return;
+    }
+    starting = !m_HasSnapshot;
     if (m_ApiKey.empty()) {
         m_Lines.push_back({"error", "API key is empty. Open the gear and paste a key."});
         return;
@@ -389,7 +477,9 @@ void ChatPanel::Send(Engine::Registry& registry, EditorConfig& config)
     m_Input.clear();
     m_Lines.push_back({"user", text});
     m_History.push_back(UserMessageJson(text));
-    Snapshot(registry, config);
+    if (starting) {
+        Snapshot(registry, config);
+    }
     m_Rounds = 0;
     StartRequest(BuildMessages(registry, config));
 }
@@ -405,6 +495,8 @@ void ChatPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
         ImGui::OpenPopup("ChatSettings");
     }
     if (ImGui::BeginPopup("ChatSettings")) {
+        bool edited = false;
+
         if (!m_SettingsEditing) {
             m_DraftKey = m_ApiKey;
             m_DraftModel = m_Model;
@@ -413,20 +505,29 @@ void ChatPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
             m_DraftKey.reserve(512);
             m_SettingsEditing = true;
         }
-        ImGui::InputText("API key", &m_DraftKey, ImGuiInputTextFlags_Password);
-        ImGui::InputText("Model", &m_DraftModel);
-        ImGui::InputText("Endpoint", &m_DraftUrl);
-        ImGui::InputTextMultiline("Instructions", &m_DraftExtra, ImVec2(0.0f, 80.0f));
-        ApplyCredentials();
-        if (m_ApiKey.empty()) {
-            ImGui::TextDisabled("No key saved yet.");
+        edited = ImGui::InputText("API key", &m_DraftKey, ImGuiInputTextFlags_Password);
+        edited = ImGui::InputText("Model", &m_DraftModel) || edited;
+        edited = ImGui::InputText("Endpoint", &m_DraftUrl) || edited;
+        edited = ImGui::InputTextMultiline("Instructions", &m_DraftExtra, ImVec2(0.0f, 80.0f)) ||
+                 edited;
+        if (edited) {
+            m_SettingsSaved = false;
+        }
+        if (ImGui::Button("Save")) {
+            ApplyCredentials();
+            m_SettingsSaved = true;
+        }
+        ImGui::SameLine();
+        if (!m_SettingsSaved) {
+            ImGui::TextDisabled("Not saved yet.");
+        } else if (m_ApiKey.empty()) {
+            ImGui::TextDisabled("Saved. No key.");
         } else {
-            ImGui::TextDisabled("Key saved for this session (%d characters).",
+            ImGui::TextDisabled("Saved for this session (%d characters).",
                                 static_cast<int>(m_ApiKey.size()));
         }
         ImGui::EndPopup();
     } else if (m_SettingsEditing) {
-        ApplyCredentials();
         m_SettingsEditing = false;
     }
     ImGui::SameLine();
@@ -463,8 +564,9 @@ void ChatPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& config)
         }
         ImGui::SameLine();
         if (ImGui::Button("Keep")) {
-            Keep();
-            m_Lines.push_back({"info", "Kept the edit. Save when you want it on disk."});
+            if (AcceptEdit(registry, config)) {
+                m_Lines.push_back({"info", "Kept the edit and saved the scene."});
+            }
         }
     }
     ImGui::BeginDisabled(m_Waiting);

@@ -37,7 +37,9 @@ class ChatPanel : public IEditorPanel {
     void Poll(Engine::Registry& registry, EditorConfig& config);
     void ApplyCompletion(ChatCompletion completion, Engine::Registry& registry, EditorConfig& config);
     void FinishTurn(Engine::Registry& registry, EditorConfig& config, const std::string& text);
-    void Keep();
+    void ClearSnapshot();
+    bool SaveScene(Engine::Registry& registry, EditorConfig& config);
+    bool AcceptEdit(Engine::Registry& registry, EditorConfig& config);
     void Undo(Engine::Registry& registry, EditorConfig& config);
     void ApplyCredentials();
     void Snapshot(Engine::Registry& registry, EditorConfig& config);
@@ -55,6 +57,7 @@ class ChatPanel : public IEditorPanel {
     std::string m_DraftUrl = "https://openrouter.ai/api/v1/chat/completions";
     std::string m_DraftExtra;
     bool m_SettingsEditing = false;
+    bool m_SettingsSaved = false;
     std::string m_Input;
     std::vector<Line> m_Lines;
     std::vector<std::string> m_History;

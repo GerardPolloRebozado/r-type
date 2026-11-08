@@ -193,7 +193,6 @@ std::string Session::Attach(Engine::Registry& registry, Serialization::SceneConf
     m_Config = &config;
     m_ProjectFolder = projectFolder;
     m_ScenePath = scenePath;
-    m_External = true;
     m_Open = true;
     RegisterAuthorComponents(*m_Registry);
     Serialization::RegisterRuntimePrefabSpawner(*m_Registry);
@@ -214,7 +213,6 @@ std::string Session::Open(const std::filesystem::path& projectFolder,
 
     m_Registry = &m_Owned;
     m_Config = &m_OwnedConfig;
-    m_External = false;
     m_ProjectFolder = projectFolder;
     m_ScenePath = scenePath;
     if (m_ProjectFolder.empty() || !std::filesystem::is_directory(m_ProjectFolder, error)) {
@@ -255,14 +253,11 @@ std::string Session::Save()
     std::error_code error;
     std::uintmax_t size = 0;
 
-    if (!m_Open) {
+    if (!m_Open || m_ScenePath.empty()) {
         return "no scene is open";
     }
-    if (m_External) {
-        return {};
-    }
     if (m_Registry->HasResource<Engine::WaveSchedule>()) {
-        m_Config->m_Waves = m_Registry->GetResource<Engine::WaveSchedule>().waves;
+        m_Registry->GetResource<Engine::WaveSchedule>().waves = m_Config->m_Waves;
     }
     m_Config->m_ProjectFolder = m_ProjectFolder.string();
     temp += ".author-tmp";

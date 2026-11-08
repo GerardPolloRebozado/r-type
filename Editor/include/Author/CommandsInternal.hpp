@@ -48,8 +48,13 @@ glz::generic SetUiProps(const AuthorRequest& request);
 glz::generic PlacePrefab(const AuthorRequest& request);
 glz::generic CreateEntityCmd(const AuthorRequest& request);
 glz::generic SetComponentCmd(const AuthorRequest& request);
+glz::generic GetComponentCmd(const AuthorRequest& request);
 glz::generic AttachScript(const AuthorRequest& request);
 glz::generic AddWave(const AuthorRequest& request);
+glz::generic SetWave(const AuthorRequest& request);
+glz::generic RemoveWave(const AuthorRequest& request);
+glz::generic CreatePrefab(const AuthorRequest& request);
+glz::generic SetPrefabComponent(const AuthorRequest& request);
 glz::generic ValidateScene(const AuthorRequest& request);
 glz::generic ValidateScript(const AuthorRequest& request);
 

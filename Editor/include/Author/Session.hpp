@@ -22,7 +22,7 @@ class Session {
     Session& operator=(const Session&) = delete;
 
     /**
-     * @brief Uses an already-open registry. Save() does not write the scene file.
+     * @brief Uses an already-open registry. Save() still writes the scene file.
      */
     std::string Attach(Engine::Registry& registry, Serialization::SceneConfig& config,
                        const std::filesystem::path& projectFolder,
@@ -55,7 +55,6 @@ class Session {
     std::filesystem::path m_ProjectFolder;
     std::filesystem::path m_ScenePath;
     bool m_Open = false;
-    bool m_External = false;
 };
 
 std::filesystem::path ResolveProjectFolder(const std::string& folder);

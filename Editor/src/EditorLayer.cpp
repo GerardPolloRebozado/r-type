@@ -391,7 +391,10 @@ void EditorLayer::HandleSceneRequests() {
     if (!m_Registry || !m_Configuration) {
         return;
     }
-    if (m_SavedSceneJsonStale && --s_SnapshotFramesLeft <= 0) {
+    if (m_Configuration->m_RequestMarkSaved) {
+        m_Configuration->m_RequestMarkSaved = false;
+        MarkSceneSaved();
+    } else if (m_SavedSceneJsonStale && --s_SnapshotFramesLeft <= 0) {
         m_SavedSceneJson = CaptureSceneJson();
         m_SavedSceneJsonStale = false;
     }

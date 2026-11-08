@@ -15,11 +15,11 @@ The server is the editor itself, started with no window:
 | Piece | What it is |
 |---|---|
 | `RTypeEditor mcp` | The server Cursor talks to. No Gallery, no window. |
-| `Tools/Author/` | The commands: create entity, place UI, write a Lua script, save the scene. |
+| `Editor/src/Author/` | The commands: create entity, place UI, write a Lua script, save the scene. |
 | `Tests/McpCliTest.cpp` | Checks that a tool call really changes a `.scene` file. |
 | `.cursor/mcp.json` | Tells Cursor to start `RTypeEditor mcp`. |
 
-`Tools/AuthorMcp/server.py` is retired. Do not point Cursor at that Python file.
+There is no separate MCP process and no Python server. Cursor launches the editor binary.
 
 ## How it fits together
 
@@ -47,7 +47,7 @@ The open editor window is not updated live. The server writes the file on disk.
 cmake --build build --target RTypeEditor
 ```
 
-2. Cursor already has `.cursor/mcp.json`. If it is missing, copy `Tools/AuthorMcp/mcp.json` to `.cursor/mcp.json`:
+2. Cursor already has `.cursor/mcp.json`. If it is missing, copy `Editor/mcp.json` to `.cursor/mcp.json`:
 
 ```json
 {
@@ -103,7 +103,11 @@ The tool writes the rest of the Lua file (`local Script = {}`, `onCreate`, `retu
 - "What UI templates exist?" → `list_ui_templates`
 - "What is in this scene?" → `scene_outline` (names and components, not the raw file)
 - "Place Prefabs/Pata-Pata.prefab at x 100, y -50" → `place_prefab`
+- "Where is the player?" → `get_component` with component `position`
 - "Add a wave of 5 of that prefab" → `add_wave`
+- "Change wave 0" / "Delete that wave" → `set_wave` / `remove_wave` (`wave.index` from `scene_outline`)
+- "Save this entity as a prefab" → `create_prefab`
+- "Change the sprite on Prefabs/Pata-Pata.prefab" → `set_prefab_component`
 - "How does Entity.create work?" → `lua_api` with topic `entity` (one doc page, not the whole manual)
 
 Click actions on a button are words the tool already knows: `none`, `goToPage`, `back`, `callMethod`, `loadScene`, `quit`. A "go to settings" button looks like `"onClick": {"type": "goToPage", "target": "settings"}`.

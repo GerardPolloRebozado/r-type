@@ -110,6 +110,28 @@ set(INC_FILES
         include/Plugins/UiPluginEditor.hpp
 )
 
+add_library(Author STATIC
+        src/Author/Session.cpp
+        src/Author/Commands.cpp
+        src/Author/CommandsRead.cpp
+        src/Author/CommandsWrite.cpp
+        src/Author/McpStdio.cpp
+)
+target_include_directories(Author PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(Author PUBLIC Engine Serialization UI glaze::glaze)
+target_compile_definitions(Author PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
+set_target_properties(Author PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED ON
+)
+
+add_executable(rtype-author src/Author/CliMain.cpp)
+target_link_libraries(rtype-author PRIVATE Author)
+set_target_properties(rtype-author PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED ON
+)
+
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
 target_include_directories(RTypeEditor PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}
         third_party/ImGuiColorTextEdit)

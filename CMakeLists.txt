@@ -159,7 +159,7 @@ add_subdirectory(Serialization)
 add_subdirectory(Plugins)
 
 if (NOT EDITOR_BUILD)
-    # Tools before Editor so RTypeEditor can link the Author library.
+    # Tools before Editor so the editor can run AssetBundler at build time.
     add_subdirectory(Tools)
     add_subdirectory(Editor)
     add_subdirectory(Games)
