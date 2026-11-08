@@ -1348,9 +1348,9 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
 
         // Territory progress bar
         if (p->isAlive) {
-            Rectangle barBg = {boardX + 40, rowY + 16, 160, 3};
+            Rectangle barBg = {boardX + 40, static_cast<float>(rowY + 16), 160, 3};
             DrawRectangleRec(barBg, Color{30, 40, 55, 255});
-            Rectangle barFill = {boardX + 40, rowY + 16, 160 * (pct / 100.0f), 3};
+            Rectangle barFill = {boardX + 40, static_cast<float>(rowY + 16), 160 * (pct / 100.0f), 3};
             DrawRectangleRec(barFill, p->color);
         }
 
