@@ -18,9 +18,11 @@ class NetworkManager {
     NetworkManager();
     ~NetworkManager();
 
-    bool StartSinglePlayer(Simulation& sim, MapType mapType = MapType::Procedural);
+    bool StartSinglePlayer(Simulation& sim, MapType mapType = MapType::Procedural, int spawnX = -1,
+                           int spawnY = -1);
     bool StartHost(Simulation& sim, uint16_t port = kDefaultPort,
-                   const std::string& hostName = "Host", MapType mapType = MapType::Procedural);
+                   const std::string& hostName = "Host", MapType mapType = MapType::Procedural,
+                   int spawnX = -1, int spawnY = -1);
     void StartHostMatch(Simulation& sim);
     bool StartClient(Simulation& sim, const std::string& address, uint16_t port = kDefaultPort,
                      const std::string& clientName = "Player");

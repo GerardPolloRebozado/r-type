@@ -2,13 +2,17 @@
 #include "Components/Name.hpp"
 #include "Components/Position.hpp"
 #include "ECS/Registry.hpp"
+#include "Logging/Logger.hpp"
 #include "OpenfrontComponents.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <fstream>
+#include <iostream>
 #include <queue>
 #include <random>
 #include <raymath.h>
+#include <sstream>
 
 namespace Openfront {
 
@@ -16,7 +20,8 @@ Simulation::Simulation() {
     Init();
 }
 
-void Simulation::Init(int numNations, int numBots, uint32_t seed, MapType mapType) {
+void Simulation::Init(int numNations, int numBots, uint32_t seed, MapType mapType, int spawnX,
+                      int spawnY) {
     map_.Generate(seed, mapType);
     players_.clear();
     buildings_.clear();
@@ -107,10 +112,16 @@ void Simulation::Init(int numNations, int numBots, uint32_t seed, MapType mapTyp
     for (auto& player : players_) {
         bool placed = false;
         for (int attempts = 0; attempts < 500 && !placed; ++attempts) {
-            int cx = distX(rng);
-            int cy = distY(rng);
+            int cx, cy;
+            if (player.id == 1 && spawnX >= 0 && spawnY >= 0 && attempts == 0) {
+                cx = spawnX;
+                cy = spawnY;
+            } else {
+                cx = distX(rng);
+                cy = distY(rng);
+            }
 
-            if (map_.GetTile(cx, cy).terrain == TerrainType::Water) {
+            if (!map_.InBounds(cx, cy) || map_.GetTile(cx, cy).terrain == TerrainType::Water) {
                 continue;
             }
 
@@ -363,10 +374,11 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
         return false;
     }
     const Tile& targetTile = map_.GetTile(targetX, targetY);
-    if (targetTile.terrain == TerrainType::Water) {
+    if (targetTile.ownerId == playerId) {
         return false;
     }
-    if (targetTile.ownerId == playerId) {
+    // Don't attack allies
+    if (IsAllied(playerId, targetTile.ownerId)) {
         return false;
     }
 
@@ -377,6 +389,8 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
 
     double troopsToSend = p->troops * ratio;
     if (troopsToSend < 200.0 || p->troops < 500.0) {
+        std::cout << "[LaunchAttack] Not enough troops: " << troopsToSend << " (need 200)"
+                  << std::endl;
         return false;
     }
 
@@ -396,7 +410,7 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
                     closestDist = d;
                     closestBorder = {x, y};
                 }
-                if (d <= 12.0f) {
+                if (d <= 6.0f) {
                     borderSector.push_back({x, y});
                 }
             }
@@ -406,11 +420,49 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
     if (closestBorder.x < 0) {
         return false;
     }
+
+    // Naval invasion: allow attacking across water if attacker has coastal access
+    if (targetTile.terrain == TerrainType::Water) {
+        bool navalAttack = false;
+        // Check if attacker has any coastal territory (access to sea)
+        for (int y = 0; y < map_.GetHeight(); ++y) {
+            for (int x = 0; x < map_.GetWidth(); ++x) {
+                const Tile& t = map_.GetTile(x, y);
+                if (t.ownerId == playerId && t.terrain != TerrainType::Water) {
+                    // Check if this tile is coastal
+                    const auto& nbrs = map_.GetNeighbors4(x, y);
+                    for (const auto& n : nbrs) {
+                        if (map_.GetTile(n.x, n.y).terrain == TerrainType::Water) {
+                            navalAttack = true;
+                            break;
+                        }
+                    }
+                }
+                if (navalAttack) {
+                    break;
+                }
+            }
+            if (navalAttack) {
+                break;
+            }
+        }
+        if (!navalAttack) {
+            return false;
+        }
+    }
+
     if (borderSector.empty()) {
         borderSector.push_back(closestBorder);
     }
 
     p->troops -= troopsToSend;
+
+    bool isNaval = (targetTile.terrain == TerrainType::Water);
+    if (isNaval) {
+        log_info("[Openfront] Naval attack launched from " + std::to_string(closestBorder.x) + "," +
+                 std::to_string(closestBorder.y) + " to " + std::to_string(targetX) + "," +
+                 std::to_string(targetY));
+    }
 
     FrontPush front;
     front.id = nextFrontId_++;
@@ -559,6 +611,87 @@ bool Simulation::LaunchNuke(PlayerId playerId, int siloX, int siloY, int targetX
     return true;
 }
 
+bool Simulation::ProposeAlliance(PlayerId from, PlayerId to) {
+    Player* pFrom = GetPlayer(from);
+    Player* pTo = GetPlayer(to);
+    if (!pFrom || !pTo || !pFrom->isAlive || !pTo->isAlive) {
+        return false;
+    }
+    if (from == to) {
+        return false;
+    }
+    if (pFrom->isAlliedWith(to)) {
+        return false;
+    }
+    // Don't propose to already-allied
+    for (PlayerId pid : pTo->pendingAllianceProposals) {
+        if (pid == from) {
+            return false; // Already proposed
+        }
+    }
+    pTo->pendingAllianceProposals.push_back(from);
+    return true;
+}
+
+bool Simulation::AcceptAlliance(PlayerId from, PlayerId to) {
+    Player* pFrom = GetPlayer(from);
+    Player* pTo = GetPlayer(to);
+    if (!pFrom || !pTo) {
+        return false;
+    }
+    // Check if from has a pending proposal from to
+    bool found = false;
+    for (auto it = pFrom->pendingAllianceProposals.begin();
+         it != pFrom->pendingAllianceProposals.end(); ++it) {
+        if (*it == to) {
+            pFrom->pendingAllianceProposals.erase(it);
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        return false;
+    }
+    pFrom->allies.push_back(to);
+    pTo->allies.push_back(from);
+    return true;
+}
+
+bool Simulation::BreakAlliance(PlayerId from, PlayerId to) {
+    Player* pFrom = GetPlayer(from);
+    Player* pTo = GetPlayer(to);
+    if (!pFrom || !pTo) {
+        return false;
+    }
+    // Remove from both
+    pFrom->allies.erase(std::remove(pFrom->allies.begin(), pFrom->allies.end(), to),
+                        pFrom->allies.end());
+    pTo->allies.erase(std::remove(pTo->allies.begin(), pTo->allies.end(), from), pTo->allies.end());
+    return true;
+}
+
+bool Simulation::IsAllied(PlayerId a, PlayerId b) const {
+    const Player* pA = nullptr;
+    const Player* pB = nullptr;
+    for (const auto& p : players_) {
+        if (p.id == a) {
+            pA = &p;
+        }
+        if (p.id == b) {
+            pB = &p;
+        }
+    }
+    if (!pA || !pB) {
+        return false;
+    }
+    for (PlayerId ally : pA->allies) {
+        if (ally == b) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Simulation::Tick(float dt) {
     if (gameOver_) {
         return;
@@ -625,13 +758,24 @@ void Simulation::TickCombatFronts(float dt) {
                 const Tile& t = map_.GetTile(x, y);
                 // Attack targeting: if target is neutral, only capture neutral tiles.
                 // If target is a specific enemy, only capture that enemy's tiles.
+                const Tile& targetTileCheck = map_.GetTile(front.targetX, front.targetY);
+                bool isNaval = (targetTileCheck.terrain == TerrainType::Water);
+
                 bool validTarget = false;
                 if (front.targetPlayerId == kNeutralPlayerId) {
                     validTarget = (t.ownerId == kNeutralPlayerId);
                 } else {
                     validTarget = (t.ownerId == front.targetPlayerId);
                 }
-                if (validTarget && t.terrain != TerrainType::Water) {
+
+                // For naval attacks, capture water tiles first, then land tiles at destination
+                // For land attacks, only capture land tiles
+                bool terrainOk = (t.terrain != TerrainType::Water);
+                if (isNaval) {
+                    terrainOk = true; // Allow both water and land for naval
+                }
+
+                if (validTarget && terrainOk) {
                     if (map_.HasAdjacentOwner(x, y, front.attackerId)) {
                         float dist = TileDistance(x, y, front.targetX, front.targetY);
                         candidates.push_back({dist, {x, y}});
@@ -695,7 +839,7 @@ void Simulation::TickCombatFronts(float dt) {
                 }
 
                 map_.SetOwner(tx, ty, front.attackerId);
-                tile.captureFlashTimer = 0.35f; // Visual flash ripple!
+                tile.captureFlashTimer = 0.5f; // Visual flash ripple!
                 front.tilesCaptured++;
                 capturesThisTick++;
 
@@ -1089,6 +1233,181 @@ void Simulation::SyncToEcs() {
                                     f.frontCenter.y});
         ecsEntities_.push_back(ent);
     }
+}
+
+bool Simulation::SaveGame(const std::string& filepath) {
+    std::ofstream file(filepath);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    file << "OPENFRONT_SAVE_V1\n";
+    file << "seed=" << 1337 << "\n";
+    file << "mapType=" << static_cast<int>(MapType::Procedural) << "\n";
+    file << "matchTime=" << matchTime_ << "\n";
+    file << "currentTurn=" << currentTurn_ << "\n";
+    file << "numPlayers=" << players_.size() << "\n";
+
+    for (const auto& p : players_) {
+        file << "player=" << p.id << "," << p.name << "," << (int)p.type << "," << p.troops << ","
+             << p.gold << "," << p.tileCount << "," << p.cityLevelsSum << "," << p.attackRatio
+             << "," << (p.isAlive ? 1 : 0) << "\n";
+    }
+
+    file << "numBuildings=" << buildings_.size() << "\n";
+    for (const auto& b : buildings_) {
+        file << "building=" << (int)b.type << "," << b.ownerId << "," << b.x << "," << b.y << ","
+             << b.level << "," << b.timer << "," << b.range << "," << (b.active ? 1 : 0) << "\n";
+    }
+
+    // Save map tile owners
+    file << "mapWidth=" << map_.GetWidth() << "\n";
+    file << "mapHeight=" << map_.GetHeight() << "\n";
+    for (int y = 0; y < map_.GetHeight(); ++y) {
+        for (int x = 0; x < map_.GetWidth(); ++x) {
+            file << map_.GetTile(x, y).ownerId << " ";
+        }
+        file << "\n";
+    }
+
+    file.close();
+    return true;
+}
+
+bool Simulation::LoadGame(const std::string& filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    std::string header;
+    std::getline(file, header);
+    if (header != "OPENFRONT_SAVE_V1") {
+        return false;
+    }
+
+    // Read basic params
+    std::string line;
+    uint32_t seed = 1337;
+    MapType mapType = MapType::Procedural;
+    float matchTime = 0.0f;
+    uint32_t currentTurn = 0;
+
+    // Read all lines
+    std::vector<std::string> lines;
+    while (std::getline(file, line)) {
+        lines.push_back(line);
+    }
+    file.close();
+
+    // Parse
+    for (const auto& l : lines) {
+        if (l.find("seed=") == 0) {
+            seed = std::stoul(l.substr(5));
+        } else if (l.find("mapType=") == 0) {
+            mapType = static_cast<MapType>(std::stoi(l.substr(8)));
+        } else if (l.find("matchTime=") == 0) {
+            matchTime = std::stof(l.substr(10));
+        } else if (l.find("currentTurn=") == 0) {
+            currentTurn = std::stoul(l.substr(12));
+        }
+    }
+
+    // Regenerate map
+    Init(4, 4, seed, mapType);
+
+    // Restore match time and turn
+    matchTime_ = matchTime;
+    currentTurn_ = currentTurn;
+
+    // Restore players
+    for (const auto& l : lines) {
+        if (l.find("player=") == 0) {
+            std::string data = l.substr(7);
+            std::istringstream ss(data);
+            std::string token;
+            std::vector<std::string> parts;
+            while (std::getline(ss, token, ',')) {
+                parts.push_back(token);
+            }
+            if (parts.size() >= 9) {
+                PlayerId id = std::stoi(parts[0]);
+                Player* p = GetPlayer(id);
+                if (p) {
+                    p->name = parts[1];
+                    p->type = static_cast<FactionType>(std::stoi(parts[2]));
+                    p->troops = std::stod(parts[3]);
+                    p->gold = std::stod(parts[4]);
+                    p->tileCount = std::stoi(parts[5]);
+                    p->cityLevelsSum = std::stoi(parts[6]);
+                    p->attackRatio = std::stof(parts[7]);
+                    p->isAlive = (parts[8] == "1");
+                }
+            }
+        }
+    }
+
+    // Restore buildings
+    buildings_.clear();
+    for (const auto& l : lines) {
+        if (l.find("building=") == 0) {
+            std::string data = l.substr(9);
+            std::istringstream ss(data);
+            std::string token;
+            std::vector<std::string> parts;
+            while (std::getline(ss, token, ',')) {
+                parts.push_back(token);
+            }
+            if (parts.size() >= 8) {
+                Building b;
+                b.type = static_cast<BuildingType>(std::stoi(parts[0]));
+                b.ownerId = std::stoi(parts[1]);
+                b.x = std::stoi(parts[2]);
+                b.y = std::stoi(parts[3]);
+                b.level = std::stoi(parts[4]);
+                b.timer = std::stof(parts[5]);
+                b.range = std::stof(parts[6]);
+                b.active = (parts[7] == "1");
+                buildings_.push_back(b);
+                map_.SetBuilding(b.x, b.y, b.type, b.level);
+            }
+        }
+    }
+
+    // Restore map tile owners
+    bool readingMap = false;
+    int mapY = 0;
+    for (const auto& l : lines) {
+        if (l.find("mapWidth=") == 0) {
+            readingMap = false;
+            continue;
+        }
+        if (l.find("mapHeight=") == 0) {
+            readingMap = true;
+            mapY = 0;
+            continue;
+        }
+        if (readingMap && mapY < map_.GetHeight()) {
+            std::istringstream ss(l);
+            int ownerId;
+            int mapX = 0;
+            while (ss >> ownerId && mapX < map_.GetWidth()) {
+                if (map_.InBounds(mapX, mapY)) {
+                    Tile& t = map_.GetTile(mapX, mapY);
+                    if (t.terrain != TerrainType::Water) {
+                        t.ownerId = ownerId;
+                    }
+                }
+                mapX++;
+            }
+            mapY++;
+        }
+    }
+
+    map_.UpdateBorders();
+    RecalculateTerritoryAndBuildings();
+    SyncToEcs();
+    return true;
 }
 
 } // namespace Openfront

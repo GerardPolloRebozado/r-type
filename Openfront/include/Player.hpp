@@ -45,6 +45,18 @@ struct Player {
     float aiBuildTimer{0.0f};
     float aiNukeTimer{0.0f};
 
+    // Alliances
+    std::vector<PlayerId> allies;
+    std::vector<PlayerId> pendingAllianceProposals; // Proposals received
+    bool isAlliedWith(PlayerId other) const {
+        for (PlayerId a : allies) {
+            if (a == other) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void CalculateMaxTroops();
     void TickEconomy(float dt);
     [[nodiscard]] double GetTroopDensity() const;

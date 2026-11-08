@@ -144,8 +144,8 @@ int main(int argc, char* argv[]) {
         log_error("[Openfront] Failed to load game_rules.lua: " + std::string(e.what()));
     }
 
-    cfg.customRenderHandlesDrawing = true;
     Engine::ApplicationConfig cfg;
+    cfg.customRenderHandlesDrawing = true;
     cfg.windowWidth = 1600;
     cfg.windowHeight = 900;
     cfg.windowTitle = "OpenFront - C++ MMORTS Territory Strategy (Multiplayer)";
@@ -206,6 +206,7 @@ int main(int argc, char* argv[]) {
     controller->addKeybind("BUILD_SILO", {KEY_SIX, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("LAUNCH_ATOM", {KEY_N, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("LAUNCH_H", {KEY_H, 0, Engine::DeviceType::KEYBOARD}, false);
+    controller->addKeybind("PROPOSE_ALLIANCE", {KEY_A, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("CANCEL", {KEY_ESCAPE, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("CONFIRM", {KEY_ENTER, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("CONFIRM", {KEY_SPACE, 0, Engine::DeviceType::KEYBOARD}, false);
@@ -227,6 +228,9 @@ int main(int argc, char* argv[]) {
     assetManager.LoadSound("victory", "Openfront/assets/audio/victory.wav");
     assetManager.LoadSound("defeat", "Openfront/assets/audio/defeat.wav");
     assetManager.LoadSound("ui_hover", "Openfront/assets/audio/ui_hover.wav");
+    assetManager.LoadSound("troop_move", "Openfront/assets/audio/troop_move.wav");
+    assetManager.LoadSound("capture2", "Openfront/assets/audio/capture2.wav");
+    assetManager.LoadSound("impact", "Openfront/assets/audio/impact.wav");
     assetManager.LoadMusic("ambient", "Openfront/assets/audio/ambient.wav", true);
 
     renderer.SetAssetManager(&assetManager);

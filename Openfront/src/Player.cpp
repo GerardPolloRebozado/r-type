@@ -197,6 +197,35 @@ void Player::UpdateAI(Simulation& sim, std::vector<ClientIntent>& outIntents, fl
         }
     }
 
+    // Alliance proposal: propose to weaker rivals if threatened
+    if (type == FactionType::Nation && aiBuildTimer <= 0.0f) {
+        for (auto& p : sim.GetPlayers()) {
+            if (p.id == id || !p.isAlive) {
+                continue;
+            }
+            if (isAlliedWith(p.id)) {
+                continue;
+            }
+            // Propose alliance to nations with more troops (threat)
+            if (p.troops > troops * 1.5 && gold > 10000) {
+                sim.ProposeAlliance(id, p.id);
+            }
+        }
+    }
+
+    // Accept pending alliance proposals
+    for (PlayerId proposer : pendingAllianceProposals) {
+        // Accept if proposer is not a major threat or we need allies
+        Player* pProposer = sim.GetPlayer(proposer);
+        if (pProposer && pProposer->isAlive) {
+            // Accept if we have fewer than 2 allies
+            if (allies.size() < 2) {
+                sim.AcceptAlliance(id, proposer);
+            }
+        }
+    }
+    pendingAllianceProposals.clear();
+
     if (type == FactionType::Nation && siloCount > 0 && aiNukeTimer <= 0.0f) {
         float nukeInterval = 15.0f;
         if (personality == AIPersonality::Aggressive) {
@@ -222,7 +251,8 @@ void Player::UpdateAI(Simulation& sim, std::vector<ClientIntent>& outIntents, fl
                 PlayerId rivalId = kNeutralPlayerId;
                 double maxRivalTroops = 0.0;
                 for (const auto& p : sim.GetPlayers()) {
-                    if (p.id != id && p.isAlive && p.troops > maxRivalTroops) {
+                    if (p.id != id && p.isAlive && !isAlliedWith(p.id) &&
+                        p.troops > maxRivalTroops) {
                         maxRivalTroops = p.troops;
                         rivalId = p.id;
                     }
@@ -291,7 +321,8 @@ void Player::UpdateAI(Simulation& sim, std::vector<ClientIntent>& outIntents, fl
                         auto nbrs = map.GetNeighbors4(x, y);
                         for (const auto& nb : nbrs) {
                             const Tile& nt = map.GetTile(nb.x, nb.y);
-                            if (nt.terrain != TerrainType::Water && nt.ownerId != id) {
+                            if (nt.terrain != TerrainType::Water && nt.ownerId != id &&
+                                !sim.IsAllied(id, nt.ownerId)) {
                                 attackOptions.push_back({{x, y}, nb});
                             }
                         }

@@ -62,50 +62,97 @@ float ContinentMask(int x, int y, int width, int height, MapType type, uint32_t 
     float nx = static_cast<float>(x) / static_cast<float>(width);
     float ny = static_cast<float>(y) / static_cast<float>(height);
 
+    auto distFrom = [&](float px, float py, float rx, float ry) -> float {
+        float dx = (static_cast<float>(x) - px) / rx;
+        float dy = (static_cast<float>(y) - py) / ry;
+        return std::sqrt(dx * dx + dy * dy);
+    };
+
+    auto coastline = [&](float base, float nx, float ny, uint32_t s) -> float {
+        float noise = Fbm2D(nx * 4.0f, ny * 4.0f, s, 3, 0.4f);
+        return base * (0.85f + 0.15f * noise);
+    };
+
     switch (type) {
         case MapType::Europe: {
-            // Europe: large landmass on left (west), water on right (east/Atlantic)
-            float dx = (static_cast<float>(x) - cx * 0.5f) / (cx * 0.7f);
-            float dy = (static_cast<float>(y) - cy) / (cy * 0.85f);
-            float dist = std::sqrt(dx * dx + dy * dy);
-            float mask = 1.0f - std::clamp(std::pow(dist, 1.6f), 0.0f, 1.0f);
-            // Cut out Mediterranean (water in bottom-center-right)
-            if (x > width * 0.55f && y > height * 0.55f) {
+            float mask = 0.0f;
+            // Main European landmass (France/Germany/Poland area)
+            float d1 = distFrom(cx * 0.55f, cy * 0.9f, cx * 0.5f, cy * 0.7f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d1, 1.5f), 0.0f, 1.0f));
+            // Scandinavian peninsula (top)
+            float d2 = distFrom(cx * 0.6f, cy * 0.3f, cx * 0.25f, cy * 0.35f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d2, 1.6f), 0.0f, 1.0f));
+            // Iberian peninsula (bottom-left)
+            float d3 = distFrom(cx * 0.25f, cy * 1.15f, cx * 0.2f, cy * 0.25f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d3, 1.6f), 0.0f, 1.0f));
+            // Italian boot (bottom-center)
+            float d4 = distFrom(cx * 0.7f, cy * 1.25f, cx * 0.12f, cy * 0.3f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d4, 1.5f), 0.0f, 1.0f));
+            // British Isles (top-left, separated by water)
+            float d5 = distFrom(cx * 0.3f, cy * 0.5f, cx * 0.15f, cy * 0.2f);
+            float island5 = 1.0f - std::clamp(std::pow(d5, 2.0f), 0.0f, 1.0f);
+            if (x > static_cast<int>(cx * 0.45f) && x < static_cast<int>(cx * 0.55f) &&
+                y > static_cast<int>(cy * 0.4f) && y < static_cast<int>(cy * 0.7f)) {
+                island5 *= 0.1f;
+            }
+            mask = std::max(mask, island5);
+            // Balkans (bottom-right)
+            float d6 = distFrom(cx * 0.9f, cy * 1.05f, cx * 0.2f, cy * 0.3f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d6, 1.6f), 0.0f, 1.0f));
+            // Cut out Mediterranean sea
+            if (x > static_cast<int>(cx * 0.7f) && y > static_cast<int>(cy * 0.8f)) {
+                mask *= 0.15f;
+            }
+            // Cut out North Sea
+            if (x > static_cast<int>(cx * 0.8f) && y < static_cast<int>(cy * 0.4f)) {
                 mask *= 0.2f;
             }
-            // Cut out North Sea (water in top-right)
-            if (x > width * 0.7f && y < height * 0.35f) {
-                mask *= 0.3f;
-            }
-            return mask;
+            return coastline(mask, nx, ny, seed);
         }
         case MapType::World: {
-            // Two continents: Americas (left) and Eurasia/Africa (right)
-            float dx1 = (static_cast<float>(x) - cx * 0.3f) / (cx * 0.35f);
-            float dy1 = (static_cast<float>(y) - cy * 0.9f) / (cy * 0.8f);
-            float dist1 = std::sqrt(dx1 * dx1 + dy1 * dy1);
-            float mask1 = 1.0f - std::clamp(std::pow(dist1, 1.8f), 0.0f, 1.0f);
-
-            float dx2 = (static_cast<float>(x) - cx * 1.65f) / (cx * 0.45f);
-            float dy2 = (static_cast<float>(y) - cy * 0.85f) / (cy * 0.75f);
-            float dist2 = std::sqrt(dx2 * dx2 + dy2 * dy2);
-            float mask2 = 1.0f - std::clamp(std::pow(dist2, 1.8f), 0.0f, 1.0f);
-
-            return std::max(mask1, mask2);
+            float mask = 0.0f;
+            // North America
+            float d1 = distFrom(cx * 0.2f, cy * 0.35f, cx * 0.25f, cy * 0.35f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d1, 1.7f), 0.0f, 1.0f));
+            // South America
+            float d2 = distFrom(cx * 0.3f, cy * 1.1f, cx * 0.15f, cy * 0.4f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d2, 1.7f), 0.0f, 1.0f));
+            // Eurasia
+            float d3 = distFrom(cx * 1.5f, cy * 0.4f, cx * 0.5f, cy * 0.4f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d3, 1.6f), 0.0f, 1.0f));
+            // Africa
+            float d4 = distFrom(cx * 1.4f, cy * 1.1f, cx * 0.2f, cy * 0.4f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d4, 1.7f), 0.0f, 1.0f));
+            // Australia
+            float d5 = distFrom(cx * 1.85f, cy * 1.3f, cx * 0.1f, cy * 0.15f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d5, 2.0f), 0.0f, 1.0f));
+            // Cut Atlantic ocean
+            if (x > static_cast<int>(cx * 0.5f) && x < static_cast<int>(cx * 1.1f)) {
+                mask *= 0.15f;
+            }
+            return coastline(mask, nx, ny, seed);
         }
         case MapType::Pangaea: {
-            // Single large central landmass
             float dx = (static_cast<float>(x) - cx) / (cx * 0.9f);
             float dy = (static_cast<float>(y) - cy) / (cy * 0.85f);
             float dist = std::sqrt(dx * dx + dy * dy);
-            return 1.0f - std::clamp(std::pow(dist, 1.5f), 0.0f, 1.0f);
+            float mask = 1.0f - std::clamp(std::pow(dist, 1.4f), 0.0f, 1.0f);
+            float bay = Fbm2D(nx * 6.0f, ny * 6.0f, seed + 200, 4, 0.5f);
+            mask *= (0.8f + 0.2f * bay);
+            return coastline(mask, nx, ny, seed);
         }
         case MapType::Archipelago: {
-            // Many small islands
             float noise = Fbm2D(nx * 3.0f, ny * 3.0f, seed + 500, 3, 0.6f);
-            return noise > 0.55f ? 1.0f : 0.0f;
+            float mask = noise > 0.55f ? 1.0f : 0.0f;
+            float d1 = distFrom(cx * 0.3f, cy * 0.5f, cx * 0.15f, cy * 0.2f);
+            float d2 = distFrom(cx * 0.7f, cy * 0.4f, cx * 0.12f, cy * 0.18f);
+            float d3 = distFrom(cx * 0.5f, cy * 0.8f, cx * 0.18f, cy * 0.25f);
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d1, 2.0f), 0.0f, 1.0f));
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d2, 2.0f), 0.0f, 1.0f));
+            mask = std::max(mask, 1.0f - std::clamp(std::pow(d3, 2.0f), 0.0f, 1.0f));
+            return mask;
         }
-        default: // Procedural
+        default:
             return 1.0f;
     }
 }
@@ -117,6 +164,28 @@ WorldMap::WorldMap(int width, int height) : width_(width), height_(height), tile
 }
 
 void WorldMap::Generate(uint32_t seed, MapType type) {
+    // Set map size based on type
+    int newWidth = kMapWidth;
+    int newHeight = kMapHeight;
+    switch (type) {
+        case MapType::Europe:
+        case MapType::Pangaea:
+        case MapType::Archipelago:
+            newWidth = static_cast<int>(kMapWidth * 1.25f);
+            newHeight = static_cast<int>(kMapHeight * 1.25f);
+            break;
+        case MapType::World:
+            newWidth = static_cast<int>(kMapWidth * 1.75f);
+            newHeight = static_cast<int>(kMapHeight * 1.75f);
+            break;
+        default:
+            break;
+    }
+    if (newWidth != width_ || newHeight != height_) {
+        width_ = newWidth;
+        height_ = newHeight;
+        tiles_.resize(width_ * height_);
+    }
     tiles_.assign(width_ * height_, Tile{});
 
     float centerX = static_cast<float>(width_) * 0.5f;
@@ -140,7 +209,6 @@ void WorldMap::Generate(uint32_t seed, MapType type) {
                 elevation *= (0.4f + 0.6f * mask);
             }
 
-            // Water border guarantee
             if (x < 2 || x >= width_ - 2 || y < 2 || y >= height_ - 2) {
                 elevation = 0.1f;
             }
@@ -183,9 +251,8 @@ void WorldMap::SetOwner(int x, int y, PlayerId owner) {
         return;
     }
     Tile& t = GetTile(x, y);
-    if (t.terrain != TerrainType::Water) {
-        t.ownerId = owner;
-    }
+    // Allow naval invasion: water tiles can be claimed by players with ports
+    t.ownerId = owner;
 }
 
 void WorldMap::UpdateDefenseBonuses(const std::vector<Building>& buildings) {
@@ -195,7 +262,7 @@ void WorldMap::UpdateDefenseBonuses(const std::vector<Building>& buildings) {
     for (const auto& b : buildings) {
         if (b.type == BuildingType::DefensePost && b.active) {
             for (auto& t : tiles_) {
-                // Simple distance check
+                // Simple distance check - could be optimized
             }
         }
     }

@@ -17,7 +17,7 @@ struct Building {
 
     static float DefaultRange(BuildingType t, int lvl) {
         if (t == BuildingType::DefensePost) {
-            return 30.0f;
+            return 15.0f;
         }
         if (t == BuildingType::SamLauncher) {
             return 15.0f + lvl * 5.0f;

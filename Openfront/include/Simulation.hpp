@@ -22,9 +22,13 @@ class Simulation {
     Simulation();
 
     void Init(int numNations = 4, int numBots = 4, uint32_t seed = 1337,
-              MapType mapType = MapType::Procedural);
+              MapType mapType = MapType::Procedural, int spawnX = -1, int spawnY = -1);
     void Tick(float dt);               // 10 Hz simulation logic
     void UpdateVisuals(float frameDt); // 60 FPS visual interpolation
+
+    // Save/Load
+    bool SaveGame(const std::string& filepath);
+    bool LoadGame(const std::string& filepath);
 
     // Multiplayer Turn & Intent Execution
     void ApplyIntent(const ClientIntent& intent);
@@ -43,6 +47,12 @@ class Simulation {
     bool Build(PlayerId playerId, int x, int y, BuildingType type);
     bool LaunchNuke(PlayerId playerId, int siloX, int siloY, int targetX, int targetY,
                     BombType type);
+
+    // Alliances
+    bool ProposeAlliance(PlayerId from, PlayerId to);
+    bool AcceptAlliance(PlayerId from, PlayerId to);
+    bool BreakAlliance(PlayerId from, PlayerId to);
+    bool IsAllied(PlayerId a, PlayerId b) const;
 
     void SpawnFloatingText(Vector2 pos, const std::string& text, Color color = WHITE);
     void SpawnClashParticles(Vector2 pos, Color color = GOLD, int count = 6);

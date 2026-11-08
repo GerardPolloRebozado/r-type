@@ -78,6 +78,7 @@ class Renderer {
     Engine::Registry* registry_{nullptr};
     PlayerId localPlayerId_{1};
     Openfront::MapType selectedMapType_{Openfront::MapType::Procedural};
+    bool randomSpawn_{true};
     size_t prevExplosionsCount_{0};
     size_t prevMissilesCount_{0};
     bool gameOverSoundPlayed_{false};
@@ -119,6 +120,7 @@ class Renderer {
     void UpdateMapTexture(const Simulation& sim);
     void DrawWorld(Simulation& sim);
     void DrawBuildings(const Simulation& sim);
+    void DrawTradeRoutes(const Simulation& sim);
     void DrawFrontLines(const Simulation& sim);
     void DrawMissiles(const Simulation& sim);
     void DrawExplosions(const Simulation& sim);
@@ -127,7 +129,7 @@ class Renderer {
 
     // UI Screens
     void DrawHUD(Simulation& sim, const NetworkManager& net);
-    void DrawTopBar(const Simulation& sim, const NetworkManager& net);
+    void DrawTopBar(const Simulation& sim, NetworkManager& net);
     void DrawBottomDock(Simulation& sim, NetworkManager& net);
     void DrawLeaderboard(const Simulation& sim, PlayerId localId);
     void DrawMinimap(const Simulation& sim);

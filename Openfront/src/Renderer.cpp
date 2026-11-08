@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <raymath.h>
 
 namespace Openfront {
@@ -76,8 +77,10 @@ void Renderer::DrawTitleCustom(const char* text, int x, int y, int size, Color c
 void Renderer::Init(Simulation& sim, PlayerId localPlayerId) {
     localPlayerId_ = localPlayerId;
     gameOverSoundPlayed_ = false;
+    // Allocate pixel buffer based on actual map size (may differ from default)
+    // We'll allocate lazily in UpdateMapTexture if needed
     if (!pixelBuffer_) {
-        pixelBuffer_ = new Color[kMapWidth * kMapHeight];
+        pixelBuffer_ = new Color[280 * 175]; // Max map size
         mapImage_ = GenImageColor(kMapWidth, kMapHeight, BLACK);
         mapTexture_ = LoadTextureFromImage(mapImage_);
         SetTextureFilter(mapTexture_, TEXTURE_FILTER_POINT);
@@ -141,6 +144,13 @@ void Renderer::CenterOnPlayer(const Simulation& sim, PlayerId pid) {
             const Tile& t = map.GetTile(x, y);
             if (t.ownerId == pid && t.building == BuildingType::City) {
                 CenterCameraOn(x, y);
+                // Auto-zoom to fit player's territory with margin
+                float mapW = map.GetWidth() * kTileSize;
+                float mapH = map.GetHeight() * kTileSize;
+                float zoomX = (float)screenWidth_ / (mapW * 0.4f);
+                float zoomY = (float)screenHeight_ / (mapH * 0.4f);
+                camera_.zoom = std::min(zoomX, zoomY);
+                camera_.zoom = std::clamp(camera_.zoom, 0.25f, 2.0f);
                 return;
             }
         }
@@ -344,7 +354,7 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
     float wheel = GetMouseWheelMove();
     if (wheel != 0.0f) {
         Vector2 mouseWorldBefore = GetScreenToWorld2D(mousePos, camera_);
-        camera_.zoom = std::clamp(camera_.zoom + wheel * 0.15f * camera_.zoom, 0.35f, 4.0f);
+        camera_.zoom = std::clamp(camera_.zoom + wheel * 0.15f * camera_.zoom, 0.2f, 4.0f);
         Vector2 mouseWorldAfter = GetScreenToWorld2D(mousePos, camera_);
         camera_.target.x += (mouseWorldBefore.x - mouseWorldAfter.x);
         camera_.target.y += (mouseWorldBefore.y - mouseWorldAfter.y);
@@ -424,6 +434,44 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         }
     }
 
+    // Alliance proposal (A key)
+    if (controller_ && controller_->isActionPressed("PROPOSE_ALLIANCE")) {
+        Player* localP = sim.GetPlayer(localId);
+        if (localP) {
+            // Find strongest non-allied rival
+            PlayerId bestRival = kNeutralPlayerId;
+            double maxTroops = 0;
+            for (const auto& p : sim.GetPlayers()) {
+                if (p.id == localId || !p.isAlive) {
+                    continue;
+                }
+                if (localP->isAlliedWith(p.id)) {
+                    continue;
+                }
+                if (p.troops > maxTroops) {
+                    maxTroops = p.troops;
+                    bestRival = p.id;
+                }
+            }
+            if (bestRival != kNeutralPlayerId) {
+                sim.ProposeAlliance(localId, bestRival);
+                PlaySoundEffect("ui_click");
+            }
+        }
+    }
+
+    // Accept pending alliance proposals (Enter key when proposals exist)
+    Player* localP = sim.GetPlayer(localId);
+    if (localP && !localP->pendingAllianceProposals.empty()) {
+        if (controller_ && controller_->isActionPressed("CONFIRM")) {
+            for (PlayerId proposer : localP->pendingAllianceProposals) {
+                sim.AcceptAlliance(localId, proposer);
+                PlaySoundEffect("ui_click");
+            }
+            localP->pendingAllianceProposals.clear();
+        }
+    }
+
     // Reinforce front on click
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, camera_);
@@ -474,7 +522,7 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
 
         const Tile& clicked = map.GetTile(tile.x, tile.y);
 
-        if (clicked.ownerId != localId && clicked.terrain != TerrainType::Water) {
+        if (clicked.ownerId != localId) {
             Player* p = sim.GetPlayer(localId);
             float ratio = p ? p->attackRatio : 0.20f;
             net.QueueAttack(sim, localId, tile.x, tile.y, tile.x, tile.y, ratio);
@@ -488,7 +536,7 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         if (map.InBounds(tile.x, tile.y) && selectedTile_.x >= 0 &&
             (tile.x != selectedTile_.x || tile.y != selectedTile_.y)) {
             const Tile& target = map.GetTile(tile.x, tile.y);
-            if (target.ownerId != localId && target.terrain != TerrainType::Water) {
+            if (target.ownerId != localId) {
                 Player* p = sim.GetPlayer(localId);
                 float ratio = p ? p->attackRatio : 0.20f;
                 net.QueueAttack(sim, localId, selectedTile_.x, selectedTile_.y, tile.x, tile.y,
@@ -504,6 +552,19 @@ void Renderer::UpdateMapTexture(const Simulation& sim) {
     int width = map.GetWidth();
     int height = map.GetHeight();
 
+    // Recreate texture if map size changed
+    if (mapTexture_.width != width || mapTexture_.height != height) {
+        if (mapTexture_.id != 0) {
+            UnloadTexture(mapTexture_);
+        }
+        if (mapImage_.data != nullptr) {
+            UnloadImage(mapImage_);
+        }
+        mapImage_ = GenImageColor(width, height, BLACK);
+        mapTexture_ = LoadTextureFromImage(mapImage_);
+        SetTextureFilter(mapTexture_, TEXTURE_FILTER_POINT);
+    }
+
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             const Tile& t = map.GetTile(x, y);
@@ -518,6 +579,15 @@ void Renderer::UpdateMapTexture(const Simulation& sim) {
                     c = Color{tc.r, tc.g, tc.b, 255};
                 } else {
                     c = map.IsCoastal(x, y) ? Color{28, 58, 98, 255} : Color{16, 36, 68, 255};
+                }
+                // Show naval territory ownership
+                if (t.ownerId != kNeutralPlayerId) {
+                    const Player* p = sim.GetPlayer(t.ownerId);
+                    if (p) {
+                        c.r = static_cast<unsigned char>((c.r + p->color.r) / 2);
+                        c.g = static_cast<unsigned char>((c.g + p->color.g) / 2);
+                        c.b = static_cast<unsigned char>((c.b + p->color.b) / 2);
+                    }
                 }
             } else if (t.ownerId != kNeutralPlayerId) {
                 const Player* p = sim.GetPlayer(t.ownerId);
@@ -545,10 +615,15 @@ void Renderer::UpdateMapTexture(const Simulation& sim) {
 
                 // SATISFYING TILE CAPTURE FLASH WAVE!
                 if (t.captureFlashTimer > 0.0f) {
-                    float flash = t.captureFlashTimer / 0.35f;
-                    base.r = static_cast<unsigned char>(base.r + (255 - base.r) * flash);
-                    base.g = static_cast<unsigned char>(base.g + (255 - base.g) * flash);
-                    base.b = static_cast<unsigned char>(base.b + (230 - base.b) * flash);
+                    float flash = t.captureFlashTimer / 0.5f;
+                    // Stronger flash with ripple effect
+                    float ripple = std::sin(flash * 3.14159f * 2.0f) * 0.3f + 0.7f;
+                    base.r = static_cast<unsigned char>(
+                        std::min(255, base.r + (int)((255 - base.r) * flash * ripple)));
+                    base.g = static_cast<unsigned char>(
+                        std::min(255, base.g + (int)((255 - base.g) * flash * ripple)));
+                    base.b = static_cast<unsigned char>(
+                        std::min(255, base.b + (int)((230 - base.b) * flash * ripple)));
                 }
 
                 c = base;
@@ -595,28 +670,6 @@ void Renderer::UpdateMapTexture(const Simulation& sim) {
 
                 if (t.captureFlashTimer > 0.0f) {
                     c = Color{255, 255, 240, 255};
-                }
-            }
-
-            // Fog of war: darken tiles not visible to local player
-            // (tiles not owned by player and not adjacent to player's territory)
-            // This is a simplified version - full fog of war would require
-            // per-player visibility calculation in the simulation
-            if (localPlayerId_ > 0 && t.ownerId != localPlayerId_ && !t.isBorder) {
-                // Check if adjacent to player's territory
-                bool adjacentToPlayer = false;
-                auto nbrs = map.GetNeighbors4(x, y);
-                for (const auto& n : nbrs) {
-                    if (map.GetTile(n.x, n.y).ownerId == localPlayerId_) {
-                        adjacentToPlayer = true;
-                        break;
-                    }
-                }
-                if (!adjacentToPlayer) {
-                    // Darken the tile (fog of war)
-                    c.r = static_cast<unsigned char>(c.r * 0.4f);
-                    c.g = static_cast<unsigned char>(c.g * 0.4f);
-                    c.b = static_cast<unsigned char>(c.b * 0.4f);
                 }
             }
 
@@ -687,6 +740,7 @@ void Renderer::DrawWorld(Simulation& sim) {
 
     DrawBuildings(sim);
     DrawSelectionHighlights(sim);
+    DrawTradeRoutes(sim);
     DrawFrontLines(sim);
     DrawMissiles(sim);
     DrawExplosions(sim);
@@ -715,6 +769,12 @@ void Renderer::DrawBuildings(const Simulation& sim) {
         float bx = (b.x + 0.5f) * kTileSize;
         float by = (b.y + 0.5f) * kTileSize;
 
+        // Building placement animation (scale-in)
+        float scale = 1.0f;
+        if (b.timer < 0.5f) {
+            scale = 0.3f + 0.7f * (b.timer / 0.5f);
+        }
+
         // Draw building icon if available
         int iconIdx = -1;
         switch (b.type) {
@@ -741,10 +801,11 @@ void Renderer::DrawBuildings(const Simulation& sim) {
         }
 
         if (iconIdx >= 0 && buildingIcons_[iconIdx].id != 0) {
+            float iconSize = 20.0f * scale;
             DrawTexturePro(
                 buildingIcons_[iconIdx],
                 {0, 0, (float)buildingIcons_[iconIdx].width, (float)buildingIcons_[iconIdx].height},
-                {bx - 10, by - 10, 20, 20}, {0, 0}, 0.0f,
+                {bx - iconSize / 2, by - iconSize / 2, iconSize, iconSize}, {0, 0}, 0.0f,
                 b.active ? WHITE : Color{100, 100, 100, 150});
         } else {
             // Fallback to shapes
@@ -790,6 +851,56 @@ void Renderer::DrawBuildings(const Simulation& sim) {
                 default:
                     break;
             }
+        }
+    }
+}
+
+void Renderer::DrawTradeRoutes(const Simulation& sim) {
+    const auto& buildings = sim.GetBuildings();
+    for (const auto& b : buildings) {
+        if (!b.active) {
+            continue;
+        }
+        if (b.type != BuildingType::Port && b.type != BuildingType::Factory) {
+            continue;
+        }
+
+        const Player* p = sim.GetPlayer(b.ownerId);
+        if (!p) {
+            continue;
+        }
+
+        float bx = (b.x + 0.5f) * kTileSize;
+        float by = (b.y + 0.5f) * kTileSize;
+
+        // Find nearest city of same owner
+        float bestDist = 1e9f;
+        Vector2 target = {bx, by};
+        for (const auto& c : buildings) {
+            if (!c.active || c.ownerId != b.ownerId || c.type != BuildingType::City) {
+                continue;
+            }
+            float dx = (c.x + 0.5f) * kTileSize - bx;
+            float dy = (c.y + 0.5f) * kTileSize - by;
+            float d = std::sqrt(dx * dx + dy * dy);
+            if (d < bestDist) {
+                bestDist = d;
+                target = {(c.x + 0.5f) * kTileSize, (c.y + 0.5f) * kTileSize};
+            }
+        }
+
+        if (bestDist < 1e8f) {
+            // Draw animated trade route
+            float time = static_cast<float>(GetTime());
+            float pulse = 0.5f + 0.5f * std::sin(time * 2.0f);
+            Color routeColor = (b.type == BuildingType::Port) ? Color{100, 200, 200, 120}
+                                                              : Color{200, 180, 100, 120};
+            DrawLineEx({bx, by}, target, 1.5f, routeColor);
+
+            // Animated dot along route
+            float t = std::fmod(time * 0.5f, 1.0f);
+            Vector2 dot = {bx + (target.x - bx) * t, by + (target.y - by) * t};
+            DrawCircle(dot.x, dot.y, 2.0f, routeColor);
         }
     }
 }
@@ -842,6 +953,46 @@ void Renderer::DrawFrontLines(const Simulation& sim) {
                                (front.targetY + 0.5f) * kTileSize};
 
         DrawLineEx(front.frontCenter, targetWorld, 2.0f, Color{attCol.r, attCol.g, attCol.b, 120});
+
+        // Check if naval (target is water)
+        const Tile& targetTile = sim.GetMap().GetTile(front.targetX, front.targetY);
+        bool isNaval = (targetTile.terrain == TerrainType::Water);
+
+        if (isNaval) {
+            // Draw ship icon
+            Vector2 center = front.frontCenter;
+            float shipSize = 8.0f;
+            // Ship body (triangle pointing toward target)
+            Vector2 dir = {targetWorld.x - center.x, targetWorld.y - center.y};
+            float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (len > 0) {
+                dir.x /= len;
+                dir.y /= len;
+            }
+            Vector2 tip = {center.x + dir.x * shipSize, center.y + dir.y * shipSize};
+            Vector2 left = {center.x - dir.y * shipSize * 0.6f, center.y + dir.x * shipSize * 0.6f};
+            Vector2 right = {center.x + dir.y * shipSize * 0.6f,
+                             center.y - dir.x * shipSize * 0.6f};
+            DrawTriangle(tip, left, right, attCol);
+            DrawTriangleLines(tip, left, right, WHITE);
+        }
+
+        // Troop movement trail
+        float trailLen = 30.0f;
+        Vector2 dir = {targetWorld.x - front.frontCenter.x, targetWorld.y - front.frontCenter.y};
+        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+        if (len > 0) {
+            dir.x /= len;
+            dir.y /= len;
+            for (int i = 0; i < 5; ++i) {
+                float t = i / 5.0f;
+                Vector2 pos = {front.frontCenter.x - dir.x * trailLen * t,
+                               front.frontCenter.y - dir.y * trailLen * t};
+                float alpha = (1.0f - t) * 180.0f;
+                DrawCircle(pos.x, pos.y, 2.0f + (1.0f - t) * 2.0f,
+                           Color{attCol.r, attCol.g, attCol.b, (unsigned char)alpha});
+            }
+        }
 
         float pulse = std::sin(time * 6.0f) * 2.0f;
         DrawCircleLines(targetWorld.x, targetWorld.y, 8.0f + pulse, attCol);
@@ -916,7 +1067,7 @@ void Renderer::DrawParticlesAndFloatingText(const Simulation& sim) {
 }
 
 void Renderer::DrawHUD(Simulation& sim, const NetworkManager& net) {
-    DrawTopBar(sim, net);
+    DrawTopBar(sim, const_cast<NetworkManager&>(net));
     DrawBottomDock(sim, const_cast<NetworkManager&>(net));
     DrawLeaderboard(sim, net.GetLocalPlayerId());
     DrawMinimap(sim);
@@ -926,7 +1077,7 @@ void Renderer::DrawHUD(Simulation& sim, const NetworkManager& net) {
     }
 }
 
-void Renderer::DrawTopBar(const Simulation& sim, const NetworkManager& net) {
+void Renderer::DrawTopBar(const Simulation& sim, NetworkManager& net) {
     DrawRectangle(0, 0, screenWidth_, 46, Color{15, 20, 30, 240});
     DrawLine(0, 46, screenWidth_, 46, Color{40, 50, 70, 255});
 
@@ -960,6 +1111,21 @@ void Renderer::DrawTopBar(const Simulation& sim, const NetworkManager& net) {
     std::snprintf(goldText, sizeof(goldText), "GOLD: $%s",
                   TextFormat("%d", static_cast<int>(localPlayer->gold)));
     DrawTextCustom(goldText, 530, 14, 15, Color{255, 215, 50, 255});
+
+    // Game Speed Control
+    float speed = net.GetGameSpeed();
+    char speedBuf[16];
+    std::snprintf(speedBuf, sizeof(speedBuf), "%.1fx", speed);
+    Rectangle speedBtn = {screenWidth_ - 120.0f, 10.0f, 50.0f, 26.0f};
+    DrawRectangleRec(speedBtn, Color{35, 45, 60, 220});
+    DrawRectangleLinesEx(speedBtn, 1.0f, Color{60, 80, 110, 255});
+    DrawTextCustom(speedBuf, speedBtn.x + 8, speedBtn.y + 6, 12, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(GetMousePosition(), speedBtn)) {
+        PlaySoundEffect("ui_click");
+        float newSpeed = (speed >= 2.0f) ? 0.5f : speed + 0.5f;
+        net.SetGameSpeed(newSpeed);
+    }
 
     // Territory %
     int totalLand = sim.GetMap().GetLandTilesCount();
@@ -1022,6 +1188,8 @@ void Renderer::DrawBottomDock(Simulation& sim, NetworkManager& net) {
 
     // Attack Slider
     DrawTextCustom("PUSH ARMY:", 15, dockY + 12, 12, GRAY);
+    DrawTextCustom("[A] Propose Alliance", screenWidth_ - 180, dockY + 12, 10,
+                   Color{100, 200, 255, 255});
 
     const float ratios[] = {0.10f, 0.20f, 0.50f, 1.00f};
     const char* ratioLabels[] = {"[Z] 10%", "[X] 20%", "[C] 50%", "[V] 100%"};
@@ -1140,6 +1308,13 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
     DrawRectangle(boardX, boardY, boardW, boardH, Color{15, 20, 30, 220});
     DrawRectangleLines(boardX, boardY, boardW, boardH, Color{40, 50, 70, 255});
     DrawTextCustom("FACTION RANKINGS", boardX + 12, boardY + 10, 14, Color{200, 220, 240, 255});
+
+    // Alliance proposals notification
+    const Player* localP = sim.GetPlayer(localId);
+    if (localP && !localP->pendingAllianceProposals.empty()) {
+        DrawTextCustom("Press ENTER to accept alliance", boardX + 12, boardY + boardH + 5, 10,
+                       Color{100, 255, 100, 255});
+    }
     DrawLine(boardX + 10, boardY + 28, boardX + boardW - 10, boardY + 28, Color{50, 60, 80, 255});
 
     std::vector<const Player*> sorted;
@@ -1155,30 +1330,57 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
     for (size_t i = 0; i < sorted.size() && i < 8; ++i) {
         const Player* p = sorted[i];
 
-        DrawCircle(boardX + 18, rowY + 8, 5.0f, p->color);
+        // Rank number
+        char rankBuf[8];
+        std::snprintf(rankBuf, sizeof(rankBuf), "#%d", (int)(i + 1));
+        DrawTextCustom(rankBuf, boardX + 8, rowY + 2, 10, Color{120, 140, 170, 255});
+
+        // Color indicator
+        DrawCircle(boardX + 30, rowY + 8, 5.0f, p->color);
+        DrawCircleLines(boardX + 30, rowY + 8, 5.0f, WHITE);
+
+        bool isAllied = (localId != kNeutralPlayerId) && sim.GetPlayer(localId) &&
+                        sim.GetPlayer(localId)->isAlliedWith(p->id);
 
         Color nameCol =
-            p->isAlive ? (p->id == localId
-                              ? GOLD
-                              : (p->type == FactionType::Human ? Color{80, 220, 255, 255} : WHITE))
-                       : GRAY;
+            p->isAlive
+                ? (p->id == localId
+                       ? GOLD
+                       : (isAllied
+                              ? Color{100, 255, 100, 255}
+                              : (p->type == FactionType::Human ? Color{80, 220, 255, 255} : WHITE)))
+                : GRAY;
         std::string displayName =
             (p->type == FactionType::Human && p->id != localId) ? (p->name + " [P]") : p->name;
-        DrawTextCustom(displayName.c_str(), boardX + 30, rowY + 2, 12, nameCol);
+        if (displayName.length() > 12) {
+            displayName = displayName.substr(0, 11) + ".";
+        }
+        DrawTextCustom(displayName.c_str(), boardX + 40, rowY + 2, 11, nameCol);
+        if (isAllied) {
+            DrawTextCustom("ALLY", boardX + 40, rowY + 14, 8, Color{100, 255, 100, 255});
+        }
 
         float pct =
             (totalLand > 0) ? (static_cast<float>(p->tileCount) / totalLand * 100.0f) : 0.0f;
         char statsBuf[32];
         if (p->isAlive) {
-            std::snprintf(statsBuf, sizeof(statsBuf), "%.1f%% (%dk)", pct,
+            std::snprintf(statsBuf, sizeof(statsBuf), "%.0f%% %dk", pct,
                           static_cast<int>(p->troops / 1000.0));
         } else {
-            std::snprintf(statsBuf, sizeof(statsBuf), "ELIMINATED");
+            std::snprintf(statsBuf, sizeof(statsBuf), "DEAD");
         }
-        DrawTextCustom(statsBuf, boardX + 130, rowY + 2, 11,
+        DrawTextCustom(statsBuf, boardX + 140, rowY + 2, 10,
                        p->isAlive ? Color{180, 200, 220, 255} : RED);
 
-        rowY += 24;
+        // Territory progress bar
+        if (p->isAlive) {
+            Rectangle barBg = {boardX + 40, rowY + 16, 160, 3};
+            DrawRectangleRec(barBg, Color{30, 40, 55, 255});
+            Rectangle barFill = {boardX + 40, rowY + 16, 160 * (pct / 100.0f), 3};
+            DrawRectangleRec(barFill, p->color);
+        }
+
+        rowY += 26;
     }
 }
 
@@ -1192,7 +1394,10 @@ void Renderer::DrawMinimap(const Simulation& sim) {
         {minimapRect_.x + 1, minimapRect_.y + 1, minimapRect_.width - 2, minimapRect_.height - 2},
         1.0f, Color{30, 50, 80, 255});
 
-    Rectangle src = {0.0f, 0.0f, static_cast<float>(kMapWidth), static_cast<float>(kMapHeight)};
+    const WorldMap& mmMap = sim.GetMap();
+    int mmW = mmMap.GetWidth();
+    int mmH = mmMap.GetHeight();
+    Rectangle src = {0.0f, 0.0f, static_cast<float>(mmW), static_cast<float>(mmH)};
     DrawTexturePro(mapTexture_, src, minimapRect_, {0.0f, 0.0f}, 0.0f, WHITE);
 
     // Draw buildings as dots
@@ -1200,21 +1405,26 @@ void Renderer::DrawMinimap(const Simulation& sim) {
         if (!b.active) {
             continue;
         }
-        float mx = minimapRect_.x + (b.x / (float)kMapWidth) * minimapRect_.width;
-        float my = minimapRect_.y + (b.y / (float)kMapHeight) * minimapRect_.height;
+        float mx = minimapRect_.x + (b.x / (float)mmW) * minimapRect_.width;
+        float my = minimapRect_.y + (b.y / (float)mmH) * minimapRect_.height;
         const Player* p = sim.GetPlayer(b.ownerId);
         Color c = p ? p->color : GRAY;
         DrawCircle(mx, my, 2.0f, c);
     }
 
-    // Draw missiles as small dots
+    // Draw missiles as small dots with trajectory lines
     for (const auto& m : sim.GetMissiles()) {
         if (m.exploded || m.intercepted) {
             continue;
         }
-        float mx = minimapRect_.x + (m.currentPos.x / (float)kMapWidth) * minimapRect_.width;
-        float my = minimapRect_.y + (m.currentPos.y / (float)kMapHeight) * minimapRect_.height;
+        float mx = minimapRect_.x + (m.currentPos.x / (float)mmW) * minimapRect_.width;
+        float my = minimapRect_.y + (m.currentPos.y / (float)mmH) * minimapRect_.height;
         DrawCircle(mx, my, 1.5f, YELLOW);
+
+        // Draw trajectory line to target
+        float tx = minimapRect_.x + (m.targetPos.x / (float)mmW) * minimapRect_.width;
+        float ty = minimapRect_.y + (m.targetPos.y / (float)mmH) * minimapRect_.height;
+        DrawLineEx({mx, my}, {tx, ty}, 0.5f, Color{255, 255, 0, 80});
     }
 
     // Camera viewport rectangle
@@ -1222,10 +1432,10 @@ void Renderer::DrawMinimap(const Simulation& sim) {
     Vector2 botRightWorld = GetScreenToWorld2D(
         {static_cast<float>(screenWidth_), static_cast<float>(screenHeight_ - 68)}, camera_);
 
-    float minX = (topLeftWorld.x / (kMapWidth * kTileSize)) * minimapRect_.width;
-    float minY = (topLeftWorld.y / (kMapHeight * kTileSize)) * minimapRect_.height;
-    float maxX = (botRightWorld.x / (kMapWidth * kTileSize)) * minimapRect_.width;
-    float maxY = (botRightWorld.y / (kMapHeight * kTileSize)) * minimapRect_.height;
+    float minX = (topLeftWorld.x / (mmW * kTileSize)) * minimapRect_.width;
+    float minY = (topLeftWorld.y / (mmH * kTileSize)) * minimapRect_.height;
+    float maxX = (botRightWorld.x / (mmW * kTileSize)) * minimapRect_.width;
+    float maxY = (botRightWorld.y / (mmH * kTileSize)) * minimapRect_.height;
 
     Rectangle vpRect = {minimapRect_.x + minX, minimapRect_.y + minY, maxX - minX, maxY - minY};
     DrawRectangleLinesEx(vpRect, 1.5f, WHITE);
@@ -1296,6 +1506,35 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
 
     Vector2 mousePos = GetMousePosition();
 
+    // Map selection
+    DrawTextCustom("Map:", menuX + 30, menuY + 118, 12, Color{160, 200, 240, 255});
+    const char* mapNames[] = {"Procedural", "Europe", "World", "Pangaea", "Archipelago"};
+    Openfront::MapType mapTypes[] = {Openfront::MapType::Procedural, Openfront::MapType::Europe,
+                                     Openfront::MapType::World, Openfront::MapType::Pangaea,
+                                     Openfront::MapType::Archipelago};
+    for (int i = 0; i < 5; ++i) {
+        Rectangle mapBtn = {menuX + 80.0f + i * 78.0f, menuY + 116, 72, 22};
+        bool isSel = (selectedMapType_ == mapTypes[i]);
+        Color bg = isSel ? Color{40, 120, 220, 255} : Color{25, 35, 52, 255};
+        DrawRectangleRec(mapBtn, bg);
+        DrawRectangleLinesEx(mapBtn, 1.0f, isSel ? WHITE : Color{60, 80, 110, 255});
+        DrawTextCustom(mapNames[i], mapBtn.x + 4, mapBtn.y + 6, 9, WHITE);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, mapBtn)) {
+            PlaySoundEffect("ui_click");
+            selectedMapType_ = mapTypes[i];
+        }
+    }
+
+    // Random spawn toggle
+    Rectangle spawnToggle = {menuX + 40, menuY + 138, 20, 20};
+    DrawRectangleRec(spawnToggle, randomSpawn_ ? Color{40, 150, 90, 230} : Color{60, 60, 70, 230});
+    DrawRectangleLinesEx(spawnToggle, 1.0f, WHITE);
+    DrawTextCustom("Random Spawn", menuX + 65, menuY + 140, 12, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, spawnToggle)) {
+        PlaySoundEffect("ui_click");
+        randomSpawn_ = !randomSpawn_;
+    }
+
     struct MenuBtn {
         const char* label;
         Color col;
@@ -1307,7 +1546,7 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
                       {"JOIN MULTIPLAYER", Color{30, 80, 160, 230}, UIState::JoinLobby},
                       {"HOW TO PLAY", Color{40, 50, 75, 230}, UIState::HowToPlay}};
 
-    float startY = menuY + 130.0f;
+    float startY = menuY + 165.0f;
     for (int i = 0; i < 4; ++i) {
         Rectangle btn = {menuX + 40.0f, startY + i * 62.0f, menuW - 80.0f, 48.0f};
         bool hover = CheckCollisionPointRec(mousePos, btn);
@@ -1325,7 +1564,23 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hover) {
             PlaySoundEffect("ui_click");
             if (btns[i].next == UIState::InGame) {
-                net.StartSinglePlayer(sim, selectedMapType_);
+                int spawnX = -1, spawnY = -1;
+                if (!randomSpawn_) {
+                    // Spawn at center of map (estimate based on map type)
+                    int w = 160, h = 100;
+                    if (selectedMapType_ == Openfront::MapType::Europe ||
+                        selectedMapType_ == Openfront::MapType::Pangaea ||
+                        selectedMapType_ == Openfront::MapType::Archipelago) {
+                        w = 200;
+                        h = 125;
+                    } else if (selectedMapType_ == Openfront::MapType::World) {
+                        w = 280;
+                        h = 175;
+                    }
+                    spawnX = w / 2;
+                    spawnY = h / 2;
+                }
+                net.StartSinglePlayer(sim, selectedMapType_, spawnX, spawnY);
                 Init(sim, 1);
                 uiState_ = UIState::InGame;
             } else {
@@ -1334,8 +1589,24 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
         }
     }
 
+    // Load Game button
+    Rectangle loadBtn = {menuX + 40.0f, startY + 4 * 62.0f, (menuW - 80.0f) / 2 - 5, 40.0f};
+    bool hoverLoad = CheckCollisionPointRec(mousePos, loadBtn);
+    DrawRectangleRec(loadBtn, hoverLoad ? Color{40, 100, 180, 240} : Color{30, 75, 140, 220});
+    DrawRectangleLinesEx(loadBtn, 1.0f, hoverLoad ? WHITE : Color{60, 140, 220, 255});
+    int lw = MeasureText("LOAD GAME", 14);
+    DrawTextCustom("LOAD GAME", loadBtn.x + (loadBtn.width - lw) * 0.5f, loadBtn.y + 13, 14, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverLoad) {
+        PlaySoundEffect("ui_click");
+        if (sim.LoadGame("savegame.txt")) {
+            Init(sim, 1);
+            uiState_ = UIState::InGame;
+        }
+    }
+
     // Quit button
-    Rectangle quitBtn = {menuX + 40.0f, startY + 4 * 62.0f, menuW - 80.0f, 40.0f};
+    Rectangle quitBtn = {menuX + 40.0f + (menuW - 80.0f) / 2 + 5, startY + 4 * 62.0f,
+                         (menuW - 80.0f) / 2 - 5, 40.0f};
     bool hoverQuit = CheckCollisionPointRec(mousePos, quitBtn);
     DrawRectangleRec(quitBtn, hoverQuit ? Color{180, 40, 50, 220} : Color{30, 35, 45, 200});
     DrawRectangleLinesEx(quitBtn, 1.0f, hoverQuit ? WHITE : Color{60, 60, 70, 255});
@@ -1808,7 +2079,32 @@ void Renderer::DrawPauseMenu(Simulation& sim, NetworkManager& net) {
         uiState_ = UIState::InGame;
     }
 
-    Rectangle mmBtn = {menuX + 30, menuY + 185, menuW - 60, 42};
+    Rectangle saveBtn = {menuX + 30, menuY + 185, (menuW - 60) / 2 - 5, 42};
+    bool hoverSave = CheckCollisionPointRec(mousePos, saveBtn);
+    DrawRectangleRec(saveBtn, hoverSave ? Color{40, 100, 180, 240} : Color{30, 75, 140, 220});
+    DrawRectangleLinesEx(saveBtn, 1.0f, hoverSave ? WHITE : Color{60, 140, 220, 255});
+    DrawTextCustom("SAVE", saveBtn.x + 25, saveBtn.y + 13, 15, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverSave) {
+        PlaySoundEffect("ui_click");
+        if (sim.SaveGame("savegame.txt")) {
+            connectionStatusText_ = "Game Saved!";
+        }
+    }
+
+    Rectangle loadBtn = {menuX + 30 + (menuW - 60) / 2 + 5, menuY + 185, (menuW - 60) / 2 - 5, 42};
+    bool hoverLoad = CheckCollisionPointRec(mousePos, loadBtn);
+    DrawRectangleRec(loadBtn, hoverLoad ? Color{40, 100, 180, 240} : Color{30, 75, 140, 220});
+    DrawRectangleLinesEx(loadBtn, 1.0f, hoverLoad ? WHITE : Color{60, 140, 220, 255});
+    DrawTextCustom("LOAD", loadBtn.x + 25, loadBtn.y + 13, 15, WHITE);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverLoad) {
+        PlaySoundEffect("ui_click");
+        if (sim.LoadGame("savegame.txt")) {
+            Init(sim, 1);
+            uiState_ = UIState::InGame;
+        }
+    }
+
+    Rectangle mmBtn = {menuX + 30, menuY + 240, menuW - 60, 42};
     bool hoverMM = CheckCollisionPointRec(mousePos, mmBtn);
     DrawRectangleRec(mmBtn, hoverMM ? Color{180, 40, 50, 240} : Color{130, 30, 40, 220});
     DrawRectangleLinesEx(mmBtn, 1.0f, hoverMM ? WHITE : Color{220, 60, 70, 255});

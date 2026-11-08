@@ -10,19 +10,19 @@ NetworkManager::~NetworkManager() {
     Stop();
 }
 
-bool NetworkManager::StartSinglePlayer(Simulation& sim, MapType mapType) {
+bool NetworkManager::StartSinglePlayer(Simulation& sim, MapType mapType, int spawnX, int spawnY) {
     Stop();
     mode_ = GameMode::SinglePlayer;
-    sim.Init(4, 4, 1337, mapType);
+    sim.Init(4, 4, 1337, mapType, spawnX, spawnY);
     turnAccumulator_ = 0.0f;
     return true;
 }
 
 bool NetworkManager::StartHost(Simulation& sim, uint16_t port, const std::string& hostName,
-                               MapType mapType) {
+                               MapType mapType, int spawnX, int spawnY) {
     Stop();
     uint32_t seed = 4242;
-    sim.Init(4, 4, seed, mapType);
+    sim.Init(4, 4, seed, mapType, spawnX, spawnY);
     sim.AssignPlayerSlot(1, hostName, FactionType::Human);
 
     server_.SetHostName(hostName);
