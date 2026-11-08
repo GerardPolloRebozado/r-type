@@ -52,6 +52,7 @@ Application::~Application() {
     if (m_Registry.HasResource<VirtualResolution>()) {
         m_Registry.GetResource<VirtualResolution>().Unload();
     }
+    m_Registry.Shutdown();
     if (!m_Config.headless) {
         CloseWindow();
     }

@@ -292,13 +292,8 @@ if (WIN32)
     )
 endif ()
 target_link_libraries(Engine PUBLIC glaze::glaze)
-find_package(ZLIB)
-if (ZLIB_FOUND)
-    # On macOS, ZLIB's include dir can be the SDK's usr/include. Passed as
-    # -isystem it breaks libc++'s headers; zlib.h is found without it.
-    if (APPLE AND ZLIB_INCLUDE_DIRS MATCHES "\\.sdk/usr/include$")
-        set_target_properties(ZLIB::ZLIB PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
-    endif()
-    target_link_libraries(Engine PUBLIC ZLIB::ZLIB)
-    target_compile_definitions(Engine PUBLIC RTYPE_HAVE_ZLIB=1)
-endif()
+# zlib is provided by CPM (madler/zlib) and compiled from source, so end users
+# don't need to install zlib on their system - only the game binary.
+# Link the static target so zlib is embedded in the binary (no external DLL/.so needed at runtime).
+target_link_libraries(Engine PUBLIC zlibstatic)
+target_compile_definitions(Engine PUBLIC RTYPE_HAVE_ZLIB=1)
