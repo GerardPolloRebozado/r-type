@@ -17,10 +17,18 @@ end
 if _G.MP_PORT == nil then
     _G.MP_PORT = tonumber(os.getenv("RP_TYPE_PORT")) or 3000
 end
-if _G.MP_CONNECTED == nil then _G.MP_CONNECTED = false end
-if _G.MP_IS_SERVER == nil then _G.MP_IS_SERVER = false end
-if _G.MP_NET_HANDLER == nil then _G.MP_NET_HANDLER = false end
-if _G.MP_CONN_HANDLER == nil then _G.MP_CONN_HANDLER = false end
+if _G.MP_CONNECTED == nil then
+    _G.MP_CONNECTED = false
+end
+if _G.MP_IS_SERVER == nil then
+    _G.MP_IS_SERVER = false
+end
+if _G.MP_NET_HANDLER == nil then
+    _G.MP_NET_HANDLER = false
+end
+if _G.MP_CONN_HANDLER == nil then
+    _G.MP_CONN_HANDLER = false
+end
 
 -- Helper: update the status text entity
 local function setStatus(text)
@@ -132,9 +140,8 @@ function Multiplayer:onPlayClicked()
         if Net.isServer() then
             Net.broadcast("start_game", {}, true, 0)
             log.info("[Multiplayer] Broadcasting START_GAME to all clients")
-            Scene.load("level_selector.scene")
         end
-        -- Client: the server's start_game packet will trigger Scene.load
+        Scene.load("level_selector.scene")
     else
         Scene.load("level_selector.scene")
     end
