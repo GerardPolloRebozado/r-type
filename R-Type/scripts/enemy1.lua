@@ -136,12 +136,33 @@ function Enemy:onCreate(entity)
 end
 
 function Enemy:onUpdate(entity, dt)
-    if not shouldSimulate(entity) then
+    if not dt or dt <= 0 then
+        dt = 1.0 / 60.0
+    end
+
+    -- Always simulate explosion so it plays and despawns on all machines,
+    -- even on networked clients where shouldSimulate() is false for
+    -- replicated entities.
+    if self.exploding then
+        self.elapsed = self.elapsed + dt
+
+        while self.elapsed >= FRAME_DURATION do
+            self.elapsed = self.elapsed - FRAME_DURATION
+            self.frame = self.frame + 1
+
+            if self.frame > #EXPLOSION then
+                Entity.queueDestroy(entity)
+                return
+            end
+
+            Component.setSpritePath(entity, EXPLOSION[self.frame])
+        end
+
         return
     end
 
-    if not dt or dt <= 0 then
-        dt = 1.0 / 60.0
+    if not shouldSimulate(entity) then
+        return
     end
 
     -- Despawn enemy when it goes past the right edge of the screen
