@@ -29,9 +29,9 @@ get_filename_component(CPM_DOWNLOAD_LOCATION ${CPM_DOWNLOAD_LOCATION} ABSOLUTE)
 if (NOT EXISTS "${CPM_DOWNLOAD_LOCATION}")
     message(STATUS "Downloading CPM.cmake v${CPM_DOWNLOAD_VERSION}...")
     file(DOWNLOAD
-        "https://raw.githubusercontent.com/cpm-cmake/CPM.cmake/v${CPM_DOWNLOAD_VERSION}/cmake/CPM.cmake"
-        "${CPM_DOWNLOAD_LOCATION}"
-        EXPECTED_HASH SHA256=${CPM_HASH_SUM}
+            "https://raw.githubusercontent.com/cpm-cmake/CPM.cmake/v${CPM_DOWNLOAD_VERSION}/cmake/CPM.cmake"
+            "${CPM_DOWNLOAD_LOCATION}"
+            EXPECTED_HASH SHA256=${CPM_HASH_SUM}
     )
 endif ()
 include(${CPM_DOWNLOAD_LOCATION})
@@ -156,13 +156,11 @@ add_subdirectory(Engine)
 add_subdirectory(UI)
 add_subdirectory(Serialization)
 add_subdirectory(Plugins)
-
-if (NOT EDITOR_BUILD)
-    add_subdirectory(Editor)
-    add_subdirectory(Tools)
-    add_subdirectory(Games)
-    add_subdirectory(Tests)
-endif ()
+add_subdirectory(Editor)
+add_subdirectory(Tools)
+add_subdirectory(Games)
+add_subdirectory(Tests)
+add_subdirectory(Openfront)
 
 if (EDITOR_BUILD)
     if (DEFINED GAME_PROJECT_DIR AND EXISTS "${GAME_PROJECT_DIR}/CMakeLists.txt")
@@ -172,6 +170,3 @@ if (EDITOR_BUILD)
     endif ()
 endif ()
 
-if (OPENFRONT_BUILD)
-    add_subdirectory(Openfront)
-endif ()
