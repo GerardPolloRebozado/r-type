@@ -15,15 +15,16 @@
 
 namespace Openfront {
 
+namespace {
+constexpr int kTileBlocks = WorldMap::kDirtyBlock;
+}
+
 Renderer::Renderer(int screenWidth, int screenHeight)
     : screenWidth_(screenWidth), screenHeight_(screenHeight) {
     camera_.offset = {screenWidth_ * 0.5f, screenHeight_ * 0.5f};
     camera_.target = {kMapWidth * kTileSize * 0.5f, kMapHeight * kTileSize * 0.5f};
     camera_.rotation = 0.0f;
     camera_.zoom = 1.0f;
-
-    minimapRect_ = {static_cast<float>(screenWidth_ - 260), static_cast<float>(screenHeight_ - 180),
-                    240.0f, 150.0f};
 }
 
 Renderer::~Renderer() {
@@ -37,7 +38,35 @@ Renderer::~Renderer() {
         delete[] pixelBuffer_;
         pixelBuffer_ = nullptr;
     }
+    if (blockBuffer_ != nullptr) {
+        delete[] blockBuffer_;
+        blockBuffer_ = nullptr;
+    }
 }
+
+namespace {
+std::string FormatBigCount(double v) {
+    char buf[32];
+    if (v < 1000.0) {
+        std::snprintf(buf, sizeof(buf), "%d", static_cast<int>(v));
+    } else if (v < 1.0e6) {
+        double k = v / 1000.0;
+        if (k < 100.0) {
+            std::snprintf(buf, sizeof(buf), "%.1fk", k);
+        } else {
+            std::snprintf(buf, sizeof(buf), "%dk", static_cast<int>(k));
+        }
+    } else {
+        double m = v / 1.0e6;
+        if (m < 100.0) {
+            std::snprintf(buf, sizeof(buf), "%.1fM", m);
+        } else {
+            std::snprintf(buf, sizeof(buf), "%dM", static_cast<int>(m));
+        }
+    }
+    return buf;
+}
+} // namespace
 
 void Renderer::PlaySoundEffect(const std::string& name) {
     if (!assetManager_) {
@@ -77,14 +106,6 @@ void Renderer::DrawTitleCustom(const char* text, int x, int y, int size, Color c
 void Renderer::Init(Simulation& sim, PlayerId localPlayerId) {
     localPlayerId_ = localPlayerId;
     gameOverSoundPlayed_ = false;
-    // Allocate pixel buffer based on actual map size (may differ from default)
-    // We'll allocate lazily in UpdateMapTexture if needed
-    if (!pixelBuffer_) {
-        pixelBuffer_ = new Color[280 * 175]; // Max map size
-        mapImage_ = GenImageColor(kMapWidth, kMapHeight, BLACK);
-        mapTexture_ = LoadTextureFromImage(mapImage_);
-        SetTextureFilter(mapTexture_, TEXTURE_FILTER_POINT);
-    }
 
     // Load terrain textures
     if (terrainTextures_[0].id == 0) {
@@ -117,6 +138,10 @@ void Renderer::Init(Simulation& sim, PlayerId localPlayerId) {
         }
     }
 
+    if (tradeTrain_.id == 0) {
+        tradeTrain_ = LoadTexture("Openfront/assets/trade_train.png");
+    }
+
     // Load terrain images for texture sampling
     const char* terrainPaths[] = {
         "Openfront/assets/terrain_plains.png",
@@ -139,30 +164,13 @@ void Renderer::Init(Simulation& sim, PlayerId localPlayerId) {
 
 void Renderer::CenterOnPlayer(const Simulation& sim, PlayerId pid) {
     const WorldMap& map = sim.GetMap();
-    for (int y = 0; y < map.GetHeight(); ++y) {
-        for (int x = 0; x < map.GetWidth(); ++x) {
-            const Tile& t = map.GetTile(x, y);
-            if (t.ownerId == pid && t.building == BuildingType::City) {
-                CenterCameraOn(x, y);
-                // Auto-zoom to fit player's territory with margin
-                float mapW = map.GetWidth() * kTileSize;
-                float mapH = map.GetHeight() * kTileSize;
-                float zoomX = (float)screenWidth_ / (mapW * 0.4f);
-                float zoomY = (float)screenHeight_ / (mapH * 0.4f);
-                camera_.zoom = std::min(zoomX, zoomY);
-                camera_.zoom = std::clamp(camera_.zoom, 0.25f, 2.0f);
-                return;
-            }
-        }
-    }
-    for (int y = 0; y < map.GetHeight(); ++y) {
-        for (int x = 0; x < map.GetWidth(); ++x) {
-            if (map.GetTile(x, y).ownerId == pid) {
-                CenterCameraOn(x, y);
-                return;
-            }
-        }
-    }
+    float mapW = map.GetWidth() * kTileSize;
+    float mapH = map.GetHeight() * kTileSize;
+    camera_.target = {mapW * 0.5f, mapH * 0.5f};
+    float fitW = static_cast<float>(screenWidth_);
+    float fitH = static_cast<float>(screenHeight_) - 130.0f;
+    camera_.zoom = std::min(fitW / mapW, fitH / mapH);
+    camera_.zoom = std::clamp(camera_.zoom, 0.02f, 2.0f);
 }
 
 void Renderer::CenterCameraOn(int tileX, int tileY) {
@@ -184,8 +192,6 @@ Vector2 Renderer::TileToScreen(int x, int y) const {
 void Renderer::Update(Simulation& sim, NetworkManager& net, float dt) {
     screenWidth_ = GetScreenWidth();
     screenHeight_ = GetScreenHeight();
-    minimapRect_ = {static_cast<float>(screenWidth_ - 260), static_cast<float>(screenHeight_ - 180),
-                    240.0f, 150.0f};
 
     if (sim.GetExplosions().size() > prevExplosionsCount_) {
         PlaySoundEffect("explosion");
@@ -292,14 +298,17 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         return;
     }
     if (uiState_ == UIState::StartMenu) {
-        // In start menu, slowly rotate or pan camera across the living map!
-        camera_.target.x += 12.0f * dt;
-        camera_.target.y += 6.0f * dt;
-        if (camera_.target.x > kMapWidth * kTileSize - 300) {
-            camera_.target.x = 300;
+        float mapWorldW = sim.GetMap().GetWidth() * kTileSize;
+        float mapWorldH = sim.GetMap().GetHeight() * kTileSize;
+        camera_.zoom = std::min(static_cast<float>(screenWidth_) / mapWorldW,
+                                static_cast<float>(screenHeight_) / mapWorldH);
+        camera_.target.x += 45.0f * dt * camera_.zoom * 8.0f;
+        camera_.target.y += 25.0f * dt * camera_.zoom * 8.0f;
+        if (camera_.target.x > mapWorldW) {
+            camera_.target.x = 0;
         }
-        if (camera_.target.y > kMapHeight * kTileSize - 300) {
-            camera_.target.y = 300;
+        if (camera_.target.y > mapWorldH) {
+            camera_.target.y = 0;
         }
         return;
     }
@@ -354,20 +363,10 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
     float wheel = GetMouseWheelMove();
     if (wheel != 0.0f) {
         Vector2 mouseWorldBefore = GetScreenToWorld2D(mousePos, camera_);
-        camera_.zoom = std::clamp(camera_.zoom + wheel * 0.15f * camera_.zoom, 0.2f, 4.0f);
+        camera_.zoom = std::clamp(camera_.zoom + wheel * 0.15f * camera_.zoom, 0.02f, 6.0f);
         Vector2 mouseWorldAfter = GetScreenToWorld2D(mousePos, camera_);
         camera_.target.x += (mouseWorldBefore.x - mouseWorldAfter.x);
         camera_.target.y += (mouseWorldBefore.y - mouseWorldAfter.y);
-    }
-
-    if (CheckCollisionPointRec(mousePos, minimapRect_)) {
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-            float normX = (mousePos.x - minimapRect_.x) / minimapRect_.width;
-            float normY = (mousePos.y - minimapRect_.y) / minimapRect_.height;
-            camera_.target.x = normX * kMapWidth * kTileSize;
-            camera_.target.y = normY * kMapHeight * kTileSize;
-        }
-        return;
     }
 
     if (mousePos.y < 50.0f || mousePos.y > screenHeight_ - 80.0f) {
@@ -434,43 +433,7 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         }
     }
 
-    // Alliance proposal (A key)
-    if (controller_ && controller_->isActionPressed("PROPOSE_ALLIANCE")) {
-        Player* localP = sim.GetPlayer(localId);
-        if (localP) {
-            // Find strongest non-allied rival
-            PlayerId bestRival = kNeutralPlayerId;
-            double maxTroops = 0;
-            for (const auto& p : sim.GetPlayers()) {
-                if (p.id == localId || !p.isAlive) {
-                    continue;
-                }
-                if (localP->isAlliedWith(p.id)) {
-                    continue;
-                }
-                if (p.troops > maxTroops) {
-                    maxTroops = p.troops;
-                    bestRival = p.id;
-                }
-            }
-            if (bestRival != kNeutralPlayerId) {
-                sim.ProposeAlliance(localId, bestRival);
-                PlaySoundEffect("ui_click");
-            }
-        }
-    }
-
     // Accept pending alliance proposals (Enter key when proposals exist)
-    Player* localP = sim.GetPlayer(localId);
-    if (localP && !localP->pendingAllianceProposals.empty()) {
-        if (controller_ && controller_->isActionPressed("CONFIRM")) {
-            for (PlayerId proposer : localP->pendingAllianceProposals) {
-                sim.AcceptAlliance(localId, proposer);
-                PlaySoundEffect("ui_click");
-            }
-            localP->pendingAllianceProposals.clear();
-        }
-    }
 
     // Reinforce front on click
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -547,6 +510,97 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
     }
 }
 
+void Renderer::TileColor(const Simulation& sim, const WorldMap& map, int x, int y, const Tile& t,
+                         Color& out) {
+    if (t.terrain == TerrainType::Water) {
+        out = Color{30, 84, 152, 255};
+        return;
+    }
+
+    if (t.ownerId != kNeutralPlayerId) {
+        const Player* p = sim.GetPlayer(t.ownerId);
+        Color base = p ? p->color : GRAY;
+
+        if (t.terrain == TerrainType::Highlands) {
+            base.r = static_cast<unsigned char>(std::min(255, base.r + 25));
+            base.g = static_cast<unsigned char>(std::min(255, base.g + 25));
+            base.b = static_cast<unsigned char>(std::min(255, base.b + 25));
+        } else if (t.terrain == TerrainType::Mountains) {
+            base.r = static_cast<unsigned char>((base.r + 140) / 2);
+            base.g = static_cast<unsigned char>((base.g + 140) / 2);
+            base.b = static_cast<unsigned char>((base.b + 140) / 2);
+        }
+
+        if (t.falloutTimer > 0.0f) {
+            base = Color{75, 45, 80, 255};
+        }
+
+        if (t.isBorder) {
+            base.r = static_cast<unsigned char>((base.r * 7) / 10);
+            base.g = static_cast<unsigned char>((base.g * 7) / 10);
+            base.b = static_cast<unsigned char>((base.b * 7) / 10);
+        }
+
+        if (t.captureFlashTimer > 0.0f) {
+            float flash = t.captureFlashTimer / 0.5f;
+            float ripple = std::sin(flash * 3.14159f * 2.0f) * 0.3f + 0.7f;
+            base.r = static_cast<unsigned char>(
+                std::min(255, base.r + (int)((255 - base.r) * flash * ripple)));
+            base.g = static_cast<unsigned char>(
+                std::min(255, base.g + (int)((255 - base.g) * flash * ripple)));
+            base.b = static_cast<unsigned char>(
+                std::min(255, base.b + (int)((230 - base.b) * flash * ripple)));
+        }
+
+        out = base;
+        return;
+    }
+
+    if (t.falloutTimer > 0.0f) {
+        out = Color{60, 50, 65, 255};
+    } else if (t.terrain == TerrainType::Plains) {
+        if (terrainImages_[0].data != nullptr) {
+            int tx = (x * 7) % terrainImages_[0].width;
+            int ty = (y * 13) % terrainImages_[0].height;
+            Color tc = GetImageColor(terrainImages_[0], tx, ty);
+            out = Color{tc.r, tc.g, tc.b, 255};
+        } else {
+            int var = (x * 7 + y * 13) % 15 - 7;
+            out =
+                Color{static_cast<unsigned char>(135 + var), static_cast<unsigned char>(148 + var),
+                      static_cast<unsigned char>(122 + var), 255};
+        }
+    } else if (t.terrain == TerrainType::Highlands) {
+        if (terrainImages_[1].data != nullptr) {
+            int tx = (x * 11) % terrainImages_[1].width;
+            int ty = (y * 7) % terrainImages_[1].height;
+            Color tc = GetImageColor(terrainImages_[1], tx, ty);
+            out = Color{tc.r, tc.g, tc.b, 255};
+        } else {
+            int var = (x * 11 + y * 7) % 20 - 10;
+            out =
+                Color{static_cast<unsigned char>(160 + var), static_cast<unsigned char>(142 + var),
+                      static_cast<unsigned char>(108 + var), 255};
+        }
+    } else {
+        if (terrainImages_[2].data != nullptr) {
+            int tx = (x * 13) % terrainImages_[2].width;
+            int ty = (y * 11) % terrainImages_[2].height;
+            Color tc = GetImageColor(terrainImages_[2], tx, ty);
+            out = Color{tc.r, tc.g, tc.b, 255};
+        } else {
+            int var = (x * 13 + y * 11) % 25 - 12;
+            out =
+                Color{static_cast<unsigned char>(120 + var), static_cast<unsigned char>(122 + var),
+                      static_cast<unsigned char>(128 + var), 255};
+        }
+    }
+
+    if (t.captureFlashTimer > 0.0f) {
+        out = Color{255, 255, 240, 255};
+    }
+}
+
 void Renderer::UpdateMapTexture(const Simulation& sim) {
     const WorldMap& map = sim.GetMap();
     int width = map.GetWidth();
@@ -563,123 +617,58 @@ void Renderer::UpdateMapTexture(const Simulation& sim) {
         mapImage_ = GenImageColor(width, height, BLACK);
         mapTexture_ = LoadTextureFromImage(mapImage_);
         SetTextureFilter(mapTexture_, TEXTURE_FILTER_POINT);
+        const_cast<WorldMap&>(map).MarkAllDirty();
     }
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            const Tile& t = map.GetTile(x, y);
-            int idx = y * width + x;
-            Color c;
+    size_t tileCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+    if (pixelBuffer_ == nullptr || pixelBufferSize_ < tileCount) {
+        delete[] pixelBuffer_;
+        pixelBuffer_ = new Color[tileCount];
+        pixelBufferSize_ = tileCount;
+    }
+    if (blockBuffer_ == nullptr || blockBufferSize_ < kTileBlocks * kTileBlocks) {
+        delete[] blockBuffer_;
+        blockBuffer_ = new Color[kTileBlocks * kTileBlocks];
+        blockBufferSize_ = kTileBlocks * kTileBlocks;
+    }
 
-            if (t.terrain == TerrainType::Water) {
-                if (terrainImages_[3].data != nullptr) {
-                    int tx = (x * 5) % terrainImages_[3].width;
-                    int ty = (y * 7) % terrainImages_[3].height;
-                    Color tc = GetImageColor(terrainImages_[3], tx, ty);
-                    c = Color{tc.r, tc.g, tc.b, 255};
-                } else {
-                    c = map.IsCoastal(x, y) ? Color{28, 58, 98, 255} : Color{16, 36, 68, 255};
-                }
-                // Show naval territory ownership
-                if (t.ownerId != kNeutralPlayerId) {
-                    const Player* p = sim.GetPlayer(t.ownerId);
-                    if (p) {
-                        c.r = static_cast<unsigned char>((c.r + p->color.r) / 2);
-                        c.g = static_cast<unsigned char>((c.g + p->color.g) / 2);
-                        c.b = static_cast<unsigned char>((c.b + p->color.b) / 2);
-                    }
-                }
-            } else if (t.ownerId != kNeutralPlayerId) {
-                const Player* p = sim.GetPlayer(t.ownerId);
-                Color base = p ? p->color : GRAY;
-
-                if (t.terrain == TerrainType::Highlands) {
-                    base.r = static_cast<unsigned char>(std::min(255, base.r + 25));
-                    base.g = static_cast<unsigned char>(std::min(255, base.g + 25));
-                    base.b = static_cast<unsigned char>(std::min(255, base.b + 25));
-                } else if (t.terrain == TerrainType::Mountains) {
-                    base.r = static_cast<unsigned char>((base.r + 140) / 2);
-                    base.g = static_cast<unsigned char>((base.g + 140) / 2);
-                    base.b = static_cast<unsigned char>((base.b + 140) / 2);
-                }
-
-                if (t.falloutTimer > 0.0f) {
-                    base = Color{75, 45, 80, 255};
-                }
-
-                if (t.isBorder) {
-                    base.r = static_cast<unsigned char>((base.r * 7) / 10);
-                    base.g = static_cast<unsigned char>((base.g * 7) / 10);
-                    base.b = static_cast<unsigned char>((base.b * 7) / 10);
-                }
-
-                // SATISFYING TILE CAPTURE FLASH WAVE!
-                if (t.captureFlashTimer > 0.0f) {
-                    float flash = t.captureFlashTimer / 0.5f;
-                    // Stronger flash with ripple effect
-                    float ripple = std::sin(flash * 3.14159f * 2.0f) * 0.3f + 0.7f;
-                    base.r = static_cast<unsigned char>(
-                        std::min(255, base.r + (int)((255 - base.r) * flash * ripple)));
-                    base.g = static_cast<unsigned char>(
-                        std::min(255, base.g + (int)((255 - base.g) * flash * ripple)));
-                    base.b = static_cast<unsigned char>(
-                        std::min(255, base.b + (int)((230 - base.b) * flash * ripple)));
-                }
-
-                c = base;
-            } else {
-                if (t.falloutTimer > 0.0f) {
-                    c = Color{60, 50, 65, 255};
-                } else if (t.terrain == TerrainType::Plains) {
-                    if (terrainImages_[0].data != nullptr) {
-                        int tx = (x * 7) % terrainImages_[0].width;
-                        int ty = (y * 13) % terrainImages_[0].height;
-                        Color tc = GetImageColor(terrainImages_[0], tx, ty);
-                        c = Color{tc.r, tc.g, tc.b, 255};
-                    } else {
-                        int var = (x * 7 + y * 13) % 15 - 7;
-                        c = Color{static_cast<unsigned char>(135 + var),
-                                  static_cast<unsigned char>(148 + var),
-                                  static_cast<unsigned char>(122 + var), 255};
-                    }
-                } else if (t.terrain == TerrainType::Highlands) {
-                    if (terrainImages_[1].data != nullptr) {
-                        int tx = (x * 11) % terrainImages_[1].width;
-                        int ty = (y * 7) % terrainImages_[1].height;
-                        Color tc = GetImageColor(terrainImages_[1], tx, ty);
-                        c = Color{tc.r, tc.g, tc.b, 255};
-                    } else {
-                        int var = (x * 11 + y * 7) % 20 - 10;
-                        c = Color{static_cast<unsigned char>(160 + var),
-                                  static_cast<unsigned char>(142 + var),
-                                  static_cast<unsigned char>(108 + var), 255};
-                    }
-                } else {
-                    if (terrainImages_[2].data != nullptr) {
-                        int tx = (x * 13) % terrainImages_[2].width;
-                        int ty = (y * 11) % terrainImages_[2].height;
-                        Color tc = GetImageColor(terrainImages_[2], tx, ty);
-                        c = Color{tc.r, tc.g, tc.b, 255};
-                    } else {
-                        int var = (x * 13 + y * 11) % 25 - 12;
-                        c = Color{static_cast<unsigned char>(120 + var),
-                                  static_cast<unsigned char>(122 + var),
-                                  static_cast<unsigned char>(128 + var), 255};
-                    }
-                }
-
-                if (t.captureFlashTimer > 0.0f) {
-                    c = Color{255, 255, 240, 255};
-                }
+    if (map.IsAllDirty()) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                TileColor(sim, map, x, y, map.GetTile(x, y), pixelBuffer_[y * width + x]);
             }
-
-            pixelBuffer_[idx] = c;
         }
+        UpdateTexture(mapTexture_, pixelBuffer_);
+        const_cast<WorldMap&>(map).ClearDirtyBlocks();
+        return;
     }
 
-    UpdateTexture(mapTexture_, pixelBuffer_);
-}
+    if (map.GetDirtyBlocks().empty()) {
+        return;
+    }
 
+    int blockCols = map.GetBlockCols();
+    for (uint32_t id : map.GetDirtyBlocks()) {
+        int bx = static_cast<int>(id % blockCols) * kTileBlocks;
+        int by = static_cast<int>(id / blockCols) * kTileBlocks;
+        int bw = std::min(kTileBlocks, width - bx);
+        int bh = std::min(kTileBlocks, height - by);
+        for (int yy = 0; yy < bh; ++yy) {
+            int mapY = by + yy;
+            for (int xx = 0; xx < bw; ++xx) {
+                int mapX = bx + xx;
+                Color c;
+                TileColor(sim, map, mapX, mapY, map.GetTile(mapX, mapY), c);
+                pixelBuffer_[mapY * width + mapX] = c;
+                blockBuffer_[yy * kTileBlocks + xx] = c;
+            }
+        }
+        Rectangle rec = {static_cast<float>(bx), static_cast<float>(by), static_cast<float>(bw),
+                         static_cast<float>(bh)};
+        UpdateTextureRec(mapTexture_, rec, blockBuffer_);
+    }
+    const_cast<WorldMap&>(map).ClearDirtyBlocks();
+}
 void Renderer::Render(Simulation& sim, const NetworkManager& net) {
     BeginDrawing();
     ClearBackground(Color{10, 15, 25, 255});
@@ -734,8 +723,10 @@ void Renderer::DrawCustomCursor() {
 }
 
 void Renderer::DrawWorld(Simulation& sim) {
-    Rectangle src = {0.0f, 0.0f, static_cast<float>(kMapWidth), static_cast<float>(kMapHeight)};
-    Rectangle dst = {0.0f, 0.0f, kMapWidth * kTileSize, kMapHeight * kTileSize};
+    const WorldMap& map = sim.GetMap();
+    Rectangle src = {0.0f, 0.0f, static_cast<float>(mapTexture_.width),
+                     static_cast<float>(mapTexture_.height)};
+    Rectangle dst = {0.0f, 0.0f, map.GetWidth() * kTileSize, map.GetHeight() * kTileSize};
     DrawTexturePro(mapTexture_, src, dst, {0.0f, 0.0f}, 0.0f, WHITE);
 
     DrawBuildings(sim);
@@ -769,12 +760,6 @@ void Renderer::DrawBuildings(const Simulation& sim) {
         float bx = (b.x + 0.5f) * kTileSize;
         float by = (b.y + 0.5f) * kTileSize;
 
-        // Building placement animation (scale-in)
-        float scale = 1.0f;
-        if (b.timer < 0.5f) {
-            scale = 0.3f + 0.7f * (b.timer / 0.5f);
-        }
-
         // Draw building icon if available
         int iconIdx = -1;
         switch (b.type) {
@@ -801,7 +786,7 @@ void Renderer::DrawBuildings(const Simulation& sim) {
         }
 
         if (iconIdx >= 0 && buildingIcons_[iconIdx].id != 0) {
-            float iconSize = 20.0f * scale;
+            float iconSize = 28.0f;
             DrawTexturePro(
                 buildingIcons_[iconIdx],
                 {0, 0, (float)buildingIcons_[iconIdx].width, (float)buildingIcons_[iconIdx].height},
@@ -897,10 +882,25 @@ void Renderer::DrawTradeRoutes(const Simulation& sim) {
                                                               : Color{200, 180, 100, 120};
             DrawLineEx({bx, by}, target, 1.5f, routeColor);
 
-            // Animated dot along route
-            float t = std::fmod(time * 0.5f, 1.0f);
-            Vector2 dot = {bx + (target.x - bx) * t, by + (target.y - by) * t};
-            DrawCircle(dot.x, dot.y, 2.0f, routeColor);
+            if (tradeTrain_.id != 0) {
+                float t = std::fmod(time * 0.35f, 1.0f);
+                Vector2 pos = {bx + (target.x - bx) * t, by + (target.y - by) * t};
+                Vector2 dir = {target.x - bx, target.y - by};
+                float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+                float angle = len > 0.5f ? atan2f(dir.y, dir.x) : 0.0f;
+                float size = 7.0f;
+                bool flip = dir.x > 0.15f;
+                Rectangle src = flip ? Rectangle{0, 0, -static_cast<float>(tradeTrain_.width),
+                                                 static_cast<float>(tradeTrain_.height)}
+                                     : Rectangle{0, 0, static_cast<float>(tradeTrain_.width),
+                                                 static_cast<float>(tradeTrain_.height)};
+                DrawTexturePro(tradeTrain_, src, {pos.x - size / 2, pos.y - size / 2, size, size},
+                               {size / 2, size / 2}, angle * RAD2DEG, WHITE);
+            } else {
+                float t = std::fmod(time * 0.5f, 1.0f);
+                Vector2 dot = {bx + (target.x - bx) * t, by + (target.y - by) * t};
+                DrawCircle(dot.x, dot.y, 2.0f, routeColor);
+            }
         }
     }
 }
@@ -954,27 +954,27 @@ void Renderer::DrawFrontLines(const Simulation& sim) {
 
         DrawLineEx(front.frontCenter, targetWorld, 2.0f, Color{attCol.r, attCol.g, attCol.b, 120});
 
-        // Check if naval (target is water)
-        const Tile& targetTile = sim.GetMap().GetTile(front.targetX, front.targetY);
-        bool isNaval = (targetTile.terrain == TerrainType::Water);
+        bool isNaval = front.naval;
 
         if (isNaval) {
-            // Draw ship icon
             Vector2 center = front.frontCenter;
-            float shipSize = 8.0f;
-            // Ship body (triangle pointing toward target)
+            float shipSize = 14.0f;
             Vector2 dir = {targetWorld.x - center.x, targetWorld.y - center.y};
             float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
             if (len > 0) {
                 dir.x /= len;
                 dir.y /= len;
             }
+            DrawLineEx({center.x - dir.x * shipSize, center.y - dir.y * shipSize},
+                       {center.x - dir.x * shipSize * 3, center.y - dir.y * shipSize * 3}, 3.0f,
+                       Color{attCol.r, attCol.g, attCol.b, 80});
             Vector2 tip = {center.x + dir.x * shipSize, center.y + dir.y * shipSize};
             Vector2 left = {center.x - dir.y * shipSize * 0.6f, center.y + dir.x * shipSize * 0.6f};
             Vector2 right = {center.x + dir.y * shipSize * 0.6f,
                              center.y - dir.x * shipSize * 0.6f};
             DrawTriangle(tip, left, right, attCol);
             DrawTriangleLines(tip, left, right, WHITE);
+            DrawCircleLines(center.x, center.y, shipSize + 2, WHITE);
         }
 
         // Troop movement trail
@@ -1070,7 +1070,6 @@ void Renderer::DrawHUD(Simulation& sim, const NetworkManager& net) {
     DrawTopBar(sim, const_cast<NetworkManager&>(net));
     DrawBottomDock(sim, const_cast<NetworkManager&>(net));
     DrawLeaderboard(sim, net.GetLocalPlayerId());
-    DrawMinimap(sim);
 
     if (sim.IsGameOver()) {
         DrawGameOver(sim);
@@ -1095,8 +1094,8 @@ void Renderer::DrawTopBar(const Simulation& sim, NetworkManager& net) {
     // Troops Status
     char troopText[64];
     std::snprintf(troopText, sizeof(troopText), "TROOPS: %s / %s",
-                  TextFormat("%d", static_cast<int>(localPlayer->troops)),
-                  TextFormat("%d", static_cast<int>(localPlayer->maxTroops)));
+                  FormatBigCount(localPlayer->troops).c_str(),
+                  FormatBigCount(localPlayer->maxTroops).c_str());
     DrawTextCustom(troopText, 200, 14, 15, Color{120, 220, 140, 255});
 
     float troopPct =
@@ -1109,30 +1108,15 @@ void Renderer::DrawTopBar(const Simulation& sim, NetworkManager& net) {
     // Gold Status
     char goldText[32];
     std::snprintf(goldText, sizeof(goldText), "GOLD: $%s",
-                  TextFormat("%d", static_cast<int>(localPlayer->gold)));
+                  FormatBigCount(localPlayer->gold).c_str());
     DrawTextCustom(goldText, 530, 14, 15, Color{255, 215, 50, 255});
-
-    // Game Speed Control
-    float speed = net.GetGameSpeed();
-    char speedBuf[16];
-    std::snprintf(speedBuf, sizeof(speedBuf), "%.1fx", speed);
-    Rectangle speedBtn = {screenWidth_ - 120.0f, 10.0f, 50.0f, 26.0f};
-    DrawRectangleRec(speedBtn, Color{35, 45, 60, 220});
-    DrawRectangleLinesEx(speedBtn, 1.0f, Color{60, 80, 110, 255});
-    DrawTextCustom(speedBuf, speedBtn.x + 8, speedBtn.y + 6, 12, WHITE);
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(GetMousePosition(), speedBtn)) {
-        PlaySoundEffect("ui_click");
-        float newSpeed = (speed >= 2.0f) ? 0.5f : speed + 0.5f;
-        net.SetGameSpeed(newSpeed);
-    }
 
     // Territory %
     int totalLand = sim.GetMap().GetLandTilesCount();
     float landPct =
         (totalLand > 0) ? (static_cast<float>(localPlayer->tileCount) / totalLand * 100.0f) : 0.0f;
     char landText[32];
-    std::snprintf(landText, sizeof(landText), "LAND: %d (%.1f%%)", localPlayer->tileCount, landPct);
+    std::snprintf(landText, sizeof(landText), "LAND: %.1f%%", landPct);
     DrawTextCustom(landText, 720, 14, 15, Color{100, 190, 255, 255});
 
     // Match Timer
@@ -1188,8 +1172,6 @@ void Renderer::DrawBottomDock(Simulation& sim, NetworkManager& net) {
 
     // Attack Slider
     DrawTextCustom("PUSH ARMY:", 15, dockY + 12, 12, GRAY);
-    DrawTextCustom("[A] Propose Alliance", screenWidth_ - 180, dockY + 12, 10,
-                   Color{100, 200, 255, 255});
 
     const float ratios[] = {0.10f, 0.20f, 0.50f, 1.00f};
     const char* ratioLabels[] = {"[Z] 10%", "[X] 20%", "[C] 50%", "[V] 100%"};
@@ -1309,12 +1291,6 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
     DrawRectangleLines(boardX, boardY, boardW, boardH, Color{40, 50, 70, 255});
     DrawTextCustom("FACTION RANKINGS", boardX + 12, boardY + 10, 14, Color{200, 220, 240, 255});
 
-    // Alliance proposals notification
-    const Player* localP = sim.GetPlayer(localId);
-    if (localP && !localP->pendingAllianceProposals.empty()) {
-        DrawTextCustom("Press ENTER to accept alliance", boardX + 12, boardY + boardH + 5, 10,
-                       Color{100, 255, 100, 255});
-    }
     DrawLine(boardX + 10, boardY + 28, boardX + boardW - 10, boardY + 28, Color{50, 60, 80, 255});
 
     std::vector<const Player*> sorted;
@@ -1339,26 +1315,17 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
         DrawCircle(boardX + 30, rowY + 8, 5.0f, p->color);
         DrawCircleLines(boardX + 30, rowY + 8, 5.0f, WHITE);
 
-        bool isAllied = (localId != kNeutralPlayerId) && sim.GetPlayer(localId) &&
-                        sim.GetPlayer(localId)->isAlliedWith(p->id);
-
         Color nameCol =
-            p->isAlive
-                ? (p->id == localId
-                       ? GOLD
-                       : (isAllied
-                              ? Color{100, 255, 100, 255}
-                              : (p->type == FactionType::Human ? Color{80, 220, 255, 255} : WHITE)))
-                : GRAY;
+            p->isAlive ? (p->id == localId
+                              ? GOLD
+                              : (p->type == FactionType::Human ? Color{80, 220, 255, 255} : WHITE))
+                       : GRAY;
         std::string displayName =
             (p->type == FactionType::Human && p->id != localId) ? (p->name + " [P]") : p->name;
         if (displayName.length() > 12) {
             displayName = displayName.substr(0, 11) + ".";
         }
         DrawTextCustom(displayName.c_str(), boardX + 40, rowY + 2, 11, nameCol);
-        if (isAllied) {
-            DrawTextCustom("ALLY", boardX + 40, rowY + 14, 8, Color{100, 255, 100, 255});
-        }
 
         float pct =
             (totalLand > 0) ? (static_cast<float>(p->tileCount) / totalLand * 100.0f) : 0.0f;
@@ -1382,63 +1349,6 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
 
         rowY += 26;
     }
-}
-
-void Renderer::DrawMinimap(const Simulation& sim) {
-    // Frame with shadow
-    DrawRectangle(minimapRect_.x + 2, minimapRect_.y + 2, minimapRect_.width, minimapRect_.height,
-                  Color{0, 0, 0, 100});
-    DrawRectangleRec(minimapRect_, Color{10, 15, 25, 240});
-    DrawRectangleLinesEx(minimapRect_, 2.0f, Color{60, 90, 130, 255});
-    DrawRectangleLinesEx(
-        {minimapRect_.x + 1, minimapRect_.y + 1, minimapRect_.width - 2, minimapRect_.height - 2},
-        1.0f, Color{30, 50, 80, 255});
-
-    const WorldMap& mmMap = sim.GetMap();
-    int mmW = mmMap.GetWidth();
-    int mmH = mmMap.GetHeight();
-    Rectangle src = {0.0f, 0.0f, static_cast<float>(mmW), static_cast<float>(mmH)};
-    DrawTexturePro(mapTexture_, src, minimapRect_, {0.0f, 0.0f}, 0.0f, WHITE);
-
-    // Draw buildings as dots
-    for (const auto& b : sim.GetBuildings()) {
-        if (!b.active) {
-            continue;
-        }
-        float mx = minimapRect_.x + (b.x / (float)mmW) * minimapRect_.width;
-        float my = minimapRect_.y + (b.y / (float)mmH) * minimapRect_.height;
-        const Player* p = sim.GetPlayer(b.ownerId);
-        Color c = p ? p->color : GRAY;
-        DrawCircle(mx, my, 2.0f, c);
-    }
-
-    // Draw missiles as small dots with trajectory lines
-    for (const auto& m : sim.GetMissiles()) {
-        if (m.exploded || m.intercepted) {
-            continue;
-        }
-        float mx = minimapRect_.x + (m.currentPos.x / (float)mmW) * minimapRect_.width;
-        float my = minimapRect_.y + (m.currentPos.y / (float)mmH) * minimapRect_.height;
-        DrawCircle(mx, my, 1.5f, YELLOW);
-
-        // Draw trajectory line to target
-        float tx = minimapRect_.x + (m.targetPos.x / (float)mmW) * minimapRect_.width;
-        float ty = minimapRect_.y + (m.targetPos.y / (float)mmH) * minimapRect_.height;
-        DrawLineEx({mx, my}, {tx, ty}, 0.5f, Color{255, 255, 0, 80});
-    }
-
-    // Camera viewport rectangle
-    Vector2 topLeftWorld = GetScreenToWorld2D({0.0f, 46.0f}, camera_);
-    Vector2 botRightWorld = GetScreenToWorld2D(
-        {static_cast<float>(screenWidth_), static_cast<float>(screenHeight_ - 68)}, camera_);
-
-    float minX = (topLeftWorld.x / (mmW * kTileSize)) * minimapRect_.width;
-    float minY = (topLeftWorld.y / (mmH * kTileSize)) * minimapRect_.height;
-    float maxX = (botRightWorld.x / (mmW * kTileSize)) * minimapRect_.width;
-    float maxY = (botRightWorld.y / (mmH * kTileSize)) * minimapRect_.height;
-
-    Rectangle vpRect = {minimapRect_.x + minX, minimapRect_.y + minY, maxX - minX, maxY - minY};
-    DrawRectangleLinesEx(vpRect, 1.5f, WHITE);
 }
 
 void Renderer::DrawGameOver(Simulation& sim) {
@@ -1566,17 +1476,8 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
             if (btns[i].next == UIState::InGame) {
                 int spawnX = -1, spawnY = -1;
                 if (!randomSpawn_) {
-                    // Spawn at center of map (estimate based on map type)
-                    int w = 160, h = 100;
-                    if (selectedMapType_ == Openfront::MapType::Europe ||
-                        selectedMapType_ == Openfront::MapType::Pangaea ||
-                        selectedMapType_ == Openfront::MapType::Archipelago) {
-                        w = 200;
-                        h = 125;
-                    } else if (selectedMapType_ == Openfront::MapType::World) {
-                        w = 280;
-                        h = 175;
-                    }
+                    int w = 0, h = 0;
+                    Openfront::WorldMap::MapSizeFor(selectedMapType_, w, h);
                     spawnX = w / 2;
                     spawnY = h / 2;
                 }

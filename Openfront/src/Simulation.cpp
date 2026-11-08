@@ -162,7 +162,7 @@ void Simulation::SpawnPlayerBase(PlayerId id, int centerX, int centerY, int radi
             if (dx * dx + dy * dy <= radius * radius) {
                 Tile& t = map_.GetTile(x, y);
                 if (t.terrain != TerrainType::Water) {
-                    t.ownerId = id;
+                    map_.SetOwner(x, y, id);
                 }
             }
         }
@@ -389,8 +389,6 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
 
     double troopsToSend = p->troops * ratio;
     if (troopsToSend < 200.0 || p->troops < 500.0) {
-        std::cout << "[LaunchAttack] Not enough troops: " << troopsToSend << " (need 200)"
-                  << std::endl;
         return false;
     }
 
@@ -401,19 +399,17 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
     TileCoord closestBorder{-1, -1};
     std::vector<TileCoord> borderSector;
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            const Tile& t = map_.GetTile(x, y);
-            if (t.ownerId == playerId && t.isBorder) {
-                float d = TileDistance(x, y, targetX, targetY);
-                if (d < closestDist) {
-                    closestDist = d;
-                    closestBorder = {x, y};
-                }
-                if (d <= 6.0f) {
-                    borderSector.push_back({x, y});
-                }
-            }
+    for (const TileCoord& bt : map_.GetBorderTiles()) {
+        if (map_.GetTile(bt.x, bt.y).ownerId != playerId) {
+            continue;
+        }
+        float d = TileDistance(bt.x, bt.y, targetX, targetY);
+        if (d < closestDist) {
+            closestDist = d;
+            closestBorder = bt;
+        }
+        if (d <= 6.0f) {
+            borderSector.push_back(bt);
         }
     }
 
@@ -421,32 +417,115 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
         return false;
     }
 
-    // Naval invasion: allow attacking across water if attacker has coastal access
+    bool isNaval = false;
+    {
+        float dx = static_cast<float>(targetX - closestBorder.x);
+        float dy = static_cast<float>(targetY - closestBorder.y);
+        float dist = std::sqrt(dx * dx + dy * dy);
+        int steps = static_cast<int>(dist);
+        for (int i = 0; i <= steps; ++i) {
+            float t = (steps > 0) ? (float)i / (float)steps : 0.0f;
+            int sx = closestBorder.x + static_cast<int>(dx * t);
+            int sy = closestBorder.y + static_cast<int>(dy * t);
+            if (map_.InBounds(sx, sy) && map_.GetTile(sx, sy).terrain == TerrainType::Water) {
+                isNaval = true;
+                break;
+            }
+        }
+    }
+
     if (targetTile.terrain == TerrainType::Water) {
-        bool navalAttack = false;
-        // Check if attacker has any coastal territory (access to sea)
-        for (int y = 0; y < map_.GetHeight(); ++y) {
-            for (int x = 0; x < map_.GetWidth(); ++x) {
+        TileCoord best{-1, -1};
+        float bestD = 1e9f;
+        int minY = std::max(0, targetY - 12), maxY = std::min(map_.GetHeight() - 1, targetY + 12);
+        int minX = std::max(0, targetX - 12), maxX = std::min(map_.GetWidth() - 1, targetX + 12);
+        for (int y = minY; y <= maxY; ++y) {
+            for (int x = minX; x <= maxX; ++x) {
                 const Tile& t = map_.GetTile(x, y);
-                if (t.ownerId == playerId && t.terrain != TerrainType::Water) {
-                    // Check if this tile is coastal
-                    const auto& nbrs = map_.GetNeighbors4(x, y);
-                    for (const auto& n : nbrs) {
-                        if (map_.GetTile(n.x, n.y).terrain == TerrainType::Water) {
-                            navalAttack = true;
+                if (t.terrain == TerrainType::Water || t.ownerId == playerId) {
+                    continue;
+                }
+                if (IsAllied(playerId, t.ownerId)) {
+                    continue;
+                }
+                float d = TileDistance(x, y, targetX, targetY);
+                if (d < bestD) {
+                    bestD = d;
+                    best = {x, y};
+                }
+            }
+        }
+        if (best.x < 0) {
+            return false;
+        }
+        targetX = best.x;
+        targetY = best.y;
+    }
+    const Tile& landTarget = map_.GetTile(targetX, targetY);
+
+    TileCoord harbor{-1, -1};
+    std::vector<TileCoord> navalPath;
+    if (isNaval) {
+        float bestHarborDist = 1e9f;
+        for (const TileCoord& cw : map_.GetCoastalWater()) {
+            if (!map_.HasAdjacentOwner(cw.x, cw.y, playerId)) {
+                continue;
+            }
+            float d = TileDistance(cw.x, cw.y, targetX, targetY);
+            if (d < bestHarborDist) {
+                bestHarborDist = d;
+                harbor = cw;
+            }
+        }
+        if (harbor.x >= 0) {
+            std::vector<int> dist(width * height, -1);
+            std::vector<int> parent(width * height, -1);
+            std::queue<TileCoord> q;
+            int startIdx = harbor.y * width + harbor.x;
+            dist[startIdx] = 0;
+            q.push(harbor);
+            int goal = -1;
+            while (!q.empty()) {
+                TileCoord curr = q.front();
+                q.pop();
+                if (TileDistance(curr.x, curr.y, targetX, targetY) <= 20.0f) {
+                    for (const auto& n : map_.GetNeighbors4(curr.x, curr.y)) {
+                        const Tile& nt = map_.GetTile(n.x, n.y);
+                        if (nt.terrain != TerrainType::Water && nt.ownerId == landTarget.ownerId) {
+                            goal = curr.y * width + curr.x;
                             break;
                         }
                     }
                 }
-                if (navalAttack) {
+                if (goal >= 0) {
                     break;
                 }
+                for (const auto& nb : map_.GetNeighbors4(curr.x, curr.y)) {
+                    const Tile& nt = map_.GetTile(nb.x, nb.y);
+                    int idx = nb.y * width + nb.x;
+                    if (nt.terrain != TerrainType::Water || dist[idx] != -1) {
+                        continue;
+                    }
+                    dist[idx] = dist[curr.y * width + curr.x] + 1;
+                    parent[idx] = curr.y * width + curr.x;
+                    q.push(nb);
+                }
             }
-            if (navalAttack) {
-                break;
+            if (goal >= 0) {
+                std::vector<TileCoord> path;
+                int idx = goal;
+                while (idx >= 0) {
+                    path.push_back({idx % width, idx / width});
+                    idx = parent[idx];
+                }
+                std::reverse(path.begin(), path.end());
+                navalPath = std::move(path);
             }
         }
-        if (!navalAttack) {
+        if (navalPath.empty()) {
+            SpawnFloatingText(
+                {(closestBorder.x + 0.5f) * kTileSize, (closestBorder.y + 0.5f) * kTileSize},
+                "No Naval Route", RED);
             return false;
         }
     }
@@ -457,28 +536,27 @@ bool Simulation::LaunchAttack(PlayerId playerId, int startX, int startY, int tar
 
     p->troops -= troopsToSend;
 
-    bool isNaval = (targetTile.terrain == TerrainType::Water);
-    if (isNaval) {
-        log_info("[Openfront] Naval attack launched from " + std::to_string(closestBorder.x) + "," +
-                 std::to_string(closestBorder.y) + " to " + std::to_string(targetX) + "," +
-                 std::to_string(targetY));
-    }
-
     FrontPush front;
     front.id = nextFrontId_++;
     front.attackerId = playerId;
-    front.targetPlayerId = targetTile.ownerId;
+    front.targetPlayerId = landTarget.ownerId;
     front.targetX = targetX;
     front.targetY = targetY;
     front.initialTroops = troopsToSend;
     front.troops = troopsToSend;
-    front.rate = 14.0f; // tiles attempted per second
+    front.naval = isNaval;
+    front.rate = front.naval ? 25.0f : 14.0f;
     front.progressAccumulator = 0.0f;
     front.tilesCaptured = 0;
     front.finished = false;
     front.frontCenter = {(closestBorder.x + 0.5f) * kTileSize,
                          (closestBorder.y + 0.5f) * kTileSize};
     front.activeBorderTiles = std::move(borderSector);
+    if (front.naval) {
+        front.navalPath = std::move(navalPath);
+        front.navalPathIdx = 0;
+        front.landingTile = front.navalPath.back();
+    }
 
     attackFronts_.push_back(front);
 
@@ -671,24 +749,8 @@ bool Simulation::BreakAlliance(PlayerId from, PlayerId to) {
 }
 
 bool Simulation::IsAllied(PlayerId a, PlayerId b) const {
-    const Player* pA = nullptr;
-    const Player* pB = nullptr;
-    for (const auto& p : players_) {
-        if (p.id == a) {
-            pA = &p;
-        }
-        if (p.id == b) {
-            pB = &p;
-        }
-    }
-    if (!pA || !pB) {
-        return false;
-    }
-    for (PlayerId ally : pA->allies) {
-        if (ally == b) {
-            return true;
-        }
-    }
+    (void)a;
+    (void)b;
     return false;
 }
 
@@ -732,6 +794,21 @@ void Simulation::TickCombatFronts(float dt) {
             continue;
         }
 
+        if (front.naval && front.navalPathIdx < front.navalPath.size()) {
+            front.progressAccumulator += front.rate * dt;
+            int steps = static_cast<int>(std::floor(front.progressAccumulator));
+            front.progressAccumulator -= static_cast<float>(steps);
+            while (steps > 0 && front.navalPathIdx < front.navalPath.size()) {
+                const TileCoord& c = front.navalPath[front.navalPathIdx++];
+                front.frontCenter = {(c.x + 0.5f) * kTileSize, (c.y + 0.5f) * kTileSize};
+                steps--;
+            }
+            if (front.navalPathIdx < front.navalPath.size()) {
+                continue;
+            }
+            SpawnFloatingText(front.frontCenter, "Landed!", att->color);
+        }
+
         front.progressAccumulator += front.rate * dt;
         int attempts = static_cast<int>(std::floor(front.progressAccumulator));
         front.progressAccumulator -= attempts;
@@ -758,9 +835,6 @@ void Simulation::TickCombatFronts(float dt) {
                 const Tile& t = map_.GetTile(x, y);
                 // Attack targeting: if target is neutral, only capture neutral tiles.
                 // If target is a specific enemy, only capture that enemy's tiles.
-                const Tile& targetTileCheck = map_.GetTile(front.targetX, front.targetY);
-                bool isNaval = (targetTileCheck.terrain == TerrainType::Water);
-
                 bool validTarget = false;
                 if (front.targetPlayerId == kNeutralPlayerId) {
                     validTarget = (t.ownerId == kNeutralPlayerId);
@@ -768,15 +842,16 @@ void Simulation::TickCombatFronts(float dt) {
                     validTarget = (t.ownerId == front.targetPlayerId);
                 }
 
-                // For naval attacks, capture water tiles first, then land tiles at destination
-                // For land attacks, only capture land tiles
                 bool terrainOk = (t.terrain != TerrainType::Water);
-                if (isNaval) {
-                    terrainOk = true; // Allow both water and land for naval
-                }
 
                 if (validTarget && terrainOk) {
-                    if (map_.HasAdjacentOwner(x, y, front.attackerId)) {
+                    bool reachable = map_.HasAdjacentOwner(x, y, front.attackerId);
+                    if (!reachable && front.naval && front.navalPathIdx >= front.navalPath.size()) {
+                        int bx = front.navalPath.back().x;
+                        int by = front.navalPath.back().y;
+                        reachable = (std::abs(x - bx) + std::abs(y - by) <= 1);
+                    }
+                    if (reachable) {
                         float dist = TileDistance(x, y, front.targetX, front.targetY);
                         candidates.push_back({dist, {x, y}});
                     }
@@ -839,7 +914,7 @@ void Simulation::TickCombatFronts(float dt) {
                 }
 
                 map_.SetOwner(tx, ty, front.attackerId);
-                tile.captureFlashTimer = 0.5f; // Visual flash ripple!
+                map_.StartCaptureFlash(tx, ty);
                 front.tilesCaptured++;
                 capturesThisTick++;
 
@@ -951,9 +1026,8 @@ void Simulation::TickMissiles(float dt) {
                                     victim->troops = std::max(0.0, victim->troops - 1500.0);
                                 }
                             }
-                            t.ownerId = kNeutralPlayerId;
-                            t.falloutTimer = 45.0f;
-
+                            map_.SetOwner(x, y, kNeutralPlayerId);
+                            map_.ApplyFallout(x, y, 45.0f);
                             // Destroy building
                             if (t.building != BuildingType::None) {
                                 Building* b = GetBuildingAt(x, y);
@@ -1018,19 +1092,8 @@ void Simulation::RecalculateTerritoryAndBuildings() {
         p.siloCount = 0;
     }
 
-    // Recount tiles
-    int width = map_.GetWidth();
-    int height = map_.GetHeight();
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            PlayerId oid = map_.GetTile(x, y).ownerId;
-            if (oid != kNeutralPlayerId) {
-                Player* p = GetPlayer(oid);
-                if (p) {
-                    p->tileCount++;
-                }
-            }
-        }
+    for (auto& p : players_) {
+        p.tileCount = static_cast<int>(map_.GetOwnerTileCount(p.id));
     }
 
     // Recount buildings
@@ -1393,10 +1456,7 @@ bool Simulation::LoadGame(const std::string& filepath) {
             int mapX = 0;
             while (ss >> ownerId && mapX < map_.GetWidth()) {
                 if (map_.InBounds(mapX, mapY)) {
-                    Tile& t = map_.GetTile(mapX, mapY);
-                    if (t.terrain != TerrainType::Water) {
-                        t.ownerId = ownerId;
-                    }
+                    map_.SetOwner(mapX, mapY, static_cast<PlayerId>(ownerId));
                 }
                 mapX++;
             }

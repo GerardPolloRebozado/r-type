@@ -206,7 +206,6 @@ int main(int argc, char* argv[]) {
     controller->addKeybind("BUILD_SILO", {KEY_SIX, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("LAUNCH_ATOM", {KEY_N, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("LAUNCH_H", {KEY_H, 0, Engine::DeviceType::KEYBOARD}, false);
-    controller->addKeybind("PROPOSE_ALLIANCE", {KEY_A, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("CANCEL", {KEY_ESCAPE, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("CONFIRM", {KEY_ENTER, 0, Engine::DeviceType::KEYBOARD}, false);
     controller->addKeybind("CONFIRM", {KEY_SPACE, 0, Engine::DeviceType::KEYBOARD}, false);
@@ -272,8 +271,9 @@ int main(int argc, char* argv[]) {
 
     renderer.Init(sim, net.GetLocalPlayerId());
 
-    app.Run();
+    renderer.SetSelectedMapType(mapType);
 
+    app.Run();
     net.Stop();
     return 0;
 }

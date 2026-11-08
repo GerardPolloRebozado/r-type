@@ -74,7 +74,7 @@ class NetworkManager {
     NetworkServer server_;
     NetworkClient client_;
     float turnAccumulator_{0.0f};
-    float gameSpeed_{1.0f};
+    float gameSpeed_{0.7f};
 };
 
 } // namespace Openfront

@@ -36,21 +36,27 @@ class Renderer {
     void CenterOnPlayer(const Simulation& sim, PlayerId pid);
 
     void SetUIState(UIState state) {
+        if (state == uiState_) {
+            return;
+        }
+        bool wasInGame = (uiState_ == UIState::InGame || uiState_ == UIState::InGamePause);
+        bool inGame = (state == UIState::InGame || state == UIState::InGamePause);
         uiState_ = state;
+        if (inGame && !wasInGame) {
+            SetWindowState(FLAG_FULLSCREEN_MODE);
+        } else if (!inGame && wasInGame) {
+            ClearWindowState(FLAG_FULLSCREEN_MODE);
+        }
     }
     [[nodiscard]] UIState GetUIState() const {
         return uiState_;
     }
 
-    [[nodiscard]] float GetGameSpeed() const {
-        return gameSpeed_;
-    }
-    void SetGameSpeed(float speed) {
-        gameSpeed_ = speed;
-    }
-
     void SetAssetManager(Engine::AssetManager* assetManager) {
         assetManager_ = assetManager;
+    }
+    void SetSelectedMapType(Openfront::MapType type) {
+        selectedMapType_ = type;
     }
     void SetController(Engine::IController* controller) {
         controller_ = controller;
@@ -70,7 +76,6 @@ class Renderer {
     int screenWidth_{1600};
     int screenHeight_{900};
     UIState uiState_{UIState::StartMenu};
-    float gameSpeed_{1.0f};
 
     Engine::AssetManager* assetManager_{nullptr};
     Engine::IController* controller_{nullptr};
@@ -93,6 +98,10 @@ class Renderer {
     Texture2D terrainTextures_[4]{};
     Image terrainImages_[4]{};
     Color* pixelBuffer_{nullptr};
+    std::size_t pixelBufferSize_{0};
+    Color* blockBuffer_{nullptr};
+    std::size_t blockBufferSize_{0};
+    Texture2D tradeTrain_{};
 
     // User Interaction State
     TileCoord hoveredTile_{-1, -1};
@@ -112,12 +121,10 @@ class Renderer {
     char joinPortBuffer_[16]{"7777"};
     std::string connectionStatusText_{"Ready to connect"};
 
-    // Minimap
-    Rectangle minimapRect_{};
-    bool isDraggingMinimap_{false};
-
     // Render subroutines
     void UpdateMapTexture(const Simulation& sim);
+    void TileColor(const Simulation& sim, const WorldMap& map, int x, int y, const Tile& t,
+                   Color& out);
     void DrawWorld(Simulation& sim);
     void DrawBuildings(const Simulation& sim);
     void DrawTradeRoutes(const Simulation& sim);
@@ -132,7 +139,6 @@ class Renderer {
     void DrawTopBar(const Simulation& sim, NetworkManager& net);
     void DrawBottomDock(Simulation& sim, NetworkManager& net);
     void DrawLeaderboard(const Simulation& sim, PlayerId localId);
-    void DrawMinimap(const Simulation& sim);
     void DrawGameOver(Simulation& sim);
 
     void DrawStartMenu(Simulation& sim, NetworkManager& net);

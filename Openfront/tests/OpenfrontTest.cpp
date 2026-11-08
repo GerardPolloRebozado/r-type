@@ -18,16 +18,19 @@ using namespace Openfront;
 
 void TestMapGeneration() {
     std::cout << "[TEST] Running TestMapGeneration..." << std::endl;
-    WorldMap map(160, 100);
+    int mapW = 0, mapH = 0;
+    WorldMap::MapSizeFor(MapType::Procedural, mapW, mapH);
+    WorldMap map(mapW, mapH);
     map.Generate(42);
 
-    assert(map.GetWidth() == 160);
-    assert(map.GetHeight() == 100);
-    assert(map.GetTotalTiles() == 16000);
+    assert(map.GetWidth() == mapW);
+    assert(map.GetHeight() == mapH);
+    assert(map.GetTotalTiles() == mapW * mapH);
+    assert(mapW == 900 && mapH == 562);
 
     int landCount = map.GetLandTilesCount();
-    assert(landCount > 2000);
-    assert(landCount < 15000);
+    assert(landCount > 80000);
+    assert(landCount < 620000);
 
     // Verify terrain diversity
     int plains = 0, highlands = 0, mountains = 0, water = 0;
@@ -55,7 +58,7 @@ void TestMapGeneration() {
     assert(mountains > 0);
     assert(water > 0);
 
-    std::cout << "  Land count: " << landCount << " / 16000 (Plains: " << plains
+    std::cout << "  Land count: " << landCount << " / " << mapW * mapH << " (Plains: " << plains
               << ", Highlands: " << highlands << ", Mountains: " << mountains
               << ", Water: " << water << ")" << std::endl;
     std::cout << "[PASS] TestMapGeneration passed." << std::endl;
@@ -413,6 +416,73 @@ void TestNoBotExecutionOnHumanPlayers() {
     std::cout << "[PASS] TestNoBotExecutionOnHumanPlayers passed." << std::endl;
 }
 
+void TestNavalInvasion() {
+    std::cout << "[TEST] Running TestNavalInvasion..." << std::endl;
+    Simulation sim;
+    sim.Init(2, 2, 4242);
+
+    WorldMap& map = sim.GetMap();
+    const int W = map.GetWidth();
+    const int H = map.GetHeight();
+    Player* human = sim.GetPlayer(1);
+    Player* enemy = sim.GetPlayer(2);
+    assert(human && enemy);
+
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            Tile& t = map.GetTile(x, y);
+            bool islA = (x >= 8 && x <= 12 && y >= 58 && y <= 62);
+            bool islB = (x >= 18 && x <= 22 && y >= 58 && y <= 62);
+            t.terrain = (islA || islB) ? TerrainType::Plains : TerrainType::Water;
+            t.ownerId = islA ? 1 : (islB ? 2 : kNeutralPlayerId);
+            t.building = BuildingType::None;
+            t.buildingLevel = 0;
+            t.hasDefenseBonus = false;
+            t.captureFlashTimer = 0.0f;
+            t.falloutTimer = 0.0f;
+        }
+    }
+    map.UpdateBorders();
+    map.RebuildCoastalWater();
+    map.RecountOwnerTiles();
+
+    human->troops = 10000.0;
+    human->tileCount = 25;
+    enemy->tileCount = 25;
+    for (PlayerId id = 2; id <= 5; ++id) {
+        Player* p = sim.GetPlayer(id);
+        if (p) {
+            p->troops = 0.0;
+        }
+    }
+
+    bool launched = sim.LaunchAttack(1, 20, 58, 1.0f);
+    assert(launched);
+
+    const FrontPush* naval = nullptr;
+    for (const auto& f : sim.GetAttackFronts()) {
+        if (f.targetX == 20 && f.targetY == 58) {
+            naval = &f;
+        }
+    }
+    assert(naval != nullptr);
+    assert(naval->naval);
+
+    bool landed = false;
+    for (int ticks = 0; ticks < 300 && !landed; ++ticks) {
+        sim.Tick(kSimulationTickDt);
+        landed = (map.GetTile(20, 58).ownerId == 1);
+    }
+    assert(landed);
+
+    assert(map.GetTile(13, 58).ownerId == kNeutralPlayerId);
+    assert(map.GetTile(16, 58).ownerId == kNeutralPlayerId);
+    assert(map.GetTile(18, 58).ownerId == 1);
+    assert(human->tileCount > 25);
+
+    std::cout << "[PASS] TestNavalInvasion passed." << std::endl;
+}
+
 int main() {
     std::cout << "========================================" << std::endl;
     std::cout << "      OPENFRONT SIMULATION TEST SUITE   " << std::endl;
@@ -421,6 +491,7 @@ int main() {
     TestMapGeneration();
     TestEconomyFormulas();
     TestSimulationCombatAndExpansion();
+    TestNavalInvasion();
     TestNuclearMissile();
     TestDeterministic10HzSimulation();
     TestNetworkIntentSerialization();

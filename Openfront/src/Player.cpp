@@ -197,34 +197,7 @@ void Player::UpdateAI(Simulation& sim, std::vector<ClientIntent>& outIntents, fl
         }
     }
 
-    // Alliance proposal: propose to weaker rivals if threatened
-    if (type == FactionType::Nation && aiBuildTimer <= 0.0f) {
-        for (auto& p : sim.GetPlayers()) {
-            if (p.id == id || !p.isAlive) {
-                continue;
-            }
-            if (isAlliedWith(p.id)) {
-                continue;
-            }
-            // Propose alliance to nations with more troops (threat)
-            if (p.troops > troops * 1.5 && gold > 10000) {
-                sim.ProposeAlliance(id, p.id);
-            }
-        }
-    }
-
     // Accept pending alliance proposals
-    for (PlayerId proposer : pendingAllianceProposals) {
-        // Accept if proposer is not a major threat or we need allies
-        Player* pProposer = sim.GetPlayer(proposer);
-        if (pProposer && pProposer->isAlive) {
-            // Accept if we have fewer than 2 allies
-            if (allies.size() < 2) {
-                sim.AcceptAlliance(id, proposer);
-            }
-        }
-    }
-    pendingAllianceProposals.clear();
 
     if (type == FactionType::Nation && siloCount > 0 && aiNukeTimer <= 0.0f) {
         float nukeInterval = 15.0f;
@@ -309,23 +282,25 @@ void Player::UpdateAI(Simulation& sim, std::vector<ClientIntent>& outIntents, fl
 
         // Check if we have enough troops to attack
         if (troops > maxTroops * 0.20) {
-            // Find border tiles
             std::vector<std::pair<TileCoord, TileCoord>> attackOptions;
-            int width = map.GetWidth();
-            int height = map.GetHeight();
 
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    const Tile& t = map.GetTile(x, y);
-                    if (t.ownerId == id && t.isBorder) {
-                        auto nbrs = map.GetNeighbors4(x, y);
-                        for (const auto& nb : nbrs) {
-                            const Tile& nt = map.GetTile(nb.x, nb.y);
-                            if (nt.terrain != TerrainType::Water && nt.ownerId != id &&
-                                !sim.IsAllied(id, nt.ownerId)) {
-                                attackOptions.push_back({{x, y}, nb});
-                            }
-                        }
+            for (const TileCoord& bt : map.GetBorderTiles()) {
+                const Tile& t = map.GetTile(bt.x, bt.y);
+                if (t.ownerId != id) {
+                    continue;
+                }
+                const int dx[] = {0, 0, -1, 1};
+                const int dy[] = {-1, 1, 0, 0};
+                for (int i = 0; i < 4; ++i) {
+                    int nx = bt.x + dx[i];
+                    int ny = bt.y + dy[i];
+                    if (!map.InBounds(nx, ny)) {
+                        continue;
+                    }
+                    const Tile& nt = map.GetTile(nx, ny);
+                    if (nt.terrain != TerrainType::Water && nt.ownerId != id &&
+                        !sim.IsAllied(id, nt.ownerId)) {
+                        attackOptions.push_back({bt, {nx, ny}});
                     }
                 }
             }

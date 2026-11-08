@@ -23,6 +23,10 @@ struct FrontPush {
     float rate{12.0f}; // Tiles attempted per second
     float progressAccumulator{0.0f};
     int tilesCaptured{0};
+    bool naval{false};
+    std::vector<TileCoord> navalPath;
+    size_t navalPathIdx{0};
+    TileCoord landingTile{-1, -1};
     bool finished{false};
     Vector2 frontCenter{0.0f, 0.0f};
     std::vector<TileCoord> activeBorderTiles;
