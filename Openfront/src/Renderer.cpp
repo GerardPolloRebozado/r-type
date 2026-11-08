@@ -1,7 +1,11 @@
 #include "Renderer.hpp"
 #include "Assets/AssetManager.hpp"
+#include "Components/CameraComponent.hpp"
+#include "Components/Position.hpp"
+#include "ECS/Registry.hpp"
 #include "Inputs/Controller.hpp"
 #include "NetworkManager.hpp"
+#include "Systems/CameraSystem.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -47,12 +51,83 @@ void Renderer::PlaySoundEffect(const std::string& name) {
     }
 }
 
+void Renderer::DrawTextCustom(const char* text, int x, int y, int size, Color color) {
+    if (gameFont_.texture.id != 0) {
+        // Shadow for readability
+        DrawTextEx(gameFont_, text, {static_cast<float>(x + 1), static_cast<float>(y + 1)},
+                   static_cast<float>(size), 1.0f, Color{0, 0, 0, 120});
+        DrawTextEx(gameFont_, text, {static_cast<float>(x), static_cast<float>(y)},
+                   static_cast<float>(size), 1.0f, color);
+    } else {
+        DrawText(text, x + 1, y + 1, size, Color{0, 0, 0, 120});
+        DrawText(text, x, y, size, color);
+    }
+}
+
+void Renderer::DrawTitleCustom(const char* text, int x, int y, int size, Color color) {
+    if (titleFont_.texture.id != 0) {
+        DrawTextEx(titleFont_, text, {static_cast<float>(x), static_cast<float>(y)},
+                   static_cast<float>(size) * 2.0f, 1.0f, color);
+    } else {
+        DrawText(text, x, y, size, color);
+    }
+}
+
 void Renderer::Init(Simulation& sim, PlayerId localPlayerId) {
+    localPlayerId_ = localPlayerId;
+    gameOverSoundPlayed_ = false;
     if (!pixelBuffer_) {
         pixelBuffer_ = new Color[kMapWidth * kMapHeight];
         mapImage_ = GenImageColor(kMapWidth, kMapHeight, BLACK);
         mapTexture_ = LoadTextureFromImage(mapImage_);
         SetTextureFilter(mapTexture_, TEXTURE_FILTER_POINT);
+    }
+
+    // Load terrain textures
+    if (terrainTextures_[0].id == 0) {
+        terrainTextures_[0] = LoadTexture("Openfront/assets/terrain_plains.png");
+        terrainTextures_[1] = LoadTexture("Openfront/assets/terrain_highlands.png");
+        terrainTextures_[2] = LoadTexture("Openfront/assets/terrain_mountains.png");
+        terrainTextures_[3] = LoadTexture("Openfront/assets/terrain_water.png");
+    }
+
+    // Load body font (Liberation Sans Bold - clean, professional, good metrics)
+    if (gameFont_.texture.id == 0) {
+        gameFont_ = LoadFontEx("Openfront/assets/fonts/LiberationSans-Bold.ttf", 16, nullptr, 0);
+        SetTextureFilter(gameFont_.texture, TEXTURE_FILTER_BILINEAR);
+    }
+    // Load title font (Press Start 2P - retro pixel font for headers)
+    if (titleFont_.texture.id == 0) {
+        titleFont_ = LoadFontEx("Openfront/assets/fonts/pressstart2p.ttf", 8, nullptr, 0);
+        SetTextureFilter(titleFont_.texture, TEXTURE_FILTER_POINT);
+    }
+
+    // Load building icons
+    const char* iconPaths[] = {
+        "Openfront/assets/building_city.png",    "Openfront/assets/building_port.png",
+        "Openfront/assets/building_factory.png", "Openfront/assets/building_defense.png",
+        "Openfront/assets/building_sam.png",     "Openfront/assets/building_silo.png",
+    };
+    for (int i = 0; i < 6; ++i) {
+        if (buildingIcons_[i].id == 0) {
+            buildingIcons_[i] = LoadTexture(iconPaths[i]);
+        }
+    }
+
+    // Load terrain images for texture sampling
+    const char* terrainPaths[] = {
+        "Openfront/assets/terrain_plains.png",
+        "Openfront/assets/terrain_highlands.png",
+        "Openfront/assets/terrain_mountains.png",
+        "Openfront/assets/terrain_water.png",
+    };
+    for (int i = 0; i < 4; ++i) {
+        if (terrainImages_[i].data == nullptr) {
+            terrainImages_[i] = LoadImage(terrainPaths[i]);
+        }
+        if (terrainTextures_[i].id == 0) {
+            terrainTextures_[i] = LoadTexture(terrainPaths[i]);
+        }
     }
 
     UpdateMapTexture(sim);
@@ -96,7 +171,7 @@ Vector2 Renderer::TileToScreen(int x, int y) const {
     return GetWorldToScreen2D(worldPos, camera_);
 }
 
-void Renderer::Update(Simulation& sim, NetworkManager& net, float /*dt*/) {
+void Renderer::Update(Simulation& sim, NetworkManager& net, float dt) {
     screenWidth_ = GetScreenWidth();
     screenHeight_ = GetScreenHeight();
     minimapRect_ = {static_cast<float>(screenWidth_ - 260), static_cast<float>(screenHeight_ - 180),
@@ -104,8 +179,18 @@ void Renderer::Update(Simulation& sim, NetworkManager& net, float /*dt*/) {
 
     if (sim.GetExplosions().size() > prevExplosionsCount_) {
         PlaySoundEffect("explosion");
+        // Trigger screen shake for nuke explosions
+        nukeShakeTimer_ = 1.0f;
     }
     prevExplosionsCount_ = sim.GetExplosions().size();
+
+    // Update nuke shake
+    if (nukeShakeTimer_ > 0.0f) {
+        nukeShakeTimer_ -= dt;
+        float intensity = nukeShakeTimer_ * 8.0f;
+        camera_.target.x += (rand() % 100 - 50) * 0.01f * intensity;
+        camera_.target.y += (rand() % 100 - 50) * 0.01f * intensity;
+    }
 
     if (sim.GetMissiles().size() > prevMissilesCount_) {
         PlaySoundEffect("nuke_launch");
@@ -113,6 +198,18 @@ void Renderer::Update(Simulation& sim, NetworkManager& net, float /*dt*/) {
     prevMissilesCount_ = sim.GetMissiles().size();
 
     HandleInput(sim, net);
+    // Sync custom camera_ to engine CameraComponent (demonstrates engine camera usage)
+    if (cameraEntity_ != 0 && registry_ != nullptr) {
+        if (registry_->HasComponent<Engine::Position>(cameraEntity_)) {
+            auto& pos = registry_->RequireComponent<Engine::Position>(cameraEntity_);
+            pos.x = camera_.target.x;
+            pos.y = camera_.target.y;
+        }
+        if (registry_->HasComponent<Engine::CameraComponent>(cameraEntity_)) {
+            auto& cam = registry_->RequireComponent<Engine::CameraComponent>(cameraEntity_);
+            cam.zoom = camera_.zoom;
+        }
+    }
     UpdateMapTexture(sim);
 }
 
@@ -361,7 +458,7 @@ void Renderer::HandleInput(Simulation& sim, NetworkManager& net) {
         // Build mode
         if (activeBuildMode_ != BuildingType::None) {
             net.QueueBuild(sim, localId, tile.x, tile.y, activeBuildMode_);
-            PlaySoundEffect("capture");
+            PlaySoundEffect("build");
             activeBuildMode_ = BuildingType::None;
             return;
         }
@@ -414,7 +511,14 @@ void Renderer::UpdateMapTexture(const Simulation& sim) {
             Color c;
 
             if (t.terrain == TerrainType::Water) {
-                c = map.IsCoastal(x, y) ? Color{28, 58, 98, 255} : Color{16, 36, 68, 255};
+                if (terrainImages_[3].data != nullptr) {
+                    int tx = (x * 5) % terrainImages_[3].width;
+                    int ty = (y * 7) % terrainImages_[3].height;
+                    Color tc = GetImageColor(terrainImages_[3], tx, ty);
+                    c = Color{tc.r, tc.g, tc.b, 255};
+                } else {
+                    c = map.IsCoastal(x, y) ? Color{28, 58, 98, 255} : Color{16, 36, 68, 255};
+                }
             } else if (t.ownerId != kNeutralPlayerId) {
                 const Player* p = sim.GetPlayer(t.ownerId);
                 Color base = p ? p->color : GRAY;
@@ -452,15 +556,67 @@ void Renderer::UpdateMapTexture(const Simulation& sim) {
                 if (t.falloutTimer > 0.0f) {
                     c = Color{60, 50, 65, 255};
                 } else if (t.terrain == TerrainType::Plains) {
-                    c = Color{135, 148, 122, 255};
+                    if (terrainImages_[0].data != nullptr) {
+                        int tx = (x * 7) % terrainImages_[0].width;
+                        int ty = (y * 13) % terrainImages_[0].height;
+                        Color tc = GetImageColor(terrainImages_[0], tx, ty);
+                        c = Color{tc.r, tc.g, tc.b, 255};
+                    } else {
+                        int var = (x * 7 + y * 13) % 15 - 7;
+                        c = Color{static_cast<unsigned char>(135 + var),
+                                  static_cast<unsigned char>(148 + var),
+                                  static_cast<unsigned char>(122 + var), 255};
+                    }
                 } else if (t.terrain == TerrainType::Highlands) {
-                    c = Color{160, 142, 108, 255};
+                    if (terrainImages_[1].data != nullptr) {
+                        int tx = (x * 11) % terrainImages_[1].width;
+                        int ty = (y * 7) % terrainImages_[1].height;
+                        Color tc = GetImageColor(terrainImages_[1], tx, ty);
+                        c = Color{tc.r, tc.g, tc.b, 255};
+                    } else {
+                        int var = (x * 11 + y * 7) % 20 - 10;
+                        c = Color{static_cast<unsigned char>(160 + var),
+                                  static_cast<unsigned char>(142 + var),
+                                  static_cast<unsigned char>(108 + var), 255};
+                    }
                 } else {
-                    c = Color{120, 122, 128, 255};
+                    if (terrainImages_[2].data != nullptr) {
+                        int tx = (x * 13) % terrainImages_[2].width;
+                        int ty = (y * 11) % terrainImages_[2].height;
+                        Color tc = GetImageColor(terrainImages_[2], tx, ty);
+                        c = Color{tc.r, tc.g, tc.b, 255};
+                    } else {
+                        int var = (x * 13 + y * 11) % 25 - 12;
+                        c = Color{static_cast<unsigned char>(120 + var),
+                                  static_cast<unsigned char>(122 + var),
+                                  static_cast<unsigned char>(128 + var), 255};
+                    }
                 }
 
                 if (t.captureFlashTimer > 0.0f) {
                     c = Color{255, 255, 240, 255};
+                }
+            }
+
+            // Fog of war: darken tiles not visible to local player
+            // (tiles not owned by player and not adjacent to player's territory)
+            // This is a simplified version - full fog of war would require
+            // per-player visibility calculation in the simulation
+            if (localPlayerId_ > 0 && t.ownerId != localPlayerId_ && !t.isBorder) {
+                // Check if adjacent to player's territory
+                bool adjacentToPlayer = false;
+                auto nbrs = map.GetNeighbors4(x, y);
+                for (const auto& n : nbrs) {
+                    if (map.GetTile(n.x, n.y).ownerId == localPlayerId_) {
+                        adjacentToPlayer = true;
+                        break;
+                    }
+                }
+                if (!adjacentToPlayer) {
+                    // Darken the tile (fog of war)
+                    c.r = static_cast<unsigned char>(c.r * 0.4f);
+                    c.g = static_cast<unsigned char>(c.g * 0.4f);
+                    c.b = static_cast<unsigned char>(c.b * 0.4f);
                 }
             }
 
@@ -501,7 +657,27 @@ void Renderer::Render(Simulation& sim, const NetworkManager& net) {
             break;
     }
 
+    DrawCustomCursor();
     EndDrawing();
+}
+
+void Renderer::DrawCustomCursor() {
+    Vector2 mousePos = GetMousePosition();
+    if (isTargetingNuke_) {
+        // Crosshair for nuke targeting
+        DrawLineEx({mousePos.x - 15, mousePos.y}, {mousePos.x - 5, mousePos.y}, 2.0f, RED);
+        DrawLineEx({mousePos.x + 5, mousePos.y}, {mousePos.x + 15, mousePos.y}, 2.0f, RED);
+        DrawLineEx({mousePos.x, mousePos.y - 15}, {mousePos.x, mousePos.y - 5}, 2.0f, RED);
+        DrawLineEx({mousePos.x, mousePos.y + 5}, {mousePos.x, mousePos.y + 15}, 2.0f, RED);
+        DrawCircleLines(mousePos.x, mousePos.y, 8.0f, RED);
+    } else if (activeBuildMode_ != BuildingType::None) {
+        // Building placement cursor
+        DrawCircleLines(mousePos.x, mousePos.y, 6.0f, Color{100, 200, 100, 200});
+        DrawLineEx({mousePos.x - 8, mousePos.y}, {mousePos.x + 8, mousePos.y}, 1.0f,
+                   Color{100, 200, 100, 200});
+        DrawLineEx({mousePos.x, mousePos.y - 8}, {mousePos.x, mousePos.y + 8}, 1.0f,
+                   Color{100, 200, 100, 200});
+    }
 }
 
 void Renderer::DrawWorld(Simulation& sim) {
@@ -518,6 +694,19 @@ void Renderer::DrawWorld(Simulation& sim) {
 }
 
 void Renderer::DrawBuildings(const Simulation& sim) {
+    // Draw defense post ranges first (behind buildings)
+    for (const auto& b : sim.GetBuildings()) {
+        if (!b.active || b.type != BuildingType::DefensePost) {
+            continue;
+        }
+        float cx = (b.x + 0.5f) * kTileSize;
+        float cy = (b.y + 0.5f) * kTileSize;
+        float radius = b.range * kTileSize;
+        // Semi-transparent red circle
+        DrawCircle(cx, cy, radius, Color{220, 60, 60, 30});
+        DrawCircleLines(cx, cy, radius, Color{220, 60, 60, 80});
+    }
+
     for (const auto& b : sim.GetBuildings()) {
         if (!b.active) {
             continue;
@@ -526,47 +715,81 @@ void Renderer::DrawBuildings(const Simulation& sim) {
         float bx = (b.x + 0.5f) * kTileSize;
         float by = (b.y + 0.5f) * kTileSize;
 
+        // Draw building icon if available
+        int iconIdx = -1;
         switch (b.type) {
-            case BuildingType::City: {
-                DrawRectangle(bx - 5, by - 6, 4, 10, WHITE);
-                DrawRectangle(bx, by - 8, 5, 12, Color{240, 240, 240, 255});
-                DrawRectangle(bx - 3, by - 2, 2, 2, YELLOW);
-                DrawRectangle(bx + 2, by - 4, 2, 2, YELLOW);
+            case BuildingType::City:
+                iconIdx = 0;
                 break;
-            }
-            case BuildingType::Port: {
-                DrawCircle(bx, by, 5.0f, Color{40, 160, 220, 255});
-                DrawRectangle(bx - 2, by - 1, 4, 6, WHITE);
-                DrawRectangle(bx - 4, by + 3, 8, 2, WHITE);
+            case BuildingType::Port:
+                iconIdx = 1;
                 break;
-            }
-            case BuildingType::Factory: {
-                DrawRectangle(bx - 6, by - 3, 12, 7, Color{80, 80, 90, 255});
-                DrawRectangle(bx - 4, by - 7, 3, 5, Color{60, 60, 70, 255});
-                DrawRectangle(bx + 1, by - 7, 3, 5, Color{60, 60, 70, 255});
-                DrawCircle(bx - 2.5f, by - 8.0f, 2.0f, Color{200, 200, 200, 160});
+            case BuildingType::Factory:
+                iconIdx = 2;
                 break;
-            }
-            case BuildingType::DefensePost: {
-                DrawCircle(bx, by, 5.5f, Color{220, 60, 60, 255});
-                DrawCircleLines(bx, by, 6.5f, WHITE);
-                DrawRectangle(bx - 2, by - 2, 4, 4, WHITE);
+            case BuildingType::DefensePost:
+                iconIdx = 3;
                 break;
-            }
-            case BuildingType::SamLauncher: {
-                DrawCircle(bx, by, 4.5f, Color{50, 180, 190, 255});
-                DrawLine(bx, by, bx + 4, by - 5, WHITE);
-                DrawLine(bx, by, bx - 4, by - 5, WHITE);
+            case BuildingType::SamLauncher:
+                iconIdx = 4;
                 break;
-            }
-            case BuildingType::MissileSilo: {
-                DrawCircle(bx, by, 5.5f, Color{40, 40, 40, 255});
-                DrawCircleLines(bx, by, 6.0f, YELLOW);
-                DrawCircle(bx, by, 2.5f, RED);
+            case BuildingType::MissileSilo:
+                iconIdx = 5;
                 break;
-            }
             default:
                 break;
+        }
+
+        if (iconIdx >= 0 && buildingIcons_[iconIdx].id != 0) {
+            DrawTexturePro(
+                buildingIcons_[iconIdx],
+                {0, 0, (float)buildingIcons_[iconIdx].width, (float)buildingIcons_[iconIdx].height},
+                {bx - 10, by - 10, 20, 20}, {0, 0}, 0.0f,
+                b.active ? WHITE : Color{100, 100, 100, 150});
+        } else {
+            // Fallback to shapes
+            switch (b.type) {
+                case BuildingType::City: {
+                    DrawRectangle(bx - 5, by - 6, 4, 10, WHITE);
+                    DrawRectangle(bx, by - 8, 5, 12, Color{240, 240, 240, 255});
+                    DrawRectangle(bx - 3, by - 2, 2, 2, YELLOW);
+                    DrawRectangle(bx + 2, by - 4, 2, 2, YELLOW);
+                    break;
+                }
+                case BuildingType::Port: {
+                    DrawCircle(bx, by, 5.0f, Color{40, 160, 220, 255});
+                    DrawRectangle(bx - 2, by - 1, 4, 6, WHITE);
+                    DrawRectangle(bx - 4, by + 3, 8, 2, WHITE);
+                    break;
+                }
+                case BuildingType::Factory: {
+                    DrawRectangle(bx - 6, by - 3, 12, 7, Color{80, 80, 90, 255});
+                    DrawRectangle(bx - 4, by - 7, 3, 5, Color{60, 60, 70, 255});
+                    DrawRectangle(bx + 1, by - 7, 3, 5, Color{60, 60, 70, 255});
+                    DrawCircle(bx - 2.5f, by - 8.0f, 2.0f, Color{200, 200, 200, 160});
+                    break;
+                }
+                case BuildingType::DefensePost: {
+                    DrawCircle(bx, by, 5.5f, Color{220, 60, 60, 255});
+                    DrawCircleLines(bx, by, 6.5f, WHITE);
+                    DrawRectangle(bx - 2, by - 2, 4, 4, WHITE);
+                    break;
+                }
+                case BuildingType::SamLauncher: {
+                    DrawCircle(bx, by, 4.5f, Color{50, 180, 190, 255});
+                    DrawLine(bx, by, bx + 4, by - 5, WHITE);
+                    DrawLine(bx, by, bx - 4, by - 5, WHITE);
+                    break;
+                }
+                case BuildingType::MissileSilo: {
+                    DrawCircle(bx, by, 5.5f, Color{40, 40, 40, 255});
+                    DrawCircleLines(bx, by, 6.0f, YELLOW);
+                    DrawCircle(bx, by, 2.5f, RED);
+                    break;
+                }
+                default:
+                    break;
+            }
         }
     }
 }
@@ -636,7 +859,8 @@ void Renderer::DrawFrontLines(const Simulation& sim) {
                           static_cast<float>(textW + 10), 15.0f};
         DrawRectangleRounded(pill, 0.4f, 4, Color{15, 20, 30, 230});
         DrawRectangleRoundedLines(pill, 0.4f, 4, attCol);
-        DrawText(troopBuf, static_cast<int>(pill.x + 5), static_cast<int>(pill.y + 2), 11, WHITE);
+        DrawTextCustom(troopBuf, static_cast<int>(pill.x + 5), static_cast<int>(pill.y + 2), 11,
+                       WHITE);
     }
 }
 
@@ -686,8 +910,8 @@ void Renderer::DrawParticlesAndFloatingText(const Simulation& sim) {
         float alpha = 1.0f - (ft.age / ft.duration);
         Color col = ft.color;
         col.a = static_cast<unsigned char>(alpha * 255.0f);
-        DrawText(ft.text.c_str(), static_cast<int>(ft.pos.x - 30), static_cast<int>(ft.pos.y), 12,
-                 col);
+        DrawTextCustom(ft.text.c_str(), static_cast<int>(ft.pos.x - 30), static_cast<int>(ft.pos.y),
+                       12, col);
     }
 }
 
@@ -715,14 +939,14 @@ void Renderer::DrawTopBar(const Simulation& sim, const NetworkManager& net) {
     // Faction Badge
     DrawRectangle(15, 10, 26, 26, localPlayer->color);
     DrawRectangleLines(15, 10, 26, 26, WHITE);
-    DrawText("OPENFRONT", 50, 13, 20, WHITE);
+    DrawTitleCustom("OPENFRONT", 50, 13, 10, WHITE);
 
     // Troops Status
     char troopText[64];
     std::snprintf(troopText, sizeof(troopText), "TROOPS: %s / %s",
                   TextFormat("%d", static_cast<int>(localPlayer->troops)),
                   TextFormat("%d", static_cast<int>(localPlayer->maxTroops)));
-    DrawText(troopText, 200, 14, 15, Color{120, 220, 140, 255});
+    DrawTextCustom(troopText, 200, 14, 15, Color{120, 220, 140, 255});
 
     float troopPct =
         static_cast<float>(localPlayer->troops / std::max(1.0, localPlayer->maxTroops));
@@ -735,7 +959,7 @@ void Renderer::DrawTopBar(const Simulation& sim, const NetworkManager& net) {
     char goldText[32];
     std::snprintf(goldText, sizeof(goldText), "GOLD: $%s",
                   TextFormat("%d", static_cast<int>(localPlayer->gold)));
-    DrawText(goldText, 530, 14, 15, Color{255, 215, 50, 255});
+    DrawTextCustom(goldText, 530, 14, 15, Color{255, 215, 50, 255});
 
     // Territory %
     int totalLand = sim.GetMap().GetLandTilesCount();
@@ -743,14 +967,14 @@ void Renderer::DrawTopBar(const Simulation& sim, const NetworkManager& net) {
         (totalLand > 0) ? (static_cast<float>(localPlayer->tileCount) / totalLand * 100.0f) : 0.0f;
     char landText[32];
     std::snprintf(landText, sizeof(landText), "LAND: %d (%.1f%%)", localPlayer->tileCount, landPct);
-    DrawText(landText, 720, 14, 15, Color{100, 190, 255, 255});
+    DrawTextCustom(landText, 720, 14, 15, Color{100, 190, 255, 255});
 
     // Match Timer
     int matchSec = static_cast<int>(sim.GetMatchTime());
     int remSec = std::max(0, static_cast<int>(sim.GetMatchDuration()) - matchSec);
     char timerText[32];
     std::snprintf(timerText, sizeof(timerText), "%02d:%02d", remSec / 60, remSec % 60);
-    DrawText(timerText, 890, 14, 15, Color{230, 230, 240, 255});
+    DrawTextCustom(timerText, 890, 14, 15, Color{230, 230, 240, 255});
 
     // Multiplayer Status Badge
     Rectangle netBadge = {static_cast<float>(screenWidth_ - 290), 8.0f, 160.0f, 30.0f};
@@ -768,14 +992,14 @@ void Renderer::DrawTopBar(const Simulation& sim, const NetworkManager& net) {
     }
     DrawRectangleRec(netBadge, Color{25, 35, 50, 200});
     DrawRectangleLinesEx(netBadge, 1.0f, badgeCol);
-    DrawText(netStatus, netBadge.x + 10, netBadge.y + 7, 13, badgeCol);
+    DrawTextCustom(netStatus, netBadge.x + 10, netBadge.y + 7, 13, badgeCol);
 
     // [ESC] Menu Button
     Rectangle menuBtn = {static_cast<float>(screenWidth_ - 110), 8.0f, 95.0f, 30.0f};
     bool hoverMenu = CheckCollisionPointRec(GetMousePosition(), menuBtn);
     DrawRectangleRec(menuBtn, hoverMenu ? Color{50, 140, 220, 240} : Color{35, 45, 65, 220});
     DrawRectangleLinesEx(menuBtn, 1.0f, hoverMenu ? WHITE : Color{70, 90, 130, 255});
-    DrawText("[ESC] Menu", menuBtn.x + 12, menuBtn.y + 7, 13, WHITE);
+    DrawTextCustom("[ESC] Menu", menuBtn.x + 12, menuBtn.y + 7, 13, WHITE);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverMenu) {
         PlaySoundEffect("ui_click");
@@ -797,7 +1021,7 @@ void Renderer::DrawBottomDock(Simulation& sim, NetworkManager& net) {
     }
 
     // Attack Slider
-    DrawText("PUSH ARMY:", 15, dockY + 12, 12, GRAY);
+    DrawTextCustom("PUSH ARMY:", 15, dockY + 12, 12, GRAY);
 
     const float ratios[] = {0.10f, 0.20f, 0.50f, 1.00f};
     const char* ratioLabels[] = {"[Z] 10%", "[X] 20%", "[C] 50%", "[V] 100%"};
@@ -809,7 +1033,7 @@ void Renderer::DrawBottomDock(Simulation& sim, NetworkManager& net) {
         Color bg = isActive ? Color{40, 140, 250, 220} : Color{35, 45, 60, 220};
         DrawRectangleRec(btn, bg);
         DrawRectangleLinesEx(btn, 1.0f, isActive ? WHITE : Color{70, 80, 100, 255});
-        DrawText(ratioLabels[i], btn.x + 5, btn.y + 6, 11, WHITE);
+        DrawTextCustom(ratioLabels[i], btn.x + 5, btn.y + 6, 11, WHITE);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
             CheckCollisionPointRec(GetMousePosition(), btn)) {
@@ -838,16 +1062,30 @@ void Renderer::DrawBottomDock(Simulation& sim, NetworkManager& net) {
         bool isSelected = (activeBuildMode_ == bBtns[i].type);
         bool canAfford = (localPlayer->gold >= BuildingCost(bBtns[i].type));
 
-        Color bg = isSelected ? Color{50, 160, 100, 220}
-                              : (canAfford ? Color{30, 40, 55, 220} : Color{25, 25, 30, 200});
-        DrawRectangleRec(btn, bg);
-        DrawRectangleLinesEx(
-            btn, 1.0f,
-            isSelected ? WHITE : (canAfford ? Color{60, 80, 110, 255} : Color{50, 50, 60, 255}));
+        Vector2 mousePos = GetMousePosition();
+        bool isHovered = CheckCollisionPointRec(mousePos, btn);
 
-        DrawText(bBtns[i].label, btn.x + 8, btn.y + 6, 12, canAfford ? WHITE : GRAY);
-        DrawText(bBtns[i].cost, btn.x + 8, btn.y + 24, 13,
-                 canAfford ? GOLD : Color{120, 110, 70, 255});
+        Color bg = isSelected
+                       ? Color{50, 160, 100, 220}
+                       : (canAfford ? (isHovered ? Color{45, 60, 80, 220} : Color{30, 40, 55, 220})
+                                    : Color{25, 25, 30, 200});
+        DrawRectangleRec(btn, bg);
+        DrawRectangleLinesEx(btn, 1.0f,
+                             isSelected ? WHITE
+                                        : (isHovered ? Color{100, 130, 170, 255}
+                                                     : (canAfford ? Color{60, 80, 110, 255}
+                                                                  : Color{50, 50, 60, 255})));
+
+        // Draw building icon
+        if (buildingIcons_[i].id != 0) {
+            DrawTexturePro(buildingIcons_[i],
+                           {0, 0, (float)buildingIcons_[i].width, (float)buildingIcons_[i].height},
+                           {btn.x + 4, btn.y + 4, 24, 24}, {0, 0}, 0.0f,
+                           canAfford ? WHITE : Color{100, 100, 100, 150});
+        }
+        DrawTextCustom(bBtns[i].label, btn.x + 30, btn.y + 6, 11, canAfford ? WHITE : GRAY);
+        DrawTextCustom(bBtns[i].cost, btn.x + 30, btn.y + 24, 12,
+                       canAfford ? GOLD : Color{120, 110, 70, 255});
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
             CheckCollisionPointRec(GetMousePosition(), btn)) {
@@ -872,8 +1110,8 @@ void Renderer::DrawBottomDock(Simulation& sim, NetworkManager& net) {
     DrawRectangleRec(nukeBtn, nukeBg);
     DrawRectangleLinesEx(nukeBtn, 1.0f,
                          isNukeActive ? WHITE : (canAffordNuke ? RED : Color{70, 50, 50, 255}));
-    DrawText("[N] Atom Bomb", nukeBtn.x + 6, nukeBtn.y + 6, 11, canAffordNuke ? WHITE : GRAY);
-    DrawText("$100k", nukeBtn.x + 6, nukeBtn.y + 24, 13, canAffordNuke ? GOLD : GRAY);
+    DrawTextCustom("[N] Atom Bomb", nukeBtn.x + 6, nukeBtn.y + 6, 11, canAffordNuke ? WHITE : GRAY);
+    DrawTextCustom("$100k", nukeBtn.x + 6, nukeBtn.y + 24, 13, canAffordNuke ? GOLD : GRAY);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         CheckCollisionPointRec(GetMousePosition(), nukeBtn) && hasSilo) {
@@ -901,7 +1139,7 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
 
     DrawRectangle(boardX, boardY, boardW, boardH, Color{15, 20, 30, 220});
     DrawRectangleLines(boardX, boardY, boardW, boardH, Color{40, 50, 70, 255});
-    DrawText("FACTION RANKINGS", boardX + 12, boardY + 10, 14, Color{200, 220, 240, 255});
+    DrawTextCustom("FACTION RANKINGS", boardX + 12, boardY + 10, 14, Color{200, 220, 240, 255});
     DrawLine(boardX + 10, boardY + 28, boardX + boardW - 10, boardY + 28, Color{50, 60, 80, 255});
 
     std::vector<const Player*> sorted;
@@ -926,7 +1164,7 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
                        : GRAY;
         std::string displayName =
             (p->type == FactionType::Human && p->id != localId) ? (p->name + " [P]") : p->name;
-        DrawText(displayName.c_str(), boardX + 30, rowY + 2, 12, nameCol);
+        DrawTextCustom(displayName.c_str(), boardX + 30, rowY + 2, 12, nameCol);
 
         float pct =
             (totalLand > 0) ? (static_cast<float>(p->tileCount) / totalLand * 100.0f) : 0.0f;
@@ -937,20 +1175,49 @@ void Renderer::DrawLeaderboard(const Simulation& sim, PlayerId localId) {
         } else {
             std::snprintf(statsBuf, sizeof(statsBuf), "ELIMINATED");
         }
-        DrawText(statsBuf, boardX + 130, rowY + 2, 11,
-                 p->isAlive ? Color{180, 200, 220, 255} : RED);
+        DrawTextCustom(statsBuf, boardX + 130, rowY + 2, 11,
+                       p->isAlive ? Color{180, 200, 220, 255} : RED);
 
         rowY += 24;
     }
 }
 
 void Renderer::DrawMinimap(const Simulation& sim) {
+    // Frame with shadow
+    DrawRectangle(minimapRect_.x + 2, minimapRect_.y + 2, minimapRect_.width, minimapRect_.height,
+                  Color{0, 0, 0, 100});
     DrawRectangleRec(minimapRect_, Color{10, 15, 25, 240});
-    DrawRectangleLinesEx(minimapRect_, 1.5f, Color{40, 60, 90, 255});
+    DrawRectangleLinesEx(minimapRect_, 2.0f, Color{60, 90, 130, 255});
+    DrawRectangleLinesEx(
+        {minimapRect_.x + 1, minimapRect_.y + 1, minimapRect_.width - 2, minimapRect_.height - 2},
+        1.0f, Color{30, 50, 80, 255});
 
     Rectangle src = {0.0f, 0.0f, static_cast<float>(kMapWidth), static_cast<float>(kMapHeight)};
     DrawTexturePro(mapTexture_, src, minimapRect_, {0.0f, 0.0f}, 0.0f, WHITE);
 
+    // Draw buildings as dots
+    for (const auto& b : sim.GetBuildings()) {
+        if (!b.active) {
+            continue;
+        }
+        float mx = minimapRect_.x + (b.x / (float)kMapWidth) * minimapRect_.width;
+        float my = minimapRect_.y + (b.y / (float)kMapHeight) * minimapRect_.height;
+        const Player* p = sim.GetPlayer(b.ownerId);
+        Color c = p ? p->color : GRAY;
+        DrawCircle(mx, my, 2.0f, c);
+    }
+
+    // Draw missiles as small dots
+    for (const auto& m : sim.GetMissiles()) {
+        if (m.exploded || m.intercepted) {
+            continue;
+        }
+        float mx = minimapRect_.x + (m.currentPos.x / (float)kMapWidth) * minimapRect_.width;
+        float my = minimapRect_.y + (m.currentPos.y / (float)kMapHeight) * minimapRect_.height;
+        DrawCircle(mx, my, 1.5f, YELLOW);
+    }
+
+    // Camera viewport rectangle
     Vector2 topLeftWorld = GetScreenToWorld2D({0.0f, 46.0f}, camera_);
     Vector2 botRightWorld = GetScreenToWorld2D(
         {static_cast<float>(screenWidth_), static_cast<float>(screenHeight_ - 68)}, camera_);
@@ -967,6 +1234,16 @@ void Renderer::DrawMinimap(const Simulation& sim) {
 void Renderer::DrawGameOver(Simulation& sim) {
     DrawRectangle(0, 0, screenWidth_, screenHeight_, Color{0, 0, 0, 200});
 
+    if (!gameOverSoundPlayed_) {
+        PlayerId winId = sim.GetWinnerId();
+        if (winId == 1) {
+            PlaySoundEffect("victory");
+        } else {
+            PlaySoundEffect("defeat");
+        }
+        gameOverSoundPlayed_ = true;
+    }
+
     PlayerId winId = sim.GetWinnerId();
     const Player* win = sim.GetPlayer(winId);
 
@@ -974,17 +1251,18 @@ void Renderer::DrawGameOver(Simulation& sim) {
     Color titleCol = (winId == 1) ? GOLD : RED;
 
     int tw = MeasureText(title, 36);
-    DrawText(title, (screenWidth_ - tw) / 2, screenHeight_ / 2 - 80, 36, titleCol);
+    DrawTextCustom(title, (screenWidth_ - tw) / 2, screenHeight_ / 2 - 80, 36, titleCol);
 
     char winnerMsg[128];
     std::snprintf(winnerMsg, sizeof(winnerMsg), "Dominant Power: %s with %d tiles",
                   win ? win->name.c_str() : "Nobody", win ? win->tileCount : 0);
     int mw = MeasureText(winnerMsg, 20);
-    DrawText(winnerMsg, (screenWidth_ - mw) / 2, screenHeight_ / 2 - 20, 20, WHITE);
+    DrawTextCustom(winnerMsg, (screenWidth_ - mw) / 2, screenHeight_ / 2 - 20, 20, WHITE);
 
     const char* sub = "Press [R] or [SPACE] to Restart Match";
     int sw = MeasureText(sub, 18);
-    DrawText(sub, (screenWidth_ - sw) / 2, screenHeight_ / 2 + 40, 18, Color{180, 220, 255, 255});
+    DrawTextCustom(sub, (screenWidth_ - sw) / 2, screenHeight_ / 2 + 40, 18,
+                   Color{180, 220, 255, 255});
 
     if (controller_ && (controller_->isActionPressed("RESTART"))) {
         sim.Init(4, 4, static_cast<uint32_t>(GetTime() * 1000.0));
@@ -1008,11 +1286,11 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
     // Animated Title
     const char* title = "OPENFRONT";
     int tw = MeasureText(title, 48);
-    DrawText(title, menuX + (menuW - tw) * 0.5f, menuY + 28, 48, GOLD);
+    DrawTextCustom(title, menuX + (menuW - tw) * 0.5f, menuY + 28, 48, GOLD);
 
     const char* sub = "REAL-TIME TERRITORY STRATEGY";
     int sw = MeasureText(sub, 13);
-    DrawText(sub, menuX + (menuW - sw) * 0.5f, menuY + 84, 13, Color{160, 200, 240, 255});
+    DrawTextCustom(sub, menuX + (menuW - sw) * 0.5f, menuY + 84, 13, Color{160, 200, 240, 255});
 
     DrawLine(menuX + 30, menuY + 110, menuX + menuW - 30, menuY + 110, Color{40, 60, 90, 255});
 
@@ -1042,12 +1320,12 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
         DrawRectangleLinesEx(btn, 1.5f, hover ? WHITE : Color{70, 120, 190, 255});
 
         int lw = MeasureText(btns[i].label, 16);
-        DrawText(btns[i].label, btn.x + (btn.width - lw) * 0.5f, btn.y + 15, 16, WHITE);
+        DrawTextCustom(btns[i].label, btn.x + (btn.width - lw) * 0.5f, btn.y + 15, 16, WHITE);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hover) {
             PlaySoundEffect("ui_click");
             if (btns[i].next == UIState::InGame) {
-                net.StartSinglePlayer(sim);
+                net.StartSinglePlayer(sim, selectedMapType_);
                 Init(sim, 1);
                 uiState_ = UIState::InGame;
             } else {
@@ -1062,7 +1340,7 @@ void Renderer::DrawStartMenu(Simulation& sim, NetworkManager& net) {
     DrawRectangleRec(quitBtn, hoverQuit ? Color{180, 40, 50, 220} : Color{30, 35, 45, 200});
     DrawRectangleLinesEx(quitBtn, 1.0f, hoverQuit ? WHITE : Color{60, 60, 70, 255});
     int qw = MeasureText("EXIT GAME", 14);
-    DrawText("EXIT GAME", quitBtn.x + (quitBtn.width - qw) * 0.5f, quitBtn.y + 13, 14, GRAY);
+    DrawTextCustom("EXIT GAME", quitBtn.x + (quitBtn.width - qw) * 0.5f, quitBtn.y + 13, 14, GRAY);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverQuit) {
         CloseWindow();
     }
@@ -1080,55 +1358,75 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
     DrawRectangleRec(card, Color{18, 24, 38, 248});
     DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
 
-    DrawText("HOST MULTIPLAYER ROOM", menuX + 30, menuY + 22, 22, GOLD);
+    DrawTextCustom("HOST MULTIPLAYER ROOM", menuX + 30, menuY + 22, 22, GOLD);
     DrawLine(menuX + 25, menuY + 54, menuX + menuW - 25, menuY + 54, Color{40, 60, 90, 255});
 
     Vector2 mousePos = GetMousePosition();
     bool isHosting = (net.GetMode() == GameMode::Host);
 
     // Player Name
-    DrawText("Host Commander Name:", menuX + 30, menuY + 68, 13, WHITE);
+    DrawTextCustom("Host Commander Name:", menuX + 30, menuY + 68, 13, WHITE);
     Rectangle nameBox = {menuX + 30, menuY + 86, menuW - 60, 30};
     DrawRectangleRec(nameBox,
                      (activeInputBox_ == 1) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
     DrawRectangleLinesEx(nameBox, 1.0f, (activeInputBox_ == 1) ? GOLD : Color{60, 80, 110, 255});
-    DrawText(playerNameBuffer_, nameBox.x + 10, nameBox.y + 7, 14, WHITE);
+    DrawTextCustom(playerNameBuffer_, nameBox.x + 10, nameBox.y + 7, 14, WHITE);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, nameBox)) {
         activeInputBox_ = 1;
     }
 
     // Server Port & Host Toggle
-    DrawText("UDP Port:", menuX + 30, menuY + 124, 13, WHITE);
+    DrawTextCustom("UDP Port:", menuX + 30, menuY + 124, 13, WHITE);
     Rectangle portBox = {menuX + 30, menuY + 142, 130, 30};
     DrawRectangleRec(portBox,
                      (activeInputBox_ == 2) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
     DrawRectangleLinesEx(portBox, 1.0f, (activeInputBox_ == 2) ? GOLD : Color{60, 80, 110, 255});
-    DrawText(hostPortBuffer_, portBox.x + 10, portBox.y + 7, 14, WHITE);
+    DrawTextCustom(hostPortBuffer_, portBox.x + 10, portBox.y + 7, 14, WHITE);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, portBox)) {
         activeInputBox_ = 2;
     }
 
+    // Map selection
+    DrawTextCustom("Map:", menuX + 30, menuY + 142, 13, WHITE);
+    const char* mapNames[] = {"Procedural", "Europe", "World", "Pangaea", "Archipelago"};
+    Openfront::MapType mapTypes[] = {Openfront::MapType::Procedural, Openfront::MapType::Europe,
+                                     Openfront::MapType::World, Openfront::MapType::Pangaea,
+                                     Openfront::MapType::Archipelago};
+    float mapBtnX = menuX + 80;
+    for (int i = 0; i < 5; ++i) {
+        Rectangle mapBtn = {mapBtnX + i * 90.0f, menuY + 140, 85, 28};
+        bool isSel = (selectedMapType_ == mapTypes[i]);
+        Color bg = isSel ? Color{40, 120, 220, 255} : Color{25, 35, 52, 255};
+        DrawRectangleRec(mapBtn, bg);
+        DrawRectangleLinesEx(mapBtn, 1.0f, isSel ? WHITE : Color{60, 80, 110, 255});
+        DrawTextCustom(mapNames[i], mapBtn.x + 4, mapBtn.y + 8, 10, WHITE);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, mapBtn)) {
+            PlaySoundEffect("ui_click");
+            selectedMapType_ = mapTypes[i];
+        }
+    }
+
     if (!isHosting) {
-        Rectangle createBtn = {menuX + 175, menuY + 142, menuW - 205, 30};
+        Rectangle createBtn = {menuX + 175, menuY + 180, menuW - 205, 30};
         bool hoverCreate = CheckCollisionPointRec(mousePos, createBtn);
         DrawRectangleRec(createBtn,
                          hoverCreate ? Color{40, 120, 220, 255} : Color{30, 90, 180, 230});
         DrawRectangleLinesEx(createBtn, 1.0f, hoverCreate ? WHITE : Color{60, 140, 240, 255});
         int cw = MeasureText("CREATE ROOM & LISTEN", 13);
-        DrawText("CREATE ROOM & LISTEN", createBtn.x + (createBtn.width - cw) * 0.5f,
-                 createBtn.y + 8, 13, WHITE);
+        DrawTextCustom("CREATE ROOM & LISTEN", createBtn.x + (createBtn.width - cw) * 0.5f,
+                       createBtn.y + 8, 13, WHITE);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverCreate) {
             PlaySoundEffect("ui_click");
             int port = std::atoi(hostPortBuffer_);
             if (port <= 0) {
                 port = 7777;
             }
-            net.StartHost(sim, static_cast<uint16_t>(port), playerNameBuffer_);
+            net.StartHost(sim, static_cast<uint16_t>(port), playerNameBuffer_, selectedMapType_);
         }
     } else {
         char portStatus[64];
         std::snprintf(portStatus, sizeof(portStatus), "● LISTENING ON PORT %s", hostPortBuffer_);
-        DrawText(portStatus, menuX + 180, menuY + 150, 13, GREEN);
+        DrawTextCustom(portStatus, menuX + 180, menuY + 150, 13, GREEN);
     }
 
     // Connected Players in Lobby box
@@ -1136,8 +1434,8 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
     DrawRectangleRec(lobbyBox, Color{12, 16, 26, 220});
     DrawRectangleLinesEx(lobbyBox, 1.0f, Color{45, 60, 85, 255});
 
-    DrawText("LOBBY COMMANDERS (HUMAN & AI):", lobbyBox.x + 12, lobbyBox.y + 8, 12,
-             Color{140, 180, 230, 255});
+    DrawTextCustom("LOBBY COMMANDERS (HUMAN & AI):", lobbyBox.x + 12, lobbyBox.y + 8, 12,
+                   Color{140, 180, 230, 255});
     DrawLine(lobbyBox.x + 10, lobbyBox.y + 24, lobbyBox.x + lobbyBox.width - 10, lobbyBox.y + 24,
              Color{30, 45, 70, 255});
 
@@ -1158,7 +1456,7 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
                 std::snprintf(pDesc, sizeof(pDesc), "Slot %u: %s (Guest) [READY]", lp.id,
                               lp.name.c_str());
             }
-            DrawText(pDesc, lobbyBox.x + 35, py + 2, 13, WHITE);
+            DrawTextCustom(pDesc, lobbyBox.x + 35, py + 2, 13, WHITE);
             py += 22;
         }
 
@@ -1169,18 +1467,18 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
             DrawCircle(lobbyBox.x + 20, py + 8, 4.0f, GRAY);
             char aiDesc[64];
             std::snprintf(aiDesc, sizeof(aiDesc), "Slot %zu: %s", s + 1, aiSlots[s % 4]);
-            DrawText(aiDesc, lobbyBox.x + 35, py + 2, 12, Color{130, 140, 160, 255});
+            DrawTextCustom(aiDesc, lobbyBox.x + 35, py + 2, 12, Color{130, 140, 160, 255});
             py += 20;
         }
 
         char countBuf[64];
         std::snprintf(countBuf, sizeof(countBuf), "Total Humans Connected: %zu",
                       lobbyPlayers.size());
-        DrawText(countBuf, lobbyBox.x + 12, lobbyBox.y + lobbyBox.height - 20, 12,
-                 Color{100, 220, 140, 255});
+        DrawTextCustom(countBuf, lobbyBox.x + 12, lobbyBox.y + lobbyBox.height - 20, 12,
+                       Color{100, 220, 140, 255});
     } else {
-        DrawText("Click [CREATE ROOM & LISTEN] to begin hosting.", lobbyBox.x + 25, lobbyBox.y + 70,
-                 13, GRAY);
+        DrawTextCustom("Click [CREATE ROOM & LISTEN] to begin hosting.", lobbyBox.x + 25,
+                       lobbyBox.y + 70, 13, GRAY);
     }
 
     // Action button: [START MATCH]
@@ -1193,8 +1491,8 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
         DrawRectangleLinesEx(actionBtn, 2.0f, hoverAction ? WHITE : Color{80, 210, 120, 255});
         const char* startLabel = "⚔  START MATCH (SPACE / ENTER)  ⚔";
         int slw = MeasureText(startLabel, 16);
-        DrawText(startLabel, actionBtn.x + (actionBtn.width - slw) * 0.5f, actionBtn.y + 16, 16,
-                 WHITE);
+        DrawTextCustom(startLabel, actionBtn.x + (actionBtn.width - slw) * 0.5f, actionBtn.y + 16,
+                       16, WHITE);
 
         if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverAction) ||
             ((controller_ && controller_->isActionPressed("CONFIRM")) && activeInputBox_ == 0)) {
@@ -1208,8 +1506,8 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
         DrawRectangleLinesEx(actionBtn, 1.0f, Color{60, 70, 85, 255});
         const char* waitLabel = "ROOM NOT ACTIVE";
         int wlw = MeasureText(waitLabel, 14);
-        DrawText(waitLabel, actionBtn.x + (actionBtn.width - wlw) * 0.5f, actionBtn.y + 17, 14,
-                 GRAY);
+        DrawTextCustom(waitLabel, actionBtn.x + (actionBtn.width - wlw) * 0.5f, actionBtn.y + 17,
+                       14, GRAY);
     }
 
     // Back button
@@ -1218,8 +1516,8 @@ void Renderer::DrawHostLobby(Simulation& sim, NetworkManager& net) {
     DrawRectangleRec(backBtn, hoverBack ? Color{50, 60, 80, 220} : Color{28, 35, 48, 200});
     DrawRectangleLinesEx(backBtn, 1.0f, hoverBack ? WHITE : Color{55, 70, 95, 255});
     int bw = MeasureText("BACK TO MAIN MENU", 14);
-    DrawText("BACK TO MAIN MENU", backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 14,
-             GRAY);
+    DrawTextCustom("BACK TO MAIN MENU", backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 14,
+                   GRAY);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverBack) {
         PlaySoundEffect("ui_click");
         net.Stop();
@@ -1239,7 +1537,7 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
     DrawRectangleRec(card, Color{18, 24, 38, 248});
     DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
 
-    DrawText("JOIN MULTIPLAYER ROOM", menuX + 30, menuY + 22, 22, GOLD);
+    DrawTextCustom("JOIN MULTIPLAYER ROOM", menuX + 30, menuY + 22, 22, GOLD);
     DrawLine(menuX + 25, menuY + 54, menuX + menuW - 25, menuY + 54, Color{40, 60, 90, 255});
 
     Vector2 mousePos = GetMousePosition();
@@ -1247,35 +1545,35 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
     bool isInLobby = net.GetClient().IsInLobby();
 
     // Player Name
-    DrawText("Your Commander Name:", menuX + 30, menuY + 68, 13, WHITE);
+    DrawTextCustom("Your Commander Name:", menuX + 30, menuY + 68, 13, WHITE);
     Rectangle nameBox = {menuX + 30, menuY + 86, menuW - 60, 30};
     DrawRectangleRec(nameBox,
                      (activeInputBox_ == 1) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
     DrawRectangleLinesEx(nameBox, 1.0f, (activeInputBox_ == 1) ? GOLD : Color{60, 80, 110, 255});
-    DrawText(playerNameBuffer_, nameBox.x + 10, nameBox.y + 7, 14, WHITE);
+    DrawTextCustom(playerNameBuffer_, nameBox.x + 10, nameBox.y + 7, 14, WHITE);
     if (!isConnected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         CheckCollisionPointRec(mousePos, nameBox)) {
         activeInputBox_ = 1;
     }
 
     // Server IP & Port
-    DrawText("Host IP Address:", menuX + 30, menuY + 124, 13, WHITE);
+    DrawTextCustom("Host IP Address:", menuX + 30, menuY + 124, 13, WHITE);
     Rectangle ipBox = {menuX + 30, menuY + 142, 260, 30};
     DrawRectangleRec(ipBox,
                      (activeInputBox_ == 3) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
     DrawRectangleLinesEx(ipBox, 1.0f, (activeInputBox_ == 3) ? GOLD : Color{60, 80, 110, 255});
-    DrawText(joinIpBuffer_, ipBox.x + 10, ipBox.y + 7, 14, WHITE);
+    DrawTextCustom(joinIpBuffer_, ipBox.x + 10, ipBox.y + 7, 14, WHITE);
     if (!isConnected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         CheckCollisionPointRec(mousePos, ipBox)) {
         activeInputBox_ = 3;
     }
 
-    DrawText("Port:", menuX + 310, menuY + 124, 13, WHITE);
+    DrawTextCustom("Port:", menuX + 310, menuY + 124, 13, WHITE);
     Rectangle portBox = {menuX + 310, menuY + 142, 170, 30};
     DrawRectangleRec(portBox,
                      (activeInputBox_ == 4) ? Color{35, 55, 85, 255} : Color{25, 35, 52, 255});
     DrawRectangleLinesEx(portBox, 1.0f, (activeInputBox_ == 4) ? GOLD : Color{60, 80, 110, 255});
-    DrawText(joinPortBuffer_, portBox.x + 10, portBox.y + 7, 14, WHITE);
+    DrawTextCustom(joinPortBuffer_, portBox.x + 10, portBox.y + 7, 14, WHITE);
     if (!isConnected && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         CheckCollisionPointRec(mousePos, portBox)) {
         activeInputBox_ = 4;
@@ -1287,7 +1585,7 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
     DrawRectangleLinesEx(statusBox, 1.0f, Color{45, 60, 85, 255});
 
     if (isConnected) {
-        DrawText("CONNECTED TO HOST LOBBY:", statusBox.x + 12, statusBox.y + 8, 12, GREEN);
+        DrawTextCustom("CONNECTED TO HOST LOBBY:", statusBox.x + 12, statusBox.y + 8, 12, GREEN);
         DrawLine(statusBox.x + 10, statusBox.y + 24, statusBox.x + statusBox.width - 10,
                  statusBox.y + 24, Color{30, 45, 70, 255});
 
@@ -1311,14 +1609,14 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
                     std::snprintf(pDesc, sizeof(pDesc), "Slot %u: %s (Guest) [READY]", lp.id,
                                   lp.name.c_str());
                 }
-                DrawText(pDesc, statusBox.x + 35, py + 2, 13, WHITE);
+                DrawTextCustom(pDesc, statusBox.x + 35, py + 2, 13, WHITE);
                 py += 22;
             }
         } else {
             char selfDesc[128];
             std::snprintf(selfDesc, sizeof(selfDesc), "Slot %u: %s (You) [CONNECTED]",
                           net.GetLocalPlayerId(), playerNameBuffer_);
-            DrawText(selfDesc, statusBox.x + 20, py + 4, 13, WHITE);
+            DrawTextCustom(selfDesc, statusBox.x + 20, py + 4, 13, WHITE);
         }
 
         // Animated pulsing wait text
@@ -1327,16 +1625,16 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
         Color pulseCol = Color{255, 220, 50, static_cast<unsigned char>(pulseAlpha * 255)};
         const char* waitText = ">>> WAITING FOR HOST TO START MATCH... <<<";
         int wtw = MeasureText(waitText, 14);
-        DrawText(waitText, statusBox.x + (statusBox.width - wtw) * 0.5f,
-                 statusBox.y + statusBox.height - 30, 14, pulseCol);
+        DrawTextCustom(waitText, statusBox.x + (statusBox.width - wtw) * 0.5f,
+                       statusBox.y + statusBox.height - 30, 14, pulseCol);
     } else {
-        DrawText("STATUS: NOT CONNECTED", statusBox.x + 12, statusBox.y + 8, 12, GRAY);
+        DrawTextCustom("STATUS: NOT CONNECTED", statusBox.x + 12, statusBox.y + 8, 12, GRAY);
         DrawLine(statusBox.x + 10, statusBox.y + 24, statusBox.x + statusBox.width - 10,
                  statusBox.y + 24, Color{30, 45, 70, 255});
-        DrawText("Enter Host IP and Port, then click [CONNECT TO HOST].", statusBox.x + 25,
-                 statusBox.y + 60, 13, Color{160, 180, 210, 255});
-        DrawText(connectionStatusText_.c_str(), statusBox.x + 25, statusBox.y + 90, 13,
-                 Color{230, 180, 60, 255});
+        DrawTextCustom("Enter Host IP and Port, then click [CONNECT TO HOST].", statusBox.x + 25,
+                       statusBox.y + 60, 13, Color{160, 180, 210, 255});
+        DrawTextCustom(connectionStatusText_.c_str(), statusBox.x + 25, statusBox.y + 90, 13,
+                       Color{230, 180, 60, 255});
     }
 
     // Connect button
@@ -1349,8 +1647,8 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
         DrawRectangleLinesEx(connectBtn, 2.0f, hoverConnect ? WHITE : Color{70, 160, 255, 255});
         const char* connLabel = "CONNECT TO HOST";
         int clw = MeasureText(connLabel, 16);
-        DrawText(connLabel, connectBtn.x + (connectBtn.width - clw) * 0.5f, connectBtn.y + 16, 16,
-                 WHITE);
+        DrawTextCustom(connLabel, connectBtn.x + (connectBtn.width - clw) * 0.5f, connectBtn.y + 16,
+                       16, WHITE);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverConnect) {
             PlaySoundEffect("ui_click");
@@ -1371,8 +1669,8 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
         DrawRectangleLinesEx(connectBtn, 1.0f, Color{50, 80, 120, 255});
         const char* connLabel = "● CONNECTED (WAITING FOR LAUNCH)";
         int clw = MeasureText(connLabel, 14);
-        DrawText(connLabel, connectBtn.x + (connectBtn.width - clw) * 0.5f, connectBtn.y + 17, 14,
-                 GREEN);
+        DrawTextCustom(connLabel, connectBtn.x + (connectBtn.width - clw) * 0.5f, connectBtn.y + 17,
+                       14, GREEN);
     }
 
     // Back / Disconnect button
@@ -1383,7 +1681,7 @@ void Renderer::DrawJoinLobby(Simulation& sim, NetworkManager& net) {
 
     const char* backText = isConnected ? "DISCONNECT & RETURN TO MENU" : "BACK TO MAIN MENU";
     int bw = MeasureText(backText, 14);
-    DrawText(backText, backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 14, GRAY);
+    DrawTextCustom(backText, backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 14, GRAY);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverBack) {
         PlaySoundEffect("ui_click");
         net.Stop();
@@ -1404,52 +1702,57 @@ void Renderer::DrawHowToPlay() {
     DrawRectangleRec(card, Color{18, 24, 38, 250});
     DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
 
-    DrawText("HOW TO PLAY OPENFRONT", menuX + 30, menuY + 24, 24, GOLD);
+    DrawTextCustom("HOW TO PLAY OPENFRONT", menuX + 30, menuY + 24, 24, GOLD);
     DrawLine(menuX + 25, menuY + 60, menuX + menuW - 25, menuY + 60, Color{40, 60, 90, 255});
 
     int y = menuY + 75;
 
-    DrawText("1. BORDER-DRIVEN EXPANSION (NO DIRECT UNIT MOVEMENT)", menuX + 30, y, 16,
-             Color{120, 220, 140, 255});
+    DrawTextCustom("1. BORDER-DRIVEN EXPANSION (NO DIRECT UNIT MOVEMENT)", menuX + 30, y, 16,
+                   Color{120, 220, 140, 255});
     y += 24;
-    DrawText("• Left-click ANY tile outside your borders to launch an expanding front wave.",
-             menuX + 45, y, 14, WHITE);
+    DrawTextCustom("• Left-click ANY tile outside your borders to launch an expanding front wave.",
+                   menuX + 45, y, 14, WHITE);
     y += 20;
-    DrawText("• Your committed army flows outward across your border, capturing tiles one by one.",
-             menuX + 45, y, 14, WHITE);
+    DrawTextCustom(
+        "• Your committed army flows outward across your border, capturing tiles one by one.",
+        menuX + 45, y, 14, WHITE);
     y += 20;
-    DrawText("• Left-click an active front badge to REINFORCE it; Right-click to CANCEL.",
-             menuX + 45, y, 14, WHITE);
+    DrawTextCustom("• Left-click an active front badge to REINFORCE it; Right-click to CANCEL.",
+                   menuX + 45, y, 14, WHITE);
 
     y += 35;
-    DrawText("2. ARMY COMMITMENT & COMBAT SLIDER", menuX + 30, y, 16, Color{255, 215, 50, 255});
+    DrawTextCustom("2. ARMY COMMITMENT & COMBAT SLIDER", menuX + 30, y, 16,
+                   Color{255, 215, 50, 255});
     y += 24;
-    DrawText("• Choose how much of your total army is sent into each push: [Z] 10%, [X] 20%, [C] "
-             "50%, [V] 100%.",
-             menuX + 45, y, 14, WHITE);
+    DrawTextCustom(
+        "• Choose how much of your total army is sent into each push: [Z] 10%, [X] 20%, [C] "
+        "50%, [V] 100%.",
+        menuX + 45, y, 14, WHITE);
     y += 20;
-    DrawText("• Defender's shield is their troop density (troops / tiles owned * 10).", menuX + 45,
-             y, 14, WHITE);
+    DrawTextCustom("• Defender's shield is their troop density (troops / tiles owned * 10).",
+                   menuX + 45, y, 14, WHITE);
     y += 20;
-    DrawText(
+    DrawTextCustom(
         "• Terrain matters: Plains (1.0x), Highlands (1.5x), Mountains (2.5x defense multiplier).",
         menuX + 45, y, 14, WHITE);
 
     y += 35;
-    DrawText("3. ECONOMY & BUILDINGS", menuX + 30, y, 16, Color{100, 190, 255, 255});
+    DrawTextCustom("3. ECONOMY & BUILDINGS", menuX + 30, y, 16, Color{100, 190, 255, 255});
     y += 24;
-    DrawText("• [1] City ($40k): Boosts max population capacity by 25,000 per level.", menuX + 45,
-             y, 14, WHITE);
+    DrawTextCustom("• [1] City ($40k): Boosts max population capacity by 25,000 per level.",
+                   menuX + 45, y, 14, WHITE);
     y += 20;
-    DrawText("• [2] Port ($35k) & [3] Factory ($30k): Coastal trade ships and trains generate "
-             "massive gold income.",
-             menuX + 45, y, 14, WHITE);
+    DrawTextCustom(
+        "• [2] Port ($35k) & [3] Factory ($30k): Coastal trade ships and trains generate "
+        "massive gold income.",
+        menuX + 45, y, 14, WHITE);
     y += 20;
-    DrawText("• [4] Defense Post ($25k): Fortifies territory with a 5x attacker casualty aura "
-             "within 30 tiles!",
-             menuX + 45, y, 14, WHITE);
+    DrawTextCustom(
+        "• [4] Defense Post ($25k): Fortifies territory with a 5x attacker casualty aura "
+        "within 30 tiles!",
+        menuX + 45, y, 14, WHITE);
     y += 20;
-    DrawText(
+    DrawTextCustom(
         "• [5] SAM ($45k) & [6] Silo ($75k): Intercept and launch devastating nuclear weapons.",
         menuX + 45, y, 14, WHITE);
 
@@ -1459,8 +1762,8 @@ void Renderer::DrawHowToPlay() {
     DrawRectangleRec(backBtn, hoverBack ? Color{40, 140, 240, 240} : Color{30, 80, 160, 220});
     DrawRectangleLinesEx(backBtn, 1.5f, hoverBack ? WHITE : Color{70, 140, 240, 255});
     int bw = MeasureText("BACK TO MAIN MENU", 15);
-    DrawText("BACK TO MAIN MENU", backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 15,
-             WHITE);
+    DrawTextCustom("BACK TO MAIN MENU", backBtn.x + (backBtn.width - bw) * 0.5f, backBtn.y + 12, 15,
+                   WHITE);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverBack) {
         uiState_ = UIState::StartMenu;
     }
@@ -1478,7 +1781,7 @@ void Renderer::DrawPauseMenu(Simulation& sim, NetworkManager& net) {
     DrawRectangleRec(card, Color{18, 24, 38, 245});
     DrawRectangleLinesEx(card, 2.0f, Color{40, 140, 250, 255});
 
-    DrawText("PAUSE MENU", menuX + 105, menuY + 24, 22, GOLD);
+    DrawTextCustom("PAUSE MENU", menuX + 105, menuY + 24, 22, GOLD);
     DrawLine(menuX + 25, menuY + 56, menuX + menuW - 25, menuY + 56, Color{40, 60, 90, 255});
 
     Vector2 mousePos = GetMousePosition();
@@ -1487,7 +1790,7 @@ void Renderer::DrawPauseMenu(Simulation& sim, NetworkManager& net) {
     bool hoverRes = CheckCollisionPointRec(mousePos, resBtn);
     DrawRectangleRec(resBtn, hoverRes ? Color{40, 150, 90, 240} : Color{30, 120, 70, 220});
     DrawRectangleLinesEx(resBtn, 1.0f, hoverRes ? WHITE : Color{60, 180, 100, 255});
-    DrawText("RESUME BATTLE", resBtn.x + 65, resBtn.y + 13, 15, WHITE);
+    DrawTextCustom("RESUME BATTLE", resBtn.x + 65, resBtn.y + 13, 15, WHITE);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverRes) {
         PlaySoundEffect("ui_click");
         uiState_ = UIState::InGame;
@@ -1497,7 +1800,7 @@ void Renderer::DrawPauseMenu(Simulation& sim, NetworkManager& net) {
     bool hoverRest = CheckCollisionPointRec(mousePos, restartBtn);
     DrawRectangleRec(restartBtn, hoverRest ? Color{40, 100, 180, 240} : Color{30, 75, 140, 220});
     DrawRectangleLinesEx(restartBtn, 1.0f, hoverRest ? WHITE : Color{60, 140, 220, 255});
-    DrawText("RESTART MATCH", restartBtn.x + 65, restartBtn.y + 13, 15, WHITE);
+    DrawTextCustom("RESTART MATCH", restartBtn.x + 65, restartBtn.y + 13, 15, WHITE);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverRest) {
         PlaySoundEffect("ui_click");
         net.StartSinglePlayer(sim);
@@ -1509,7 +1812,7 @@ void Renderer::DrawPauseMenu(Simulation& sim, NetworkManager& net) {
     bool hoverMM = CheckCollisionPointRec(mousePos, mmBtn);
     DrawRectangleRec(mmBtn, hoverMM ? Color{180, 40, 50, 240} : Color{130, 30, 40, 220});
     DrawRectangleLinesEx(mmBtn, 1.0f, hoverMM ? WHITE : Color{220, 60, 70, 255});
-    DrawText("MAIN MENU", mmBtn.x + 85, mmBtn.y + 13, 15, WHITE);
+    DrawTextCustom("MAIN MENU", mmBtn.x + 85, mmBtn.y + 13, 15, WHITE);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hoverMM) {
         PlaySoundEffect("ui_click");
         net.Stop();

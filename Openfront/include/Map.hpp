@@ -20,11 +20,19 @@ struct Tile {
     bool isBorder{false};
 };
 
+enum class MapType {
+    Procedural,  // Original noise-based generation
+    Europe,      // European continent shape
+    World,       // World map with multiple continents
+    Pangaea,     // Single large landmass
+    Archipelago, // Many small islands
+};
+
 class WorldMap {
   public:
     WorldMap(int width = kMapWidth, int height = kMapHeight);
 
-    void Generate(uint32_t seed = 42);
+    void Generate(uint32_t seed = 42, MapType type = MapType::Procedural);
 
     [[nodiscard]] bool InBounds(int x, int y) const {
         return x >= 0 && x < width_ && y >= 0 && y < height_;

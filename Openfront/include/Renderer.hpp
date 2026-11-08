@@ -9,6 +9,7 @@
 namespace Engine {
 class AssetManager;
 class IController;
+class Registry;
 } // namespace Engine
 
 namespace Openfront {
@@ -54,7 +55,16 @@ class Renderer {
     void SetController(Engine::IController* controller) {
         controller_ = controller;
     }
+    void SetCameraEntity(std::size_t entity) {
+        cameraEntity_ = entity;
+    }
+    void SetRegistry(Engine::Registry* registry) {
+        registry_ = registry;
+    }
     void PlaySoundEffect(const std::string& name);
+    void DrawTextCustom(const char* text, int x, int y, int size, Color color);
+    void DrawTitleCustom(const char* text, int x, int y, int size, Color color);
+    void DrawCustomCursor();
 
   private:
     int screenWidth_{1600};
@@ -64,12 +74,23 @@ class Renderer {
 
     Engine::AssetManager* assetManager_{nullptr};
     Engine::IController* controller_{nullptr};
+    std::size_t cameraEntity_{0};
+    Engine::Registry* registry_{nullptr};
+    PlayerId localPlayerId_{1};
+    Openfront::MapType selectedMapType_{Openfront::MapType::Procedural};
     size_t prevExplosionsCount_{0};
     size_t prevMissilesCount_{0};
+    bool gameOverSoundPlayed_{false};
+    float nukeShakeTimer_{0.0f};
 
     Camera2D camera_{};
     Texture2D mapTexture_{};
     Image mapImage_{};
+    Font gameFont_{};  // LiberationSans-Bold (body text, standard metrics)
+    Font titleFont_{}; // Press Start 2P (titles/headers, retro)
+    Texture2D buildingIcons_[6]{};
+    Texture2D terrainTextures_[4]{};
+    Image terrainImages_[4]{};
     Color* pixelBuffer_{nullptr};
 
     // User Interaction State

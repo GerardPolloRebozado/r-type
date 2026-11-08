@@ -16,8 +16,8 @@ Simulation::Simulation() {
     Init();
 }
 
-void Simulation::Init(int numNations, int numBots, uint32_t seed) {
-    map_.Generate(seed);
+void Simulation::Init(int numNations, int numBots, uint32_t seed, MapType mapType) {
+    map_.Generate(seed, mapType);
     players_.clear();
     buildings_.clear();
     attackFronts_.clear();
@@ -67,15 +67,19 @@ void Simulation::Init(int numNations, int numBots, uint32_t seed) {
     human.attackRatio = 0.20f;
     players_.push_back(human);
 
+    const AIPersonality personalities[] = {AIPersonality::Aggressive, AIPersonality::Defensive,
+                                           AIPersonality::Economic, AIPersonality::Balanced};
+
     for (int i = 0; i < numNations; ++i) {
         Player nation;
         nation.id = static_cast<PlayerId>(players_.size() + 1);
         nation.name = nationNames[i % nationNames.size()];
         nation.type = FactionType::Nation;
+        nation.personality = personalities[i % 4];
         nation.color = nationColors[i % nationColors.size()];
         nation.troops = 60000.0;
         nation.gold = 20000.0;
-        nation.attackRatio = 0.20f;
+        nation.attackRatio = (personalities[i % 4] == AIPersonality::Aggressive) ? 0.30f : 0.20f;
         players_.push_back(nation);
     }
 
@@ -84,10 +88,11 @@ void Simulation::Init(int numNations, int numBots, uint32_t seed) {
         bot.id = static_cast<PlayerId>(players_.size() + 1);
         bot.name = botNames[i % botNames.size()];
         bot.type = FactionType::Bot;
+        bot.personality = personalities[(i + 2) % 4];
         bot.color = botColors[i % botColors.size()];
         bot.troops = 50000.0;
         bot.gold = 10000.0;
-        bot.attackRatio = 0.20f;
+        bot.attackRatio = (personalities[(i + 2) % 4] == AIPersonality::Aggressive) ? 0.25f : 0.15f;
         players_.push_back(bot);
     }
 
@@ -618,7 +623,15 @@ void Simulation::TickCombatFronts(float dt) {
         for (int y = minY; y <= maxY; ++y) {
             for (int x = minX; x <= maxX; ++x) {
                 const Tile& t = map_.GetTile(x, y);
-                if (t.ownerId != front.attackerId && t.terrain != TerrainType::Water) {
+                // Attack targeting: if target is neutral, only capture neutral tiles.
+                // If target is a specific enemy, only capture that enemy's tiles.
+                bool validTarget = false;
+                if (front.targetPlayerId == kNeutralPlayerId) {
+                    validTarget = (t.ownerId == kNeutralPlayerId);
+                } else {
+                    validTarget = (t.ownerId == front.targetPlayerId);
+                }
+                if (validTarget && t.terrain != TerrainType::Water) {
                     if (map_.HasAdjacentOwner(x, y, front.attackerId)) {
                         float dist = TileDistance(x, y, front.targetX, front.targetY);
                         candidates.push_back({dist, {x, y}});
@@ -951,25 +964,97 @@ void Simulation::SyncToEcs() {
         return;
     }
 
-    // Clean up old entities
-    for (size_t ent : ecsEntities_) {
-        ecsRegistry_->DestroyEntity(ent);
-    }
-    ecsEntities_.clear();
+    // ECS is the primary data model: update existing entities in place rather
+    // than recreating them every sync. This demonstrates that the engine's
+    // Registry is the authoritative store for tactical entities.
 
-    // Sync buildings to ECS
+    // Sync buildings to ECS (create or update)
+    std::vector<size_t> seenEntities;
     for (const auto& b : buildings_) {
-        size_t ent = ecsRegistry_->CreateEntity();
-        // CreateEntity() always adds a default Position; update it via reference wrapper
+        size_t ent = 0;
+        bool found = false;
+        for (size_t e : ecsEntities_) {
+            if (ecsRegistry_->HasComponent<TacticalUnitComponent>(e)) {
+                auto& tc = ecsRegistry_->RequireComponent<TacticalUnitComponent>(e);
+                if (tc.tileX == b.x && tc.tileY == b.y && tc.type == b.type) {
+                    ent = e;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!found) {
+            ent = ecsRegistry_->CreateEntity();
+            ecsEntities_.push_back(ent);
+        }
+
+        // Update position
         if (auto pos = ecsRegistry_->GetComponent<Engine::Position>(ent)) {
             pos->get() = Engine::Position(b.x * kTileSize, b.y * kTileSize, 1);
+        } else {
+            ecsRegistry_->AddComponent<Engine::Position>(
+                ent, Engine::Position{b.x * kTileSize, b.y * kTileSize, 1});
         }
-        ecsRegistry_->AddComponent<Engine::Name>(
-            ent, Engine::Name::Create(std::string(BuildingName(b.type)) + " (P" +
-                                      std::to_string(b.ownerId) + ")"));
-        ecsRegistry_->AddComponent<TacticalUnitComponent>(
-            ent, TacticalUnitComponent{b.type, b.ownerId, b.level, b.x, b.y});
-        ecsEntities_.push_back(ent);
+
+        // Update name
+        std::string name =
+            std::string(BuildingName(b.type)) + " (P" + std::to_string(b.ownerId) + ")";
+        if (ecsRegistry_->HasComponent<Engine::Name>(ent)) {
+            ecsRegistry_->RequireComponent<Engine::Name>(ent).value = name;
+        } else {
+            ecsRegistry_->AddComponent<Engine::Name>(ent, Engine::Name::Create(name));
+        }
+
+        // Update tactical unit component (primary store)
+        if (ecsRegistry_->HasComponent<TacticalUnitComponent>(ent)) {
+            auto& tc = ecsRegistry_->RequireComponent<TacticalUnitComponent>(ent);
+            tc.type = b.type;
+            tc.ownerId = b.ownerId;
+            tc.level = b.level;
+            tc.tileX = b.x;
+            tc.tileY = b.y;
+            tc.timer = b.timer;
+            tc.range = b.range;
+            tc.active = b.active;
+        } else {
+            ecsRegistry_->AddComponent<TacticalUnitComponent>(
+                ent, TacticalUnitComponent{b.type, b.ownerId, b.level, b.x, b.y, b.timer, b.range,
+                                           b.active});
+        }
+
+        seenEntities.push_back(ent);
+    }
+
+    // Remove entities for buildings that no longer exist
+    std::vector<size_t> toRemove;
+    for (size_t e : ecsEntities_) {
+        if (std::find(seenEntities.begin(), seenEntities.end(), e) == seenEntities.end()) {
+            if (ecsRegistry_->IsEntityAlive(e)) {
+                ecsRegistry_->DestroyEntity(e);
+            }
+            toRemove.push_back(e);
+        }
+    }
+    for (size_t e : toRemove) {
+        ecsEntities_.erase(std::remove(ecsEntities_.begin(), ecsEntities_.end(), e),
+                           ecsEntities_.end());
+    }
+
+    // Clean up old missile and front entities (transient, recreated each sync)
+    std::vector<size_t> transientToRemove;
+    for (size_t e : ecsEntities_) {
+        if (ecsRegistry_->HasComponent<WarheadComponent>(e) ||
+            ecsRegistry_->HasComponent<FrontLineComponent>(e)) {
+            if (ecsRegistry_->IsEntityAlive(e)) {
+                ecsRegistry_->DestroyEntity(e);
+            }
+            transientToRemove.push_back(e);
+        }
+    }
+    for (size_t e : transientToRemove) {
+        ecsEntities_.erase(std::remove(ecsEntities_.begin(), ecsEntities_.end(), e),
+                           ecsEntities_.end());
     }
 
     // Sync active missiles to ECS

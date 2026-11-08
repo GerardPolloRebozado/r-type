@@ -10,18 +10,19 @@ NetworkManager::~NetworkManager() {
     Stop();
 }
 
-bool NetworkManager::StartSinglePlayer(Simulation& sim) {
+bool NetworkManager::StartSinglePlayer(Simulation& sim, MapType mapType) {
     Stop();
     mode_ = GameMode::SinglePlayer;
-    sim.Init(4, 4, 1337);
+    sim.Init(4, 4, 1337, mapType);
     turnAccumulator_ = 0.0f;
     return true;
 }
 
-bool NetworkManager::StartHost(Simulation& sim, uint16_t port, const std::string& hostName) {
+bool NetworkManager::StartHost(Simulation& sim, uint16_t port, const std::string& hostName,
+                               MapType mapType) {
     Stop();
     uint32_t seed = 4242;
-    sim.Init(4, 4, seed);
+    sim.Init(4, 4, seed, mapType);
     sim.AssignPlayerSlot(1, hostName, FactionType::Human);
 
     server_.SetHostName(hostName);
@@ -65,7 +66,7 @@ void NetworkManager::Stop() {
 void NetworkManager::Update(Simulation& sim, float dt) {
     switch (mode_) {
         case GameMode::SinglePlayer: {
-            turnAccumulator_ += dt;
+            turnAccumulator_ += dt * gameSpeed_;
             while (turnAccumulator_ >= kSimulationTickDt) {
                 std::vector<ClientIntent> intents;
                 sim.CollectAIIntents(intents, kSimulationTickDt);
@@ -77,7 +78,7 @@ void NetworkManager::Update(Simulation& sim, float dt) {
         case GameMode::Host: {
             server_.PollNetwork(sim, dt);
             if (server_.IsGameStarted()) {
-                turnAccumulator_ += dt;
+                turnAccumulator_ += dt * gameSpeed_;
                 while (turnAccumulator_ >= kSimulationTickDt) {
                     server_.TickTurn(sim);
                     turnAccumulator_ -= kSimulationTickDt;

@@ -16,6 +16,9 @@ struct TacticalUnitComponent {
     int level{1};
     int tileX{0};
     int tileY{0};
+    float timer{0.0f};
+    float range{0.0f};
+    bool active{true};
 };
 
 /**

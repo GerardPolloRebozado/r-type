@@ -21,7 +21,8 @@ class Simulation {
   public:
     Simulation();
 
-    void Init(int numNations = 4, int numBots = 4, uint32_t seed = 1337);
+    void Init(int numNations = 4, int numBots = 4, uint32_t seed = 1337,
+              MapType mapType = MapType::Procedural);
     void Tick(float dt);               // 10 Hz simulation logic
     void UpdateVisuals(float frameDt); // 60 FPS visual interpolation
 
@@ -131,7 +132,7 @@ class Simulation {
     std::vector<FloatingText> floatingTexts_;
 
     float matchTime_{0.0f};
-    float matchDuration_{1800.0f}; // 30 minutes
+    float matchDuration_{900.0f}; // 15 minutes
     uint32_t currentTurn_{0};
     bool gameOver_{false};
     PlayerId winnerId_{kNeutralPlayerId};

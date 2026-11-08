@@ -15,10 +15,14 @@
 #include "Inputs/InputManager.hpp"
 #include "Logging/Logger.hpp"
 #include "Plugins/AudioPlugin.hpp"
+#include "Plugins/CameraPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
 
+#include <sol/sol.hpp>
+
 // uses Engine::Application in headless mode
-int RunDedicatedServer(uint16_t port, uint32_t seed) {
+int RunDedicatedServer(uint16_t port, uint32_t seed,
+                       Openfront::MapType mapType = Openfront::MapType::Procedural) {
     Engine::ApplicationConfig cfg;
     cfg.headless = true;
 
@@ -32,7 +36,7 @@ int RunDedicatedServer(uint16_t port, uint32_t seed) {
     Openfront::NetworkServer server;
 
     sim.SetEcsRegistry(&app.GetRegistry());
-    sim.Init(6, 6, seed);
+    sim.Init(6, 6, seed, mapType);
     server.SetMatchSettings(seed, 6, 6, sim.GetMatchDuration());
 
     if (!server.Start(port, 32)) {
@@ -74,6 +78,7 @@ int main(int argc, char* argv[]) {
     std::string joinIp = "127.0.0.1";
     std::string playerName = "Commander";
     uint32_t seed = 1337;
+    Openfront::MapType mapType = Openfront::MapType::Procedural;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -99,6 +104,17 @@ int main(int argc, char* argv[]) {
             playerName = argv[++i];
         } else if (arg == "--seed" && i + 1 < argc) {
             seed = static_cast<uint32_t>(std::atoi(argv[++i]));
+        } else if (arg == "--map" && i + 1 < argc) {
+            std::string mapName = argv[++i];
+            if (mapName == "europe") {
+                mapType = Openfront::MapType::Europe;
+            } else if (mapName == "world") {
+                mapType = Openfront::MapType::World;
+            } else if (mapName == "pangaea") {
+                mapType = Openfront::MapType::Pangaea;
+            } else if (mapName == "archipelago") {
+                mapType = Openfront::MapType::Archipelago;
+            }
         }
     }
 
@@ -110,6 +126,24 @@ int main(int argc, char* argv[]) {
     Openfront::NetworkManager net;
     Openfront::Renderer renderer(1600, 900);
 
+    // -----------------------------------------------------------------------
+    // Lua scripting (engine scripting system demonstration)
+    // -----------------------------------------------------------------------
+    sol::state lua;
+    lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string);
+    try {
+        lua.script_file("Openfront/scripts/game_rules.lua");
+        log_info("[Openfront] Loaded game_rules.lua");
+        // Demonstrate: read a building cost from Lua
+        sol::function getCost = lua["get_building_cost"];
+        if (getCost) {
+            int cityCost = getCost("City");
+            log_info("[Openfront] Lua: City building cost = " + std::to_string(cityCost));
+        }
+    } catch (const std::exception& e) {
+        log_error("[Openfront] Failed to load game_rules.lua: " + std::string(e.what()));
+    }
+
     Engine::ApplicationConfig cfg;
     cfg.windowWidth = 1600;
     cfg.windowHeight = 900;
@@ -120,10 +154,22 @@ int main(int argc, char* argv[]) {
     // customRender is called each frame BEFORE BeginDrawing().
     // renderer.Render() manages its own BeginDrawing/EndDrawing pair, so it
     // must live here (not in onUI)
+    Engine::AssetManager* assetManagerPtr = nullptr;
     cfg.customRender = [&](Engine::Registry& /*registry*/) {
         float frameTime = GetFrameTime();
         if (frameTime > 0.25f) {
             frameTime = 0.25f;
+        }
+
+        // Update background music
+        if (assetManagerPtr) {
+            auto music = assetManagerPtr->GetMusic("ambient");
+            if (music && !music->IsPlaying()) {
+                music->Play();
+            }
+            if (music) {
+                music->Update();
+            }
         }
 
         net.Update(sim, frameTime);
@@ -171,10 +217,16 @@ int main(int argc, char* argv[]) {
     audioPlugin.Init(app.GetRegistry());
 
     auto& assetManager = app.GetRegistry().GetResource<Engine::AssetManager>();
+    assetManagerPtr = &assetManager;
     assetManager.LoadSound("explosion", "Openfront/assets/audio/explosion.wav");
     assetManager.LoadSound("capture", "Openfront/assets/audio/capture.wav");
     assetManager.LoadSound("nuke_launch", "Openfront/assets/audio/nuke_launch.ogg");
     assetManager.LoadSound("ui_click", "Openfront/assets/audio/ui_click.wav");
+    assetManager.LoadSound("build", "Openfront/assets/audio/build.wav");
+    assetManager.LoadSound("victory", "Openfront/assets/audio/victory.wav");
+    assetManager.LoadSound("defeat", "Openfront/assets/audio/defeat.wav");
+    assetManager.LoadSound("ui_hover", "Openfront/assets/audio/ui_hover.wav");
+    assetManager.LoadMusic("ambient", "Openfront/assets/audio/ambient.wav", true);
 
     renderer.SetAssetManager(&assetManager);
     renderer.SetController(inputManager.GetController(1));
@@ -183,10 +235,23 @@ int main(int argc, char* argv[]) {
     app.GetRegistry().RegisterComponent<Openfront::WarheadComponent>();
     app.GetRegistry().RegisterComponent<Openfront::FrontLineComponent>();
 
+    // -----------------------------------------------------------------------
+    // Camera – use engine's CameraPlugin (RTS pan/zoom synced to engine ECS)
+    // -----------------------------------------------------------------------
+    Engine::CameraPlugin cameraPlugin;
+    cameraPlugin.Init(app.GetRegistry());
+
+    Engine::Entity cameraEntity = app.GetRegistry().CreateEntity();
+    app.GetRegistry().AddComponent<Engine::Position>(cameraEntity, Engine::Position{0.0f, 0.0f, 0});
+    app.GetRegistry().AddComponent<Engine::CameraComponent>(cameraEntity,
+                                                            Engine::CameraComponent{1.0f, true});
+    renderer.SetCameraEntity(cameraEntity);
+    renderer.SetRegistry(&app.GetRegistry());
+
     sim.SetEcsRegistry(&app.GetRegistry());
 
     if (runMode == "host") {
-        net.StartHost(sim, port, playerName);
+        net.StartHost(sim, port, playerName, mapType);
         renderer.SetUIState(Openfront::UIState::HostLobby);
     } else if (runMode == "join") {
         net.StartClient(sim, joinIp, port, playerName);
@@ -196,7 +261,7 @@ int main(int argc, char* argv[]) {
         });
         renderer.SetUIState(Openfront::UIState::JoinLobby);
     } else {
-        net.StartSinglePlayer(sim);
+        net.StartSinglePlayer(sim, mapType);
         renderer.SetUIState(Openfront::UIState::StartMenu);
     }
 

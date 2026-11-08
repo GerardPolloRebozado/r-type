@@ -10,10 +10,18 @@ namespace Openfront {
 
 class Simulation; // Forward declaration
 
+enum class AIPersonality {
+    Balanced,
+    Aggressive,
+    Defensive,
+    Economic,
+};
+
 struct Player {
     PlayerId id{kNeutralPlayerId};
     std::string name{"Neutral"};
     FactionType type{FactionType::Bot};
+    AIPersonality personality{AIPersonality::Balanced};
     Color color{GRAY};
     bool isAlive{true};
 

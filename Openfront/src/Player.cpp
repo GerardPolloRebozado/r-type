@@ -96,55 +96,117 @@ void Player::UpdateAI(Simulation& sim, std::vector<ClientIntent>& outIntents, fl
         };
 
         if (!myTiles.empty()) {
-            // Defense Post near borders
-            if (defensePostCount < 4 && gold >= BuildingCost(BuildingType::DefensePost) &&
-                !myBorders.empty()) {
-                TileCoord cand = myBorders[rand() % myBorders.size()];
-                if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
-                    queueBuild(cand.x, cand.y, BuildingType::DefensePost);
+            // Personality-driven build priority
+            bool built = false;
+
+            // Aggressive: prioritize silos and SAMs
+            if (personality == AIPersonality::Aggressive) {
+                if (siloCount < 3 && gold >= BuildingCost(BuildingType::MissileSilo)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::MissileSilo);
+                        built = true;
+                    }
+                } else if (samCount < 3 && gold >= BuildingCost(BuildingType::SamLauncher)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::SamLauncher);
+                        built = true;
+                    }
                 }
             }
-            // Cities for population
-            else if (cityCount < 6 && gold >= BuildingCost(BuildingType::City)) {
-                TileCoord cand = myTiles[rand() % myTiles.size()];
-                if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
-                    queueBuild(cand.x, cand.y, BuildingType::City);
+
+            // Defensive: prioritize defense posts
+            if (!built && personality == AIPersonality::Defensive) {
+                if (defensePostCount < 6 && gold >= BuildingCost(BuildingType::DefensePost) &&
+                    !myBorders.empty()) {
+                    TileCoord cand = myBorders[rand() % myBorders.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::DefensePost);
+                        built = true;
+                    }
                 }
             }
-            // Ports on coasts
-            else if (portCount < 3 && gold >= BuildingCost(BuildingType::Port) &&
-                     !myCoasts.empty()) {
-                TileCoord cand = myCoasts[rand() % myCoasts.size()];
-                if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
-                    queueBuild(cand.x, cand.y, BuildingType::Port);
+
+            // Economic: prioritize cities, ports, factories
+            if (!built && personality == AIPersonality::Economic) {
+                if (cityCount < 8 && gold >= BuildingCost(BuildingType::City)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::City);
+                        built = true;
+                    }
+                } else if (portCount < 4 && gold >= BuildingCost(BuildingType::Port) &&
+                           !myCoasts.empty()) {
+                    TileCoord cand = myCoasts[rand() % myCoasts.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::Port);
+                        built = true;
+                    }
+                } else if (factoryCount < 5 && gold >= BuildingCost(BuildingType::Factory)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::Factory);
+                        built = true;
+                    }
                 }
             }
-            // Factories for gold
-            else if (factoryCount < 4 && gold >= BuildingCost(BuildingType::Factory)) {
-                TileCoord cand = myTiles[rand() % myTiles.size()];
-                if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
-                    queueBuild(cand.x, cand.y, BuildingType::Factory);
-                }
-            }
-            // SAM Launcher
-            else if (samCount < 3 && gold >= BuildingCost(BuildingType::SamLauncher)) {
-                TileCoord cand = myTiles[rand() % myTiles.size()];
-                if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
-                    queueBuild(cand.x, cand.y, BuildingType::SamLauncher);
-                }
-            }
-            // Missile Silo
-            else if (siloCount < 2 && gold >= BuildingCost(BuildingType::MissileSilo)) {
-                TileCoord cand = myTiles[rand() % myTiles.size()];
-                if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
-                    queueBuild(cand.x, cand.y, BuildingType::MissileSilo);
+
+            // Balanced / fallback: original priority chain
+            if (!built) {
+                if (defensePostCount < 4 && gold >= BuildingCost(BuildingType::DefensePost) &&
+                    !myBorders.empty()) {
+                    TileCoord cand = myBorders[rand() % myBorders.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::DefensePost);
+                        built = true;
+                    }
+                } else if (cityCount < 6 && gold >= BuildingCost(BuildingType::City)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::City);
+                        built = true;
+                    }
+                } else if (portCount < 3 && gold >= BuildingCost(BuildingType::Port) &&
+                           !myCoasts.empty()) {
+                    TileCoord cand = myCoasts[rand() % myBorders.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::Port);
+                        built = true;
+                    }
+                } else if (factoryCount < 4 && gold >= BuildingCost(BuildingType::Factory)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::Factory);
+                        built = true;
+                    }
+                } else if (samCount < 3 && gold >= BuildingCost(BuildingType::SamLauncher)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::SamLauncher);
+                        built = true;
+                    }
+                } else if (siloCount < 2 && gold >= BuildingCost(BuildingType::MissileSilo)) {
+                    TileCoord cand = myTiles[rand() % myTiles.size()];
+                    if (map.GetTile(cand.x, cand.y).building == BuildingType::None) {
+                        queueBuild(cand.x, cand.y, BuildingType::MissileSilo);
+                        built = true;
+                    }
                 }
             }
         }
     }
 
     if (type == FactionType::Nation && siloCount > 0 && aiNukeTimer <= 0.0f) {
-        aiNukeTimer = 15.0f + static_cast<float>(rand() % 150) * 0.1f;
+        float nukeInterval = 15.0f;
+        if (personality == AIPersonality::Aggressive) {
+            nukeInterval = 8.0f;
+        } else if (personality == AIPersonality::Defensive) {
+            nukeInterval = 25.0f;
+        } else if (personality == AIPersonality::Economic) {
+            nukeInterval = 20.0f;
+        }
+        aiNukeTimer = nukeInterval + static_cast<float>(rand() % 100) * 0.1f;
         if (gold >= BombCost(BombType::AtomBomb)) {
             // Find our silo
             const Building* mySilo = nullptr;
