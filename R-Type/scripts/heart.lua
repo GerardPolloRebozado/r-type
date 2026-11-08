@@ -1,8 +1,8 @@
 Heart = {}
 Heart.maxLives = 3
 Heart.SPACING = 50
-Heart.STARTING_X = -1300.000
-Heart.STARTING_Y = -500.000
+Heart.STARTING_X = -850.0  -- near left edge of screen, visible
+Heart.STARTING_Y = -400.0  -- near top edge of screen, visible
 Heart.playerEntity = nil
 Heart.lastLives = nil
 
@@ -14,7 +14,7 @@ function Heart:onCreate(entity)
     self.playerEntity = nil
     self.lastLives = nil
     self.entities = {}
-    log.info("[" .. tostring(entity) .. "] Script created")
+    log.info("[" .. tostring(entity) .. "] Heart script created")
     for i = 1, self.maxLives do
         self:createHeart(i)
     end
@@ -23,8 +23,8 @@ end
 function Heart:createHeart(index)
     local heart = Entity.create()
     Entity.setName(heart, "Heart" .. index)
-    Component.addSprite(heart, "assets/heart.png")
-    Component.setSpriteScale(heart, 0.2, 0.2)
+    -- addSprite accepts (entity, path, offsetX, offsetY, scaleX, scaleY)
+    Component.addSprite(heart, "assets/heart.png", 0, 0, 0.2, 0.2)
     Component.setParent(heart, self.entity, true)
     Transform.setPosition(heart, Heart.STARTING_X + (index * Heart.SPACING), Heart.STARTING_Y)
     Component.setOpacity(heart, 1.0)

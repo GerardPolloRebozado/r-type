@@ -4,12 +4,13 @@
 local LevelSelectorBackground = {}
 
 local backgrounds = {}
+local STAGE_COUNT = 8
 
 local function setLevel(level)
     if type(level) ~= "number" then
         level = 1
     end
-    if level < 1 or level > #backgrounds then
+    if level < 1 or level > STAGE_COUNT then
         level = 1
     end
     for i, bg in ipairs(backgrounds) do
@@ -21,7 +22,7 @@ end
 function LevelSelectorBackground:onCreate(entity)
     self.entity = entity
 
-    for i = 1, 3 do
+    for i = 1, STAGE_COUNT do
         local bg = Entity.create()
         Component.addSprite(bg, "assets/stages/stage" .. i .. ".png", 0, 0, 4, 4)
         Component.setOpacity(bg, (i == 1) and 1.0 or 0.0)
