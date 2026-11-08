@@ -1,30 +1,39 @@
 #include "Core/Application.hpp"
-#include "Inputs/Controller.hpp"
-#include "Inputs/InputManager.hpp"
-#include "Plugins/AnimationPlugin.hpp"
+#include "SceneFiles.hpp"
+#include <string>
 #include "Plugins/AudioPlugin.hpp"
-#include "Plugins/CameraPlugin.hpp"
-#include "Plugins/ColliderPlugin.hpp"
 #include "Plugins/HierarchyPlugin.hpp"
 #include "Plugins/InputPlugin.hpp"
 #include "Plugins/MultiplayerPlugin.hpp"
-#include "Plugins/OpacityPlugin.hpp"
-#include "Plugins/PositionPlugin.hpp"
 #include "Plugins/ReplicationPlugin.hpp"
-#include "Plugins/RotationPlugin.hpp"
-#include "Plugins/ShapePlugin.hpp"
+#include "Plugins/OpacityPlugin.hpp"
 #include "Plugins/SignalPlugin.hpp"
-#include "Plugins/SpritePlugin.hpp"
+#include "Plugins/PositionPlugin.hpp"
 #include "Plugins/TextPlugin.hpp"
+#include "Plugins/SpritePlugin.hpp"
+#include "Plugins/ShapePlugin.hpp"
+#include "Plugins/RotationPlugin.hpp"
+#include "Plugins/ColliderPlugin.hpp"
+#include "Plugins/CameraPlugin.hpp"
+#include "Plugins/AnimationPlugin.hpp"
 #include "Plugins/WavePlugin.hpp"
-#include "SceneFiles.hpp"
 #include "Scripting/ScriptPlugin.hpp"
 #include "UI/UiPlugin.hpp"
-#include <raylib.h>
-#include <string>
+#include "Inputs/InputManager.hpp"
+#include "Inputs/Controller.hpp"
 #include <vector>
+#include <cstdlib>
+#include <raylib.h>
 
-int main(int argc, char* argv[]) {
+static void SetEnvVar(const char *name, const char *value) {
+#ifdef _WIN32
+    _putenv_s(name, value);
+#else
+    setenv(name, value, 1);
+#endif
+}
+
+int main(int argc, char *argv[]) {
     ChangeDirectory(GetApplicationDirectory());
     Engine::ApplicationConfig config;
     config.windowTitle = "StreetFigter";
@@ -36,8 +45,17 @@ int main(int argc, char* argv[]) {
 
     config.args = std::vector<std::string>(argv + 1, argv + argc);
     for (const auto& a : config.args) {
-        if (a == "--headless") {
-            config.headless = true;
+        if (a == "--headless") config.headless = true;
+    }
+
+    // Pass --host / --port to Lua via environment so the menu UI can
+    // pre-fill connection fields and auto-connect.
+    for (std::size_t i = 0; i + 1 < config.args.size(); ++i) {
+        if (config.args[i] == "--host") {
+            SetEnvVar("RP_TYPE_HOST", config.args[i + 1].c_str());
+        }
+        if (config.args[i] == "--port") {
+            SetEnvVar("RP_TYPE_PORT", config.args[i + 1].c_str());
         }
     }
     Engine::Application app(config);
@@ -92,9 +110,9 @@ int main(int argc, char* argv[]) {
     controller->addKeybind("KKK", {59, 59, static_cast<Engine::DeviceType>(0)}, false);
     controller->addKeybind("Crouch", {83, 83, static_cast<Engine::DeviceType>(0)}, false);
     controller->addKeybind("Left", {65, 65, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("Jump", {87, 87, static_cast<Engine::DeviceType>(0)}, false);
-    controller->addKeybind("LightKick", {74, 74, static_cast<Engine::DeviceType>(0)}, false);
     controller->addKeybind("HeavyPunch", {79, 79, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("LightKick", {74, 74, static_cast<Engine::DeviceType>(0)}, false);
+    controller->addKeybind("Jump", {87, 87, static_cast<Engine::DeviceType>(0)}, false);
     inputManager.AddPlayer(1, std::move(controller));
 
     // Startup scene: a .scene argument wins (e.g. ./StreetFigter Level2.scene),

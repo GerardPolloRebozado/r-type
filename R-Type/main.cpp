@@ -25,6 +25,14 @@
 #include <cstdlib>
 #include <raylib.h>
 
+static void SetEnvVar(const char *name, const char *value) {
+#ifdef _WIN32
+    _putenv_s(name, value);
+#else
+    setenv(name, value, 1);
+#endif
+}
+
 int main(int argc, char *argv[]) {
     ChangeDirectory(GetApplicationDirectory());
     Engine::ApplicationConfig config;
@@ -44,10 +52,10 @@ int main(int argc, char *argv[]) {
     // pre-fill connection fields and auto-connect.
     for (std::size_t i = 0; i + 1 < config.args.size(); ++i) {
         if (config.args[i] == "--host") {
-            setenv("RP_TYPE_HOST", config.args[i + 1].c_str(), 1);
+            SetEnvVar("RP_TYPE_HOST", config.args[i + 1].c_str());
         }
         if (config.args[i] == "--port") {
-            setenv("RP_TYPE_PORT", config.args[i + 1].c_str(), 1);
+            SetEnvVar("RP_TYPE_PORT", config.args[i + 1].c_str());
         }
     }
     Engine::Application app(config);

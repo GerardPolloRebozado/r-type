@@ -20,6 +20,11 @@ target_include_directories(UI PRIVATE
 
 target_link_libraries(UI PUBLIC Engine rlImGui imgui)
 
+# sol2 + ImGui bindings generate >32k COFF sections; MinGW's assembler needs big-obj.
+if (MINGW)
+    target_compile_options(UI PRIVATE -Wa,-mbig-obj)
+endif()
+
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # On WASM the absolute host path doesn't exist in the emscripten virtual
     # filesystem. Templates are embedded at UI/lua/templates@UI/lua/templates
