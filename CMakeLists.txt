@@ -20,11 +20,42 @@ set(CPM_DOWNLOAD_VERSION 0.40.0)
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
 endif ()
+# GitHub release downloads sometimes return an empty body (HTTP 504) without
+# failing file(DOWNLOAD). Including that empty script leaves CPMAddPackage
+# undefined. Fall back to the CPM source cache, then to the raw module.
+set(_cpm_bootstrap "${CMAKE_CURRENT_BINARY_DIR}/cpm/get_cpm.cmake")
 file(DOWNLOAD
         https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/get_cpm.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/cpm/get_cpm.cmake
+        ${_cpm_bootstrap}
+        STATUS _cpm_dl
+        TIMEOUT 20
 )
-include(${CMAKE_CURRENT_BINARY_DIR}/cpm/get_cpm.cmake)
+set(_cpm_bytes 0)
+if (EXISTS "${_cpm_bootstrap}")
+    file(SIZE "${_cpm_bootstrap}" _cpm_bytes)
+endif ()
+list(GET _cpm_dl 0 _cpm_dl_code)
+if (NOT _cpm_dl_code EQUAL 0 OR _cpm_bytes LESS 100)
+    set(_cpm_cached "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+    set(_cpm_module "${CMAKE_CURRENT_BINARY_DIR}/cpm/CPM.cmake")
+    if (EXISTS "${_cpm_cached}")
+        set(_cpm_module "${_cpm_cached}")
+    else ()
+        file(DOWNLOAD
+                https://raw.githubusercontent.com/cpm-cmake/CPM.cmake/v${CPM_DOWNLOAD_VERSION}/cmake/CPM.cmake
+                ${_cpm_module}
+                STATUS _cpm_dl
+                TIMEOUT 30
+        )
+        list(GET _cpm_dl 0 _cpm_dl_code)
+        if (NOT _cpm_dl_code EQUAL 0)
+            message(FATAL_ERROR "Failed to download CPM.cmake: ${_cpm_dl}")
+        endif ()
+    endif ()
+    include(${_cpm_module})
+else ()
+    include(${_cpm_bootstrap})
+endif ()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
