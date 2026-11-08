@@ -20,6 +20,7 @@
 #include "SceneFiles.hpp"
 #include "Scripting/ScriptPlugin.hpp"
 #include "UI/UiPlugin.hpp"
+#include <cstdlib>
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -38,6 +39,17 @@ int main(int argc, char* argv[]) {
     for (const auto& a : config.args) {
         if (a == "--headless") {
             config.headless = true;
+        }
+    }
+
+    // Pass --host / --port to Lua via environment so the menu UI can
+    // pre-fill connection fields and auto-connect.
+    for (std::size_t i = 0; i + 1 < config.args.size(); ++i) {
+        if (config.args[i] == "--host") {
+            setenv("RP_TYPE_HOST", config.args[i + 1].c_str(), 1);
+        }
+        if (config.args[i] == "--port") {
+            setenv("RP_TYPE_PORT", config.args[i + 1].c_str(), 1);
         }
     }
     Engine::Application app(config);
@@ -81,15 +93,15 @@ int main(int argc, char* argv[]) {
 
     auto& inputManager = app.GetRegistry().AddResource<Engine::InputManager>();
     auto controller = std::make_unique<Engine::Controller>();
-    controller->addKeybind("SHOOT", {32, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("RIGHT", {68, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("RIGHT", {262, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("LEFT", {65, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("LEFT", {263, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("DOWN", {83, 0, static_cast<Engine::DeviceType>(0)}, true);
-    controller->addKeybind("DOWN", {264, 0, static_cast<Engine::DeviceType>(0)}, true);
     controller->addKeybind("UP", {87, 0, static_cast<Engine::DeviceType>(0)}, true);
     controller->addKeybind("UP", {265, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("DOWN", {83, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("DOWN", {264, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("LEFT", {65, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("LEFT", {263, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("RIGHT", {68, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("RIGHT", {262, 0, static_cast<Engine::DeviceType>(0)}, true);
+    controller->addKeybind("SHOOT", {32, 0, static_cast<Engine::DeviceType>(0)}, true);
     inputManager.AddPlayer(1, std::move(controller));
 
     // Startup scene: a .scene argument wins (e.g. ./R-Type Level2.scene),
