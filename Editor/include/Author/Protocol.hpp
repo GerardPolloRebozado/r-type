@@ -22,6 +22,7 @@ struct AuthorRequest {
     std::string engineRoot;
     std::string entity;
     std::string name;
+    std::string label;
     std::string templateId;
     std::string screen;
     std::string component;
@@ -93,7 +94,8 @@ template <> struct glz::meta<Author::AuthorRequest> {
         "apiVersion", &Author::AuthorRequest::apiVersion, "command", &Author::AuthorRequest::command,
         "projectFolder", &Author::AuthorRequest::projectFolder, "scenePath",
         &Author::AuthorRequest::scenePath, "engineRoot", &Author::AuthorRequest::engineRoot,
-        "entity", &Author::AuthorRequest::entity, "name", &Author::AuthorRequest::name, "template",
+        "entity", &Author::AuthorRequest::entity, "name", &Author::AuthorRequest::name, "label",
+        &Author::AuthorRequest::label, "template",
         &Author::AuthorRequest::templateId, "screen", &Author::AuthorRequest::screen, "component",
         &Author::AuthorRequest::component, "prefabPath", &Author::AuthorRequest::prefabPath,
         "scriptPath", &Author::AuthorRequest::scriptPath, "topic", &Author::AuthorRequest::topic,

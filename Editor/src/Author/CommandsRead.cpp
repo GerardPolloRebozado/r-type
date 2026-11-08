@@ -195,6 +195,35 @@ const char* FormationName(Engine::WavePatternType type)
     return "line";
 }
 
+const char* ActionName(Engine::UiActionType type)
+{
+    if (type == Engine::UiActionType::GoToPage) {
+        return "goToPage";
+    }
+    if (type == Engine::UiActionType::Back) {
+        return "back";
+    }
+    if (type == Engine::UiActionType::CallMethod) {
+        return "callMethod";
+    }
+    if (type == Engine::UiActionType::LoadScene) {
+        return "loadScene";
+    }
+    if (type == Engine::UiActionType::Quit) {
+        return "quit";
+    }
+    return "none";
+}
+
+glz::generic ActionObject(const Engine::UiAction& action)
+{
+    glz::generic value = glz::generic::object_t{};
+
+    value.get_object()["type"] = std::string(ActionName(action.type));
+    value.get_object()["target"] = action.target;
+    return value;
+}
+
 bool ReadComponent(Engine::Registry& registry, Engine::Entity entity, const std::string& component,
                    glz::generic& fields)
 {
@@ -341,6 +370,52 @@ bool ReadComponent(Engine::Registry& registry, Engine::Entity entity, const std:
         obj["syncTransform"] = network.syncTransform;
         obj["syncSprite"] = network.syncSprite;
         obj["prefabPath"] = network.prefabPath;
+        return true;
+    }
+    if (component == "ui") {
+        if (!registry.IsComponentRegistered<Engine::UiComponent>() ||
+            !registry.HasComponent<Engine::UiComponent>(entity)) {
+            return false;
+        }
+        const Engine::UiComponent& ui = registry.RequireComponent<Engine::UiComponent>(entity);
+        glz::generic props = glz::generic::object_t{};
+        std::size_t propIndex = 0;
+        std::size_t item = 0;
+
+        obj["template"] = ui.templateName;
+        for (propIndex = 0; propIndex < ui.props.size(); ++propIndex) {
+            const Engine::UiProp& prop = ui.props[propIndex];
+            if (prop.kind == Engine::UiValueKind::Bool) {
+                props.get_object()[prop.key] = prop.boolValue;
+            } else if (prop.kind == Engine::UiValueKind::Number) {
+                props.get_object()[prop.key] = prop.numberValue;
+            } else if (prop.kind == Engine::UiValueKind::StringList) {
+                glz::generic list = glz::generic::array_t{};
+                for (item = 0; item < prop.stringList.size(); ++item) {
+                    list.get_array().emplace_back(prop.stringList[item]);
+                }
+                props.get_object()[prop.key] = std::move(list);
+            } else if (prop.kind == Engine::UiValueKind::Color) {
+                if (!prop.colorSet) {
+                    continue;
+                }
+                glz::generic color = glz::generic::array_t{};
+                color.get_array().emplace_back(static_cast<double>(prop.colorValue[0]));
+                color.get_array().emplace_back(static_cast<double>(prop.colorValue[1]));
+                color.get_array().emplace_back(static_cast<double>(prop.colorValue[2]));
+                color.get_array().emplace_back(static_cast<double>(prop.colorValue[3]));
+                props.get_object()[prop.key] = std::move(color);
+            } else if (!prop.stringValue.empty()) {
+                props.get_object()[prop.key] = prop.stringValue;
+            }
+        }
+        obj["props"] = std::move(props);
+        obj["page"] = ui.page;
+        obj["showOn"] = ui.showOn;
+        obj["startPage"] = ui.startPage;
+        obj["order"] = static_cast<double>(ui.order);
+        obj["onClick"] = ActionObject(ui.onClick);
+        obj["onCancel"] = ActionObject(ui.onCancel);
         return true;
     }
     return false;
@@ -539,6 +614,11 @@ glz::generic SceneOutline(const AuthorRequest& request)
             rowObj["uiTemplate"] = ui.templateName;
             rowObj["page"] = Engine::UiPageOf(*registry, entity);
             rowObj["order"] = static_cast<double>(ui.order);
+            glz::generic uiFields;
+            if (ReadComponent(*registry, entity, "ui", uiFields) &&
+                uiFields.get_object().find("props") != uiFields.get_object().end()) {
+                rowObj["uiProps"] = uiFields.get_object().at("props");
+            }
         }
         if (registry->IsComponentRegistered<Engine::PrefabInstance>() &&
             registry->HasComponent<Engine::PrefabInstance>(entity)) {
@@ -578,7 +658,7 @@ glz::generic GetComponentCmd(const AuthorRequest& request)
     glz::generic fields;
     static const char* kReadable[] = {"position", "rotation", "name",    "sprite", "collider",
                                       "shape",    "text",     "opacity", "camera", "audio",
-                                      "input",    "network"};
+                                      "input",    "network",  "ui"};
     std::size_t index = 0;
 
     if (!error.empty()) {
@@ -608,7 +688,7 @@ glz::generic GetComponentCmd(const AuthorRequest& request)
     }
     if (index == sizeof(kReadable) / sizeof(kReadable[0])) {
         return MakeResult(false, "unknown component '" + request.component + "'. allowed: " +
-                                     AllowedComponents());
+                                     AllowedComponents() + ", ui");
     }
     if (!ReadComponent(session.Registry(), entity.value(), request.component, fields)) {
         return MakeResult(false, "entity has no " + request.component + " component");

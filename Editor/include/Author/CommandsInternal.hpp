@@ -26,7 +26,8 @@ LiveBinding* CurrentLiveBinding();
 glz::generic MakeResult(bool ok, const std::string& error);
 std::string OpenSession(const AuthorRequest& request, Session& session);
 std::string FieldTypeName(Engine::UiFieldType type);
-std::string ApplyUiProps(Engine::UiComponent& ui, const glz::generic& props);
+std::string ApplyUiProps(Engine::UiComponent& ui, const glz::generic& props,
+                          const std::string& extraLabel);
 std::string ApplyUiAction(Engine::UiAction& action, const glz::generic& value, const char* label);
 std::string SetComponent(Engine::Registry& registry, Engine::Entity entity,
                          const std::string& component, const glz::generic& fields);

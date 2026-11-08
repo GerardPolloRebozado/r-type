@@ -22,6 +22,21 @@ namespace {
 constexpr int kMaxToolRounds = 8;
 constexpr std::size_t kOutlineLimit = 12000;
 
+bool FirstFileBackup(std::vector<std::string>& seen, const std::string& path)
+{
+    std::filesystem::path file = path;
+    std::string key = file.lexically_normal().generic_string();
+    std::size_t index = 0;
+
+    for (index = 0; index < seen.size(); ++index) {
+        if (seen[index] == key) {
+            return false;
+        }
+    }
+    seen.push_back(key);
+    return true;
+}
+
 std::string WavesText(const std::vector<Engine::WaveDefinition>& waves)
 {
     std::string text;
@@ -225,6 +240,7 @@ bool ChatPanel::AcceptEdit(Engine::Registry& registry, EditorConfig& config)
 void ChatPanel::Undo(Engine::Registry& registry, EditorConfig& config)
 {
     std::error_code error;
+    std::vector<std::string> restored;
 
     if (!m_HasSnapshot) {
         return;
@@ -235,6 +251,9 @@ void ChatPanel::Undo(Engine::Registry& registry, EditorConfig& config)
         registry.GetResource<Engine::WaveSchedule>().waves = m_WaveSnapshot;
     }
     for (const Author::ScriptFileChange& file : m_Files) {
+        if (!FirstFileBackup(restored, file.path)) {
+            continue;
+        }
         if (!file.existed) {
             std::filesystem::remove(file.path, error);
             continue;
@@ -287,6 +306,9 @@ std::string ChatPanel::BuildMessages(Engine::Registry& registry, EditorConfig& c
     prompt = "You edit the scene that is already open in this editor. Call the tools. Do not write "
              "scene JSON yourself. Successful edits are written to the open scene file. If the "
              "user asks to keep the changes, leave that saved scene as it is.\n"
+             "A button caption is set_ui_props props.label, or a top-level label. The prop named "
+             "text is a color [r, g, b, a], not the caption. Renaming the entity does not change "
+             "the caption. Read uiProps on the outline before changing a widget.\n"
              "Project folder: " +
              config.m_ProjectFolder + "\nScene: " + config.m_ActiveScenePath + "\nOutline:\n" +
              outlineJson;

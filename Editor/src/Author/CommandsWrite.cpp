@@ -570,6 +570,34 @@ std::string SetName(Engine::Registry& registry, Engine::Entity entity,
     return {};
 }
 
+bool WaveFlag(const glz::generic::object_t& obj, const char* key, bool fallback)
+{
+    const auto it = obj.find(key);
+    std::string text;
+    std::size_t index = 0;
+
+    if (it == obj.end()) {
+        return fallback;
+    }
+    if (it->second.is_boolean()) {
+        return it->second.get<bool>();
+    }
+    if (!it->second.is_string()) {
+        return fallback;
+    }
+    text = it->second.get_string();
+    for (index = 0; index < text.size(); ++index) {
+        text[index] = static_cast<char>(std::tolower(static_cast<unsigned char>(text[index])));
+    }
+    if (text == "true" || text == "1" || text == "yes") {
+        return true;
+    }
+    if (text == "false" || text == "0" || text == "no") {
+        return false;
+    }
+    return fallback;
+}
+
 } // namespace
 
 std::string AllowedComponents()
@@ -603,19 +631,60 @@ std::string ApplyUiAction(Engine::UiAction& action, const glz::generic& value, c
     return {};
 }
 
-std::string ApplyUiProps(Engine::UiComponent& ui, const glz::generic& props)
+std::string ApplyUiProps(Engine::UiComponent& ui, const glz::generic& props,
+                          const std::string& extraLabel)
 {
     const Engine::UiTemplateInfo* info = Engine::FindUiTemplate(ui.templateName);
     const Engine::UiField* field = nullptr;
+    const Engine::UiField* labelField = nullptr;
+    const Engine::UiField* textField = nullptr;
+    const Engine::UiField* confirmField = nullptr;
+    glz::generic normalized = props;
+    std::string caption;
     int index = 0;
 
-    if (!GenericIsObject(props) || props.get_object().empty()) {
-        return {};
-    }
     if (info == nullptr) {
+        if (!GenericIsObject(normalized) || normalized.get_object().empty()) {
+            return {};
+        }
         return "entity has no known UI template";
     }
-    for (const auto& [key, value] : props.get_object()) {
+    for (index = 0; index < info->fieldCount; ++index) {
+        if (std::string(info->fields[index].key) == "label") {
+            labelField = &info->fields[index];
+        }
+        if (std::string(info->fields[index].key) == "text") {
+            textField = &info->fields[index];
+        }
+        if (std::string(info->fields[index].key) == "confirmLabel") {
+            confirmField = &info->fields[index];
+        }
+    }
+    if (!GenericIsObject(normalized)) {
+        normalized = glz::generic::object_t{};
+    }
+    if (!extraLabel.empty() && labelField != nullptr &&
+        labelField->type == Engine::UiFieldType::String &&
+        !GenericHas(normalized.get_object(), "label")) {
+        normalized.get_object()["label"] = extraLabel;
+    } else if (!extraLabel.empty() && labelField == nullptr && confirmField != nullptr &&
+               confirmField->type == Engine::UiFieldType::String &&
+               !GenericHas(normalized.get_object(), "confirmLabel")) {
+        normalized.get_object()["confirmLabel"] = extraLabel;
+    }
+    if (normalized.get_object().empty()) {
+        return {};
+    }
+    if (labelField != nullptr && labelField->type == Engine::UiFieldType::String &&
+        textField != nullptr && textField->type == Engine::UiFieldType::Color &&
+        GenericHas(normalized.get_object(), "text") &&
+        normalized.get_object().at("text").is_string() &&
+        !GenericHas(normalized.get_object(), "label")) {
+        caption = normalized.get_object().at("text").get_string();
+        normalized.get_object().erase("text");
+        normalized.get_object()["label"] = caption;
+    }
+    for (const auto& [key, value] : normalized.get_object()) {
         field = nullptr;
         for (index = 0; index < info->fieldCount; ++index) {
             if (key == info->fields[index].key) {
@@ -780,7 +849,7 @@ glz::generic AddUiScreen(const AuthorRequest& request)
         Engine::SetUiStartPage(session.Registry(), entity);
     }
     error = ApplyUiProps(session.Registry().RequireComponent<Engine::UiComponent>(entity),
-                         request.props);
+                         request.props, request.label);
     if (!error.empty()) {
         return MakeResult(false, error);
     }
@@ -823,7 +892,7 @@ glz::generic AddUiWidget(const AuthorRequest& request)
     }
     child = Engine::AddUiChild(session.Registry(), screen.value(), request.templateId);
     ui = &session.Registry().RequireComponent<Engine::UiComponent>(child);
-    error = ApplyUiProps(*ui, request.props);
+    error = ApplyUiProps(*ui, request.props, request.label);
     if (!error.empty()) {
         return MakeResult(false, error);
     }
@@ -871,7 +940,7 @@ glz::generic SetUiProps(const AuthorRequest& request)
         return MakeResult(false, "entity has no UI component");
     }
     ui = &session.Registry().RequireComponent<Engine::UiComponent>(entity.value());
-    error = ApplyUiProps(*ui, request.props);
+    error = ApplyUiProps(*ui, request.props, request.label);
     if (!error.empty()) {
         return MakeResult(false, error);
     }
@@ -1132,7 +1201,7 @@ glz::generic AddWave(const AuthorRequest& request)
     wave.spacing = static_cast<float>(GenericNumber(*obj, "spacing", 100.0));
     wave.baseY = static_cast<float>(GenericNumber(*obj, "baseY", 0.0));
     wave.spawnOffsetX = static_cast<float>(GenericNumber(*obj, "spawnOffsetX", 900.0));
-    wave.attachParent = GenericBool(*obj, "attachParent", false);
+    wave.attachParent = WaveFlag(*obj, "attachParent", false);
     wave.groupScriptPath = GenericString(*obj, "groupScriptPath");
     session.Config().m_Waves.push_back(wave);
     if (!session.Registry().HasResource<Engine::WaveSchedule>()) {
@@ -1211,7 +1280,7 @@ void ApplyWaveFields(Engine::WaveDefinition& wave, const glz::generic::object_t&
         wave.spawnOffsetX = static_cast<float>(GenericNumber(obj, "spawnOffsetX", wave.spawnOffsetX));
     }
     if (GenericHas(obj, "attachParent")) {
-        wave.attachParent = GenericBool(obj, "attachParent", wave.attachParent);
+        wave.attachParent = WaveFlag(obj, "attachParent", wave.attachParent);
     }
     if (GenericHas(obj, "groupScriptPath")) {
         wave.groupScriptPath = GenericString(obj, "groupScriptPath", wave.groupScriptPath);
@@ -1319,6 +1388,7 @@ glz::generic SetWave(const AuthorRequest& request)
     std::string error = OpenSession(request, session);
     const glz::generic::object_t* obj = nullptr;
     int index = 0;
+    Engine::WaveDefinition wave;
     std::string saveError;
     glz::generic result;
 
@@ -1336,10 +1406,12 @@ glz::generic SetWave(const AuthorRequest& request)
     if (index < 0) {
         return MakeResult(false, "wave not found");
     }
-    ApplyWaveFields(session.Config().m_Waves[static_cast<std::size_t>(index)], *obj, false);
-    if (session.Config().m_Waves[static_cast<std::size_t>(index)].prefabPath.empty()) {
+    wave = session.Config().m_Waves[static_cast<std::size_t>(index)];
+    ApplyWaveFields(wave, *obj, false);
+    if (wave.prefabPath.empty()) {
         return MakeResult(false, "wave.prefabPath is required");
     }
+    session.Config().m_Waves[static_cast<std::size_t>(index)] = wave;
     SyncWaves(session);
     saveError = session.Save();
     if (!saveError.empty()) {
@@ -1401,6 +1473,8 @@ glz::generic CreatePrefab(const AuthorRequest& request)
     std::vector<Serialization::GlazeSerializer::EntitySnapshot> snapshots;
     std::vector<Engine::Entity> seen;
     std::string relative;
+    std::string previousPrefab;
+    bool hadPrefab = false;
     std::string saveError;
     glz::generic result;
 
@@ -1444,7 +1518,10 @@ glz::generic CreatePrefab(const AuthorRequest& request)
         return MakeResult(false, "failed to write prefab: " + file.string());
     }
     relative = Engine::ToProjectRelativePath(session.Registry(), file.string());
-    if (session.Registry().HasComponent<Engine::PrefabInstance>(entity.value())) {
+    hadPrefab = session.Registry().HasComponent<Engine::PrefabInstance>(entity.value());
+    if (hadPrefab) {
+        previousPrefab =
+            session.Registry().RequireComponent<Engine::PrefabInstance>(entity.value()).prefabPath;
         session.Registry().RequireComponent<Engine::PrefabInstance>(entity.value()).prefabPath =
             relative;
     } else {
@@ -1452,6 +1529,12 @@ glz::generic CreatePrefab(const AuthorRequest& request)
     }
     saveError = session.Save();
     if (!saveError.empty()) {
+        if (hadPrefab) {
+            session.Registry().RequireComponent<Engine::PrefabInstance>(entity.value()).prefabPath =
+                previousPrefab;
+        } else if (session.Registry().HasComponent<Engine::PrefabInstance>(entity.value())) {
+            session.Registry().RemoveComponent<Engine::PrefabInstance>(entity.value());
+        }
         return MakeResult(false, saveError);
     }
     result = MakeResult(true, "");
