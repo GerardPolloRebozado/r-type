@@ -113,12 +113,11 @@ target_compile_definitions(RTypeEditor PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURC
 
 
 
-# Portable File Dialogs
-set(PFD_URL "https://raw.githubusercontent.com/samhocevar/portable-file-dialogs/master/portable-file-dialogs.h")
+# Portable File Dialogs (vendored so CMake configure does not need network access)
+set(PFD_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/third_party/portable-file-dialogs/portable-file-dialogs.h")
 set(PFD_DEST "${CMAKE_CURRENT_BINARY_DIR}/include/portable-file-dialogs.h")
 if (NOT EXISTS "${PFD_DEST}")
-    message(STATUS "Downloading portable-file-dialogs.h...")
-    file(DOWNLOAD "${PFD_URL}" "${PFD_DEST}")
+    file(COPY "${PFD_HEADER}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/include")
 endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 

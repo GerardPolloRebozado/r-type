@@ -89,6 +89,7 @@ CPM_Cache/
 
 #MacOs
 .Ds_Store
+.DS_Store
 CPM_modules/
 _deps/
 CPackConfig.cmake
@@ -113,6 +114,6 @@ Documentation/doxygen_output/
 
 !StreetFighter/Scenes/assets/**/*.png
 
-portable-file-dialogs.h
 *.gif
 StreetFighter/Scenes/StreetFigter
+R-Type/R-Type

@@ -43,6 +43,11 @@ class Controller : public IController {
     bool isActionActive(const std::string& action) const override;
 
     /**
+     * @brief Checks if a specific action was pressed (edge-triggered) this frame.
+     */
+    bool isActionPressed(const std::string& action) const override;
+
+    /**
      * @brief Retrieves all active actions for this frame.
      */
     const std::set<Action>& getActiveActions() const override;
@@ -64,6 +69,7 @@ class Controller : public IController {
     int m_gamepadId;
 
     bool isKeybindPressed(const Keybind& kb) const;
+    bool isKeybindPressedThisFrame(const Keybind& kb) const;
 };
 } // namespace Engine
 
