@@ -57,6 +57,46 @@ In the engine tree, `Health` and `HealthPlugin` both create the usual `include/`
 layout under `Engine/`. In a Gallery project they are created under `system/` instead, with
 the same CMake and registration hooks as project systems.
 
+## MCP server
+
+```bash
+./RTypeEditor mcp
+./RTypeEditor --mcp
+```
+
+Headless MCP server on stdin/stdout (JSON-RPC, one object per line). No Gallery and no window. Cursor launches this process; it is not a socket inside the open editor.
+
+Tool calls load the scene, change the same registry the visual editor uses (`CreateEntity`, UI templates, `SceneSerializer`), and write the `.scene` back. Lua hook bodies go through `attach_script`. The model does not hand-write scene JSON.
+
+If that scene is already open in the editor, reopen it after the tools run. Saving the open editor first would overwrite the file.
+
+Engine logs go to stderr so they do not break the JSON on stdout. Use it only on a machine you trust: the tools can write scenes and scripts in the project folder.
+
+Cursor `.cursor/mcp.json` (build the editor first):
+
+```json
+{
+  "mcpServers": {
+    "rtype-author": {
+      "command": "${workspaceFolder}/build/RTypeEditor",
+      "args": ["mcp"],
+      "env": {
+        "RTYPE_ENGINE_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}
+```
+
+On a multi-config build the binary may be `build/Debug/RTypeEditor` or `build/Release/RTypeEditor.exe`. `RTYPE_ENGINE_ROOT` is the repo root so `lua_api` can read `Documentation/docs/lua/`. `RTYPE_PROJECT_FOLDER` overrides the default project directory (otherwise the tool uses the `projectFolder` argument, or the process working directory).
+
+Check it without Cursor:
+
+```bash
+cmake --build build --target McpCliTest
+./build/McpCliTest
+```
+
 ## Exit status
 
 A missing name, an unknown command, or an existing file prints an `[ERROR]` line and

@@ -43,6 +43,11 @@ struct EditorConfig : public Serialization::SceneConfig {
      * empty. EditorLayer writes project.json and updates m_InitialScenePath.
      */
     std::string m_RequestedStartupScene;
+
+    /**
+     * @brief A panel wrote the active scene. EditorLayer refreshes the saved baseline.
+     */
+    bool m_RequestMarkSaved = false;
     float m_ScriptFontSize = 15.0f;
 };
 

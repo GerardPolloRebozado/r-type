@@ -77,8 +77,17 @@ class LogWriter {
 };
 
 /**
+ * @brief Sends every terminal log line to stderr.
+ *
+ * MCP mode keeps stdout for JSON-RPC. Call this before the first log.
+ * INFO and DEBUG stay tagged; only the stream changes.
+ */
+void SetTerminalLogToStderr();
+
+/**
  * @brief Writes one tagged line and flushes that stream.
- * @param level Selects @c std::cerr for errors and @c std::cout otherwise.
+ * @param level Selects @c std::cerr for errors and @c std::cout otherwise,
+ *        unless @ref SetTerminalLogToStderr was called.
  * @param message Raw message, without the terminal tag.
  *
  * Used by the worker's direct fallback and by the web build. Not a call-site API.

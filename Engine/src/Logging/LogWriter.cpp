@@ -8,6 +8,21 @@ namespace Engine {
 namespace {
 
 std::atomic<bool> g_WriterStopped{false};
+std::atomic<bool> g_TerminalLogToStderr{false};
+
+const char* LogTag(LogLevel level) {
+    if (level == LogLevel::Error) {
+        return "[ERROR] ";
+    }
+    if (level == LogLevel::Debug) {
+        return "[DEBUG] ";
+    }
+    return "[INFO] ";
+}
+
+bool LogGoesToStderr(LogLevel level) {
+    return level == LogLevel::Error || g_TerminalLogToStderr.load(std::memory_order_acquire);
+}
 
 // One writer for the process, built on the first log. ~LogWriter calls Shutdown.
 LogWriter& GetLogWriter() {
@@ -19,18 +34,14 @@ LogWriter& GetLogWriter() {
 
 // Synchronous write. Used when there is no worker: web build, thread start
 // failed, or the worker has already exited.
+void SetTerminalLogToStderr() {
+    g_TerminalLogToStderr.store(true, std::memory_order_release);
+}
+
 void WriteLogLine(LogLevel level, const std::string& message) {
-    if (level == LogLevel::Error) {
-        std::cerr << "[ERROR] " << message << '\n';
-        std::cerr.flush();
-        return;
-    }
-    if (level == LogLevel::Debug) {
-        std::cout << "[DEBUG] " << message << '\n';
-    } else {
-        std::cout << "[INFO] " << message << '\n';
-    }
-    std::cout.flush();
+    std::ostream& out = LogGoesToStderr(level) ? std::cerr : std::cout;
+    out << LogTag(level) << message << '\n';
+    out.flush();
 }
 
 LogWriter::LogWriter() = default;
@@ -128,14 +139,11 @@ void LogWriter::Run() {
         wroteOut = false;
         wroteErr = false;
         for (const Record& record : batch) {
-            if (record.level == LogLevel::Error) {
-                std::cerr << "[ERROR] " << record.message << '\n';
+            if (LogGoesToStderr(record.level)) {
+                std::cerr << LogTag(record.level) << record.message << '\n';
                 wroteErr = true;
-            } else if (record.level == LogLevel::Debug) {
-                std::cout << "[DEBUG] " << record.message << '\n';
-                wroteOut = true;
             } else {
-                std::cout << "[INFO] " << record.message << '\n';
+                std::cout << LogTag(record.level) << record.message << '\n';
                 wroteOut = true;
             }
         }

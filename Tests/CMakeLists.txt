@@ -29,3 +29,8 @@ target_link_libraries(ScaffoldRoundTrip PRIVATE Engine Serialization glaze::glaz
 
 add_executable(MultiplayerScenesTest MultiplayerScenesTest.cpp)
 target_link_libraries(MultiplayerScenesTest PRIVATE Engine)
+
+add_executable(McpCliTest McpCliTest.cpp)
+target_link_libraries(McpCliTest PRIVATE Author)
+target_compile_definitions(McpCliTest PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
+add_dependencies(McpCliTest RTypeEditor)

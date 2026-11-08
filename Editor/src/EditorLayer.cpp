@@ -3,6 +3,7 @@
 #include "Gallery.hpp"
 #include "Logging/Logger.hpp"
 #include "Panels/AssetsPanel.hpp"
+#include "Panels/ChatPanel.hpp"
 #include "Panels/ConnectionsPanel.hpp"
 #include "Panels/ConsolePanel.hpp"
 #include "Panels/HierarchyPanel.hpp"
@@ -48,6 +49,7 @@ EditorLayer::EditorLayer() {
     AddPanel(std::make_unique<HierarchyPanel>());
     AddPanel(std::make_unique<InspectorPanel>());
     AddPanel(std::make_unique<ConnectionsPanel>());
+    AddPanel(std::make_unique<ChatPanel>());
     AddPanel(std::make_unique<ConsolePanel>());
     AddPanel(std::make_unique<AssetsPanel>());
     AddPanel(std::make_unique<SceneViewPanel>());
@@ -424,7 +426,10 @@ void EditorLayer::HandleSceneRequests() {
     if (!m_Registry || !m_Configuration) {
         return;
     }
-    if (m_SavedSceneJsonStale && --s_SnapshotFramesLeft <= 0) {
+    if (m_Configuration->m_RequestMarkSaved) {
+        m_Configuration->m_RequestMarkSaved = false;
+        MarkSceneSaved();
+    } else if (m_SavedSceneJsonStale && --s_SnapshotFramesLeft <= 0) {
         m_SavedSceneJson = CaptureSceneJson();
         m_SavedSceneJsonStale = false;
     }
@@ -618,6 +623,7 @@ void EditorLayer::BeginDockSpace() {
         ImGui::DockBuilderDockWindow("Hierarchy", dock_left_id);
         ImGui::DockBuilderDockWindow("Inspector", dock_right_id);
         ImGui::DockBuilderDockWindow("Connections", dock_right_id);
+        ImGui::DockBuilderDockWindow("Chat", dock_right_id);
         ImGui::DockBuilderDockWindow("Console", dock_down_id);
         ImGui::DockBuilderDockWindow("Assets", dock_down_id);
         ImGui::DockBuilderDockWindow("UI Palette", dock_down_id);

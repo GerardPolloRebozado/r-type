@@ -24,7 +24,9 @@ set(SRC_FILES
         src/EditorStyle.cpp
         src/EntitySubtree.cpp
         src/Panels/AssetsPanel.cpp
+        src/Panels/ChatPanel.cpp
         src/Panels/ConnectionsPanel.cpp
+        src/Chat/OpenRouter.cpp
         src/Panels/ConsolePanel.cpp
         src/Panels/HierarchyPanel.cpp
         src/Panels/InspectorPanel.cpp
@@ -66,7 +68,9 @@ set(INC_FILES
         include/EditorStyle.hpp
         include/EntitySubtree.hpp
         include/Panels/AssetsPanel.hpp
+        include/Panels/ChatPanel.hpp
         include/Panels/ConnectionsPanel.hpp
+        include/Chat/OpenRouter.hpp
         include/Panels/ConsolePanel.hpp
         include/Panels/HierarchyPanel.hpp
         include/Panels/IEditorPanel.hpp
@@ -106,6 +110,28 @@ set(INC_FILES
         include/Plugins/UiPluginEditor.hpp
 )
 
+add_library(Author STATIC
+        src/Author/Session.cpp
+        src/Author/Commands.cpp
+        src/Author/CommandsRead.cpp
+        src/Author/CommandsWrite.cpp
+        src/Author/McpStdio.cpp
+)
+target_include_directories(Author PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(Author PUBLIC Engine Serialization UI glaze::glaze)
+target_compile_definitions(Author PRIVATE "RTYPE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
+set_target_properties(Author PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED ON
+)
+
+add_executable(rtype-author src/Author/CliMain.cpp)
+target_link_libraries(rtype-author PRIVATE Author)
+set_target_properties(rtype-author PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED ON
+)
+
 add_executable(RTypeEditor main.cpp ${SRC_FILES} ${INC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/BundledAssets.hpp)
 target_include_directories(RTypeEditor PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}
         third_party/ImGuiColorTextEdit)
@@ -121,7 +147,7 @@ if (NOT EXISTS "${PFD_DEST}")
 endif ()
 target_include_directories(RTypeEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-target_link_libraries(RTypeEditor PRIVATE Engine Serialization UI rlImGui imgui_textedit imgui glaze::glaze)
+target_link_libraries(RTypeEditor PRIVATE Engine Serialization UI Author rlImGui imgui_textedit imgui glaze::glaze)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_compile_options(RTypeEditor PRIVATE -s ASYNCIFY)
