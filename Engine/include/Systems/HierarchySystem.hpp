@@ -39,7 +39,19 @@ class HierarchySystem : public System {
      */
     static std::vector<Entity> FindDirectChildren(Registry& registry, Entity node);
 
+    /**
+     * @brief Moves @p entity to (@p x, @p y) at once, without a frame delta.
+     *
+     * Relative descendants are shifted by the same amount right away, so a
+     * multi-part entity (e.g. a prefab with child parts) stays in one piece.
+     * prevX/prevY are updated too, so the next @ref Update does not move
+     * anything a second time.
+     */
+    static void TeleportWithChildren(Registry& registry, Entity entity, float x, float y);
+
   private:
+    static void ShiftRelativeDescendants(Registry& registry, Entity node, float dx, float dy);
+
     static void CollectReferencedParents(Registry& registry,
                                          std::unordered_set<Entity>& referencedAsParent);
 

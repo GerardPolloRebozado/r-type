@@ -3,6 +3,10 @@
 // clashes with raylib's CloseWindow/ShowCursor/DrawText/Rectangle names.
 #include "FileDialog.hpp"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "portable-file-dialogs.h"
 
 namespace Editor {

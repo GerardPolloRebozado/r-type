@@ -5,6 +5,7 @@
 #include "Components/SpriteComponent.hpp"
 #include "Resources/PrefabSpawner.hpp"
 #include "Scripting/ScriptComponent.hpp"
+#include "Systems/HierarchySystem.hpp"
 #include <cmath>
 
 namespace Engine {
@@ -45,12 +46,8 @@ static void ApplyPosition(Registry& registry, Entity entity, float x, float y) {
     if (!registry.HasComponent<Position>(entity)) {
         registry.AddComponent<Position>(entity, Position{x, y, 0});
     } else {
-        auto& pos = registry.RequireComponent<Position>(entity);
-        pos.x = x;
-        pos.y = y;
-        pos.prevX = x;
-        pos.prevY = y;
-        pos.moved = true;
+        // Keeps the prefab's child parts attached when the root is placed.
+        HierarchySystem::TeleportWithChildren(registry, entity, x, y);
     }
 }
 
