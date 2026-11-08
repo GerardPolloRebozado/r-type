@@ -72,6 +72,8 @@ class EditorLayer {
     // Makes path the game's startup scene: writes project.json.
     void SetStartupScene(const std::string& path) const;
     bool IsStartupScene(const std::string& path) const;
+    // Saves the open scene as "lastOpenedScene" in project.json when it changes.
+    void RememberActiveScene();
 
     // Unsaved-changes tracking: JSON of the entities as last loaded/saved.
     std::string CaptureSceneJson() const;
@@ -96,6 +98,8 @@ class EditorLayer {
 
     // Scene switching state.
     std::string m_SavedSceneJson;
+    // Open scene last written to project.json as "lastOpenedScene".
+    std::string m_RememberedScenePath;
     // The baseline is taken one frame after a load/save, once editor systems
     // have settled values like prevX/prevY, to avoid false "unsaved" prompts.
     bool m_SavedSceneJsonStale = true;

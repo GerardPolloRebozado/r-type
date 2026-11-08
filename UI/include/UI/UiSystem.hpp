@@ -36,8 +36,8 @@ class UiSystem : public System {
      * Uses the same code as the game, in preview mode. Click actions do not run
      * while EditorMode is present.
      */
-    void DrawPagePreview(Registry& registry, const std::string& page, float x, float y,
-                         float width, float height);
+    void DrawPagePreview(Registry& registry, const std::string& page, float x, float y, float width,
+                         float height);
 
   private:
     void LoadScript(Registry& registry, Entity entity);

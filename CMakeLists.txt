@@ -17,45 +17,23 @@ include(BundleMingwRuntime)
 bundle_mingw_runtime()
 
 set(CPM_DOWNLOAD_VERSION 0.40.0)
+set(CPM_HASH_SUM "7b354f3a5976c4626c876850c93944e52c83ec59a159ae5de5be7983f0e17a2a")
+
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
 endif ()
-# GitHub release downloads sometimes return an empty body (HTTP 504) without
-# failing file(DOWNLOAD). Including that empty script leaves CPMAddPackage
-# undefined. Fall back to the CPM source cache, then to the raw module.
-set(_cpm_bootstrap "${CMAKE_CURRENT_BINARY_DIR}/cpm/get_cpm.cmake")
-file(DOWNLOAD
-        https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/get_cpm.cmake
-        ${_cpm_bootstrap}
-        STATUS _cpm_dl
-        TIMEOUT 20
-)
-set(_cpm_bytes 0)
-if (EXISTS "${_cpm_bootstrap}")
-    file(SIZE "${_cpm_bootstrap}" _cpm_bytes)
+set(CPM_DOWNLOAD_LOCATION "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+get_filename_component(CPM_DOWNLOAD_LOCATION ${CPM_DOWNLOAD_LOCATION} ABSOLUTE)
+
+if (NOT EXISTS "${CPM_DOWNLOAD_LOCATION}")
+    message(STATUS "Downloading CPM.cmake v${CPM_DOWNLOAD_VERSION}...")
+    file(DOWNLOAD
+            "https://raw.githubusercontent.com/cpm-cmake/CPM.cmake/v${CPM_DOWNLOAD_VERSION}/cmake/CPM.cmake"
+            "${CPM_DOWNLOAD_LOCATION}"
+            EXPECTED_HASH SHA256=${CPM_HASH_SUM}
+    )
 endif ()
-list(GET _cpm_dl 0 _cpm_dl_code)
-if (NOT _cpm_dl_code EQUAL 0 OR _cpm_bytes LESS 100)
-    set(_cpm_cached "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
-    set(_cpm_module "${CMAKE_CURRENT_BINARY_DIR}/cpm/CPM.cmake")
-    if (EXISTS "${_cpm_cached}")
-        set(_cpm_module "${_cpm_cached}")
-    else ()
-        file(DOWNLOAD
-                https://raw.githubusercontent.com/cpm-cmake/CPM.cmake/v${CPM_DOWNLOAD_VERSION}/cmake/CPM.cmake
-                ${_cpm_module}
-                STATUS _cpm_dl
-                TIMEOUT 30
-        )
-        list(GET _cpm_dl 0 _cpm_dl_code)
-        if (NOT _cpm_dl_code EQUAL 0)
-            message(FATAL_ERROR "Failed to download CPM.cmake: ${_cpm_dl}")
-        endif ()
-    endif ()
-    include(${_cpm_module})
-else ()
-    include(${_cpm_bootstrap})
-endif ()
+include(${CPM_DOWNLOAD_LOCATION})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -137,6 +115,7 @@ if (NOT _sol2_optional_bug EQUAL -1)
 endif ()
 
 option(EDITOR_BUILD "Build triggered by the Editor for a specific game" OFF)
+option(OPENFRONT_BUILD "Build the Openfront sample game" OFF)
 if (CMAKE_CROSSCOMPILING)
     set(ASSET_BUNDLER_EXECUTABLE "${CMAKE_BINARY_DIR}/AssetBundler")
 else ()
@@ -149,6 +128,25 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
 
     add_compile_options(-fexceptions)
     add_link_options(-fexceptions)
+
+    # Embed game assets and data into the WASM .data file so they are
+    # available at runtime in the virtual filesystem.
+    set(_wasm_embed_files
+            "${CMAKE_SOURCE_DIR}/R-Type/assets@assets"
+            "${CMAKE_SOURCE_DIR}/R-Type/scripts@scripts"
+            "${CMAKE_SOURCE_DIR}/R-Type/Prefabs@Prefabs"
+            "${CMAKE_SOURCE_DIR}/R-Type/project.json@project.json"
+            "${CMAKE_SOURCE_DIR}/R-Type/input.json@input.json"
+            "${CMAKE_SOURCE_DIR}/UI/lua/templates@UI/lua/templates"
+    )
+    file(GLOB _wasm_scenes "${CMAKE_SOURCE_DIR}/R-Type/*.scene")
+    foreach (_scene ${_wasm_scenes})
+        get_filename_component(_scene_name "${_scene}" NAME)
+        list(APPEND _wasm_embed_files "${_scene}@${_scene_name}")
+    endforeach ()
+    foreach (_embed ${_wasm_embed_files})
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --embed-file ${_embed}")
+    endforeach ()
 else ()
     set(ASSET_BUNDLER_EXECUTABLE "$<TARGET_FILE:AssetBundler>")
 endif ()
@@ -157,15 +155,17 @@ add_subdirectory(Engine)
 add_subdirectory(UI)
 add_subdirectory(Serialization)
 add_subdirectory(Plugins)
-
-if (NOT EDITOR_BUILD)
-    # Tools before Editor so the editor can run AssetBundler at build time.
-    add_subdirectory(Tools)
-    add_subdirectory(Editor)
-    add_subdirectory(Games)
-    add_subdirectory(Tests)
-endif ()
+add_subdirectory(Editor)
+add_subdirectory(Tools)
+add_subdirectory(Games)
+add_subdirectory(Tests)
+add_subdirectory(Openfront)
 
 if (EDITOR_BUILD)
-    include(.editor_build.cmake OPTIONAL)
+    if (DEFINED GAME_PROJECT_DIR AND EXISTS "${GAME_PROJECT_DIR}/CMakeLists.txt")
+        add_subdirectory("${GAME_PROJECT_DIR}" "${CMAKE_BINARY_DIR}/game_project")
+    elseif (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/R-Type/CMakeLists.txt")
+        add_subdirectory(R-Type)
+    endif ()
 endif ()
+

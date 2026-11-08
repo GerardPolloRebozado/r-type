@@ -76,12 +76,30 @@ function Bullet:onCreate(sprites, speed, lifetime, hitsRemaining, direction, sta
 end
 
 function Bullet:onUpdate(entity, dt)
-    if not shouldSimulate(entity) then
+    if not dt or dt <= 0 then
+        dt = 1.0 / 60.0
+    end
+    
+    if self.exploding then
+        self.elapsed = self.elapsed + dt
+
+        while self.elapsed >= FRAME_DURATION do
+            self.elapsed = self.elapsed - FRAME_DURATION
+            self.frame = self.frame + 1
+
+            if self.frame > #EXPLOSION then
+                Entity.queueDestroy(entity)
+                return
+            end
+
+            Component.setSpritePath(entity, EXPLOSION[self.frame])
+        end
+
         return
     end
 
-    if not dt or dt <= 0 then
-        dt = 1.0 / 60.0
+    if not shouldSimulate(entity) then
+        return
     end
 
     if self.linkIndex ~= nil and self.trailKey ~= nil then

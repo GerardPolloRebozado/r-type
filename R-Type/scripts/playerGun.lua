@@ -267,7 +267,9 @@ function PlayerGun:fireSuperProjectile()
     table.insert(self.projectiles, {
         entity = projEntity,
         timer = PROJECTILE_LIFETIME,
-        hitsRemaining = 3,
+        -- Raised from 3 so the big bullet can punch through many cytron dots
+        -- (and enemies) before being destroyed instead of stopping after ~2.
+        hitsRemaining = 20,
     })
 end
 

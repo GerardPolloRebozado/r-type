@@ -64,6 +64,7 @@ set(SRC_FILES
         src/Scripting/LuaAPI/Plugins/ScriptAPI.cpp
         src/Scripting/LuaAPI/Plugins/InputAPI.cpp
         src/Scripting/LuaAPI/Plugins/AudioAPI.cpp
+        src/Scripting/LuaAPI/Plugins/AnimationAPI.cpp
         src/Systems/AudioSystem.cpp
         src/Systems/CameraSystem.cpp
         src/Systems/CollisionSystem.cpp
@@ -76,6 +77,8 @@ set(SRC_FILES
         src/Systems/TextSystem.cpp
         src/Systems/WaveSpawnerSystem.cpp
         src/Resources/NetworkHostResource.cpp
+        src/Network/UdpServer.cpp
+        src/Network/UdpClient.cpp
         src/Resources/SceneManager.cpp
         src/Systems/MultiplayerSystem.cpp
         src/Systems/ReplicationSystem.cpp
@@ -139,6 +142,10 @@ set(INC_FILES
         include/Plugins/OpacityPlugin.hpp
         include/Plugins/SignalPlugin.hpp
         include/Resources/NetworkHostResource.hpp
+        include/Network/UdpServer.hpp
+        include/Network/UdpClient.hpp
+        include/Network/UdpPacket.hpp
+        include/Network/ByteStream.hpp
         include/Resources/PlayerInputState.hpp
         include/Resources/PlayerSlotState.hpp
         include/Resources/PrefabSpawner.hpp
@@ -179,6 +186,7 @@ set(INC_FILES
         include/Scripting/LuaAPI/Plugins/ScriptAPI.hpp
         include/Scripting/LuaAPI/Plugins/InputAPI.hpp
         include/Scripting/LuaAPI/Plugins/AudioAPI.hpp
+        include/Scripting/LuaAPI/Plugins/AnimationAPI.hpp
         include/Scripting/LuaAPI/Internal/Helpers.hpp
         include/Scripting/LuaAPI/Internal/LuaValue.hpp
         include/Systems/AudioSystem.hpp
@@ -238,6 +246,11 @@ check_cxx_compiler_flag("-Wtemplate-body" HAS_TEMPLATE_BODY)
 if (HAS_TEMPLATE_BODY)
     target_compile_options(Engine PUBLIC -Wno-template-body -Wno-error=template-body)
 endif ()
+# raylib.h defines RL_FREE as free(ptr) but never includes <stdlib.h>.
+# Force-include cstdlib so free() is declared before raylib-cpp.hpp is parsed.
+if (NOT MSVC)
+    target_compile_options(Engine PUBLIC -include cstdlib)
+endif ()
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     CPMAddPackage(
             NAME lua
@@ -281,6 +294,11 @@ endif ()
 target_link_libraries(Engine PUBLIC glaze::glaze)
 find_package(ZLIB)
 if (ZLIB_FOUND)
+    # On macOS, ZLIB's include dir can be the SDK's usr/include. Passed as
+    # -isystem it breaks libc++'s headers; zlib.h is found without it.
+    if (APPLE AND ZLIB_INCLUDE_DIRS MATCHES "\\.sdk/usr/include$")
+        set_target_properties(ZLIB::ZLIB PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
+    endif()
     target_link_libraries(Engine PUBLIC ZLIB::ZLIB)
     target_compile_definitions(Engine PUBLIC RTYPE_HAVE_ZLIB=1)
 endif()

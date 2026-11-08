@@ -2,7 +2,7 @@ name: Build Release
 
 on:
   release:
-    types: [published]
+    types: [ published ]
   workflow_dispatch:
 
 permissions:
@@ -36,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cpm_cache
           key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
@@ -97,7 +97,9 @@ jobs:
       - name: Configure R-Type game
         run: |
           set -euo pipefail
-          cmake -S R-Type -B R-Type/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ROOT="${{ github.workspace }}"
+          PROJ="$ROOT/R-Type"
+          cmake -S "$ROOT" -B "$PROJ/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DEDITOR_BUILD=ON
 
       - name: Build Engine and RTypeEditor
         run: cmake --build "$BUILD_DIR" --target Engine RTypeEditor --parallel
@@ -143,9 +145,8 @@ jobs:
             fi
           fi
 
-          # Copy R-Type game binary
-          if [ -f "R-Type/build/Game" ]; then
-            cp "R-Type/build/Game" "$DIST_DIR/$editor_pkg/bin/"
+          if [ -f "R-Type/build/bin/R-Type" ]; then
+            cp "R-Type/build/bin/R-Type" "$DIST_DIR/$editor_pkg/bin/"
           fi
 
           tar -czf "$DIST_DIR/$editor_pkg.tar.gz" -C "$DIST_DIR" "$editor_pkg"
@@ -176,10 +177,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache CPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cpm_cache
           key: cpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
@@ -198,6 +199,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-lua54
+            mingw-w64-ucrt-x86_64-zlib
 
       - name: Stage Lua prefix
         run: |
@@ -234,10 +236,19 @@ jobs:
           cp "$BUILD_DIR/Engine/libEngine.a" "$DIST_DIR/$engine_pkg/lib/"
           cp -R Engine/include/. "$DIST_DIR/$engine_pkg/include/"
           find "$BUILD_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$DIST_DIR/$editor_pkg/bin/" \;
+          # lua54.dll is staged in .lua-prefix/bin but not produced under
+          # $BUILD_DIR, so copy it explicitly so the Windows zip is runnable.
+          if [ -d ".lua-prefix/bin" ]; then
+            cp .lua-prefix/bin/*.dll "$DIST_DIR/$editor_pkg/bin/"
+          fi
+          # zlib1.dll comes from the MSYS2 zlib package (installed above), not
+          # from the build tree, so copy it explicitly for the same reason.
+          if [ -f "/ucrt64/bin/zlib1.dll" ]; then
+            cp /ucrt64/bin/zlib1.dll "$DIST_DIR/$editor_pkg/bin/"
+          fi
 
-          # Copy R-Type game binary
-          if [ -f "R-Type/build/Game.exe" ]; then
-            cp "R-Type/build/Game.exe" "$DIST_DIR/$editor_pkg/bin/"
+          if [ -f "R-Type/build/bin/R-Type.exe" ]; then
+            cp "R-Type/build/bin/R-Type.exe" "$DIST_DIR/$editor_pkg/bin/"
           fi
 
           (cd "$DIST_DIR" && cmake -E tar cf "$editor_pkg.zip" --format=zip "$editor_pkg")
@@ -257,3 +268,247 @@ jobs:
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: dist/*.zip
+
+  build-wasm:
+    name: r-type-wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Cache CPM dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.cpm_cache
+          key: cpm-wasm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: |
+            cpm-wasm-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install dependencies & Latest CMake
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            ninja-build \
+            pkg-config \
+            wget
+          
+          CMAKE_VERSION="3.31.5"
+          wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz
+          tar -xzf cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz
+          sudo cp -r cmake-${CMAKE_VERSION}-linux-x86_64/bin/* /usr/local/bin/
+          sudo cp -r cmake-${CMAKE_VERSION}-linux-x86_64/share/* /usr/local/share/
+          cmake --version
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Cache Lua WASM
+        id: cache-lua
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/lua-wasm-install
+          key: lua-wasm-v5.4.7-static-${{ runner.os }}
+
+      - name: Build Lua 5.4 for WebAssembly
+        if: steps.cache-lua.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p lua-build-src && cd lua-build-src
+          
+          git clone --depth 1 --branch v5.4.7 https://github.com/walterschell/Lua.git lua-src
+          cd lua-src
+          
+          LUA_SRC_DIR="."
+          LUA_INCLUDE_DIR="."
+          if [ -f "lapi.c" ]; then
+            LUA_SRC_DIR="."
+            LUA_INCLUDE_DIR="."
+          elif [ -d "src" ] && [ -f "src/lapi.c" ]; then
+            LUA_SRC_DIR="src"
+            LUA_INCLUDE_DIR="."
+          elif [ -d "lua-5.4.7/src" ] && [ -f "lua-5.4.7/src/lapi.c" ]; then
+            LUA_SRC_DIR="lua-5.4.7/src"
+            LUA_INCLUDE_DIR="lua-5.4.7/include"
+          fi
+          
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/include"
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/lib"
+          mkdir -p "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig"
+          
+          # Compile each C source file explicitly using emcc in C mode (-x c).
+          # Exclude lua.c and luac.c (the standalone interpreters) — we only need the static lib + headers.
+          for src in lapi.c lauxlib.c lbaselib.c lcode.c lcorolib.c lctype.c ldblib.c ldump.c lfunc.c lgc.c linit.c liolib.c llex.c lmathlib.c lmem.c loadlib.c lobject.c lopcodes.c loslib.c lparser.c lstate.c lstring.c lstrlib.c ltable.c ltablib.c ltm.c lundump.c lutf8lib.c lvm.c lzio.c; do
+            emcc -O2 -x c -c "$LUA_SRC_DIR/$src" -I"$LUA_SRC_DIR" -I"$LUA_INCLUDE_DIR" -DLUA_USE_POSIX
+          done
+          
+          emar rcs liblua.a *.o
+          
+          # Copy library
+          cp liblua.a "${{ github.workspace }}/lua-wasm-install/lib/"
+          
+          # Wrap Lua public headers in extern "C" for C++ compatibility
+          for header in lua.h luaconf.h lualib.h lauxlib.h; do
+            echo '#ifdef __cplusplus' > "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo 'extern "C" {' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '#endif' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            cat "$LUA_INCLUDE_DIR/$header" >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '#ifdef __cplusplus' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '}' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+            echo '#endif' >> "${{ github.workspace }}/lua-wasm-install/include/$header"
+          done
+          
+          # Generate custom pkg-config .pc file for CMake
+          cat <<EOF > "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua5.4.pc"
+          prefix=${{ github.workspace }}/lua-wasm-install
+          exec_prefix=\${prefix}
+          libdir=\${exec_prefix}/lib
+          includedir=\${prefix}/include
+          
+          Name: Lua
+          Description: An Extensible Programming Language (C library for C++ projects)
+          Version: 5.4.7
+          Libs: -L\${libdir} -llua -lm
+          Cflags: -I\${includedir}
+          EOF
+          
+          cp "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua5.4.pc" "${{ github.workspace }}/lua-wasm-install/lib/pkgconfig/lua.pc"
+      - name: Stage WASM runtime files
+        run: |
+          set -euo pipefail
+          ROOT="${{ github.workspace }}"
+          PROJ="$ROOT/R-Type"
+          STAGE="$PROJ/.wasm_stage"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          for rel in assets scripts Prefabs ui system project.json input.json; do
+            if [ -e "$PROJ/$rel" ]; then
+              mkdir -p "$STAGE/$(dirname "$rel")"
+              cp -r "$PROJ/$rel" "$STAGE/$rel"
+            fi
+          done
+          find "$PROJ" -maxdepth 1 -name '*.scene' -print0 | while IFS= read -r -d '' f; do
+            cp "$f" "$STAGE/"
+          done
+          mkdir -p "$STAGE/${ROOT#/}/UI/lua/templates"
+          cp -r "$ROOT/UI/lua/templates/." "$STAGE/${ROOT#/}/UI/lua/templates/"
+
+      - name: Configure WASM build
+        run: |
+          set -euo pipefail
+          export PKG_CONFIG_PATH="${{ github.workspace }}/lua-wasm-install/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          emcmake cmake -S "${{ github.workspace }}" -B "${{ github.workspace }}/build-wasm" \
+            -DEDITOR_BUILD=ON -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build R-Type (WASM)
+        run: cmake --build "${{ github.workspace }}/build-wasm" --target R-Type --parallel
+
+      - name: Stage WASM outputs
+        run: |
+          set -euo pipefail
+          ROOT="${{ github.workspace }}"
+          BUILD="$ROOT/build-wasm"
+          PROJ="$ROOT/R-Type"
+          cp "$BUILD/R-Type.js" "$PROJ/R-Type.js"
+          cp "$BUILD/R-Type.wasm" "$PROJ/R-Type.wasm"
+          # Emscripten 6.x inlines embedded data into R-Type.js, so R-Type.data
+          # is only produced on older versions — copy it if present.
+          if [ -f "$BUILD/R-Type.data" ]; then
+            cp "$BUILD/R-Type.data" "$PROJ/R-Type.data"
+          fi
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r-type-wasm
+          path: |
+            R-Type/index.html
+            R-Type/R-Type.js
+            R-Type/R-Type.wasm
+            R-Type/R-Type.data
+          if-no-files-found: warn
+
+      - name: Package WASM bundle
+        run: |
+          set -euo pipefail
+          cd R-Type
+          zip -r ../r-type-wasm.zip index.html R-Type.js R-Type.wasm
+          if [ -f R-Type.data ]; then
+            zip -r ../r-type-wasm.zip R-Type.data
+          fi
+
+      - name: Attach WASM bundle to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: r-type-wasm.zip
+
+  deploy-pages:
+    name: Deploy docs + R-Type WASM to GitHub Pages
+    needs: build-wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: gh-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download WASM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: r-type-wasm
+          path: R-Type
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            doxygen graphviz python3-pip
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r Documentation/requirements.txt
+
+      - name: Build docs
+        run: |
+          cd Documentation
+          mkdocs build
+
+      - name: Add game to site
+        run: |
+          set -euo pipefail
+          mkdir -p Documentation/site/game
+          cp R-Type/index.html R-Type/R-Type.js R-Type/R-Type.wasm Documentation/site/game/
+          # Emscripten names the glue script "R-Type.js", but the shell page
+          # (index.html) loads it as "index.js". Provide it under that name so
+          # the game can actually be downloaded on GitHub Pages.
+          cp R-Type/R-Type.js Documentation/site/game/index.js
+          if [ -f R-Type/R-Type.data ]; then
+            cp R-Type/R-Type.data Documentation/site/game/
+          fi
+          cp CNAME Documentation/site/CNAME
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: Documentation/site
+          name: github-pages-${{ github.run_id }}
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}

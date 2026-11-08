@@ -36,21 +36,57 @@ bool Controller::isKeybindPressed(const Keybind& kb) const {
     return true;
 }
 
+bool Controller::isKeybindPressedThisFrame(const Keybind& kb) const {
+    bool mainPressed = false;
+    switch (kb.type) {
+        case KEYBOARD:
+            mainPressed = IsKeyPressed(kb.key);
+            break;
+        case MOUSE:
+            mainPressed = IsMouseButtonPressed(kb.key);
+            break;
+        case GAMEPAD:
+            mainPressed = IsGamepadButtonPressed(m_gamepadId, kb.key);
+            break;
+        default:
+            break;
+    }
+
+    if (!mainPressed) {
+        return false;
+    }
+
+    if (kb.composeKey != 0) {
+        return IsKeyDown(kb.composeKey);
+    }
+    return true;
+}
+
 void Controller::Update() {
     _activeActions.clear();
+    _pressedActions.clear();
     _networkedActions.clear();
     for (const auto& [action, binding] : m_keymap) {
         for (const auto& kb : binding.keybinds) {
-            if (!isKeybindPressed(kb)) {
-                continue;
+            if (isKeybindPressed(kb)) {
+                _activeActions.emplace(action);
+                if (binding.networked) {
+                    _networkedActions.emplace(action);
+                }
+                break;
             }
-            _activeActions.emplace(action);
-            if (binding.networked) {
-                _networkedActions.emplace(action);
+        }
+        for (const auto& kb : binding.keybinds) {
+            if (isKeybindPressedThisFrame(kb)) {
+                _pressedActions.emplace(action);
+                break;
             }
-            break;
         }
     }
+}
+
+bool Controller::isActionPressed(const std::string& action) const {
+    return std::ranges::find(_pressedActions, action) != _pressedActions.end();
 }
 
 void Controller::addKeybind(const Action& action, const Keybind& kb, const bool networked) {

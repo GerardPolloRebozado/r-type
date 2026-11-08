@@ -1,10 +1,10 @@
 #include "Core/Application.hpp"
-#include "Core/UiPass.hpp"
 #include "Components/Name.hpp"
 #include "Components/PrefabInstance.hpp"
 #include "Core/LaunchOptions.hpp"
 #include "Core/QuitRequest.hpp"
 #include "Core/Renderer.hpp"
+#include "Core/UiPass.hpp"
 #include "Logging/Logger.hpp"
 #include "Resources/SceneManager.hpp"
 #include <chrono>
@@ -133,13 +133,14 @@ void Application::PostUpdate(float dt) {
     }
     if (m_Config.customRender) {
         m_Config.customRender(m_Registry);
-
-        BeginDrawing();
-        ClearBackground(BLACK);
-        if (m_Config.onUI) {
-            m_Config.onUI();
+        if (!m_Config.customRenderHandlesDrawing) {
+            BeginDrawing();
+            ClearBackground(BLACK);
+            if (m_Config.onUI) {
+                m_Config.onUI();
+            }
+            EndDrawing();
         }
-        EndDrawing();
     } else {
         auto& virtualResolution = m_Registry.GetResource<VirtualResolution>();
 

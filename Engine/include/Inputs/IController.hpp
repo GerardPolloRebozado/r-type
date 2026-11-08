@@ -75,6 +75,13 @@ class IController {
     virtual bool isActionActive(const std::string& action) const = 0;
 
     /**
+     * @brief Checks if an action was triggered (pressed) this frame (edge-triggered).
+     * @param action The action name to check.
+     * @return True if pressed this frame, false otherwise.
+     */
+    virtual bool isActionPressed(const std::string& action) const = 0;
+
+    /**
      * @brief Returns all actions currently active in this frame that should be send to the server
      * @return Const reference to active actions list that should be sent to the server
      */
@@ -88,6 +95,9 @@ class IController {
 
     /** @brief Active actions triggered during this tick/frame. */
     std::set<Action> _activeActions;
+
+    /** @brief Actions that were pressed (edge-triggered) this tick/frame. */
+    std::set<Action> _pressedActions;
 
     /** @brief Subset of _activeActions whose action is marked networked. */
     std::set<Action> _networkedActions;

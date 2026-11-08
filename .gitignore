@@ -55,6 +55,12 @@ build/
 Build/
 build-*/
 
+# Exported game WebAssembly artifacts (rebuilt in CI)
+R-Type/index.js
+R-Type/index.wasm
+R-Type/index.data
+R-Type/.wasm_stage/
+
 # CMake generated files
 CMakeFiles/
 CMakeCache.txt
@@ -83,6 +89,7 @@ CPM_Cache/
 
 #MacOs
 .Ds_Store
+.DS_Store
 CPM_modules/
 _deps/
 CPackConfig.cmake
@@ -105,5 +112,8 @@ Documentation/doxygen_output/
 !Documentation/docs/assets/screenshots/**/*.png
 !Documentation/docs/assets/first-game-editor/sprites/**/*.png
 
-portable-file-dialogs.h
+!StreetFighter/Scenes/assets/**/*.png
+
 *.gif
+StreetFighter/Scenes/StreetFigter
+R-Type/R-Type

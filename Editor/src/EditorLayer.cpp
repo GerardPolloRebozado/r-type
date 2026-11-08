@@ -147,6 +147,7 @@ void EditorLayer::OnUpdate() {
 
     // Before any panel draws: a scene switch must not happen mid-iteration.
     HandleSceneRequests();
+    RememberActiveScene();
     // Build output is collected on the build thread; log it here.
     SettingsPanel::ReportBuildResult();
 
@@ -242,6 +243,19 @@ bool IsSkippedFolder(const fs::path& folder) {
     const std::string name = folder.filename().string();
     return name.empty() || name[0] == '.' || name == "build" || name.rfind("cmake-build", 0) == 0;
 }
+
+// path relative to the project folder (e.g. "levels/Menu.scene"), or empty
+// if it is outside the project.
+std::string ProjectRelativePath(const fs::path& project, const std::string& path) {
+    std::error_code error;
+    const fs::path relative = fs::relative(fs::weakly_canonical(path, error),
+                                           fs::weakly_canonical(project, error), error);
+    const std::string text = relative.generic_string();
+    if (error || text.empty() || text.rfind("..", 0) == 0) {
+        return "";
+    }
+    return text;
+}
 } // namespace
 
 std::string EditorLayer::CaptureSceneJson() const {
@@ -274,11 +288,14 @@ void EditorLayer::ClearScene() const {
 
 void EditorLayer::OpenScene(const std::string& path) {
     ClearScene();
-    // No config: the project settings already loaded (window, input map...)
-    // stay as they are instead of being replaced by this scene's copy.
+    const EditorConfig previous = *m_Configuration;
     Serialization::SceneSerializer serializer;
-    if (!serializer.Deserialize(path, *m_Registry, std::nullopt)) {
+    if (!serializer.Deserialize(path, *m_Registry, *m_Configuration)) {
         log_error("[Editor] Could not read scene " + path + ". Opened it empty.");
+    } else {
+        const std::vector<Engine::WaveDefinition> sceneWaves = m_Configuration->m_Waves;
+        *m_Configuration = previous;
+        m_Configuration->m_Waves = sceneWaves;
     }
     m_Configuration->m_ActiveScenePath = path;
     MarkSceneSaved();
@@ -305,11 +322,8 @@ bool EditorLayer::IsStartupScene(const std::string& path) const {
 
 void EditorLayer::SetStartupScene(const std::string& path) const {
     const fs::path project = m_Configuration->m_ProjectFolder;
-    std::error_code error;
-    const fs::path relative = fs::relative(fs::weakly_canonical(path, error),
-                                           fs::weakly_canonical(project, error), error);
-    const std::string text = relative.generic_string();
-    if (error || text.empty() || text.rfind("..", 0) == 0) {
+    const std::string text = ProjectRelativePath(project, path);
+    if (text.empty()) {
         log_error("[Editor] The startup scene must be inside the project folder: " + path);
         return;
     }
@@ -319,8 +333,29 @@ void EditorLayer::SetStartupScene(const std::string& path) const {
     if (!Serialization::SaveProjectFile(project, file)) {
         return;
     }
-    m_Configuration->m_InitialScenePath = (project / relative).lexically_normal().string();
+    m_Configuration->m_InitialScenePath = (project / text).lexically_normal().string();
     log_info("[Editor] Startup scene set to " + text);
+}
+
+void EditorLayer::RememberActiveScene() {
+    if (!m_Configuration || m_Configuration->m_ProjectFolder.empty() ||
+        m_Configuration->m_ActiveScenePath == m_RememberedScenePath) {
+        return;
+    }
+    // Set first: a failed write is logged once, not every frame.
+    m_RememberedScenePath = m_Configuration->m_ActiveScenePath;
+    const fs::path project = m_Configuration->m_ProjectFolder;
+    const std::string text = ProjectRelativePath(project, m_RememberedScenePath);
+    if (text.empty()) {
+        return; // scene outside the project: nothing to reopen next time
+    }
+    Serialization::ProjectFile file;
+    Serialization::LoadProjectFile(project, file); // keep any other settings
+    if (file.lastOpenedScene == text) {
+        return;
+    }
+    file.lastOpenedScene = text;
+    Serialization::SaveProjectFile(project, file);
 }
 
 void EditorLayer::RunSceneAction(const SceneAction& action) {
@@ -681,50 +716,68 @@ void EditorLayer::BeginDockSpace() {
             if (scriptsReady && m_Configuration) {
                 // Save first: the game reads the scene file, not the editor's memory.
                 SaveActiveScene();
+                if (m_Configuration->m_BuildWasm) {
+                    std::string htmlPath = m_Configuration->m_ProjectFolder + "/index.html";
+                    if (!std::filesystem::exists(htmlPath)) {
+                        htmlPath = m_Configuration->m_ProjectFolder + "/build/index.html";
+                    }
+                    if (std::filesystem::exists(htmlPath)) {
+                        const std::string projectFolder = m_Configuration->m_ProjectFolder;
 #ifdef _WIN32
-                const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
+                        std::string cmd =
+                            "cd \"" + projectFolder + "\" && start \"\" emrun index.html";
 #else
-                const std::string exeFile = m_Configuration->m_BuildExecutableName;
+                        std::string cmd = "cd \"" + projectFolder + "\" && emrun index.html &";
 #endif
-                std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
-                if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
-                }
-                if (!std::filesystem::exists(exePath)) {
-                    exePath = m_Configuration->m_ProjectFolder + "/build/Games/R-Type/" + exeFile;
-                }
-                // Multi-config generators (e.g. Visual Studio) place the binary
-                // in a <Config> subfolder.
-                if (!std::filesystem::exists(exePath)) {
-                    for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
-                        const std::string cand =
-                            m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
-                        if (std::filesystem::exists(cand)) {
-                            exePath = cand;
-                            break;
-                        }
-                        const std::string cand2 = m_Configuration->m_ProjectFolder +
-                                                  "/build/Games/R-Type/" + cfg + "/" + exeFile;
-                        if (std::filesystem::exists(cand2)) {
-                            exePath = cand2;
-                            break;
+                        std::system(cmd.c_str());
+                    }
+                } else {
+#ifdef _WIN32
+                    const std::string exeFile = m_Configuration->m_BuildExecutableName + ".exe";
+#else
+                    const std::string exeFile = m_Configuration->m_BuildExecutableName;
+#endif
+                    std::string exePath = m_Configuration->m_ProjectFolder + "/" + exeFile;
+                    if (!std::filesystem::exists(exePath)) {
+                        exePath = m_Configuration->m_ProjectFolder + "/build/" + exeFile;
+                    }
+                    if (!std::filesystem::exists(exePath)) {
+                        exePath =
+                            m_Configuration->m_ProjectFolder + "/build/Games/R-Type/" + exeFile;
+                    }
+                    // Multi-config generators (e.g. Visual Studio) place the binary
+                    // in a <Config> subfolder.
+                    if (!std::filesystem::exists(exePath)) {
+                        for (const char* cfg : {"Release", "Debug", "RelWithDebInfo"}) {
+                            const std::string cand =
+                                m_Configuration->m_ProjectFolder + "/build/" + cfg + "/" + exeFile;
+                            if (std::filesystem::exists(cand)) {
+                                exePath = cand;
+                                break;
+                            }
+                            const std::string cand2 = m_Configuration->m_ProjectFolder +
+                                                      "/build/Games/R-Type/" + cfg + "/" + exeFile;
+                            if (std::filesystem::exists(cand2)) {
+                                exePath = cand2;
+                                break;
+                            }
                         }
                     }
-                }
-                if (std::filesystem::exists(exePath)) {
-                    // The game starts on the scene being edited (see
-                    // Serialization::PickStartupScene in the generated main.cpp).
-                    const std::string sceneArg = ActiveSceneRelativePath();
+                    if (std::filesystem::exists(exePath)) {
+                        // The game starts on the scene being edited (see
+                        // Serialization::PickStartupScene in the generated main.cpp).
+                        const std::string sceneArg = ActiveSceneRelativePath();
 #ifdef _WIN32
-                    // start detaches: system() returns immediately instead of
-                    // freezing the editor while the game runs.
-                    std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
-                                      "\" \"" + exePath + "\" \"" + sceneArg + "\"";
+                        // start detaches: system() returns immediately instead of
+                        // freezing the editor while the game runs.
+                        std::string cmd = "start \"\" /D \"" + m_Configuration->m_ProjectFolder +
+                                          "\" \"" + exePath + "\" \"" + sceneArg + "\"";
 #else
-                    std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" +
-                                      exePath + "\" \"" + sceneArg + "\" &";
+                        std::string cmd = "cd \"" + m_Configuration->m_ProjectFolder + "\" && \"" +
+                                          exePath + "\" \"" + sceneArg + "\" &";
 #endif
-                    std::system(cmd.c_str());
+                        std::system(cmd.c_str());
+                    }
                 }
             }
         }

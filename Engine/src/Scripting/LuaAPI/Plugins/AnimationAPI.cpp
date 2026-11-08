@@ -38,6 +38,7 @@ void registerAnimation(sol::state_view lua, Registry& registry) {
     registry.RegisterComponent<Animation>();
 
     sol::table component = Internal::ensureNamespace(lua, "Component");
+    sol::table animationNs = Internal::ensureNamespace(lua, "Animation");
 
     component["addAnimation"] =
         [&registry](Entity entity, sol::object pathsOrSheet, sol::optional<float> frameWidth,
@@ -162,6 +163,29 @@ void registerAnimation(sol::state_view lua, Registry& registry) {
         flip["flipX"] = animation->flipX;
         flip["flipY"] = animation->flipY;
         return sol::make_object(view, flip);
+    };
+
+    // `Animation.*` namespace (used by the StreetFighter scripts).
+    animationNs["play"] = component["playAnimation"];
+    animationNs["getCurrent"] = component["getAnimation"];
+    animationNs["isPlaying"] = component["isAnimationPlaying"];
+    animationNs["setFlip"] = component["setAnimationFlip"];
+    animationNs["getFlip"] = component["getAnimationFlip"];
+    animationNs["pause"] = [&registry](Entity entity) -> bool {
+        Animation* animation = FindAnimation(registry, entity);
+        if (animation == nullptr) {
+            return false;
+        }
+        animation->isPlaying = false;
+        return true;
+    };
+    animationNs["resume"] = [&registry](Entity entity) -> bool {
+        Animation* animation = FindAnimation(registry, entity);
+        if (animation == nullptr) {
+            return false;
+        }
+        animation->isPlaying = true;
+        return true;
     };
 }
 

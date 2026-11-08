@@ -75,6 +75,7 @@ void registerEngineAPI(lua_State* L, Registry& registry) {
     registerMultiplayer(lua, registry);
     registerScript(lua, registry);
     registerAudio(lua, registry);
+    registerAnimation(lua, registry);
     registerWave(lua, registry);
     registerPool(lua, registry);
 

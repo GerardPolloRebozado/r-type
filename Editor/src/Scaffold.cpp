@@ -759,9 +759,9 @@ ScaffoldResult EnsureProjectSceneImpl(const ProjectRequest& request) {
         folder = canonical;
     }
 
-    // Open the project's startup scene (project.json). Falls back to
-    // test.scene, which is created if the project has no scene to open.
-    const std::filesystem::path scenePath = Serialization::StartupScenePath(folder);
+    // Open the scene the editor had open last time (project.json), else the
+    // first .scene in the project, else test.scene (created if missing).
+    const std::filesystem::path scenePath = Serialization::OpenScenePath(folder);
     if (!std::filesystem::exists(scenePath)) {
         std::string writeError;
         if (!WriteEmptyScene(scenePath, folder, request.name, exeName, writeError)) {
@@ -772,8 +772,7 @@ ScaffoldResult EnsureProjectSceneImpl(const ProjectRequest& request) {
     // Older projects have no project.json: write one pointing at that scene.
     if (!std::filesystem::exists(folder / Serialization::kProjectFileName)) {
         Serialization::ProjectFile project;
-        project.startupScene =
-            std::filesystem::relative(scenePath, folder, error).generic_string();
+        project.startupScene = std::filesystem::relative(scenePath, folder, error).generic_string();
         if (error || project.startupScene.empty()) {
             project.startupScene = Serialization::kDefaultStartupScene;
         }

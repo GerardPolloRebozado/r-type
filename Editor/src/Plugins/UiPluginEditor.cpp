@@ -232,8 +232,8 @@ void DrawAction(Engine::Registry& registry, const char* label, Engine::UiAction&
             ImGui::TextDisabled("(no pages yet)");
         } else {
             FieldLabel("Page");
-            if (ImGui::BeginCombo("##page",
-                                  action.target.empty() ? "Choose a page" : action.target.c_str())) {
+            if (ImGui::BeginCombo("##page", action.target.empty() ? "Choose a page"
+                                                                  : action.target.c_str())) {
                 for (const std::string& page : pages) {
                     if (ImGui::Selectable(page.c_str(), action.target == page)) {
                         action.target = page;
@@ -253,7 +253,7 @@ void DrawAction(Engine::Registry& registry, const char* label, Engine::UiAction&
             ImGui::InputText("##scene", &action.target);
             ImGui::TextWrapped("No .scene files in this project yet.");
         } else if (ImGui::BeginCombo("##scene", action.target.empty() ? "Choose a scene"
-                                                                     : action.target.c_str())) {
+                                                                      : action.target.c_str())) {
             for (const std::string& scene : scenes) {
                 if (ImGui::Selectable(scene.c_str(), action.target == scene)) {
                     action.target = scene;

@@ -76,7 +76,8 @@ void EmitSignal(Registry& registry, Entity emitter, const std::string& signal, E
         if (!result.valid()) {
             sol::error err = result;
             log_user_error("[Signals] '" + signal + "' handler '" + connection.method +
-                      "' error (target " + std::to_string(connection.target) + "): " + err.what());
+                           "' error (target " + std::to_string(connection.target) +
+                           "): " + err.what());
         }
     }
 }

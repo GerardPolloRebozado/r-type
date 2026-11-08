@@ -78,9 +78,9 @@ local function UpdateProjectiles(self, dt)
         if Camera ~= nil and Camera.viewport ~= nil then
             local viewport = Camera.viewport()
             outsideScreen = position.x < viewport.x - SCREEN_MARGIN or
-                position.x > viewport.x + viewport.width + SCREEN_MARGIN or
-                position.y < viewport.y - SCREEN_MARGIN or
-                position.y > viewport.y + viewport.height + SCREEN_MARGIN
+                    position.x > viewport.x + viewport.width + SCREEN_MARGIN or
+                    position.y < viewport.y - SCREEN_MARGIN or
+                    position.y > viewport.y + viewport.height + SCREEN_MARGIN
         end
         if projectile.timer <= 0.0 or outsideScreen then
             Entity.destroy(projectile.entity)
@@ -112,7 +112,7 @@ function Enemy:onCreate(entity)
     Component.addBoxCollider(entity, 32, 32)
     Component.setColliderLayer(entity, BODY_LAYER)
     Component.setColliderMask(entity, BODY_MASK)
-    Component.addAudioSource(entity, "assets/effects/explosion.mp3", false, false, 1)
+    Component.addAudioSource(entity, "assets/audio/explosion.mp3", false, false, 1)
 
     if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
         Net.replicate(entity, "Server", true, true)
@@ -136,12 +136,33 @@ function Enemy:onCreate(entity)
 end
 
 function Enemy:onUpdate(entity, dt)
-    if not shouldSimulate(entity) then
+    if not dt or dt <= 0 then
+        dt = 1.0 / 60.0
+    end
+
+    -- Always simulate explosion so it plays and despawns on all machines,
+    -- even on networked clients where shouldSimulate() is false for
+    -- replicated entities.
+    if self.exploding then
+        self.elapsed = self.elapsed + dt
+
+        while self.elapsed >= FRAME_DURATION do
+            self.elapsed = self.elapsed - FRAME_DURATION
+            self.frame = self.frame + 1
+
+            if self.frame > #EXPLOSION then
+                Entity.queueDestroy(entity)
+                return
+            end
+
+            Component.setSpritePath(entity, EXPLOSION[self.frame])
+        end
+
         return
     end
 
-    if not dt or dt <= 0 then
-        dt = 1.0 / 60.0
+    if not shouldSimulate(entity) then
+        return
     end
 
     -- Despawn enemy when it goes past the right edge of the screen
@@ -154,7 +175,8 @@ function Enemy:onUpdate(entity, dt)
         end
     end
 
-    UpdateProjectiles(self, dt)
+    -- Projectiles now move themselves via bulletProjectile.lua, so they
+    -- keep travelling even after this enemy dies.
 
     if self.linkIndex ~= nil and self.trailKey ~= nil then
         local bus = _PataTrails
@@ -214,7 +236,8 @@ function Enemy:onCollisionEnter(this, other)
         return
     end
 
-    DestroyProjectiles(self)
+    -- NOTE: intentionally do NOT destroy the enemy's projectiles here so that
+    -- bullets already in flight keep traveling after the enemy is destroyed.
     self.exploding = true
     self.frame = 1
     self.elapsed = 0.0
@@ -234,16 +257,13 @@ function Enemy:fireProjectile()
     Component.setColliderLayer(projectileEntity, "EnemyBullet")
     Component.setColliderMask(projectileEntity, Layers.bit("Player") + Layers.bit("Wall"))
     Component.setOpacity(projectileEntity, 1.0)
-    Component.connect(projectileEntity, "onCollisionEnter", self.entity, "onProjectileHit")
+    -- Give the bullet its own script so it is not tied to (and frozen by)
+    -- this enemy's lifetime. It must NOT be parented to the enemy.
+    Component.addScript(projectileEntity, "scripts/bulletProjectile.lua", true)
 
     if Net ~= nil and Net.isNetworked ~= nil and Net.isNetworked() then
         Net.replicate(projectileEntity, "Server", true, true)
     end
-
-    table.insert(self.projectiles, {
-        entity = projectileEntity,
-        timer = PROJECTILE_LIFETIME,
-    })
 end
 
 function Enemy:onProjectileHit(projectile, other)
@@ -257,7 +277,8 @@ function Enemy:onProjectileHit(projectile, other)
 end
 
 function Enemy:onDestroy(entity)
-    DestroyProjectiles(self)
+    -- Projectiles are intentionally left alive: they despawn on their own
+    -- lifetime / off-screen in bulletProjectile.lua.
 end
 
 return Enemy

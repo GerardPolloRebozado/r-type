@@ -56,6 +56,7 @@ env.LD_LIBRARY_PATH = lib.makeLibraryPath [
     pkgs.zlib
 
     pkgs.emscripten
+    pkgs.act
   ];
 
   # https://devenv.sh/languages/

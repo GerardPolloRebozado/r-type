@@ -32,7 +32,7 @@ class NetworkHostResource {
      * @return a NetworkResource created as a server
      */
     static NetworkHostResource CreateServer(std::uint16_t port, std::size_t maxClients = 32,
-                                            std::size_t channels = 2);
+                                            std::size_t channels = 3);
 
     /**
      *
@@ -40,7 +40,7 @@ class NetworkHostResource {
      * and game so packet processing can be prioritized
      * @return a NetworkResource created as a client
      */
-    static NetworkHostResource CreateClient(size_t channels = 2);
+    static NetworkHostResource CreateClient(size_t channels = 3);
 
     /**
      *
@@ -51,7 +51,7 @@ class NetworkHostResource {
      * @return if able to connect an object representing where you connected, nullptr if the
      * connection did not succeed
      */
-    ENetPeer* Connect(std::string_view host, uint16_t port, size_t channels = 2);
+    ENetPeer* Connect(std::string_view host, uint16_t port, size_t channels = 3);
 
     /**
      * @brief Checks any new packets and sends the pending ones

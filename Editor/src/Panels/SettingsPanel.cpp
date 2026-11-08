@@ -101,6 +101,62 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         serializer.Serialize(config.m_ActiveScenePath, registry, config);
     }
 
+    // WebAssembly builds run in the browser, which has no access to the
+    // project folder on disk. Stage the runtime files (scenes, assets,
+    // scripts, prefabs) into a clean folder that is embedded into the wasm
+    // binary via Emscripten's --preload-file mechanism.
+    std::string wasmStageDir;
+    if (config.m_BuildWasm) {
+        wasmStageDir = projFolder + "/.wasm_stage";
+        std::error_code ec;
+        std::filesystem::remove_all(wasmStageDir, ec);
+        std::filesystem::create_directories(wasmStageDir, ec);
+        auto stagePath = [&](const std::string& relative) {
+            std::error_code e;
+            std::filesystem::path src = std::filesystem::path(projFolder) / relative;
+            if (!std::filesystem::exists(src, e)) {
+                return;
+            }
+            std::filesystem::path dst = std::filesystem::path(wasmStageDir) / relative;
+            std::filesystem::create_directories(dst.parent_path(), e);
+            if (std::filesystem::is_directory(src, e)) {
+                std::filesystem::copy(src, dst,
+                                      std::filesystem::copy_options::recursive |
+                                          std::filesystem::copy_options::overwrite_existing,
+                                      e);
+            } else {
+                std::filesystem::copy_file(src, dst,
+                                           std::filesystem::copy_options::overwrite_existing, e);
+            }
+        };
+        stagePath("assets");
+        stagePath("scripts");
+        stagePath("Prefabs");
+        stagePath("ui");
+        stagePath("system");
+        stagePath("project.json");
+        stagePath("input.json");
+        for (std::error_code itEc;
+             auto& entry : std::filesystem::recursive_directory_iterator(
+                 projFolder, std::filesystem::directory_options::skip_permission_denied, itEc)) {
+            if (itEc) {
+                break;
+            }
+            if (!entry.is_regular_file()) {
+                continue;
+            }
+            if (entry.path().extension() != ".scene") {
+                continue;
+            }
+            const std::filesystem::path relative =
+                std::filesystem::relative(entry.path(), projFolder, itEc);
+            if (itEc) {
+                continue;
+            }
+            stagePath(relative.generic_string());
+        }
+    }
+
     // Escape a string for embedding in a C++ string literal.
     auto cppEscape = [](const std::string& in) {
         std::string out;
@@ -126,6 +182,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 
     std::string exeNameStr = config.m_BuildExecutableName;
     std::string winTitleStr = config.m_BuildWindowTitle;
+    const bool buildWasm = config.m_BuildWasm;
     std::string mainCppPath = projFolder + "/main.cpp";
 
     std::ofstream mainOut(mainCppPath);
@@ -153,6 +210,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "#include \"Inputs/InputManager.hpp\"\n"
             << "#include \"Inputs/Controller.hpp\"\n"
             << "#include <vector>\n"
+            << "#include <cstdlib>\n"
             << "#include <raylib.h>\n"
             << Editor::ProjectSystemsMainCppSnippet(projFolder) << "\n"
             << "int main(int argc, char *argv[]) {\n"
@@ -168,6 +226,17 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
             << "    config.args = std::vector<std::string>(argv + 1, argv + argc);\n"
             << "    for (const auto& a : config.args) {\n"
             << "        if (a == \"--headless\") config.headless = true;\n"
+            << "    }\n"
+            << "\n"
+            << "    // Pass --host / --port to Lua via environment so the menu UI can\n"
+            << "    // pre-fill connection fields and auto-connect.\n"
+            << "    for (std::size_t i = 0; i + 1 < config.args.size(); ++i) {\n"
+            << "        if (config.args[i] == \"--host\") {\n"
+            << "            setenv(\"RP_TYPE_HOST\", config.args[i + 1].c_str(), 1);\n"
+            << "        }\n"
+            << "        if (config.args[i] == \"--port\") {\n"
+            << "            setenv(\"RP_TYPE_PORT\", config.args[i + 1].c_str(), 1);\n"
+            << "        }\n"
             << "    }\n"
             << "    Engine::Application app(config);\n"
             << "    // HierarchyPlugin before PositionPlugin: parent deltas must\n"
@@ -220,8 +289,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     }
     mainOut << "    inputManager.AddPlayer(1, std::move(controller));\n\n";
 
-    if (std::filesystem::exists(std::filesystem::path(projFolder) /
-                                Editor::kProjectRegisterHeader)) {
+    if (std::filesystem::exists(std::filesystem::path(projFolder) / kProjectRegisterHeader)) {
         mainOut << "    RegisterScaffoldedSystems(app.GetRegistry());\n\n";
     }
 
@@ -259,32 +327,64 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
     // `cmake -E rm -f` with this same absolute path on all platforms.
     rootPath = std::filesystem::absolute(rootPath).generic_string();
 
+    if (config.m_BuildWasm && !wasmStageDir.empty()) {
+        std::error_code e;
+        std::filesystem::path src = std::filesystem::path(rootPath) / "UI" / "lua" / "templates";
+        if (std::filesystem::exists(src, e)) {
+            std::filesystem::path dst = std::filesystem::path(wasmStageDir) / rootPath.substr(1) /
+                                        "UI" / "lua" / "templates";
+            std::filesystem::create_directories(dst.parent_path(), e);
+            std::filesystem::copy(src, dst,
+                                  std::filesystem::copy_options::recursive |
+                                      std::filesystem::copy_options::overwrite_existing,
+                                  e);
+        }
+    }
+
     const std::string projectSystemsCmake = Editor::ProjectSystemsEditorBuildSnippet(projFolder);
     const std::filesystem::path projectSystemsDir =
         Editor::ProjectSystemsDirectory(std::filesystem::path(projFolder));
 
-    std::ofstream cmakeOut(rootPath + "/.editor_build.cmake");
+    std::ofstream cmakeOut(projFolder + "/CMakeLists.txt");
+    cmakeOut << "# DO NOT MODIFY, AUTOGENERATED CMAKE\n";
+    cmakeOut << "# This file is generated by the editor. Changes will be overwritten.\n";
+    cmakeOut << "\n";
+    const std::string exeFileStr = buildWasm ? std::string("index.html")
 #ifdef _WIN32
-    const std::string exeFileStr = exeNameStr + ".exe";
+                                             : (exeNameStr + ".exe");
 #else
-    const std::string exeFileStr = exeNameStr;
+                                             : exeNameStr;
 #endif
-    cmakeOut << projectSystemsCmake << "add_executable(" << exeNameStr << " \"" << projFolder
-             << "/main.cpp\" " << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
+    cmakeOut << projectSystemsCmake << "add_executable(" << exeNameStr << " \"main.cpp\" "
+             << "${RTYPE_PROJECT_SYSTEM_SOURCES})\n";
+    if (buildWasm) {
+        cmakeOut << "set_target_properties(" << exeNameStr
+                 << " PROPERTIES OUTPUT_NAME index SUFFIX \".html\")\n";
+        cmakeOut << "target_compile_options(" << exeNameStr << " PRIVATE -fexceptions)\n";
+        cmakeOut << "target_link_options(" << exeNameStr
+                 << " PRIVATE -sASYNCIFY -fexceptions --preload-file \"" << wasmStageDir
+                 << "@/\")\n";
+    }
     if (std::filesystem::exists(projectSystemsDir)) {
         cmakeOut << "target_include_directories(" << exeNameStr << " PRIVATE \""
                  << projectSystemsDir.string() << "\")\n";
     }
-    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization UI)\n"
-             << "add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n"
-             << "    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr << "> \""
-             << projFolder << "/" << exeFileStr << "\"\n"
-             << ")\n";
+    cmakeOut << "target_link_libraries(" << exeNameStr << " PRIVATE Engine Serialization UI)\n";
+    cmakeOut << "\n";
+    cmakeOut << "if(NOT CMAKE_SYSTEM_NAME STREQUAL \"Emscripten\")\n";
+    cmakeOut << "    set_target_properties(" << exeNameStr << " PROPERTIES\n";
+    cmakeOut << "        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin\n";
+    cmakeOut << "    )\n";
+    cmakeOut << "    add_custom_command(TARGET " << exeNameStr << " POST_BUILD\n";
+    cmakeOut << "        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:" << exeNameStr
+             << "> \"${CMAKE_CURRENT_SOURCE_DIR}/" << exeFileStr << "\"\n";
+    cmakeOut << "    )\n";
+    cmakeOut << "endif()\n";
     cmakeOut.close();
 
     std::string buildDir = projFolder + "/build";
     // Drop a stale build tree (e.g. configured with another generator before).
-    if (buildDir.size() > 7 && buildDir.compare(buildDir.size() - 7, 7, "/build") == 0) {
+    if (buildDir.size() > 6 && buildDir.compare(buildDir.size() - 6, 6, "/build") == 0) {
         std::error_code ec;
         std::filesystem::remove_all(buildDir, ec);
     }
@@ -336,16 +436,19 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 #endif
     // Configure and build are grouped so both outputs (including configure
     // errors such as a missing library) reach the pipe and the Console.
+    const std::string configureProgram =
+        buildWasm ? std::string("emcmake cmake") : std::string("cmake");
+    const std::string wasmToolchainArgs = buildWasm ? std::string() : toolchainArgs;
 #ifdef _WIN32
-    std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
-                      " -DEDITOR_BUILD=ON" + buildTypeArg + " && cmake --build \"" + buildDir +
-                      "\" --target \"" + exeNameStr + "\"" + buildConfigArg + parallelArgs +
-                      ") 2>&1 & cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
+    std::string cmd = "(" + configureProgram + " -B \"" + buildDir + "\" -S \"" + rootPath + "\"" +
+                      wasmToolchainArgs + " -DEDITOR_BUILD=ON -DGAME_PROJECT_DIR=\"" + projFolder +
+                      "\"" + buildTypeArg + " && cmake --build \"" + buildDir + "\" --target \"" +
+                      exeNameStr + "\"" + buildConfigArg + parallelArgs + ") 2>&1";
 #else
-    std::string cmd = "(cmake -B \"" + buildDir + "\" -S \"" + rootPath + "\"" + toolchainArgs +
-                      " -DEDITOR_BUILD=ON" + buildTypeArg + " && cmake --build \"" + buildDir +
-                      "\" --target \"" + exeNameStr + "\"" + buildConfigArg + parallelArgs +
-                      ") 2>&1; cmake -E rm -f \"" + rootPath + "/.editor_build.cmake\"";
+    std::string cmd = "(" + configureProgram + " -B \"" + buildDir + "\" -S \"" + rootPath + "\"" +
+                      wasmToolchainArgs + " -DEDITOR_BUILD=ON -DGAME_PROJECT_DIR=\"" + projFolder +
+                      "\"" + buildTypeArg + " && cmake --build \"" + buildDir + "\" --target \"" +
+                      exeNameStr + "\"" + buildConfigArg + parallelArgs + ") 2>&1";
 #endif
 
     if (s_BuildThread.joinable()) {
@@ -356,7 +459,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         std::lock_guard lock(s_BuildMutex);
         s_BuildReport.reset();
     }
-    s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr]() {
+    s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr, buildWasm, wasmStageDir,
+                                 exeNameStr]() {
         s_BuildProgress = 0.01f; // Show at least 1% so the user knows it started
         const auto startTime = std::filesystem::file_time_type::clock::now();
         BuildReport report;
@@ -436,6 +540,47 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
 #endif
         pipe.reset(); // wait for the command to finish
 
+        // WebAssembly builds also produce a .js loader and a .wasm binary next
+        // to the generated index.html; copy them to the project folder too so
+        // the exported game can run from there.
+        if (buildWasm) {
+            std::string jsName = exeNameStr + ".js";
+            std::string wasmName = exeNameStr + ".wasm";
+            std::string dataName = exeNameStr + ".data";
+            for (const char* name : {jsName.c_str(), wasmName.c_str(), dataName.c_str()}) {
+                std::error_code ec;
+                std::filesystem::copy_file(buildDir + "/" + name, projFolder + "/" + name,
+                                           std::filesystem::copy_options::overwrite_existing, ec);
+            }
+            // Replace Emscripten's default shell (which shows a logo and a
+            // fullscreen button) with a minimal page that only hosts the game.
+            std::ofstream htmlOut(projFolder + "/index.html", std::ios::trunc);
+            htmlOut << "<!DOCTYPE html>\n"
+                    << "<html>\n"
+                    << "<head>\n"
+                    << "  <meta charset=\"utf-8\">\n"
+                    << "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, "
+                       "maximum-scale=1.0, user-scalable=no\">\n"
+                    << "  <title>Game</title>\n"
+                    << "  <style>\n"
+                    << "    html, body { margin: 0; padding: 0; width: 100%; height: 100%; "
+                    << "overflow: hidden; background: #000; }\n"
+                    << "    #canvas { display: block; width: 100vw; height: 100vh; }\n"
+                    << "  </style>\n"
+                    << "</head>\n"
+                    << "<body>\n"
+                    << "  <canvas id=\"canvas\" tabindex=\"-1\"></canvas>\n"
+                    << "  <script>\n"
+                    << "    window.Module = { canvas: document.getElementById('canvas') };\n"
+                    << "  </script>\n"
+                    << "  <script src=\"" << jsName << "\"></script>\n"
+                    << "</body>\n"
+                    << "</html>\n";
+            htmlOut.close();
+            std::error_code sec;
+            std::filesystem::remove_all(wasmStageDir, sec);
+        }
+
         // Success = the game was copied to the project folder by this build.
         // (The shell's exit code is not portable across sh and cmd.exe.)
         std::error_code ec;
@@ -510,6 +655,13 @@ void SettingsPanel::OnImGuiRender(Engine::Registry& registry, EditorConfig& conf
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Builds the game with -g (Debug). Use it to debug the "
                               "exported executable with gdb.");
+        }
+
+        ImGui::Checkbox("Build to WebAssembly (WASM)", &config.m_BuildWasm);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Compiles the game to WebAssembly with Emscripten, "
+                              "enabling asyncify and exceptions, and generates an "
+                              "index.html that loads the wasm code.");
         }
 
         ImGui::Spacing();
