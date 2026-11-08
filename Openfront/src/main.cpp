@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
         log_error("[Openfront] Failed to load game_rules.lua: " + std::string(e.what()));
     }
 
+    cfg.customRenderHandlesDrawing = true;
     Engine::ApplicationConfig cfg;
     cfg.windowWidth = 1600;
     cfg.windowHeight = 900;

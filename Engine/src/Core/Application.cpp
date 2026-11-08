@@ -133,13 +133,14 @@ void Application::PostUpdate(float dt) {
     }
     if (m_Config.customRender) {
         m_Config.customRender(m_Registry);
-
-        BeginDrawing();
-        ClearBackground(BLACK);
-        if (m_Config.onUI) {
-            m_Config.onUI();
+        if (!m_Config.customRenderHandlesDrawing) {
+            BeginDrawing();
+            ClearBackground(BLACK);
+            if (m_Config.onUI) {
+                m_Config.onUI();
+            }
+            EndDrawing();
         }
-        EndDrawing();
     } else {
         auto& virtualResolution = m_Registry.GetResource<VirtualResolution>();
 

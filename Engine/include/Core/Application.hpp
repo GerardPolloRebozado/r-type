@@ -38,6 +38,12 @@ struct ApplicationConfig {
      * networking still tick. Used by the editor's headless-server launch.
      */
     bool headless = false;
+    /**
+     * @brief When true, customRender is responsible for its own BeginDrawing/
+     * EndDrawing calls. The engine will not draw after customRender.
+     * Use this when customRender manages its own rendering (e.g. Openfront).
+     */
+    bool customRenderHandlesDrawing = false;
 };
 
 /**
