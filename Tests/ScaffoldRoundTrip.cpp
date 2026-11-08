@@ -195,6 +195,50 @@ static void TestStartupScene(const std::filesystem::path& home) {
     CHECK(future.startupScene == "test.scene");
 }
 
+// Opening a project reopens the last opened scene, else the first .scene.
+static void TestLastOpenedScene(const std::filesystem::path& home) {
+    namespace fs = std::filesystem;
+    const fs::path folder = home / "LastOpenedProject";
+    fs::create_directories(folder);
+    Editor::ProjectRequest request;
+    request.name = "LastOpened";
+    request.path = folder.string();
+
+    // No scene at all: test.scene is created and opened.
+    Editor::ScaffoldResult first = Editor::EnsureProjectScene(request);
+    CHECK(first.ok);
+    CHECK(fs::path(first.scenePath).filename() == "test.scene");
+
+    // The last opened scene wins over the startup scene.
+    fs::create_directories(folder / "levels");
+    fs::copy_file(folder / "test.scene", folder / "levels" / "Level2.scene");
+    Serialization::ProjectFile project;
+    CHECK(Serialization::LoadProjectFile(folder, project));
+    project.lastOpenedScene = "levels/Level2.scene";
+    CHECK(Serialization::SaveProjectFile(folder, project));
+    Serialization::ProjectFile reloaded;
+    CHECK(Serialization::LoadProjectFile(folder, reloaded));
+    CHECK(reloaded.lastOpenedScene == "levels/Level2.scene");
+    CHECK(reloaded.startupScene == "test.scene");
+    Editor::ScaffoldResult last = Editor::EnsureProjectScene(request);
+    CHECK(last.ok);
+    CHECK(fs::weakly_canonical(last.scenePath) ==
+          fs::weakly_canonical(folder / "levels" / "Level2.scene"));
+
+    // Last opened scene deleted: the first .scene (alphabetical) opens,
+    // ignoring build and hidden folders.
+    fs::remove(folder / "levels" / "Level2.scene");
+    fs::create_directories(folder / "build");
+    fs::create_directories(folder / ".hidden");
+    fs::copy_file(folder / "test.scene", folder / "build" / "a.scene");
+    fs::copy_file(folder / "test.scene", folder / ".hidden" / "a.scene");
+    fs::copy_file(folder / "test.scene", folder / "b.scene");
+    CHECK(Serialization::FirstSceneFile(folder).filename() == "b.scene");
+    Editor::ScaffoldResult fallback = Editor::EnsureProjectScene(request);
+    CHECK(fallback.ok);
+    CHECK(fs::path(fallback.scenePath).filename() == "b.scene");
+}
+
 static void TestCreateSystem(const std::filesystem::path& sourceRoot) {
     PrepareEngineFixture(sourceRoot);
 
@@ -290,6 +334,7 @@ int main() {
     TestProjectListJson();
     TestCreateProject(home);
     TestEnsureProjectScene(home);
+    TestLastOpenedScene(home);
     TestStartupScene(home);
     TestCreateSystem(systemRoot);
     TestCreateProjectSystem(projectSystemRoot);
