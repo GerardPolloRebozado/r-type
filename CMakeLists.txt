@@ -17,15 +17,24 @@ include(BundleMingwRuntime)
 bundle_mingw_runtime()
 
 set(CPM_DOWNLOAD_VERSION 0.40.0)
+set(CPM_HASH_SUM "7b354f3a5976c4626c876850c93944e52c83ec59a159ae5de5be7983f0e17a2a")
+
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
 endif ()
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/cpm")
-file(DOWNLOAD
-        https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/get_cpm.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/cpm/get_cpm.cmake
-)
-include(${CMAKE_CURRENT_BINARY_DIR}/cpm/get_cpm.cmake)
+
+set(CPM_DOWNLOAD_LOCATION "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+get_filename_component(CPM_DOWNLOAD_LOCATION ${CPM_DOWNLOAD_LOCATION} ABSOLUTE)
+
+if (NOT EXISTS "${CPM_DOWNLOAD_LOCATION}")
+    message(STATUS "Downloading CPM.cmake v${CPM_DOWNLOAD_VERSION}...")
+    file(DOWNLOAD
+        "https://raw.githubusercontent.com/cpm-cmake/CPM.cmake/v${CPM_DOWNLOAD_VERSION}/cmake/CPM.cmake"
+        "${CPM_DOWNLOAD_LOCATION}"
+        EXPECTED_HASH SHA256=${CPM_HASH_SUM}
+    )
+endif ()
+include(${CPM_DOWNLOAD_LOCATION})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
