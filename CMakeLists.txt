@@ -16,10 +16,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(BundleMingwRuntime)
 bundle_mingw_runtime()
 
-set(CPM_DOWNLOAD_VERSION 0.40.0)
+set(CPM_DOWNLOAD_VERSION 0.43.2)
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
 endif ()
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/cpm")
 file(DOWNLOAD
         https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/get_cpm.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/cpm/get_cpm.cmake
