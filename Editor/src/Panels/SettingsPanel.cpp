@@ -447,7 +447,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         std::lock_guard lock(s_BuildMutex);
         s_BuildReport.reset();
     }
-    s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr, buildWasm, wasmStageDir]() {
+    s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr, buildWasm, wasmStageDir,
+                                 exeNameStr]() {
         s_BuildProgress = 0.01f; // Show at least 1% so the user knows it started
         const auto startTime = std::filesystem::file_time_type::clock::now();
         BuildReport report;
