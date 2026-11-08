@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""Generate real-geography land masks for Openfront (Europe + World maps).
+
+Downloads world country polygons once (cached next to this script), rasterizes
+two projections and RLE-encodes them into include/GeoMasks.hpp so the C++
+generator can bilinear-sample real coastlines. Also renders preview PNGs that
+replicate the exact in-game elevation pipeline (same hash/noise constants as
+src/Map.cpp) for a quick eyeball check.
+
+Usage:
+    python3 gen_geo.py            # regenerate header + previews
+    python3 gen_geo.py --fetch    # force re-download of the country dataset
+"""
+import json
+import math
+import os
+import sys
+import urllib.request
+
+import numpy as np
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)  # Openfront/
+HEADER_PATH = os.path.join(ROOT, "include", "GeoMasks.hpp")
+GEO_URL = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+CACHE = os.path.join(HERE, "world.geo.json")
+
+WATER = (30, 84, 152)
+LAND = (240, 224, 176)
+HIGHLANDS = (146, 160, 118)
+MOUNTAINS = (139, 131, 115)
+
+EU = dict(
+    name="Europe",
+    lon0=-25.0, lon1=65.0,          # west..east degrees
+    lat0=30.0, lat1=74.0,           # south..north degrees
+    gw=256, gh=204,                 # raster grid (texel ~25 km, cos-corrected)
+    canvasW=1100, canvasH=875,      # in-game map size
+    kind="equirect",
+)
+WO = dict(
+    name="World",
+    lon0=-180.0, lon1=180.0,
+    lat0=-57.0, lat1=80.0,          # crop: no Antarctica, keeps Cape Horn
+    gw=512, gh=298,                 # raster grid (~110 km per texel at equator)
+    canvasW=1600, canvasH=930,      # in-game map size (Web Mercator ~1:1.72)
+    kind="mercator",
+)
+
+DATA_WARP = 0.03         # domain-warp magnitude for data maps
+DATA_MASK_LO = 0.22      # elevation factor floor for open water
+DATA_MASK_HI = 1.00      # elevation factor for inland land
+LAND_THRESHOLD = 0.30    # elevation >= this is dry land
+RIDGE_PEAK = 0.87        # ridge > peak -> mountain
+RIDGE_HILL = 0.78        # ridge > hill or elevation > 0.52 -> highlands
+HIGH_ELEV = 0.52
+
+
+def merc_y(lat_deg):
+    lat = math.radians(lat_deg)
+    return math.log(math.tan(math.pi / 4.0 + lat / 2.0))
+
+
+def merc_lat(y):
+    return 2.0 * math.atan(math.exp(y)) - math.pi / 2.0
+
+
+def load_polys(path):
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    rings = []  # list of (Nx2 float arrays closed)
+    for feat in data["features"]:
+        geom = feat["geometry"]
+        if geom is None:
+            continue
+        gtype = geom["type"]
+        polys = []
+        if gtype == "Polygon":
+            polys = [geom["coordinates"]]
+        elif gtype == "MultiPolygon":
+            polys = geom["coordinates"]
+        else:
+            continue
+        for poly in polys:
+            for ring in poly:
+                a = np.asarray(ring, dtype=np.float64)
+                rings.append(a)
+    return rings
+
+
+def rasterize(rings, m):
+    """Even-odd fill of polygon rings into m.gw x m.gh grid."""
+    mask = np.zeros((m["gh"], m["gw"]), dtype=bool)
+    lon_span = m["lon1"] - m["lon0"]
+    for iy in range(m["gh"]):
+        if m["kind"] == "equirect":
+            lat = m["lat1"] - (m["lat1"] - m["lat0"]) * (iy + 0.5) / m["gh"]
+        else:
+            y_top = merc_y(m["lat1"])
+            y_bot = merc_y(m["lat0"])
+            lat = math.degrees(
+                merc_lat(y_top + (y_bot - y_top) * (iy + 0.5) / m["gh"]))
+        xs = []
+        for a in rings:
+            x0, y0 = a[:-1, 0], a[:-1, 1]
+            x1, y1 = a[1:, 0], a[1:, 1]
+            lo = np.minimum(y0, y1)
+            hi = np.maximum(y0, y1)
+            straddle = (lo <= lat) & (lat < hi)
+            if not straddle.any():
+                continue
+            sx0 = x0[straddle]
+            sy0 = y0[straddle]
+            sx1 = x1[straddle]
+            sy1 = y1[straddle]
+            denom = (sy1 - sy0)
+            cx = sx0 + (lat - sy0) * (sx1 - sx0) / np.where(denom == 0, 1.0, denom)
+            cu = (cx - m["lon0"]) / lon_span * m["gw"]
+            cu = np.clip(cu, -1.0, m["gw"] + 1.0)
+            xs.append(np.sort(cu))
+        if not xs:
+            continue
+        crossings = np.concatenate(xs)
+        crossings.sort()
+        gx = np.floor(crossings).astype(np.int64)
+        for i in range(0, len(gx) - 1, 2):
+            a0 = max(gx[i], 0)
+            a1 = min(gx[i + 1], m["gw"])
+            if a1 > a0:
+                mask[iy, a0:a1] = True
+    return mask
+
+
+def encode_rle(mask):
+    """RLE: land char 'L', water 'W', followed by decimal run length."""
+    flat = mask.ravel()
+    out = []
+    pos = 0
+    n = flat.size
+    while pos < n:
+        val = flat[pos]
+        run = 1
+        while pos + run < n and flat[pos + run] == val and run < 999:
+            run += 1
+        out.append(("L" if val else "W") + str(run))
+        pos += run
+    return "".join(out)
+
+
+def write_header(masks):
+    parts = []
+    parts.append("// AUTO-GENERATED by Openfront/assets/gen_geo.py — DO NOT EDIT BY HAND\n")
+    parts.append("// Real-geography land masks (country polygons, 1:110m Natural-Earth-derived)\n")
+    parts.append("#pragma once\n\n#include <cstdint>\n\nnamespace Openfront::GeoMask {\n\nstruct Mask {\n    int gridW;\n    int gridH;\n    const char* rle;\n};\n\n")
+    msgs = []
+    for m in masks:
+        rle = encode_rle(m["mask"])
+        land = m["mask"].sum()
+        print(f"{m['name']}: grid {m['gw']}x{m['gh']}, land {land / m['mask'].size:.2%}, rle {len(rle)} chars")
+        msgs.append(f"// {m['name']}: lon {m['lon0']}..{m['lon1']}, lat {m['lat0']}..{m['lat1']}, kind {m['kind']}\n")
+        msgs.append(f"static constexpr Mask {m['name']}Mask{{{m['gw']}, {m['gh']},\n")
+        chunks = [rle[i:i + 64] for i in range(0, len(rle), 64)]
+        body = []
+        for c in chunks:
+            body.append(f'    "{c}"\n')
+        msgs.append("\n".join(body))
+        msgs.append("};\n\n")
+    parts.append("".join(msgs))
+    parts.append("} // namespace Openfront::GeoMask\n")
+    with open(HEADER_PATH, "w", encoding="utf-8") as fh:
+        fh.write("".join(parts))
+    print(f"wrote {HEADER_PATH}")
+
+
+U32 = np.uint32
+
+
+def hash2d(xa, ya, seed):
+    if isinstance(xa, np.ndarray) or isinstance(ya, np.ndarray):
+        shape = np.broadcast(xa, ya).shape
+        x = np.broadcast_to(xa, shape).astype(np.int64).astype(np.uint32)
+        y = np.broadcast_to(ya, shape).astype(np.int64).astype(np.uint32)
+    else:
+        x = U32(xa & 0xFFFFFFFF)
+        y = U32(ya & 0xFFFFFFFF)
+    h = U32(seed) ^ (x * U32(374761393) + y * U32(668265263))
+    h = U32(h ^ (h >> U32(13))) * U32(1274126177)
+    h = U32(h ^ (h >> U32(16)))
+    return h.astype(np.float64) / 4294967295.0
+
+
+def value_noise(x, y, seed):
+    xi = np.floor(x).astype(np.int64)
+    yi = np.floor(y).astype(np.int64)
+    xf = x - xi
+    yf = y - yi
+    sx = xf * xf * (3.0 - 2.0 * xf)
+    sy = yf * yf * (3.0 - 2.0 * yf)
+    v00 = hash2d(xi, yi, seed)
+    v10 = hash2d(xi + 1, yi, seed)
+    v01 = hash2d(xi, yi + 1, seed)
+    v11 = hash2d(xi + 1, yi + 1, seed)
+    ix0 = v00 + sx * (v10 - v00)
+    ix1 = v01 + sx * (v11 - v01)
+    return ix0 + sy * (ix1 - ix0)
+
+
+def fbm(x, y, seed, octaves=4, persistence=0.5):
+    total = np.zeros(np.broadcast(x, y).shape, dtype=np.float64)
+    amp = 1.0
+    freq = 1.0
+    mx = 0.0
+    for i in range(octaves):
+        total += value_noise(x * freq, y * freq, seed + i * 101) * amp
+        mx += amp
+        amp *= persistence
+        freq *= 2.0
+    return total / mx
+
+
+def sample_grid(mask_f, u, v):
+    """Bilinear sample of normalized (u,v) into the grid, texel centers.
+    mask_f: gridH x gridW floats (0..1)."""
+    gh, gw = mask_f.shape
+    gx = np.clip(u * gw - 0.5, 0.0, gw - 1)
+    gy = np.clip(v * gh - 0.5, 0.0, gh - 1)
+    x0 = np.floor(gx).astype(np.int64)
+    y0 = np.floor(gy).astype(np.int64)
+    x1 = np.minimum(x0 + 1, gw - 1)
+    y1 = np.minimum(y0 + 1, gh - 1)
+    tx = gx - x0
+    ty = gy - y0
+    tx = tx * tx * (3.0 - 2.0 * tx)   # smooth the gradient a bit like C++ bilinear below
+    ty = ty * ty * (3.0 - 2.0 * ty)
+    v00 = mask_f[y0, x0]
+    v10 = mask_f[y0, x1]
+    v01 = mask_f[y1, x0]
+    v11 = mask_f[y1, x1]
+    a = v00 + tx * (v10 - v00)
+    b = v01 + tx * (v11 - v01)
+    return a + ty * (b - a)
+
+
+def render_preview(m, seed):
+    """Replicates the game's per-tile elevation pipeline for data maps."""
+    cw, ch = m["canvasW"], m["canvasH"]
+    xs = (np.arange(cw) + 0.5) / cw
+    ys = (np.arange(ch) + 0.5) / ch
+    u, v = np.meshgrid(xs, ys)
+    wxv = fbm(u * 3.0, v * 2.0, seed + 941, 3, 0.55) - 0.5
+    wyv = fbm(u * 3.0, v * 2.0, seed + 977, 3, 0.55) - 0.5
+    uu = np.clip(u + wxv * DATA_WARP, 0.0, 1.0)
+    vv = np.clip(v + wyv * DATA_WARP, 0.0, 1.0)
+    mask = sample_grid(m["mask"].astype(np.float64), uu, vv)
+    structure = fbm(uu * 5.6, vv * 3.5, seed, 4, 0.5)
+    mid = fbm(uu * 16.0, vv * 10.0, seed + 321, 2, 0.5)
+    coast = fbm(np.arange(cw)[None, :] * 0.11, np.arange(ch)[:, None] * 0.11, seed + 61, 2, 0.5)
+    elevation = 0.72 * structure + 0.28 * mid
+    inland = np.clip((mask - 0.85) / 0.15, 0.0, 1.0)
+    inland = inland * inland * (3.0 - 2.0 * inland)
+    elevation = np.maximum(elevation, inland * 0.36)
+    elevation *= DATA_MASK_LO + (DATA_MASK_HI - DATA_MASK_LO) * mask
+    elevation *= 0.90 + 0.10 * coast
+    ridge = fbm(u * 26.0, v * 16.0, seed + 444, 3, 0.55)
+    ridge = 1.0 - np.abs(2.0 * ridge - 1.0)
+    elevation[:, :2] = 0.0
+    elevation[:, -2:] = 0.0
+    elevation[:2, :] = 0.0
+    elevation[-2:, :] = 0.0
+
+    img = np.zeros((ch, cw, 3), dtype=np.uint8)
+    img[:, :] = WATER
+    land = elevation >= LAND_THRESHOLD
+    marine = np.clip((elevation - LAND_THRESHOLD) / 0.06, 0.0, 1.0)
+    ranges = ridge * marine
+    img[land] = LAND
+    img[(land) & ((ranges > RIDGE_PEAK))] = MOUNTAINS
+    img[(land) & (ranges <= RIDGE_PEAK) & ((ranges > RIDGE_HILL) | (elevation > HIGH_ELEV))] = HIGHLANDS
+    return Image.fromarray(img)
+
+
+def main():
+    seed_default = 42
+    force = "--fetch" in sys.argv
+    if force or not os.path.exists(CACHE):
+        print("downloading country polygons...")
+        urllib.request.urlretrieve(GEO_URL, CACHE)
+    rings = load_polys(CACHE)
+    print(f"{len(rings)} rings loaded")
+
+    masks = []
+    for m in (EU, WO):
+        m = dict(m)
+        m["mask"] = rasterize(rings, m)
+        masks.append(m)
+        mask_img = np.where(m["mask"][..., None],
+                           np.array(LAND, dtype=np.uint8),
+                           np.array(WATER, dtype=np.uint8))
+        base = Image.fromarray(mask_img).resize((m["canvasW"], m["canvasH"]), Image.NEAREST)
+        base.save(os.path.join(HERE, f"geo_{m['name'].lower()}_mask.png"))
+
+    write_header(masks)
+
+    for m in masks:
+        render_preview(m, seed_default).save(os.path.join(HERE, f"geo_{m['name'].lower()}_preview.png"))
+        print(f"preview: geo_{m['name'].lower()}_preview.png")
+
+
+if __name__ == "__main__":
+    main()
