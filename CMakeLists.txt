@@ -73,6 +73,14 @@ CPMAddPackage(
         GIT_TAG v2.7.0
 )
 
+# zlib is fetched and built by CPM (no system dependency). End users only
+# download the binary, not zlib itself.
+CPMAddPackage(
+        NAME zlib
+        GITHUB_REPOSITORY madler/zlib
+        GIT_TAG v1.3.1
+)
+
 set(IMGUI_SOURCES
         ${imgui_SOURCE_DIR}/imgui.cpp
         ${imgui_SOURCE_DIR}/imgui_demo.cpp
