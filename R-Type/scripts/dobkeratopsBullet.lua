@@ -15,7 +15,7 @@ local FRAMES = {
 	DIR .. "dobkeratops-bullet003.png",
 }
 local FRAME_DURATION = 0.08
-local SPEED = 420.0
+local SPEED = 520.0
 local LIFETIME = 8.0
 local SCREEN_MARGIN = 128.0
 
@@ -64,6 +64,14 @@ function Bullet:onCreate(entity)
 	self.vx, self.vy = -SPEED, 0.0
 
 	Component.connect(entity, "onCollisionEnter", entity, "onCollisionEnter")
+
+	-- Ring bullets get a fixed direction from dobkeratops.lua.
+	local angle = DobkeratopsBulletAngles and DobkeratopsBulletAngles[entity]
+	if angle ~= nil then
+		DobkeratopsBulletAngles[entity] = nil
+		self.vx, self.vy = math.cos(angle) * SPEED, math.sin(angle) * SPEED
+		return
+	end
 
 	local x, y = center(entity)
 	local target = closestPlayer(x, y)

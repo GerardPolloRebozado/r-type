@@ -19,7 +19,7 @@ local DIR = "assets/enemies/dobkeratops/"
 local SCALE = 5.0
 local BODY_W, BODY_H = 155, 204
 
-local MAX_HEALTH = 5
+local MAX_HEALTH = 20
 
 local BODY_FRAMES = {
 	DIR .. "dobkeratops000.png",
@@ -87,7 +87,10 @@ local BULLET_SCRIPT = "scripts/dobkeratopsBullet.lua"
 local BULLET_SPRITE = DIR .. "dobkeratops-bullet000.png"
 local BULLET_SCALE = 3.0
 local BULLET_SIZE = 22 * BULLET_SCALE * 0.7 -- a bit smaller than the sprite
-local FIRE_INTERVAL = 1.5
+local FIRE_INTERVAL = 0.6 -- aimed shot at the closest player
+local RING_INTERVAL = 2.2 -- burst of bullets in every direction
+local RING_COUNT = 16 -- bullets per burst
+local RING_TURN = math.pi / 16 -- each burst is rotated so the gaps move
 
 local ENTER_DURATION = 2.5 -- slide in from the right
 local EMERGE_FRAME_DURATION = 0.25
@@ -168,6 +171,8 @@ function Boss:onCreate(entity)
 	self.tipFrame = 1
 	self.tipElapsed = 0.0
 	self.fireTimer = FIRE_INTERVAL
+	self.ringTimer = RING_INTERVAL
+	self.ringAngle = 0.0
 	self.blinkTimer = 0.0
 	self.blasts = {}
 	self.blastTimer = 0.0
@@ -291,7 +296,16 @@ function Boss:UpdateFight(dt)
 	self.fireTimer = self.fireTimer - dt
 	if self.fireTimer <= 0.0 then
 		self.fireTimer = self.fireTimer + FIRE_INTERVAL
-		self:Fire()
+		self:Fire(nil)
+	end
+
+	self.ringTimer = self.ringTimer - dt
+	if self.ringTimer <= 0.0 then
+		self.ringTimer = self.ringTimer + RING_INTERVAL
+		for i = 0, RING_COUNT - 1 do
+			self:Fire(self.ringAngle + i * (2.0 * math.pi / RING_COUNT))
+		end
+		self.ringAngle = self.ringAngle + RING_TURN
 	end
 end
 
@@ -349,7 +363,9 @@ function Boss:AnimateTip(dt)
 	end
 end
 
-function Boss:Fire()
+-- angle (radians, screen space) sets the bullet direction; nil aims it at
+-- the closest player.
+function Boss:Fire(angle)
 	local corePos = Transform.getPosition(self.core)
 	local bullet = Entity.create()
 	Entity.setName(bullet, "DobkeratopsBullet")
@@ -362,6 +378,11 @@ function Boss:Fire()
 	Component.addBoxCollider(bullet, BULLET_SIZE, BULLET_SIZE)
 	Component.setColliderLayer(bullet, "EnemyBullet")
 	Component.setColliderMask(bullet, Layers.bit("Player"))
+	-- Read (and cleared) by dobkeratopsBullet.lua when it starts.
+	if angle ~= nil then
+		DobkeratopsBulletAngles = DobkeratopsBulletAngles or {}
+		DobkeratopsBulletAngles[bullet] = angle
+	end
 	-- Own script so bullets keep flying after the boss dies.
 	Component.addScript(bullet, BULLET_SCRIPT, true)
 	replicate(bullet, true)
