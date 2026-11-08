@@ -17,7 +17,7 @@ include(BundleMingwRuntime)
 bundle_mingw_runtime()
 
 set(CPM_DOWNLOAD_VERSION 0.40.0)
-set(CPM_HASH_SUM "7b354f3a5976c4626c876850c93944e52c83ec59a159ae5de5be7983f0e17a2a")
+set(CPM_HASH_SUM "c6da2a97fb38136d78062f1b90452db799357d1feadfd3c3595ad05c30cfe612")
 
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
