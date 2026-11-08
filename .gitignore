@@ -89,6 +89,7 @@ CPM_Cache/
 
 #MacOs
 .Ds_Store
+.DS_Store
 CPM_modules/
 _deps/
 CPackConfig.cmake
