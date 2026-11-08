@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "rtype-author": {
+      "command": "${workspaceFolder}/build/RTypeEditor",
+      "args": ["mcp"],
+      "env": {
+        "RTYPE_ENGINE_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}
