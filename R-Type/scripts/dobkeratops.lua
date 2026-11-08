@@ -177,7 +177,7 @@ function Boss:onCreate(entity)
 	self.blasts = {}
 	self.blastTimer = 0.0
 
-	Component.addAudioSource(entity, "assets/effects/explosion.mp3", false, false, 1)
+	Component.addAudioSource(entity, "assets/audio/explosion.mp3", false, false, 1)
 	Component.setSpriteScale(entity, SCALE, SCALE)
 	Component.setSpritePath(entity, BODY_FRAMES[1])
 	replicate(entity, true)

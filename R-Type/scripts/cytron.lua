@@ -101,7 +101,7 @@ function Cytron:onCreate(entity)
 	Component.connect(entity, "onCollisionEnter", entity, "onCollisionEnter")
 	Component.setColliderLayer(entity, BODY_LAYER)
 	Component.setColliderMask(entity, BODY_MASK)
-	Component.addAudioSource(entity, "assets/effects/explosion.mp3", false, false, 1)
+	Component.addAudioSource(entity, "assets/audio/explosion.mp3", false, false, 1)
 
 	if isNetworked() then
 		Net.replicate(entity, "Server", true, true)
