@@ -481,6 +481,10 @@ jobs:
           set -euo pipefail
           mkdir -p Documentation/site/game
           cp R-Type/index.html R-Type/R-Type.js R-Type/R-Type.wasm Documentation/site/game/
+          # Emscripten names the glue script "R-Type.js", but the shell page
+          # (index.html) loads it as "index.js". Provide it under that name so
+          # the game can actually be downloaded on GitHub Pages.
+          cp R-Type/R-Type.js Documentation/site/game/index.js
           if [ -f R-Type/R-Type.data ]; then
             cp R-Type/R-Type.data Documentation/site/game/
           fi
