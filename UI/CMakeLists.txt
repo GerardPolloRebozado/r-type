@@ -20,7 +20,17 @@ target_include_directories(UI PRIVATE
 
 target_link_libraries(UI PUBLIC Engine rlImGui imgui)
 
-target_compile_definitions(UI PRIVATE
-        "UI_TEMPLATES_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/lua/templates\""
-        IMGUI_DOCKING
-)
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # On WASM the absolute host path doesn't exist in the emscripten virtual
+    # filesystem. Templates are embedded at UI/lua/templates@UI/lua/templates
+    # in the root CMakeLists.txt, so use a VFS-relative path instead.
+    target_compile_definitions(UI PRIVATE
+            "UI_TEMPLATES_DIR=\"UI/lua/templates\""
+            IMGUI_DOCKING
+    )
+else ()
+    target_compile_definitions(UI PRIVATE
+            "UI_TEMPLATES_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/lua/templates\""
+            IMGUI_DOCKING
+    )
+endif ()
