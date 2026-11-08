@@ -133,14 +133,23 @@ function Cytron:onUpdate(entity, dt)
 
 	self:Face(entity, vx, vy)
 
+	local viewport = nil
+	if Camera ~= nil and Camera.viewport ~= nil then
+		viewport = Camera.viewport()
+	end
+
+	-- Only leave a trail once on screen: dots dropped off-screen to the right
+	-- are never seen but still cost a script, a sprite and a collider each.
+	local onScreen = viewport == nil or self.x <= viewport.x + viewport.width
 	self.dotTimer = self.dotTimer - dt
 	while self.dotTimer <= 0.0 do
-		self:DropDot(self.x, y)
+		if onScreen then
+			self:DropDot(self.x, y)
+		end
 		self.dotTimer = self.dotTimer + DOT_INTERVAL
 	end
 
-	if Camera ~= nil and Camera.viewport ~= nil then
-		local viewport = Camera.viewport()
+	if viewport ~= nil then
 		if self.x < viewport.x - SCREEN_MARGIN then
 			Entity.queueDestroy(entity)
 		end
