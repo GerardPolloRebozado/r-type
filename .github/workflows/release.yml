@@ -199,6 +199,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-lua54
+            mingw-w64-ucrt-x86_64-zlib
 
       - name: Stage Lua prefix
         run: |
@@ -235,6 +236,16 @@ jobs:
           cp "$BUILD_DIR/Engine/libEngine.a" "$DIST_DIR/$engine_pkg/lib/"
           cp -R Engine/include/. "$DIST_DIR/$engine_pkg/include/"
           find "$BUILD_DIR" -maxdepth 1 -name '*.dll' -exec cp {} "$DIST_DIR/$editor_pkg/bin/" \;
+          # lua54.dll is staged in .lua-prefix/bin but not produced under
+          # $BUILD_DIR, so copy it explicitly so the Windows zip is runnable.
+          if [ -d ".lua-prefix/bin" ]; then
+            cp .lua-prefix/bin/*.dll "$DIST_DIR/$editor_pkg/bin/"
+          fi
+          # zlib1.dll comes from the MSYS2 zlib package (installed above), not
+          # from the build tree, so copy it explicitly for the same reason.
+          if [ -f "/ucrt64/bin/zlib1.dll" ]; then
+            cp /ucrt64/bin/zlib1.dll "$DIST_DIR/$editor_pkg/bin/"
+          fi
 
           if [ -f "R-Type/build/bin/R-Type.exe" ]; then
             cp "R-Type/build/bin/R-Type.exe" "$DIST_DIR/$editor_pkg/bin/"
