@@ -20,6 +20,7 @@
 #include "SceneFiles.hpp"
 #include "Scripting/ScriptPlugin.hpp"
 #include "UI/UiPlugin.hpp"
+#include <cstdlib>
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -38,6 +39,17 @@ int main(int argc, char* argv[]) {
     for (const auto& a : config.args) {
         if (a == "--headless") {
             config.headless = true;
+        }
+    }
+
+    // Pass --host / --port to Lua via environment so the menu UI can
+    // pre-fill connection fields and auto-connect.
+    for (std::size_t i = 0; i + 1 < config.args.size(); ++i) {
+        if (config.args[i] == "--host") {
+            setenv("RP_TYPE_HOST", config.args[i + 1].c_str(), 1);
+        }
+        if (config.args[i] == "--port") {
+            setenv("RP_TYPE_PORT", config.args[i + 1].c_str(), 1);
         }
     }
     Engine::Application app(config);

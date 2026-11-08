@@ -21,12 +21,14 @@ inline constexpr const char* kDefaultStartupScene = "test.scene";
  * breaking older editors.
  *
  * @code{.json}
- * {"startupScene": "levels/Menu.scene"}
+ * {"startupScene": "levels/Menu.scene", "lastOpenedScene": "levels/Level1.scene"}
  * @endcode
  */
 struct ProjectFile {
     /** @brief Scene the game starts with, relative to the project folder. */
     std::string startupScene = kDefaultStartupScene;
+    /** @brief Scene open in the editor last time, relative to the project folder. */
+    std::string lastOpenedScene;
 };
 
 /**
@@ -46,6 +48,23 @@ bool SaveProjectFile(const std::filesystem::path& folder, const ProjectFile& pro
  * @c test.scene in @p folder (which may not exist yet).
  */
 std::filesystem::path StartupScenePath(const std::filesystem::path& folder);
+
+/**
+ * @brief First @c .scene file in @p folder (alphabetical, subfolders included).
+ *
+ * Hidden folders and build folders (@c build, @c cmake-build*) are skipped.
+ * @return An empty path if the project has no scene.
+ */
+std::filesystem::path FirstSceneFile(const std::filesystem::path& folder);
+
+/**
+ * @brief Absolute path of the scene the editor opens with the project.
+ *
+ * The @c lastOpenedScene from @c project.json if that file exists, otherwise
+ * the first @c .scene in the project, otherwise StartupScenePath() (which
+ * may not exist yet).
+ */
+std::filesystem::path OpenScenePath(const std::filesystem::path& folder);
 
 } // namespace Serialization
 

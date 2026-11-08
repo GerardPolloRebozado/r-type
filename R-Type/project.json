@@ -1,3 +1,4 @@
 {
-  "startupScene": "menu.scene"
+   "startupScene": "menu.scene",
+   "lastOpenedScene": "menu.scene"
 }
