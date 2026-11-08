@@ -447,7 +447,8 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         std::lock_guard lock(s_BuildMutex);
         s_BuildReport.reset();
     }
-    s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr, buildWasm, wasmStageDir]() {
+    s_BuildThread = std::thread([cmd, projFolder, buildDir, exeFileStr, buildWasm, wasmStageDir,
+                                 exeNameStr]() {
         s_BuildProgress = 0.01f; // Show at least 1% so the user knows it started
         const auto startTime = std::filesystem::file_time_type::clock::now();
         BuildReport report;
@@ -531,7 +532,10 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
         // to the generated index.html; copy them to the project folder too so
         // the exported game can run from there.
         if (buildWasm) {
-            for (const char* name : {"index.js", "index.wasm", "index.data"}) {
+            std::string jsName = exeNameStr + ".js";
+            std::string wasmName = exeNameStr + ".wasm";
+            std::string dataName = exeNameStr + ".data";
+            for (const char* name : {jsName.c_str(), wasmName.c_str(), dataName.c_str()}) {
                 std::error_code ec;
                 std::filesystem::copy_file(buildDir + "/" + name, projFolder + "/" + name,
                                            std::filesystem::copy_options::overwrite_existing, ec);
@@ -543,11 +547,13 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
                     << "<html>\n"
                     << "<head>\n"
                     << "  <meta charset=\"utf-8\">\n"
+                    << "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, "
+                       "maximum-scale=1.0, user-scalable=no\">\n"
                     << "  <title>Game</title>\n"
                     << "  <style>\n"
                     << "    html, body { margin: 0; padding: 0; width: 100%; height: 100%; "
-                       "overflow: hidden; background: #000; }\n"
-                    << "    #canvas { display: block; width: 100%; height: 100%; }\n"
+                    << "overflow: hidden; background: #000; }\n"
+                    << "    #canvas { display: block; width: 100vw; height: 100vh; }\n"
                     << "  </style>\n"
                     << "</head>\n"
                     << "<body>\n"
@@ -555,7 +561,7 @@ void SettingsPanel::StartBuild(EditorConfig& config, Engine::Registry& registry)
                     << "  <script>\n"
                     << "    window.Module = { canvas: document.getElementById('canvas') };\n"
                     << "  </script>\n"
-                    << "  <script src=\"index.js\"></script>\n"
+                    << "  <script src=\"" << jsName << "\"></script>\n"
                     << "</body>\n"
                     << "</html>\n";
             htmlOut.close();

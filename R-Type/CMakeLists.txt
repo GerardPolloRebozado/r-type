@@ -9,6 +9,6 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
     add_custom_command(TARGET R-Type POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:R-Type> "/home/gerard/epitech/Tek3/B-CPP-500/r-type/R-Type/R-Type"
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:R-Type> "${CMAKE_CURRENT_SOURCE_DIR}/R-Type"
     )
 endif()
