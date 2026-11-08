@@ -34,6 +34,7 @@ local TEXT_OFFSET_Y = -60.0
 -- itself is spawned by the scene's last wave.
 local BOSS_BY_SCENE = {
     ["Level1.scene"] = "Warship",
+    ["Level2.scene"] = "Dobkeratops",
 }
 
 function LevelComplete:onCreate(entity)
