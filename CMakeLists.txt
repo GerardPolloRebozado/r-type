@@ -16,7 +16,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(BundleMingwRuntime)
 bundle_mingw_runtime()
 
-set(CPM_DOWNLOAD_VERSION 0.43.2)
+set(CPM_DOWNLOAD_VERSION 0.40.0)
 if (NOT CPM_SOURCE_CACHE)
     set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm_cache" CACHE PATH "CPM source cache")
 endif ()
@@ -123,21 +123,21 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # Embed game assets and data into the WASM .data file so they are
     # available at runtime in the virtual filesystem.
     set(_wasm_embed_files
-        "${CMAKE_SOURCE_DIR}/R-Type/assets@assets"
-        "${CMAKE_SOURCE_DIR}/R-Type/scripts@scripts"
-        "${CMAKE_SOURCE_DIR}/R-Type/Prefabs@Prefabs"
-        "${CMAKE_SOURCE_DIR}/R-Type/project.json@project.json"
-        "${CMAKE_SOURCE_DIR}/R-Type/input.json@input.json"
-        "${CMAKE_SOURCE_DIR}/UI/lua/templates@UI/lua/templates"
+            "${CMAKE_SOURCE_DIR}/R-Type/assets@assets"
+            "${CMAKE_SOURCE_DIR}/R-Type/scripts@scripts"
+            "${CMAKE_SOURCE_DIR}/R-Type/Prefabs@Prefabs"
+            "${CMAKE_SOURCE_DIR}/R-Type/project.json@project.json"
+            "${CMAKE_SOURCE_DIR}/R-Type/input.json@input.json"
+            "${CMAKE_SOURCE_DIR}/UI/lua/templates@UI/lua/templates"
     )
     file(GLOB _wasm_scenes "${CMAKE_SOURCE_DIR}/R-Type/*.scene")
-    foreach(_scene ${_wasm_scenes})
+    foreach (_scene ${_wasm_scenes})
         get_filename_component(_scene_name "${_scene}" NAME)
         list(APPEND _wasm_embed_files "${_scene}@${_scene_name}")
-    endforeach()
-    foreach(_embed ${_wasm_embed_files})
+    endforeach ()
+    foreach (_embed ${_wasm_embed_files})
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --embed-file ${_embed}")
-    endforeach()
+    endforeach ()
 else ()
     set(ASSET_BUNDLER_EXECUTABLE "$<TARGET_FILE:AssetBundler>")
 endif ()
