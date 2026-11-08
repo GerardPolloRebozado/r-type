@@ -8,10 +8,15 @@
 --
 -- When completed, a big "STAGE CLEAR" text is shown and, after SHOW_TIME
 -- seconds, the game returns to the level selection menu (level_selector.scene).
+--
+-- The same happens when the stage is lost: once player.lua sets
+-- Player.gameOver (every player is out of lives) and shows "GAME OVER", the
+-- game returns to the level selection menu after GAME_OVER_TIME seconds.
 
 local LevelComplete = {}
 
 local SHOW_TIME = 3.0          -- seconds to show "STAGE CLEAR"
+local GAME_OVER_TIME = 3.0     -- seconds to show "GAME OVER"
 local NEXT_SCENE = "level_selector.scene"
 local DEFAULT_END_X = 6000.0   -- used only if the scene has no StageEnd
 local MESSAGE = "STAGE CLEAR"
@@ -28,6 +33,7 @@ function LevelComplete:onCreate(entity)
     self.completed = false
     self.timer = 0.0
     self.textEntity = nil
+    self.gameOverTimer = 0.0
 
     self.endX = DEFAULT_END_X
     if self.stageEnd ~= nil then
@@ -52,6 +58,18 @@ function LevelComplete:onUpdate(entity, dt)
         end
         return
     end
+
+    -- Lost: player.lua sets Player.gameOver and shows "GAME OVER". The timer
+    -- resets whenever the flag is off, so a flag left over from the previous
+    -- level (cleared when the new Player is created) can't skip this level.
+    if Player ~= nil and Player.gameOver then
+        self.gameOverTimer = self.gameOverTimer + dt
+        if self.gameOverTimer >= GAME_OVER_TIME then
+            Scene.load(NEXT_SCENE)
+        end
+        return
+    end
+    self.gameOverTimer = 0.0
 
     -- Camera-based completion (backup to the StageEnd trigger).
     if self.cameraEntity ~= nil then
